@@ -6,20 +6,20 @@ import pytest
 import asyncclick as click
 
 
-def test_other_command_invoke(runner):
+@pytest.mark.anyio
+async def test_other_command_invoke(runner):
     @click.command()
     @click.pass_context
-    def cli(ctx):
-        return ctx.invoke(other_cmd, arg=42)
+    async def cli(ctx):
+        return await ctx.invoke(other_cmd, arg=42)
 
     @click.command()
     @click.argument("arg", type=click.INT)
     def other_cmd(arg):
         click.echo(arg)
 
-    result = runner.invoke(cli, [])
-    if result.exception:
-        raise result.exception
+    result = await runner.invoke(cli, [])
+    assert not result.exception
     assert result.output == "42\n"
 
 
@@ -39,7 +39,7 @@ async def test_other_command_forward(runner):
         await ctx.forward(test)
         await ctx.invoke(test, count=42)
 
-    result = await runner.invoke(cli, ["dist"], _sync=True)
+    result = await runner.invoke(cli, ["dist"])
     if result.exception:
         raise result.exception
     assert result.output == "Count: 1\nCount: 42\n"
@@ -63,13 +63,13 @@ async def test_forwarded_params_consistency(runner):
         click.echo(f"{ctx.params}")
         await ctx.forward(first)
 
-    result = runner.invoke(cli, ["second", "-a", "foo", "-b", "bar"])
-    if result.exception:
-        raise result.exception
+    result = await runner.invoke(cli, ["second", "-a", "foo", "-b", "bar"])
+    assert not result.exception
     assert result.output == "{'a': 'foo', 'b': 'bar'}\n{'a': 'foo', 'b': 'bar'}\n"
 
 
-def test_auto_shorthelp(runner):
+@pytest.mark.anyio
+async def test_auto_shorthelp(runner):
     @click.group()
     def cli():
         pass
@@ -87,12 +87,11 @@ def test_auto_shorthelp(runner):
         """This is a long text that is too long to show as short help
         and will be truncated instead."""
 
-    result = runner.invoke(cli, ["--help"])
+    result = await runner.invoke(cli, ["--help"])
     assert (
         re.search(
             r"Commands:\n\s+"
-            r"long\s+This is a long text that is too long to show as short help"
-            r"\.\.\.\n\s+"
+            r"long\s+This is a long text that is too long to show as.*\.\.\.\n\s+"
             r"short\s+This is a short text\.\n\s+"
             r"special-chars\s+Login and store the token in ~/.netrc\.\s*",
             result.output,
@@ -101,17 +100,15 @@ def test_auto_shorthelp(runner):
     )
 
 
-def test_no_args_is_help(runner):
-    @click.command(no_args_is_help=True)
-    def cli():
-        pass
-
-    result = runner.invoke(cli, [])
-    assert result.exit_code == 0
+@pytest.mark.anyio
+async def test_command_no_args_is_help(runner):
+    result = await runner.invoke(click.Command("test", no_args_is_help=True))
+    assert result.exit_code == 2
     assert "Show this message and exit." in result.output
 
 
-def test_default_maps(runner):
+@pytest.mark.anyio
+async def test_default_maps(runner):
     @click.group()
     def cli():
         pass
@@ -121,10 +118,9 @@ def test_default_maps(runner):
     def foo(name):
         click.echo(name)
 
-    result = runner.invoke(cli, ["foo"], default_map={"foo": {"name": "changed"}})
+    result = await runner.invoke(cli, ["foo"], default_map={"foo": {"name": "changed"}})
 
-    if result.exception:
-        raise result.exception
+    assert not result.exception
     assert result.output == "changed\n"
 
 
@@ -134,10 +130,11 @@ def test_default_maps(runner):
         (["obj1"], 2, "Error: Missing command."),
         (["obj1", "--help"], 0, "Show this message and exit."),
         (["obj1", "move"], 0, "obj=obj1\nmove\n"),
-        ([], 0, "Show this message and exit."),
+        ([], 2, "Show this message and exit."),
     ],
 )
-def test_group_with_args(runner, args, exit_code, expect):
+@pytest.mark.anyio
+async def test_group_with_args(runner, args, exit_code, expect):
     @click.group()
     @click.argument("obj")
     def cli(obj):
@@ -147,19 +144,20 @@ def test_group_with_args(runner, args, exit_code, expect):
     def move():
         click.echo("move")
 
-    result = runner.invoke(cli, args)
+    result = await runner.invoke(cli, args)
     assert result.exit_code == exit_code
     assert expect in result.output
 
 
-def test_base_command(runner):
+@pytest.mark.anyio
+async def test_custom_parser(runner):
     import optparse
 
     @click.group()
     def cli():
         pass
 
-    class OptParseCommand(click.BaseCommand):
+    class OptParseCommand(click.Command):
         def __init__(self, name, parser, callback):
             super().__init__(name)
             self.parser = parser
@@ -204,14 +202,12 @@ def test_base_command(runner):
 
     cli.add_command(OptParseCommand("test", parser, test_callback))
 
-    result = runner.invoke(cli, ["test", "-f", "f.txt", "-q", "q1.txt", "q2.txt"])
-    if result.exception is not None:
-        raise result.exception
+    result = await runner.invoke(cli, ["test", "-f", "f.txt", "-q", "q1.txt", "q2.txt"])
+    assert result.exception is None
     assert result.output.splitlines() == ["q1.txt q2.txt", "f.txt", "False"]
 
-    result = runner.invoke(cli, ["test", "--help"])
-    if result.exception is not None:
-        raise result.exception
+    result = await runner.invoke(cli, ["test", "--help"])
+    assert result.exception is None
     assert result.output.splitlines() == [
         "Usage: foo test [OPTIONS]",
         "",
@@ -222,7 +218,8 @@ def test_base_command(runner):
     ]
 
 
-def test_object_propagation(runner):
+@pytest.mark.anyio
+async def test_object_propagation(runner):
     for chain in False, True:
 
         @click.group(chain=chain)
@@ -238,12 +235,13 @@ def test_object_propagation(runner):
         def sync(ctx):
             click.echo(f"Debug is {'on' if ctx.obj['DEBUG'] else 'off'}")
 
-        result = runner.invoke(cli, ["sync"])
+        result = await runner.invoke(cli, ["sync"])
         assert result.exception is None
         assert result.output == "Debug is off\n"
 
 
-def test_other_command_invoke_with_defaults(runner):
+@pytest.mark.anyio
+async def test_other_command_invoke_with_defaults(runner):
     @click.command()
     @click.pass_context
     def cli(ctx):
@@ -257,13 +255,14 @@ def test_other_command_invoke_with_defaults(runner):
     def other_cmd(ctx, a, b, c):
         return ctx.info_name, a, b, c
 
-    result = runner.invoke(cli, standalone_mode=False)
+    result = await runner.invoke(cli, standalone_mode=False)
     # invoke should type cast default values, str becomes int, empty
     # multiple should be empty tuple instead of None
-    assert result.return_value == ("other-cmd", 42, 15, ())
+    assert result.return_value == ("other", 42, 15, ())
 
 
-def test_invoked_subcommand(runner):
+@pytest.mark.anyio
+async def test_invoked_subcommand(runner):
     @click.group(invoke_without_command=True)
     @click.pass_context
     async def cli(ctx):
@@ -277,18 +276,17 @@ def test_invoked_subcommand(runner):
     def sync():
         click.echo("in subcommand")
 
-    result = runner.invoke(cli, ["sync"])
-    if result.exception:
-        raise result.exception
+    result = await runner.invoke(cli, ["sync"])
+    assert not result.exception
     assert result.output == "invoke subcommand\nin subcommand\n"
 
-    result = runner.invoke(cli)
-    if result.exception:
-        raise result.exception
+    result = await runner.invoke(cli)
+    assert not result.exception
     assert result.output == "no subcommand, use default\nin subcommand\n"
 
 
-def test_aliased_command_canonical_name(runner):
+@pytest.mark.anyio
+async def test_aliased_command_canonical_name(runner):
     class AliasedGroup(click.Group):
         def get_command(self, ctx, cmd_name):
             return push
@@ -303,19 +301,19 @@ def test_aliased_command_canonical_name(runner):
     def push():
         click.echo("push command")
 
-    result = runner.invoke(cli, ["pu", "--help"])
-    if result.exception:
-        raise result.exception
+    result = await runner.invoke(cli, ["pu", "--help"])
+    assert not result.exception
     assert result.output.startswith("Usage: root push [OPTIONS]")
 
 
-def test_group_add_command_name(runner):
+@pytest.mark.anyio
+async def test_group_add_command_name(runner):
     cli = click.Group("cli")
     cmd = click.Command("a", params=[click.Option(["-x"], required=True)])
     cli.add_command(cmd, "b")
     # Check that the command is accessed through the registered name,
     # not the original name.
-    result = runner.invoke(cli, ["b"], default_map={"b": {"x": 3}})
+    result = await runner.invoke(cli, ["b"], default_map={"b": {"x": 3}})
     assert result.exit_code == 0
 
 
@@ -382,17 +380,18 @@ def test_iter_params_for_processing(
     )
 
 
-def test_help_param_priority(runner):
+@pytest.mark.anyio
+async def test_help_param_priority(runner):
     """Cover the edge-case in which the eagerness of help option was not
     respected, because it was internally generated multiple times.
 
     See: https://github.com/pallets/click/pull/2811
     """
 
-    def print_and_exit(ctx, param, value):
+    async def print_and_exit(ctx, param, value):
         if value:
             click.echo(f"Value of {param.name} is: {value}")
-            ctx.exit()
+            await ctx.aexit()
 
     @click.command(context_settings={"help_option_names": ("--my-help",)})
     @click.option("-a", is_flag=True, expose_value=False, callback=print_and_exit)
@@ -403,21 +402,21 @@ def test_help_param_priority(runner):
         pass
 
     # --my-help is properly called and stop execution.
-    result = runner.invoke(cli, ["--my-help"])
+    result = await runner.invoke(cli, ["--my-help"])
     assert "Value of a is: True" not in result.stdout
     assert "Value of b is: True" not in result.stdout
     assert "--my-help" in result.stdout
     assert result.exit_code == 0
 
     # -a is properly called and stop execution.
-    result = runner.invoke(cli, ["-a"])
+    result = await runner.invoke(cli, ["-a"])
     assert "Value of a is: True" in result.stdout
     assert "Value of b is: True" not in result.stdout
     assert "--my-help" not in result.stdout
     assert result.exit_code == 0
 
     # -a takes precedence over -b and stop execution.
-    result = runner.invoke(cli, ["-a", "-b"])
+    result = await runner.invoke(cli, ["-a", "-b"])
     assert "Value of a is: True" not in result.stdout
     assert "Value of b is: True" in result.stdout
     assert "--my-help" not in result.stdout
@@ -426,7 +425,7 @@ def test_help_param_priority(runner):
     # --my-help is eager by default so takes precedence over -a and stop
     # execution, whatever the order.
     for args in [["-a", "--my-help"], ["--my-help", "-a"]]:
-        result = runner.invoke(cli, args)
+        result = await runner.invoke(cli, args)
         assert "Value of a is: True" not in result.stdout
         assert "Value of b is: True" not in result.stdout
         assert "--my-help" in result.stdout
@@ -434,7 +433,7 @@ def test_help_param_priority(runner):
 
     # Both -b and --my-help are eager so they're called in the order they're
     # invoked by the user.
-    result = runner.invoke(cli, ["-b", "--my-help"])
+    result = await runner.invoke(cli, ["-b", "--my-help"])
     assert "Value of a is: True" not in result.stdout
     assert "Value of b is: True" in result.stdout
     assert "--my-help" not in result.stdout
@@ -444,14 +443,15 @@ def test_help_param_priority(runner):
     # --my-help option created by click via help_option_names is internally
     # created twice and is not the same object, breaking the priority order
     # produced by iter_params_for_processing.
-    result = runner.invoke(cli, ["--my-help", "-b"])
+    result = await runner.invoke(cli, ["--my-help", "-b"])
     assert "Value of a is: True" not in result.stdout
     assert "Value of b is: True" not in result.stdout
     assert "--my-help" in result.stdout
     assert result.exit_code == 0
 
 
-def test_unprocessed_options(runner):
+@pytest.mark.anyio
+async def test_unprocessed_options(runner):
     @click.command(context_settings=dict(ignore_unknown_options=True))
     @click.argument("args", nargs=-1, type=click.UNPROCESSED)
     @click.option("--verbose", "-v", count=True)
@@ -459,9 +459,8 @@ def test_unprocessed_options(runner):
         click.echo(f"Verbosity: {verbose}")
         click.echo(f"Args: {'|'.join(args)}")
 
-    result = runner.invoke(cli, ["-foo", "-vvvvx", "--muhaha", "x", "y", "-x"])
-    if result.exception:
-        raise result.exception
+    result = await runner.invoke(cli, ["-foo", "-vvvvx", "--muhaha", "x", "y", "-x"])
+    assert not result.exception
     assert result.output.splitlines() == [
         "Verbosity: 4",
         "Args: -foo|-x|--muhaha|x|y|-x",
@@ -469,22 +468,32 @@ def test_unprocessed_options(runner):
 
 
 @pytest.mark.parametrize("doc", ["CLI HELP", None])
-def test_deprecated_in_help_messages(runner, doc):
-    @click.command(deprecated=True, help=doc)
+@pytest.mark.parametrize("deprecated", [True, "USE OTHER COMMAND INSTEAD"])
+@pytest.mark.anyio
+async def test_deprecated_in_help_messages(runner, doc, deprecated):
+    @click.command(deprecated=deprecated, help=doc)
     def cli():
         pass
 
-    result = runner.invoke(cli, ["--help"])
-    assert "(Deprecated)" in result.output
+    result = await runner.invoke(cli, ["--help"])
+    assert "(DEPRECATED" in result.output
+
+    if isinstance(deprecated, str):
+        assert deprecated in result.output
 
 
-def test_deprecated_in_invocation(runner):
-    @click.command(deprecated=True)
+@pytest.mark.parametrize("deprecated", [True, "USE OTHER COMMAND INSTEAD"])
+@pytest.mark.anyio
+async def test_deprecated_in_invocation(runner, deprecated):
+    @click.command(deprecated=deprecated)
     def deprecated_cmd():
         pass
 
-    result = runner.invoke(deprecated_cmd)
+    result = await runner.invoke(deprecated_cmd)
     assert "DeprecationWarning:" in result.output
+
+    if isinstance(deprecated, str):
+        assert deprecated in result.output
 
 
 @pytest.mark.anyio
@@ -524,7 +533,8 @@ async def test_group_parse_args_collects_base_option_prefixes():
     assert ctx._opt_prefixes == {"-", "--", "~"}
 
 
-def test_group_invoke_collects_used_option_prefixes(runner):
+@pytest.mark.anyio
+async def test_group_invoke_collects_used_option_prefixes(runner):
     opt_prefixes = set()
 
     @click.group()
@@ -544,17 +554,18 @@ def test_group_invoke_collects_used_option_prefixes(runner):
     def command2(e):
         pass
 
-    runner.invoke(group, ["command1"])
+    await runner.invoke(group, ["command1"])
     assert opt_prefixes == {"-", "--", "~", "+"}
 
 
 @pytest.mark.parametrize("exc", (EOFError, KeyboardInterrupt))
-def test_abort_exceptions_with_disabled_standalone_mode(runner, exc):
+@pytest.mark.anyio
+async def test_abort_exceptions_with_disabled_standalone_mode(runner, exc):
     @click.command()
     def cli():
         raise exc("catch me!")
 
-    rv = runner.invoke(cli, standalone_mode=False)
+    rv = await runner.invoke(cli, standalone_mode=False)
     assert rv.exit_code == 1
     assert isinstance(rv.exception.__cause__, exc)
     assert rv.exception.__cause__.args == ("catch me!",)

@@ -1,7 +1,7 @@
 r'''
 # `azuread_group_member`
 
-Refer to the Terraform Registry for docs: [`azuread_group_member`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member).
+Refer to the Terraform Registry for docs: [`azuread_group_member`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GroupMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.groupMember.GroupMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member azuread_group_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member azuread_group_member}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class GroupMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member azuread_group_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member azuread_group_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param group_object_id: The object ID of the group you want to add the member to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#group_object_id GroupMember#group_object_id}
-        :param member_object_id: The object ID of the principal you want to add as a member to the group. Supported object types are Users, Groups or Service Principals Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#member_object_id GroupMember#member_object_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#id GroupMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#timeouts GroupMember#timeouts}
+        :param group_object_id: The object ID of the group you want to add the member to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#group_object_id GroupMember#group_object_id}
+        :param member_object_id: The object ID of the principal you want to add as a member to the group. Supported object types are Users, Groups or Service Principals Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#member_object_id GroupMember#member_object_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#id GroupMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#timeouts GroupMember#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class GroupMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GroupMember to import.
-        :param import_from_id: The id of the existing GroupMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GroupMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GroupMember to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class GroupMember(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#create GroupMember#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#delete GroupMember#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#read GroupMember#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#create GroupMember#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#delete GroupMember#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#read GroupMember#read}.
         '''
         value = GroupMemberTimeouts(create=create, delete=delete, read=read)
 
@@ -266,10 +266,10 @@ class GroupMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param group_object_id: The object ID of the group you want to add the member to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#group_object_id GroupMember#group_object_id}
-        :param member_object_id: The object ID of the principal you want to add as a member to the group. Supported object types are Users, Groups or Service Principals Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#member_object_id GroupMember#member_object_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#id GroupMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#timeouts GroupMember#timeouts}
+        :param group_object_id: The object ID of the group you want to add the member to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#group_object_id GroupMember#group_object_id}
+        :param member_object_id: The object ID of the principal you want to add as a member to the group. Supported object types are Users, Groups or Service Principals Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#member_object_id GroupMember#member_object_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#id GroupMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#timeouts GroupMember#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -379,7 +379,7 @@ class GroupMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def group_object_id(self) -> builtins.str:
         '''The object ID of the group you want to add the member to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#group_object_id GroupMember#group_object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#group_object_id GroupMember#group_object_id}
         '''
         result = self._values.get("group_object_id")
         assert result is not None, "Required property 'group_object_id' is missing"
@@ -391,7 +391,7 @@ class GroupMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported object types are Users, Groups or Service Principals
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#member_object_id GroupMember#member_object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#member_object_id GroupMember#member_object_id}
         '''
         result = self._values.get("member_object_id")
         assert result is not None, "Required property 'member_object_id' is missing"
@@ -399,7 +399,7 @@ class GroupMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#id GroupMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#id GroupMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -411,7 +411,7 @@ class GroupMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GroupMemberTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#timeouts GroupMember#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#timeouts GroupMember#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GroupMemberTimeouts"], result)
@@ -442,9 +442,9 @@ class GroupMemberTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#create GroupMember#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#delete GroupMember#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#read GroupMember#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#create GroupMember#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#delete GroupMember#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#read GroupMember#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8c9931846875816eeca005f11cdff878b0604933a9344b7429ef2d7eceaf1dc)
@@ -461,19 +461,19 @@ class GroupMemberTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#create GroupMember#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#create GroupMember#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#delete GroupMember#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#delete GroupMember#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_member#read GroupMember#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_member#read GroupMember#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

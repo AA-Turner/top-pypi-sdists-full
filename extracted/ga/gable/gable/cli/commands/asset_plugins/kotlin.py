@@ -5,6 +5,8 @@ import subprocess
 from typing import Any, Callable, List, Mapping, TypedDict, Union
 
 import click
+from loguru import logger
+
 from gable.api.client import GableAPIClient
 from gable.cli.commands.asset_plugins.baseclass import (
     AssetPluginAbstract,
@@ -21,10 +23,8 @@ from gable.cli.helpers.npm import (
     start_sca_prime,
 )
 from gable.cli.helpers.util import split_list_str
-from gable.openapi import SourceType, StructuredDataAssetResourceName
-from loguru import logger
-
 from gable.cli.local import get_local_kotlin_script
+from gable.openapi import SourceType, StructuredDataAssetResourceName
 
 KotlinConfig = TypedDict(
     "KotlinConfig",

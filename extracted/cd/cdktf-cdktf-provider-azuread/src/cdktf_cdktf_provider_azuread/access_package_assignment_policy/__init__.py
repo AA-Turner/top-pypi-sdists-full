@@ -1,7 +1,7 @@
 r'''
 # `azuread_access_package_assignment_policy`
 
-Refer to the Terraform Registry for docs: [`azuread_access_package_assignment_policy`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy).
+Refer to the Terraform Registry for docs: [`azuread_access_package_assignment_policy`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AccessPackageAssignmentPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.accessPackageAssignmentPolicy.AccessPackageAssignmentPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy azuread_access_package_assignment_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy azuread_access_package_assignment_policy}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class AccessPackageAssignmentPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy azuread_access_package_assignment_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy azuread_access_package_assignment_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_package_id: The ID of the access package that will contain the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#access_package_id AccessPackageAssignmentPolicy#access_package_id}
-        :param description: The description of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#description AccessPackageAssignmentPolicy#description}
-        :param display_name: The display name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#display_name AccessPackageAssignmentPolicy#display_name}
-        :param approval_settings: approval_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_settings AccessPackageAssignmentPolicy#approval_settings}
-        :param assignment_review_settings: assignment_review_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#assignment_review_settings AccessPackageAssignmentPolicy#assignment_review_settings}
-        :param duration_in_days: How many days this assignment is valid for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
-        :param expiration_date: The date that this assignment expires, formatted as an RFC3339 date string in UTC (e.g. 2018-01-01T01:02:03Z). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#expiration_date AccessPackageAssignmentPolicy#expiration_date}
-        :param extension_enabled: When enabled, users will be able to request extension of their access to this package before their access expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#extension_enabled AccessPackageAssignmentPolicy#extension_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#id AccessPackageAssignmentPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param question: question block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#question AccessPackageAssignmentPolicy#question}
-        :param requestor_settings: requestor_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requestor_settings AccessPackageAssignmentPolicy#requestor_settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#timeouts AccessPackageAssignmentPolicy#timeouts}
+        :param access_package_id: The ID of the access package that will contain the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#access_package_id AccessPackageAssignmentPolicy#access_package_id}
+        :param description: The description of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#description AccessPackageAssignmentPolicy#description}
+        :param display_name: The display name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#display_name AccessPackageAssignmentPolicy#display_name}
+        :param approval_settings: approval_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_settings AccessPackageAssignmentPolicy#approval_settings}
+        :param assignment_review_settings: assignment_review_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#assignment_review_settings AccessPackageAssignmentPolicy#assignment_review_settings}
+        :param duration_in_days: How many days this assignment is valid for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
+        :param expiration_date: The date that this assignment expires, formatted as an RFC3339 date string in UTC (e.g. 2018-01-01T01:02:03Z). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#expiration_date AccessPackageAssignmentPolicy#expiration_date}
+        :param extension_enabled: When enabled, users will be able to request extension of their access to this package before their access expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#extension_enabled AccessPackageAssignmentPolicy#extension_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#id AccessPackageAssignmentPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param question: question block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#question AccessPackageAssignmentPolicy#question}
+        :param requestor_settings: requestor_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requestor_settings AccessPackageAssignmentPolicy#requestor_settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#timeouts AccessPackageAssignmentPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class AccessPackageAssignmentPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AccessPackageAssignmentPolicy to import.
-        :param import_from_id: The id of the existing AccessPackageAssignmentPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AccessPackageAssignmentPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AccessPackageAssignmentPolicy to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class AccessPackageAssignmentPolicy(
         requestor_justification_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param approval_required: Whether an approval is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_required AccessPackageAssignmentPolicy#approval_required}
-        :param approval_required_for_extension: Whether an approval is required to grant extension. Same approval settings used to approve initial access will apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_required_for_extension AccessPackageAssignmentPolicy#approval_required_for_extension}
-        :param approval_stage: approval_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_stage AccessPackageAssignmentPolicy#approval_stage}
-        :param requestor_justification_required: Whether requestor are required to provide a justification to request an access package. Justification is visible to other approvers and the requestor Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requestor_justification_required AccessPackageAssignmentPolicy#requestor_justification_required}
+        :param approval_required: Whether an approval is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_required AccessPackageAssignmentPolicy#approval_required}
+        :param approval_required_for_extension: Whether an approval is required to grant extension. Same approval settings used to approve initial access will apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_required_for_extension AccessPackageAssignmentPolicy#approval_required_for_extension}
+        :param approval_stage: approval_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_stage AccessPackageAssignmentPolicy#approval_stage}
+        :param requestor_justification_required: Whether requestor are required to provide a justification to request an access package. Justification is visible to other approvers and the requestor Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requestor_justification_required AccessPackageAssignmentPolicy#requestor_justification_required}
         '''
         value = AccessPackageAssignmentPolicyApprovalSettings(
             approval_required=approval_required,
@@ -186,15 +186,15 @@ class AccessPackageAssignmentPolicy(
         starting_on: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_recommendation_enabled: Whether to show Show reviewer decision helpers. If enabled, system recommendations based on users' access information will be shown to the reviewers. The reviewer will be recommended to approve the review if the user has signed-in at least once during the last 30 days. The reviewer will be recommended to deny the review if the user has not signed-in during the last 30 days Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#access_recommendation_enabled AccessPackageAssignmentPolicy#access_recommendation_enabled}
-        :param access_review_timeout_behavior: What actions the system takes if reviewers don't respond in time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#access_review_timeout_behavior AccessPackageAssignmentPolicy#access_review_timeout_behavior}
-        :param approver_justification_required: Whether a reviewer need provide a justification for their decision. Justification is visible to other reviewers and the requestor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
-        :param duration_in_days: How many days each occurrence of the access review series will run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
-        :param enabled: Whether to enable assignment review. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#enabled AccessPackageAssignmentPolicy#enabled}
-        :param reviewer: reviewer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#reviewer AccessPackageAssignmentPolicy#reviewer}
-        :param review_frequency: This will determine how often the access review campaign runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#review_frequency AccessPackageAssignmentPolicy#review_frequency}
-        :param review_type: Self review or specific reviewers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#review_type AccessPackageAssignmentPolicy#review_type}
-        :param starting_on: This is the date the access review campaign will start on, formatted as an RFC3339 date string in UTC(e.g. 2018-01-01T01:02:03Z), default is now. Once an access review has been created, you cannot update its start date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#starting_on AccessPackageAssignmentPolicy#starting_on}
+        :param access_recommendation_enabled: Whether to show Show reviewer decision helpers. If enabled, system recommendations based on users' access information will be shown to the reviewers. The reviewer will be recommended to approve the review if the user has signed-in at least once during the last 30 days. The reviewer will be recommended to deny the review if the user has not signed-in during the last 30 days Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#access_recommendation_enabled AccessPackageAssignmentPolicy#access_recommendation_enabled}
+        :param access_review_timeout_behavior: What actions the system takes if reviewers don't respond in time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#access_review_timeout_behavior AccessPackageAssignmentPolicy#access_review_timeout_behavior}
+        :param approver_justification_required: Whether a reviewer need provide a justification for their decision. Justification is visible to other reviewers and the requestor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
+        :param duration_in_days: How many days each occurrence of the access review series will run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
+        :param enabled: Whether to enable assignment review. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#enabled AccessPackageAssignmentPolicy#enabled}
+        :param reviewer: reviewer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#reviewer AccessPackageAssignmentPolicy#reviewer}
+        :param review_frequency: This will determine how often the access review campaign runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#review_frequency AccessPackageAssignmentPolicy#review_frequency}
+        :param review_type: Self review or specific reviewers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#review_type AccessPackageAssignmentPolicy#review_type}
+        :param starting_on: This is the date the access review campaign will start on, formatted as an RFC3339 date string in UTC(e.g. 2018-01-01T01:02:03Z), default is now. Once an access review has been created, you cannot update its start date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#starting_on AccessPackageAssignmentPolicy#starting_on}
         '''
         value = AccessPackageAssignmentPolicyAssignmentReviewSettings(
             access_recommendation_enabled=access_recommendation_enabled,
@@ -232,9 +232,9 @@ class AccessPackageAssignmentPolicy(
         scope_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param requestor: requestor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requestor AccessPackageAssignmentPolicy#requestor}
-        :param requests_accepted: Whether to accept requests now, when disabled, no new requests can be made using this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requests_accepted AccessPackageAssignmentPolicy#requests_accepted}
-        :param scope_type: Specify the scopes of the requestors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#scope_type AccessPackageAssignmentPolicy#scope_type}
+        :param requestor: requestor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requestor AccessPackageAssignmentPolicy#requestor}
+        :param requests_accepted: Whether to accept requests now, when disabled, no new requests can be made using this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requests_accepted AccessPackageAssignmentPolicy#requests_accepted}
+        :param scope_type: Specify the scopes of the requestors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#scope_type AccessPackageAssignmentPolicy#scope_type}
         '''
         value = AccessPackageAssignmentPolicyRequestorSettings(
             requestor=requestor,
@@ -254,10 +254,10 @@ class AccessPackageAssignmentPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#create AccessPackageAssignmentPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#delete AccessPackageAssignmentPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#read AccessPackageAssignmentPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#update AccessPackageAssignmentPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#create AccessPackageAssignmentPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#delete AccessPackageAssignmentPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#read AccessPackageAssignmentPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#update AccessPackageAssignmentPolicy#update}.
         '''
         value = AccessPackageAssignmentPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -527,10 +527,10 @@ class AccessPackageAssignmentPolicyApprovalSettings:
         requestor_justification_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param approval_required: Whether an approval is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_required AccessPackageAssignmentPolicy#approval_required}
-        :param approval_required_for_extension: Whether an approval is required to grant extension. Same approval settings used to approve initial access will apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_required_for_extension AccessPackageAssignmentPolicy#approval_required_for_extension}
-        :param approval_stage: approval_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_stage AccessPackageAssignmentPolicy#approval_stage}
-        :param requestor_justification_required: Whether requestor are required to provide a justification to request an access package. Justification is visible to other approvers and the requestor Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requestor_justification_required AccessPackageAssignmentPolicy#requestor_justification_required}
+        :param approval_required: Whether an approval is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_required AccessPackageAssignmentPolicy#approval_required}
+        :param approval_required_for_extension: Whether an approval is required to grant extension. Same approval settings used to approve initial access will apply. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_required_for_extension AccessPackageAssignmentPolicy#approval_required_for_extension}
+        :param approval_stage: approval_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_stage AccessPackageAssignmentPolicy#approval_stage}
+        :param requestor_justification_required: Whether requestor are required to provide a justification to request an access package. Justification is visible to other approvers and the requestor Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requestor_justification_required AccessPackageAssignmentPolicy#requestor_justification_required}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__220adbb2f4246db885dbe12f5b5f1278aa851fbce3f93987532d091f252fec55)
@@ -554,7 +554,7 @@ class AccessPackageAssignmentPolicyApprovalSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether an approval is required.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_required AccessPackageAssignmentPolicy#approval_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_required AccessPackageAssignmentPolicy#approval_required}
         '''
         result = self._values.get("approval_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -565,7 +565,7 @@ class AccessPackageAssignmentPolicyApprovalSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether an approval is required to grant extension. Same approval settings used to approve initial access will apply.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_required_for_extension AccessPackageAssignmentPolicy#approval_required_for_extension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_required_for_extension AccessPackageAssignmentPolicy#approval_required_for_extension}
         '''
         result = self._values.get("approval_required_for_extension")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -576,7 +576,7 @@ class AccessPackageAssignmentPolicyApprovalSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyApprovalSettingsApprovalStage"]]]:
         '''approval_stage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_stage AccessPackageAssignmentPolicy#approval_stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_stage AccessPackageAssignmentPolicy#approval_stage}
         '''
         result = self._values.get("approval_stage")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyApprovalSettingsApprovalStage"]]], result)
@@ -589,7 +589,7 @@ class AccessPackageAssignmentPolicyApprovalSettings:
 
         Justification is visible to other approvers and the requestor
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requestor_justification_required AccessPackageAssignmentPolicy#requestor_justification_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requestor_justification_required AccessPackageAssignmentPolicy#requestor_justification_required}
         '''
         result = self._values.get("requestor_justification_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -630,12 +630,12 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStage:
         primary_approver: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AccessPackageAssignmentPolicyApprovalSettingsApprovalStagePrimaryApprover", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param approval_timeout_in_days: Decision must be made in how many days? If a request is not approved within this time period after it is made, it will be automatically rejected Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_timeout_in_days AccessPackageAssignmentPolicy#approval_timeout_in_days}
-        :param alternative_approval_enabled: If no action taken, forward to alternate approvers? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#alternative_approval_enabled AccessPackageAssignmentPolicy#alternative_approval_enabled}
-        :param alternative_approver: alternative_approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#alternative_approver AccessPackageAssignmentPolicy#alternative_approver}
-        :param approver_justification_required: Whether an approver must provide a justification for their decision. Justification is visible to other approvers and the requestor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
-        :param enable_alternative_approval_in_days: Forward to alternate approver(s) after how many days? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#enable_alternative_approval_in_days AccessPackageAssignmentPolicy#enable_alternative_approval_in_days}
-        :param primary_approver: primary_approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#primary_approver AccessPackageAssignmentPolicy#primary_approver}
+        :param approval_timeout_in_days: Decision must be made in how many days? If a request is not approved within this time period after it is made, it will be automatically rejected Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_timeout_in_days AccessPackageAssignmentPolicy#approval_timeout_in_days}
+        :param alternative_approval_enabled: If no action taken, forward to alternate approvers? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#alternative_approval_enabled AccessPackageAssignmentPolicy#alternative_approval_enabled}
+        :param alternative_approver: alternative_approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#alternative_approver AccessPackageAssignmentPolicy#alternative_approver}
+        :param approver_justification_required: Whether an approver must provide a justification for their decision. Justification is visible to other approvers and the requestor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
+        :param enable_alternative_approval_in_days: Forward to alternate approver(s) after how many days? Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#enable_alternative_approval_in_days AccessPackageAssignmentPolicy#enable_alternative_approval_in_days}
+        :param primary_approver: primary_approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#primary_approver AccessPackageAssignmentPolicy#primary_approver}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e02d56f2cee2ca4bfb69ea922464f90f3a3890da81c44e827afa8ad41ca29a34)
@@ -665,7 +665,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStage:
 
         If a request is not approved within this time period after it is made, it will be automatically rejected
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_timeout_in_days AccessPackageAssignmentPolicy#approval_timeout_in_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_timeout_in_days AccessPackageAssignmentPolicy#approval_timeout_in_days}
         '''
         result = self._values.get("approval_timeout_in_days")
         assert result is not None, "Required property 'approval_timeout_in_days' is missing"
@@ -677,7 +677,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If no action taken, forward to alternate approvers?
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#alternative_approval_enabled AccessPackageAssignmentPolicy#alternative_approval_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#alternative_approval_enabled AccessPackageAssignmentPolicy#alternative_approval_enabled}
         '''
         result = self._values.get("alternative_approval_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -688,7 +688,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyApprovalSettingsApprovalStageAlternativeApprover"]]]:
         '''alternative_approver block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#alternative_approver AccessPackageAssignmentPolicy#alternative_approver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#alternative_approver AccessPackageAssignmentPolicy#alternative_approver}
         '''
         result = self._values.get("alternative_approver")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyApprovalSettingsApprovalStageAlternativeApprover"]]], result)
@@ -699,7 +699,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether an approver must provide a justification for their decision. Justification is visible to other approvers and the requestor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
         '''
         result = self._values.get("approver_justification_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -708,7 +708,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStage:
     def enable_alternative_approval_in_days(self) -> typing.Optional[jsii.Number]:
         '''Forward to alternate approver(s) after how many days?
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#enable_alternative_approval_in_days AccessPackageAssignmentPolicy#enable_alternative_approval_in_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#enable_alternative_approval_in_days AccessPackageAssignmentPolicy#enable_alternative_approval_in_days}
         '''
         result = self._values.get("enable_alternative_approval_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -719,7 +719,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyApprovalSettingsApprovalStagePrimaryApprover"]]]:
         '''primary_approver block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#primary_approver AccessPackageAssignmentPolicy#primary_approver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#primary_approver AccessPackageAssignmentPolicy#primary_approver}
         '''
         result = self._values.get("primary_approver")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyApprovalSettingsApprovalStagePrimaryApprover"]]], result)
@@ -754,9 +754,9 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStageAlternativeAppro
         object_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subject_type: Type of users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
-        :param backup: For a user in an approval stage, this property indicates whether the user is a backup fallback approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
-        :param object_id: The object ID of the subject. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
+        :param subject_type: Type of users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
+        :param backup: For a user in an approval stage, this property indicates whether the user is a backup fallback approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
+        :param object_id: The object ID of the subject. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__711c0d5783023f2f13a5e8a741df6637e31bd0f527069b7f2ce5803cbd6b4d5d)
@@ -775,7 +775,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStageAlternativeAppro
     def subject_type(self) -> builtins.str:
         '''Type of users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
         '''
         result = self._values.get("subject_type")
         assert result is not None, "Required property 'subject_type' is missing"
@@ -787,7 +787,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStageAlternativeAppro
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''For a user in an approval stage, this property indicates whether the user is a backup fallback approver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
         '''
         result = self._values.get("backup")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -796,7 +796,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStageAlternativeAppro
     def object_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the subject.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
         '''
         result = self._values.get("object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1325,9 +1325,9 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStagePrimaryApprover:
         object_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subject_type: Type of users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
-        :param backup: For a user in an approval stage, this property indicates whether the user is a backup fallback approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
-        :param object_id: The object ID of the subject. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
+        :param subject_type: Type of users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
+        :param backup: For a user in an approval stage, this property indicates whether the user is a backup fallback approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
+        :param object_id: The object ID of the subject. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1ee9e1d062c27c53daf4914f90907ad2c83721afb080ac3654b01a8c4709894)
@@ -1346,7 +1346,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStagePrimaryApprover:
     def subject_type(self) -> builtins.str:
         '''Type of users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
         '''
         result = self._values.get("subject_type")
         assert result is not None, "Required property 'subject_type' is missing"
@@ -1358,7 +1358,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStagePrimaryApprover:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''For a user in an approval stage, this property indicates whether the user is a backup fallback approver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
         '''
         result = self._values.get("backup")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1367,7 +1367,7 @@ class AccessPackageAssignmentPolicyApprovalSettingsApprovalStagePrimaryApprover:
     def object_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the subject.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
         '''
         result = self._values.get("object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1768,15 +1768,15 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
         starting_on: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_recommendation_enabled: Whether to show Show reviewer decision helpers. If enabled, system recommendations based on users' access information will be shown to the reviewers. The reviewer will be recommended to approve the review if the user has signed-in at least once during the last 30 days. The reviewer will be recommended to deny the review if the user has not signed-in during the last 30 days Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#access_recommendation_enabled AccessPackageAssignmentPolicy#access_recommendation_enabled}
-        :param access_review_timeout_behavior: What actions the system takes if reviewers don't respond in time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#access_review_timeout_behavior AccessPackageAssignmentPolicy#access_review_timeout_behavior}
-        :param approver_justification_required: Whether a reviewer need provide a justification for their decision. Justification is visible to other reviewers and the requestor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
-        :param duration_in_days: How many days each occurrence of the access review series will run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
-        :param enabled: Whether to enable assignment review. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#enabled AccessPackageAssignmentPolicy#enabled}
-        :param reviewer: reviewer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#reviewer AccessPackageAssignmentPolicy#reviewer}
-        :param review_frequency: This will determine how often the access review campaign runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#review_frequency AccessPackageAssignmentPolicy#review_frequency}
-        :param review_type: Self review or specific reviewers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#review_type AccessPackageAssignmentPolicy#review_type}
-        :param starting_on: This is the date the access review campaign will start on, formatted as an RFC3339 date string in UTC(e.g. 2018-01-01T01:02:03Z), default is now. Once an access review has been created, you cannot update its start date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#starting_on AccessPackageAssignmentPolicy#starting_on}
+        :param access_recommendation_enabled: Whether to show Show reviewer decision helpers. If enabled, system recommendations based on users' access information will be shown to the reviewers. The reviewer will be recommended to approve the review if the user has signed-in at least once during the last 30 days. The reviewer will be recommended to deny the review if the user has not signed-in during the last 30 days Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#access_recommendation_enabled AccessPackageAssignmentPolicy#access_recommendation_enabled}
+        :param access_review_timeout_behavior: What actions the system takes if reviewers don't respond in time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#access_review_timeout_behavior AccessPackageAssignmentPolicy#access_review_timeout_behavior}
+        :param approver_justification_required: Whether a reviewer need provide a justification for their decision. Justification is visible to other reviewers and the requestor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
+        :param duration_in_days: How many days each occurrence of the access review series will run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
+        :param enabled: Whether to enable assignment review. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#enabled AccessPackageAssignmentPolicy#enabled}
+        :param reviewer: reviewer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#reviewer AccessPackageAssignmentPolicy#reviewer}
+        :param review_frequency: This will determine how often the access review campaign runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#review_frequency AccessPackageAssignmentPolicy#review_frequency}
+        :param review_type: Self review or specific reviewers. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#review_type AccessPackageAssignmentPolicy#review_type}
+        :param starting_on: This is the date the access review campaign will start on, formatted as an RFC3339 date string in UTC(e.g. 2018-01-01T01:02:03Z), default is now. Once an access review has been created, you cannot update its start date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#starting_on AccessPackageAssignmentPolicy#starting_on}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5700b4e716eee83bf2dafbc3ef89fa7c6961e31f742ed618211f0aabfbc32e64)
@@ -1817,7 +1817,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
 
         If enabled, system recommendations based on users' access information will be shown to the reviewers. The reviewer will be recommended to approve the review if the user has signed-in at least once during the last 30 days. The reviewer will be recommended to deny the review if the user has not signed-in during the last 30 days
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#access_recommendation_enabled AccessPackageAssignmentPolicy#access_recommendation_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#access_recommendation_enabled AccessPackageAssignmentPolicy#access_recommendation_enabled}
         '''
         result = self._values.get("access_recommendation_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1826,7 +1826,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
     def access_review_timeout_behavior(self) -> typing.Optional[builtins.str]:
         '''What actions the system takes if reviewers don't respond in time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#access_review_timeout_behavior AccessPackageAssignmentPolicy#access_review_timeout_behavior}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#access_review_timeout_behavior AccessPackageAssignmentPolicy#access_review_timeout_behavior}
         '''
         result = self._values.get("access_review_timeout_behavior")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1837,7 +1837,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether a reviewer need provide a justification for their decision. Justification is visible to other reviewers and the requestor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approver_justification_required AccessPackageAssignmentPolicy#approver_justification_required}
         '''
         result = self._values.get("approver_justification_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1846,7 +1846,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
     def duration_in_days(self) -> typing.Optional[jsii.Number]:
         '''How many days each occurrence of the access review series will run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
         '''
         result = self._values.get("duration_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1857,7 +1857,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to enable assignment review.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#enabled AccessPackageAssignmentPolicy#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#enabled AccessPackageAssignmentPolicy#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1868,7 +1868,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyAssignmentReviewSettingsReviewer"]]]:
         '''reviewer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#reviewer AccessPackageAssignmentPolicy#reviewer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#reviewer AccessPackageAssignmentPolicy#reviewer}
         '''
         result = self._values.get("reviewer")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyAssignmentReviewSettingsReviewer"]]], result)
@@ -1877,7 +1877,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
     def review_frequency(self) -> typing.Optional[builtins.str]:
         '''This will determine how often the access review campaign runs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#review_frequency AccessPackageAssignmentPolicy#review_frequency}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#review_frequency AccessPackageAssignmentPolicy#review_frequency}
         '''
         result = self._values.get("review_frequency")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1886,7 +1886,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
     def review_type(self) -> typing.Optional[builtins.str]:
         '''Self review or specific reviewers.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#review_type AccessPackageAssignmentPolicy#review_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#review_type AccessPackageAssignmentPolicy#review_type}
         '''
         result = self._values.get("review_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1895,7 +1895,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettings:
     def starting_on(self) -> typing.Optional[builtins.str]:
         '''This is the date the access review campaign will start on, formatted as an RFC3339 date string in UTC(e.g. 2018-01-01T01:02:03Z), default is now. Once an access review has been created, you cannot update its start date.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#starting_on AccessPackageAssignmentPolicy#starting_on}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#starting_on AccessPackageAssignmentPolicy#starting_on}
         '''
         result = self._values.get("starting_on")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2186,9 +2186,9 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettingsReviewer:
         object_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subject_type: Type of users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
-        :param backup: For a user in an approval stage, this property indicates whether the user is a backup fallback approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
-        :param object_id: The object ID of the subject. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
+        :param subject_type: Type of users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
+        :param backup: For a user in an approval stage, this property indicates whether the user is a backup fallback approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
+        :param object_id: The object ID of the subject. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1ecc9ff4330371026df85e601f481205c8950038015928a9f3ca8735b9c4295)
@@ -2207,7 +2207,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettingsReviewer:
     def subject_type(self) -> builtins.str:
         '''Type of users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
         '''
         result = self._values.get("subject_type")
         assert result is not None, "Required property 'subject_type' is missing"
@@ -2219,7 +2219,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettingsReviewer:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''For a user in an approval stage, this property indicates whether the user is a backup fallback approver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
         '''
         result = self._values.get("backup")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2228,7 +2228,7 @@ class AccessPackageAssignmentPolicyAssignmentReviewSettingsReviewer:
     def object_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the subject.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
         '''
         result = self._values.get("object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2503,18 +2503,18 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param access_package_id: The ID of the access package that will contain the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#access_package_id AccessPackageAssignmentPolicy#access_package_id}
-        :param description: The description of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#description AccessPackageAssignmentPolicy#description}
-        :param display_name: The display name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#display_name AccessPackageAssignmentPolicy#display_name}
-        :param approval_settings: approval_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_settings AccessPackageAssignmentPolicy#approval_settings}
-        :param assignment_review_settings: assignment_review_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#assignment_review_settings AccessPackageAssignmentPolicy#assignment_review_settings}
-        :param duration_in_days: How many days this assignment is valid for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
-        :param expiration_date: The date that this assignment expires, formatted as an RFC3339 date string in UTC (e.g. 2018-01-01T01:02:03Z). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#expiration_date AccessPackageAssignmentPolicy#expiration_date}
-        :param extension_enabled: When enabled, users will be able to request extension of their access to this package before their access expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#extension_enabled AccessPackageAssignmentPolicy#extension_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#id AccessPackageAssignmentPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param question: question block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#question AccessPackageAssignmentPolicy#question}
-        :param requestor_settings: requestor_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requestor_settings AccessPackageAssignmentPolicy#requestor_settings}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#timeouts AccessPackageAssignmentPolicy#timeouts}
+        :param access_package_id: The ID of the access package that will contain the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#access_package_id AccessPackageAssignmentPolicy#access_package_id}
+        :param description: The description of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#description AccessPackageAssignmentPolicy#description}
+        :param display_name: The display name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#display_name AccessPackageAssignmentPolicy#display_name}
+        :param approval_settings: approval_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_settings AccessPackageAssignmentPolicy#approval_settings}
+        :param assignment_review_settings: assignment_review_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#assignment_review_settings AccessPackageAssignmentPolicy#assignment_review_settings}
+        :param duration_in_days: How many days this assignment is valid for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
+        :param expiration_date: The date that this assignment expires, formatted as an RFC3339 date string in UTC (e.g. 2018-01-01T01:02:03Z). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#expiration_date AccessPackageAssignmentPolicy#expiration_date}
+        :param extension_enabled: When enabled, users will be able to request extension of their access to this package before their access expires. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#extension_enabled AccessPackageAssignmentPolicy#extension_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#id AccessPackageAssignmentPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param question: question block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#question AccessPackageAssignmentPolicy#question}
+        :param requestor_settings: requestor_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requestor_settings AccessPackageAssignmentPolicy#requestor_settings}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#timeouts AccessPackageAssignmentPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2653,7 +2653,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def access_package_id(self) -> builtins.str:
         '''The ID of the access package that will contain the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#access_package_id AccessPackageAssignmentPolicy#access_package_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#access_package_id AccessPackageAssignmentPolicy#access_package_id}
         '''
         result = self._values.get("access_package_id")
         assert result is not None, "Required property 'access_package_id' is missing"
@@ -2663,7 +2663,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def description(self) -> builtins.str:
         '''The description of the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#description AccessPackageAssignmentPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#description AccessPackageAssignmentPolicy#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -2673,7 +2673,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def display_name(self) -> builtins.str:
         '''The display name of the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#display_name AccessPackageAssignmentPolicy#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#display_name AccessPackageAssignmentPolicy#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -2685,7 +2685,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[AccessPackageAssignmentPolicyApprovalSettings]:
         '''approval_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#approval_settings AccessPackageAssignmentPolicy#approval_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#approval_settings AccessPackageAssignmentPolicy#approval_settings}
         '''
         result = self._values.get("approval_settings")
         return typing.cast(typing.Optional[AccessPackageAssignmentPolicyApprovalSettings], result)
@@ -2696,7 +2696,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[AccessPackageAssignmentPolicyAssignmentReviewSettings]:
         '''assignment_review_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#assignment_review_settings AccessPackageAssignmentPolicy#assignment_review_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#assignment_review_settings AccessPackageAssignmentPolicy#assignment_review_settings}
         '''
         result = self._values.get("assignment_review_settings")
         return typing.cast(typing.Optional[AccessPackageAssignmentPolicyAssignmentReviewSettings], result)
@@ -2705,7 +2705,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def duration_in_days(self) -> typing.Optional[jsii.Number]:
         '''How many days this assignment is valid for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#duration_in_days AccessPackageAssignmentPolicy#duration_in_days}
         '''
         result = self._values.get("duration_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2714,7 +2714,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def expiration_date(self) -> typing.Optional[builtins.str]:
         '''The date that this assignment expires, formatted as an RFC3339 date string in UTC (e.g. 2018-01-01T01:02:03Z).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#expiration_date AccessPackageAssignmentPolicy#expiration_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#expiration_date AccessPackageAssignmentPolicy#expiration_date}
         '''
         result = self._values.get("expiration_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2725,14 +2725,14 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When enabled, users will be able to request extension of their access to this package before their access expires.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#extension_enabled AccessPackageAssignmentPolicy#extension_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#extension_enabled AccessPackageAssignmentPolicy#extension_enabled}
         '''
         result = self._values.get("extension_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#id AccessPackageAssignmentPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#id AccessPackageAssignmentPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2746,7 +2746,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyQuestion"]]]:
         '''question block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#question AccessPackageAssignmentPolicy#question}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#question AccessPackageAssignmentPolicy#question}
         '''
         result = self._values.get("question")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyQuestion"]]], result)
@@ -2757,7 +2757,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     ) -> typing.Optional["AccessPackageAssignmentPolicyRequestorSettings"]:
         '''requestor_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requestor_settings AccessPackageAssignmentPolicy#requestor_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requestor_settings AccessPackageAssignmentPolicy#requestor_settings}
         '''
         result = self._values.get("requestor_settings")
         return typing.cast(typing.Optional["AccessPackageAssignmentPolicyRequestorSettings"], result)
@@ -2766,7 +2766,7 @@ class AccessPackageAssignmentPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments
     def timeouts(self) -> typing.Optional["AccessPackageAssignmentPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#timeouts AccessPackageAssignmentPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#timeouts AccessPackageAssignmentPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AccessPackageAssignmentPolicyTimeouts"], result)
@@ -2803,10 +2803,10 @@ class AccessPackageAssignmentPolicyQuestion:
         sequence: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#text AccessPackageAssignmentPolicy#text}
-        :param choice: choice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#choice AccessPackageAssignmentPolicy#choice}
-        :param required: Whether this question is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#required AccessPackageAssignmentPolicy#required}
-        :param sequence: The sequence number of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#sequence AccessPackageAssignmentPolicy#sequence}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#text AccessPackageAssignmentPolicy#text}
+        :param choice: choice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#choice AccessPackageAssignmentPolicy#choice}
+        :param required: Whether this question is required. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#required AccessPackageAssignmentPolicy#required}
+        :param sequence: The sequence number of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#sequence AccessPackageAssignmentPolicy#sequence}
         '''
         if isinstance(text, dict):
             text = AccessPackageAssignmentPolicyQuestionText(**text)
@@ -2830,7 +2830,7 @@ class AccessPackageAssignmentPolicyQuestion:
     def text(self) -> "AccessPackageAssignmentPolicyQuestionText":
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#text AccessPackageAssignmentPolicy#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#text AccessPackageAssignmentPolicy#text}
         '''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
@@ -2842,7 +2842,7 @@ class AccessPackageAssignmentPolicyQuestion:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyQuestionChoice"]]]:
         '''choice block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#choice AccessPackageAssignmentPolicy#choice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#choice AccessPackageAssignmentPolicy#choice}
         '''
         result = self._values.get("choice")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyQuestionChoice"]]], result)
@@ -2853,7 +2853,7 @@ class AccessPackageAssignmentPolicyQuestion:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this question is required.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#required AccessPackageAssignmentPolicy#required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#required AccessPackageAssignmentPolicy#required}
         '''
         result = self._values.get("required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2862,7 +2862,7 @@ class AccessPackageAssignmentPolicyQuestion:
     def sequence(self) -> typing.Optional[jsii.Number]:
         '''The sequence number of this question.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#sequence AccessPackageAssignmentPolicy#sequence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#sequence AccessPackageAssignmentPolicy#sequence}
         '''
         result = self._values.get("sequence")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2892,8 +2892,8 @@ class AccessPackageAssignmentPolicyQuestionChoice:
         display_value: typing.Union["AccessPackageAssignmentPolicyQuestionChoiceDisplayValue", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param actual_value: The actual value of this choice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#actual_value AccessPackageAssignmentPolicy#actual_value}
-        :param display_value: display_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#display_value AccessPackageAssignmentPolicy#display_value}
+        :param actual_value: The actual value of this choice. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#actual_value AccessPackageAssignmentPolicy#actual_value}
+        :param display_value: display_value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#display_value AccessPackageAssignmentPolicy#display_value}
         '''
         if isinstance(display_value, dict):
             display_value = AccessPackageAssignmentPolicyQuestionChoiceDisplayValue(**display_value)
@@ -2910,7 +2910,7 @@ class AccessPackageAssignmentPolicyQuestionChoice:
     def actual_value(self) -> builtins.str:
         '''The actual value of this choice.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#actual_value AccessPackageAssignmentPolicy#actual_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#actual_value AccessPackageAssignmentPolicy#actual_value}
         '''
         result = self._values.get("actual_value")
         assert result is not None, "Required property 'actual_value' is missing"
@@ -2922,7 +2922,7 @@ class AccessPackageAssignmentPolicyQuestionChoice:
     ) -> "AccessPackageAssignmentPolicyQuestionChoiceDisplayValue":
         '''display_value block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#display_value AccessPackageAssignmentPolicy#display_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#display_value AccessPackageAssignmentPolicy#display_value}
         '''
         result = self._values.get("display_value")
         assert result is not None, "Required property 'display_value' is missing"
@@ -2953,8 +2953,8 @@ class AccessPackageAssignmentPolicyQuestionChoiceDisplayValue:
         localized_text: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AccessPackageAssignmentPolicyQuestionChoiceDisplayValueLocalizedText", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param default_text: The default text of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
-        :param localized_text: localized_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
+        :param default_text: The default text of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
+        :param localized_text: localized_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b435c29bc0ae4d1327fdfe8d78ec97d4bf03b197baa8f443c01b4655950d631c)
@@ -2970,7 +2970,7 @@ class AccessPackageAssignmentPolicyQuestionChoiceDisplayValue:
     def default_text(self) -> builtins.str:
         '''The default text of this question.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
         '''
         result = self._values.get("default_text")
         assert result is not None, "Required property 'default_text' is missing"
@@ -2982,7 +2982,7 @@ class AccessPackageAssignmentPolicyQuestionChoiceDisplayValue:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyQuestionChoiceDisplayValueLocalizedText"]]]:
         '''localized_text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
         '''
         result = self._values.get("localized_text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyQuestionChoiceDisplayValueLocalizedText"]]], result)
@@ -3007,8 +3007,8 @@ class AccessPackageAssignmentPolicyQuestionChoiceDisplayValue:
 class AccessPackageAssignmentPolicyQuestionChoiceDisplayValueLocalizedText:
     def __init__(self, *, content: builtins.str, language_code: builtins.str) -> None:
         '''
-        :param content: The localized content of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#content AccessPackageAssignmentPolicy#content}
-        :param language_code: The language code of this question content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#language_code AccessPackageAssignmentPolicy#language_code}
+        :param content: The localized content of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#content AccessPackageAssignmentPolicy#content}
+        :param language_code: The language code of this question content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#language_code AccessPackageAssignmentPolicy#language_code}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__83ce4417a5cb3b39978ab6ebf28de2a3cfbb9d0debafd3095e8b6c74f67f2b04)
@@ -3023,7 +3023,7 @@ class AccessPackageAssignmentPolicyQuestionChoiceDisplayValueLocalizedText:
     def content(self) -> builtins.str:
         '''The localized content of this question.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#content AccessPackageAssignmentPolicy#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#content AccessPackageAssignmentPolicy#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -3033,7 +3033,7 @@ class AccessPackageAssignmentPolicyQuestionChoiceDisplayValueLocalizedText:
     def language_code(self) -> builtins.str:
         '''The language code of this question content.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#language_code AccessPackageAssignmentPolicy#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#language_code AccessPackageAssignmentPolicy#language_code}
         '''
         result = self._values.get("language_code")
         assert result is not None, "Required property 'language_code' is missing"
@@ -3435,8 +3435,8 @@ class AccessPackageAssignmentPolicyQuestionChoiceOutputReference(
         localized_text: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AccessPackageAssignmentPolicyQuestionChoiceDisplayValueLocalizedText, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param default_text: The default text of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
-        :param localized_text: localized_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
+        :param default_text: The default text of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
+        :param localized_text: localized_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
         '''
         value = AccessPackageAssignmentPolicyQuestionChoiceDisplayValue(
             default_text=default_text, localized_text=localized_text
@@ -3633,8 +3633,8 @@ class AccessPackageAssignmentPolicyQuestionOutputReference(
         localized_text: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AccessPackageAssignmentPolicyQuestionTextLocalizedText", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param default_text: The default text of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
-        :param localized_text: localized_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
+        :param default_text: The default text of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
+        :param localized_text: localized_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
         '''
         value = AccessPackageAssignmentPolicyQuestionText(
             default_text=default_text, localized_text=localized_text
@@ -3748,8 +3748,8 @@ class AccessPackageAssignmentPolicyQuestionText:
         localized_text: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AccessPackageAssignmentPolicyQuestionTextLocalizedText", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param default_text: The default text of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
-        :param localized_text: localized_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
+        :param default_text: The default text of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
+        :param localized_text: localized_text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__158edee4f5582913fce27a4819a8579866de70c7d0c063c474af26ca8a0f7b56)
@@ -3765,7 +3765,7 @@ class AccessPackageAssignmentPolicyQuestionText:
     def default_text(self) -> builtins.str:
         '''The default text of this question.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#default_text AccessPackageAssignmentPolicy#default_text}
         '''
         result = self._values.get("default_text")
         assert result is not None, "Required property 'default_text' is missing"
@@ -3777,7 +3777,7 @@ class AccessPackageAssignmentPolicyQuestionText:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyQuestionTextLocalizedText"]]]:
         '''localized_text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#localized_text AccessPackageAssignmentPolicy#localized_text}
         '''
         result = self._values.get("localized_text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyQuestionTextLocalizedText"]]], result)
@@ -3802,8 +3802,8 @@ class AccessPackageAssignmentPolicyQuestionText:
 class AccessPackageAssignmentPolicyQuestionTextLocalizedText:
     def __init__(self, *, content: builtins.str, language_code: builtins.str) -> None:
         '''
-        :param content: The localized content of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#content AccessPackageAssignmentPolicy#content}
-        :param language_code: The language code of this question content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#language_code AccessPackageAssignmentPolicy#language_code}
+        :param content: The localized content of this question. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#content AccessPackageAssignmentPolicy#content}
+        :param language_code: The language code of this question content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#language_code AccessPackageAssignmentPolicy#language_code}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2598a96a53f08ef5974e115b122dd5e3b738ff4b5e30bdfab18dc456e7de6a6f)
@@ -3818,7 +3818,7 @@ class AccessPackageAssignmentPolicyQuestionTextLocalizedText:
     def content(self) -> builtins.str:
         '''The localized content of this question.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#content AccessPackageAssignmentPolicy#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#content AccessPackageAssignmentPolicy#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -3828,7 +3828,7 @@ class AccessPackageAssignmentPolicyQuestionTextLocalizedText:
     def language_code(self) -> builtins.str:
         '''The language code of this question content.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#language_code AccessPackageAssignmentPolicy#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#language_code AccessPackageAssignmentPolicy#language_code}
         '''
         result = self._values.get("language_code")
         assert result is not None, "Required property 'language_code' is missing"
@@ -4121,9 +4121,9 @@ class AccessPackageAssignmentPolicyRequestorSettings:
         scope_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param requestor: requestor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requestor AccessPackageAssignmentPolicy#requestor}
-        :param requests_accepted: Whether to accept requests now, when disabled, no new requests can be made using this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requests_accepted AccessPackageAssignmentPolicy#requests_accepted}
-        :param scope_type: Specify the scopes of the requestors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#scope_type AccessPackageAssignmentPolicy#scope_type}
+        :param requestor: requestor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requestor AccessPackageAssignmentPolicy#requestor}
+        :param requests_accepted: Whether to accept requests now, when disabled, no new requests can be made using this policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requests_accepted AccessPackageAssignmentPolicy#requests_accepted}
+        :param scope_type: Specify the scopes of the requestors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#scope_type AccessPackageAssignmentPolicy#scope_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6c6e5fb4eada64a3721207ae7419218acbdaec1252b57fbe713824dfbf7227c)
@@ -4144,7 +4144,7 @@ class AccessPackageAssignmentPolicyRequestorSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyRequestorSettingsRequestor"]]]:
         '''requestor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requestor AccessPackageAssignmentPolicy#requestor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requestor AccessPackageAssignmentPolicy#requestor}
         '''
         result = self._values.get("requestor")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AccessPackageAssignmentPolicyRequestorSettingsRequestor"]]], result)
@@ -4155,7 +4155,7 @@ class AccessPackageAssignmentPolicyRequestorSettings:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to accept requests now, when disabled, no new requests can be made using this policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#requests_accepted AccessPackageAssignmentPolicy#requests_accepted}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#requests_accepted AccessPackageAssignmentPolicy#requests_accepted}
         '''
         result = self._values.get("requests_accepted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4164,7 +4164,7 @@ class AccessPackageAssignmentPolicyRequestorSettings:
     def scope_type(self) -> typing.Optional[builtins.str]:
         '''Specify the scopes of the requestors.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#scope_type AccessPackageAssignmentPolicy#scope_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#scope_type AccessPackageAssignmentPolicy#scope_type}
         '''
         result = self._values.get("scope_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4317,9 +4317,9 @@ class AccessPackageAssignmentPolicyRequestorSettingsRequestor:
         object_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param subject_type: Type of users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
-        :param backup: For a user in an approval stage, this property indicates whether the user is a backup fallback approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
-        :param object_id: The object ID of the subject. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
+        :param subject_type: Type of users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
+        :param backup: For a user in an approval stage, this property indicates whether the user is a backup fallback approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
+        :param object_id: The object ID of the subject. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8e2d8c012de1984141d53a94c9b5441fdeb9c3f312558825d1ae139a36c3545)
@@ -4338,7 +4338,7 @@ class AccessPackageAssignmentPolicyRequestorSettingsRequestor:
     def subject_type(self) -> builtins.str:
         '''Type of users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#subject_type AccessPackageAssignmentPolicy#subject_type}
         '''
         result = self._values.get("subject_type")
         assert result is not None, "Required property 'subject_type' is missing"
@@ -4350,7 +4350,7 @@ class AccessPackageAssignmentPolicyRequestorSettingsRequestor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''For a user in an approval stage, this property indicates whether the user is a backup fallback approver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#backup AccessPackageAssignmentPolicy#backup}
         '''
         result = self._values.get("backup")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4359,7 +4359,7 @@ class AccessPackageAssignmentPolicyRequestorSettingsRequestor:
     def object_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the subject.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#object_id AccessPackageAssignmentPolicy#object_id}
         '''
         result = self._values.get("object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4597,10 +4597,10 @@ class AccessPackageAssignmentPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#create AccessPackageAssignmentPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#delete AccessPackageAssignmentPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#read AccessPackageAssignmentPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#update AccessPackageAssignmentPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#create AccessPackageAssignmentPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#delete AccessPackageAssignmentPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#read AccessPackageAssignmentPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#update AccessPackageAssignmentPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ebb410d90da0384219f7d2106ef09a3beec215d44ddb25621af93ef31fb50111)
@@ -4620,25 +4620,25 @@ class AccessPackageAssignmentPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#create AccessPackageAssignmentPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#create AccessPackageAssignmentPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#delete AccessPackageAssignmentPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#delete AccessPackageAssignmentPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#read AccessPackageAssignmentPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#read AccessPackageAssignmentPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/access_package_assignment_policy#update AccessPackageAssignmentPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/access_package_assignment_policy#update AccessPackageAssignmentPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

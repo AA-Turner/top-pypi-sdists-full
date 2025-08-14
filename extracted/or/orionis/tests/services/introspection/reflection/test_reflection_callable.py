@@ -1,5 +1,5 @@
 from orionis.services.introspection.callables.reflection import ReflectionCallable
-from orionis.services.introspection.dependencies.entities.callable_dependencies import CallableDependency
+from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
 from orionis.test.cases.asynchronous import AsyncTestCase
 from orionis.services.introspection.exceptions import ReflectionTypeError
 
@@ -189,7 +189,7 @@ class TestReflectionCallable(AsyncTestCase):
         """
         Test retrieval of callable dependencies from ReflectionCallable.
 
-        Checks that getDependencies() returns a CallableDependency object with
+        Checks that getDependencies() returns a ResolveArguments object with
         'resolved' and 'unresolved' attributes for the wrapped function.
 
         Returns
@@ -201,6 +201,6 @@ class TestReflectionCallable(AsyncTestCase):
             return a + b
         rc = ReflectionCallable(sample_function)
         deps = rc.getDependencies()
-        self.assertIsInstance(deps, CallableDependency)
+        self.assertIsInstance(deps, ResolveArguments)
         self.assertTrue(hasattr(deps, "resolved"))
         self.assertTrue(hasattr(deps, "unresolved"))

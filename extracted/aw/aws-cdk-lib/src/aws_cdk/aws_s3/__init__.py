@@ -3782,7 +3782,7 @@ class CfnAccessGrantsLocationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnAccessPoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3815,6 +3815,10 @@ class CfnAccessPoint(
                 ignore_public_acls=False,
                 restrict_public_buckets=False
             ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             vpc_configuration=s3.CfnAccessPoint.VpcConfigurationProperty(
                 vpc_id="vpcId"
             )
@@ -3831,6 +3835,7 @@ class CfnAccessPoint(
         name: typing.Optional[builtins.str] = None,
         policy: typing.Any = None,
         public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.PublicAccessBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
@@ -3841,6 +3846,7 @@ class CfnAccessPoint(
         :param name: The name of this access point. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the access point name.
         :param policy: The access point policy associated with this access point.
         :param public_access_block_configuration: The PublicAccessBlock configuration that you want to apply to this Amazon S3 bucket. You can enable the configuration options in any combination. For more information about when Amazon S3 considers a bucket or object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
+        :param tags: An array of tags that you can apply to access points. Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
         :param vpc_configuration: The Virtual Private Cloud (VPC) configuration for this access point, if one exists.
         '''
         if __debug__:
@@ -3853,6 +3859,7 @@ class CfnAccessPoint(
             name=name,
             policy=policy,
             public_access_block_configuration=public_access_block_configuration,
+            tags=tags,
             vpc_configuration=vpc_configuration,
         )
 
@@ -3929,6 +3936,12 @@ class CfnAccessPoint(
         return typing.cast(builtins.str, jsii.get(self, "attrNetworkOrigin"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -4002,6 +4015,19 @@ class CfnAccessPoint(
             type_hints = typing.get_type_hints(_typecheckingstub__f1674ffbc32679c9e6b98201180481c7cd25fa6b6b1611ce89faf76ad24f3aba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "publicAccessBlockConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of tags that you can apply to access points.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6c41b842366f80d771c24147e6f4bdb868bf8899c3f03b128339e380a158e19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpcConfiguration")
@@ -4217,6 +4243,7 @@ class CfnAccessPoint(
         "name": "name",
         "policy": "policy",
         "public_access_block_configuration": "publicAccessBlockConfiguration",
+        "tags": "tags",
         "vpc_configuration": "vpcConfiguration",
     },
 )
@@ -4229,6 +4256,7 @@ class CfnAccessPointProps:
         name: typing.Optional[builtins.str] = None,
         policy: typing.Any = None,
         public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccessPoint``.
@@ -4238,6 +4266,7 @@ class CfnAccessPointProps:
         :param name: The name of this access point. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the access point name.
         :param policy: The access point policy associated with this access point.
         :param public_access_block_configuration: The PublicAccessBlock configuration that you want to apply to this Amazon S3 bucket. You can enable the configuration options in any combination. For more information about when Amazon S3 considers a bucket or object public, see `The Meaning of "Public" <https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status>`_ in the *Amazon S3 User Guide* .
+        :param tags: An array of tags that you can apply to access points. Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
         :param vpc_configuration: The Virtual Private Cloud (VPC) configuration for this access point, if one exists.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html
@@ -4264,6 +4293,10 @@ class CfnAccessPointProps:
                     ignore_public_acls=False,
                     restrict_public_buckets=False
                 ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 vpc_configuration=s3.CfnAccessPoint.VpcConfigurationProperty(
                     vpc_id="vpcId"
                 )
@@ -4276,6 +4309,7 @@ class CfnAccessPointProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bucket": bucket,
@@ -4288,6 +4322,8 @@ class CfnAccessPointProps:
             self._values["policy"] = policy
         if public_access_block_configuration is not None:
             self._values["public_access_block_configuration"] = public_access_block_configuration
+        if tags is not None:
+            self._values["tags"] = tags
         if vpc_configuration is not None:
             self._values["vpc_configuration"] = vpc_configuration
 
@@ -4342,6 +4378,17 @@ class CfnAccessPointProps:
         '''
         result = self._values.get("public_access_block_configuration")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.PublicAccessBlockConfigurationProperty]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of tags that you can apply to access points.
+
+        Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-accesspoint.html#cfn-s3-accesspoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
 
     @builtins.property
     def vpc_configuration(
@@ -22648,6 +22695,7 @@ def _typecheckingstub__effa13924691e4b61b906bb0dc0bd5da8dfc4d4cbd167af0fe9491358
     name: typing.Optional[builtins.str] = None,
     policy: typing.Any = None,
     public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22695,6 +22743,12 @@ def _typecheckingstub__f1674ffbc32679c9e6b98201180481c7cd25fa6b6b1611ce89faf76ad
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d6c41b842366f80d771c24147e6f4bdb868bf8899c3f03b128339e380a158e19(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a49ee3ddcfdce1bcd8c198e3823a2490c2f4ac82647902a91b701dbc61ab86b8(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty]],
 ) -> None:
@@ -22725,6 +22779,7 @@ def _typecheckingstub__78747b8f8c95f80def774b788cce8b1ff46ec71c89a1b755270401066
     name: typing.Optional[builtins.str] = None,
     policy: typing.Any = None,
     public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -3,34 +3,31 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import Any, cast
 import copy
 import logging
+from typing import Any, cast
 
+from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
     LangChainVectorStoreAdapter,
 )
-
 from ibm_watsonx_ai.wml_client_error import (
     MissingExtension,
     VectorStoreSerializationError,
 )
-from ibm_watsonx_ai import APIClient
-from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 
 try:
-    from langchain_elasticsearch.vectorstores import ElasticsearchStore
     import elasticsearch
+    from langchain_elasticsearch.vectorstores import ElasticsearchStore
 
 except ImportError:
     raise MissingExtension("langchain_elasticsearch")
 
 from elastic_transport import ConnectionTimeout
-
 from langchain_core.documents import Document
 
 from .es_utils import HybridStrategyElasticsearch
-
 
 logger = logging.getLogger(__name__)
 

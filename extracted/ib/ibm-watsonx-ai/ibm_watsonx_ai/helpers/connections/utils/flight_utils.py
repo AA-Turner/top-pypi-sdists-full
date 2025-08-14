@@ -3,16 +3,15 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-import logging
-
-from typing import Protocol, Callable
 import functools
-import time
+import logging
 import random
-
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+import time
+from typing import Callable, Protocol
 
 from pyarrow import flight
+
+from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 
 class CallbackSchema(Protocol):

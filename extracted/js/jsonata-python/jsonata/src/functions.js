@@ -293,6 +293,7 @@ const functions = (() => {
         }
 
         var result;
+        width = Math.trunc(width);
         var padLength = Math.abs(width) - length(str);
         if (padLength > 0) {
             var padding = (new Array(padLength + 1)).join(char);
@@ -1419,7 +1420,7 @@ const functions = (() => {
             if (arg !== 0) {
                 result = true;
             }
-        } else if (arg !== null && typeof arg === 'object') {
+        } else if (arg !== null && typeof arg === 'object' && !isFunction(arg)) {
             if (Object.keys(arg).length > 0) {
                 result = true;
             }

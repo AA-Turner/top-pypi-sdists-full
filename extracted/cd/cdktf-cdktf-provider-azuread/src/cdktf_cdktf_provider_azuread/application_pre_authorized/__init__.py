@@ -1,7 +1,7 @@
 r'''
 # `azuread_application_pre_authorized`
 
-Refer to the Terraform Registry for docs: [`azuread_application_pre_authorized`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized).
+Refer to the Terraform Registry for docs: [`azuread_application_pre_authorized`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationPreAuthorized(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.applicationPreAuthorized.ApplicationPreAuthorized",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized azuread_application_pre_authorized}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized azuread_application_pre_authorized}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ApplicationPreAuthorized(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized azuread_application_pre_authorized} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized azuread_application_pre_authorized} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: The resource ID of the application to which this pre-authorized application should be added. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#application_id ApplicationPreAuthorized#application_id}
-        :param authorized_client_id: The client ID of the pre-authorized application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#authorized_client_id ApplicationPreAuthorized#authorized_client_id}
-        :param permission_ids: The IDs of the permission scopes required by the pre-authorized application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#permission_ids ApplicationPreAuthorized#permission_ids}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#id ApplicationPreAuthorized#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#timeouts ApplicationPreAuthorized#timeouts}
+        :param application_id: The resource ID of the application to which this pre-authorized application should be added. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#application_id ApplicationPreAuthorized#application_id}
+        :param authorized_client_id: The client ID of the pre-authorized application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#authorized_client_id ApplicationPreAuthorized#authorized_client_id}
+        :param permission_ids: The IDs of the permission scopes required by the pre-authorized application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#permission_ids ApplicationPreAuthorized#permission_ids}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#id ApplicationPreAuthorized#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#timeouts ApplicationPreAuthorized#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ApplicationPreAuthorized(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationPreAuthorized to import.
-        :param import_from_id: The id of the existing ApplicationPreAuthorized that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationPreAuthorized that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationPreAuthorized to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class ApplicationPreAuthorized(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#create ApplicationPreAuthorized#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#delete ApplicationPreAuthorized#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#read ApplicationPreAuthorized#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#update ApplicationPreAuthorized#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#create ApplicationPreAuthorized#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#delete ApplicationPreAuthorized#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#read ApplicationPreAuthorized#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#update ApplicationPreAuthorized#update}.
         '''
         value = ApplicationPreAuthorizedTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -292,11 +292,11 @@ class ApplicationPreAuthorizedConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: The resource ID of the application to which this pre-authorized application should be added. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#application_id ApplicationPreAuthorized#application_id}
-        :param authorized_client_id: The client ID of the pre-authorized application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#authorized_client_id ApplicationPreAuthorized#authorized_client_id}
-        :param permission_ids: The IDs of the permission scopes required by the pre-authorized application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#permission_ids ApplicationPreAuthorized#permission_ids}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#id ApplicationPreAuthorized#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#timeouts ApplicationPreAuthorized#timeouts}
+        :param application_id: The resource ID of the application to which this pre-authorized application should be added. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#application_id ApplicationPreAuthorized#application_id}
+        :param authorized_client_id: The client ID of the pre-authorized application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#authorized_client_id ApplicationPreAuthorized#authorized_client_id}
+        :param permission_ids: The IDs of the permission scopes required by the pre-authorized application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#permission_ids ApplicationPreAuthorized#permission_ids}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#id ApplicationPreAuthorized#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#timeouts ApplicationPreAuthorized#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -408,7 +408,7 @@ class ApplicationPreAuthorizedConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''The resource ID of the application to which this pre-authorized application should be added.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#application_id ApplicationPreAuthorized#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#application_id ApplicationPreAuthorized#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -418,7 +418,7 @@ class ApplicationPreAuthorizedConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authorized_client_id(self) -> builtins.str:
         '''The client ID of the pre-authorized application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#authorized_client_id ApplicationPreAuthorized#authorized_client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#authorized_client_id ApplicationPreAuthorized#authorized_client_id}
         '''
         result = self._values.get("authorized_client_id")
         assert result is not None, "Required property 'authorized_client_id' is missing"
@@ -428,7 +428,7 @@ class ApplicationPreAuthorizedConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def permission_ids(self) -> typing.List[builtins.str]:
         '''The IDs of the permission scopes required by the pre-authorized application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#permission_ids ApplicationPreAuthorized#permission_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#permission_ids ApplicationPreAuthorized#permission_ids}
         '''
         result = self._values.get("permission_ids")
         assert result is not None, "Required property 'permission_ids' is missing"
@@ -436,7 +436,7 @@ class ApplicationPreAuthorizedConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#id ApplicationPreAuthorized#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#id ApplicationPreAuthorized#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -448,7 +448,7 @@ class ApplicationPreAuthorizedConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationPreAuthorizedTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#timeouts ApplicationPreAuthorized#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#timeouts ApplicationPreAuthorized#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationPreAuthorizedTimeouts"], result)
@@ -485,10 +485,10 @@ class ApplicationPreAuthorizedTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#create ApplicationPreAuthorized#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#delete ApplicationPreAuthorized#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#read ApplicationPreAuthorized#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#update ApplicationPreAuthorized#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#create ApplicationPreAuthorized#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#delete ApplicationPreAuthorized#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#read ApplicationPreAuthorized#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#update ApplicationPreAuthorized#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ec9f8df53638011484e90846160596539bd6555b0c5a727ae57b6c12e0df9965)
@@ -508,25 +508,25 @@ class ApplicationPreAuthorizedTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#create ApplicationPreAuthorized#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#create ApplicationPreAuthorized#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#delete ApplicationPreAuthorized#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#delete ApplicationPreAuthorized#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#read ApplicationPreAuthorized#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#read ApplicationPreAuthorized#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_pre_authorized#update ApplicationPreAuthorized#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_pre_authorized#update ApplicationPreAuthorized#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

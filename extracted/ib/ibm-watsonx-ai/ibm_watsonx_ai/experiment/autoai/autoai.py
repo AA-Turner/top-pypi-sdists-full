@@ -4,74 +4,76 @@
 #  -----------------------------------------------------------------------------------------
 
 import copy
-from typing import List, Union, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, Union
 from warnings import warn
 
 from ibm_watsonx_ai.utils.autoai.enums import (
-    TShirtSize,
     ClassificationAlgorithms,
-    RegressionAlgorithms,
-    ForecastingAlgorithms,
-    PredictionType,
-    Metrics,
-    Transformers,
+    ClassificationAlgorithmsCP4D,
     DataConnectionTypes,
+    ForecastingAlgorithms,
+    ForecastingAlgorithmsCP4D,
+    ForecastingPipelineTypes,
+    ImputationStrategy,
+    Metrics,
     PipelineTypes,
     PositiveLabelClass,
-    ClassificationAlgorithmsCP4D,
-    RegressionAlgorithmsCP4D,
-    ForecastingAlgorithmsCP4D,
-    SamplingTypes,
-    ImputationStrategy,
-    ForecastingPipelineTypes,
-    TimeseriesAnomalyPredictionPipelineTypes,
-    TimeseriesAnomalyPredictionAlgorithms,
+    PredictionType,
     RAGMetrics,
+    RegressionAlgorithms,
+    RegressionAlgorithmsCP4D,
+    SamplingTypes,
+    TimeseriesAnomalyPredictionAlgorithms,
+    TimeseriesAnomalyPredictionPipelineTypes,
+    Transformers,
+    TShirtSize,
 )
 from ibm_watsonx_ai.utils.autoai.errors import (
+    ForecastingCannotBeRunAsLocalScenario,
+    ForecastPredictionColumnsMissing,
+    ImputationListNotSupported,
     LocalInstanceButRemoteParameter,
+    MissingEstimatorForExistingBatchedEstimator,
     MissingPositiveLabel,
     NonForecastPredictionColumnMissing,
-    ForecastPredictionColumnsMissing,
-    ForecastingCannotBeRunAsLocalScenario,
-    TSNotSupported,
-    TSADNotSupported,
-    ImputationListNotSupported,
-    MissingEstimatorForExistingBatchedEstimator,
-    TimeseriesAnomalyPredictionFeatureColumnsMissing,
     TimeseriesAnomalyPredictionCannotBeRunAsLocalScenario,
+    TimeseriesAnomalyPredictionFeatureColumnsMissing,
     TimeseriesAnomalyPredictionUnsupportedMetric,
+    TSADNotSupported,
 )
 from ibm_watsonx_ai.utils.autoai.utils import (
-    check_dependencies_versions,
+    translate_batched_estimator_string_to_enum,
+    translate_estimator_string_to_enum,
+    translate_imputation_string_strategy_to_enum,
     validate_additional_params_for_optimizer,
     validate_optimizer_enum_values,
-    translate_imputation_string_strategy_to_enum,
-    translate_estimator_string_to_enum,
-    translate_batched_estimator_string_to_enum,
 )
-from ibm_watsonx_ai.workspace import WorkSpace
 from ibm_watsonx_ai.wml_client_error import (
     ForbiddenActionForGitBasedProject,
-    WMLClientError,
     ParamOutOfRange,
 )
-from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.workspace import WorkSpace
+
+from ..base_experiment.base_experiment import BaseExperiment
 from .engines import ServiceEngine
 from .optimizers import LocalAutoPipelines, RemoteAutoPipelines
 from .runs import AutoPipelinesRuns, LocalAutoPipelinesRuns
-from ..base_experiment.base_experiment import BaseExperiment
 
 __all__ = ["AutoAI"]
 
 from ...credentials import Credentials
 from ...foundation_models.schema import (
-    AutoAIRAGModelConfig,
     AutoAIRAGCustomModelConfig,
+    AutoAIRAGModelConfig,
     AutoAIRAGRetrievalConfig,
 )
 
 if TYPE_CHECKING:
+    from ibm_watsonx_ai.utils.autoai.enums import (
+        BatchedClassificationAlgorithms,
+        BatchedRegressionAlgorithms,
+    )
+
     from .optimizers import RAGOptimizer
 
 
@@ -686,10 +688,10 @@ class AutoAI(BaseExperiment):
                 train_sample_rows_test_size = None
 
         def translate_str_imputation_param(x):
-            if type(x) is list and prediction_type != PredictionType.FORECASTING:
+            if isinstance(x, list) and prediction_type != PredictionType.FORECASTING:
                 raise ImputationListNotSupported()
 
-            if type(x) == str or (type(x) == list and type(x[0]) == str):
+            if isinstance(x, str) or (isinstance(x, list) and isinstance(x[0], str)):
                 return translate_imputation_string_strategy_to_enum(x, prediction_type)
             else:
                 return x

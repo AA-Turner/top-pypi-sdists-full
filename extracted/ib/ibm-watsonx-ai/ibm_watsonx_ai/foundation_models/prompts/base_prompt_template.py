@@ -4,14 +4,15 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import Iterable
+
 from abc import abstractmethod
+from typing import Iterable
 
 from ibm_watsonx_ai.foundation_models.prompts.base_prompt import BasePrompt
+from ibm_watsonx_ai.foundation_models.utils.utils import TemplateFormatter
 from ibm_watsonx_ai.wml_client_error import (
     ValidationError,
 )
-from ibm_watsonx_ai.foundation_models.utils.utils import TemplateFormatter
 
 
 class BasePromptTemplate(BasePrompt):
@@ -29,7 +30,6 @@ class BasePromptTemplate(BasePrompt):
         input_text: str | None = None,
         input_variables: list | dict[str, dict[str, str]] | None = None,
     ):
-
         self.input_text = input_text
         self.input_variables = (
             input_variables.copy() if input_variables is not None else input_variables

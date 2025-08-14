@@ -657,11 +657,11 @@ class CfnDBCluster(
         :param restore_to_time: The date and time to restore the cluster to. Valid values: A time in Universal Coordinated Time (UTC) format. Constraints: - Must be before the latest restorable time for the instance. - Must be specified if the ``UseLatestRestorableTime`` parameter is not provided. - Cannot be specified if the ``UseLatestRestorableTime`` parameter is ``true`` . - Cannot be specified if the ``RestoreType`` parameter is ``copy-on-write`` . Example: ``2015-03-07T23:45:00Z``
         :param restore_type: The type of restore to be performed. You can specify one of the following values:. - ``full-copy`` - The new DB cluster is restored as a full copy of the source DB cluster. - ``copy-on-write`` - The new DB cluster is restored as a clone of the source DB cluster. Constraints: You can't specify ``copy-on-write`` if the engine version of the source DB cluster is earlier than 1.11. If you don't specify a ``RestoreType`` value, then the new DB cluster is restored as a full copy of the source DB cluster.
         :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services Secrets Manager for the master user password. This setting is valid only if the master user password is managed by Amazon DocumentDB in Amazon Web Services Secrets Manager for the cluster. The secret value contains the updated password. Constraint: You must apply the change immediately when rotating the master user password.
-        :param serverless_v2_scaling_configuration: 
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Amazon DocumentDB Serverless cluster.
         :param snapshot_identifier: The identifier for the snapshot or cluster snapshot to restore from. You can use either the name or the Amazon Resource Name (ARN) to specify a cluster snapshot. However, you can use only the ARN to specify a snapshot. Constraints: - Must match the identifier of an existing snapshot.
         :param source_db_cluster_identifier: The identifier of the source cluster from which to restore. Constraints: - Must match the identifier of an existing ``DBCluster`` .
         :param storage_encrypted: Specifies whether the cluster is encrypted. If you specify ``SourceDBClusterIdentifier`` or ``SnapshotIdentifier`` and don’t specify ``StorageEncrypted`` , the encryption property is inherited from the source cluster or snapshot (unless ``KMSKeyId`` is specified, in which case the restored cluster will be encrypted with that KMS key). If the source is encrypted and ``StorageEncrypted`` is specified to be true, the restored cluster will be encrypted (if you want to use a different KMS key, specify the ``KMSKeyId`` property as well). If the source is unencrypted and ``StorageEncrypted`` is specified to be true, then the ``KMSKeyId`` property must be specified. If the source is encrypted, don’t specify ``StorageEncrypted`` to be false as opting out of encryption is not allowed.
-        :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Amazon DocumentDB clusters, see Cluster storage configurations in the *Amazon DocumentDB Developer Guide* . Valid values for storage type - ``standard | iopt1`` Default value is ``standard`` .. epigraph:: When you create a DocumentDB DB cluster with the storage type set to ``iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``standard`` .
+        :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Amazon DocumentDB clusters, see Cluster storage configurations in the *Amazon DocumentDB Developer Guide* . Valid values for storage type - ``standard | iopt1`` Default value is ``standard`` .. epigraph:: When you create an Amazon DocumentDB cluster with the storage type set to ``iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``standard`` .
         :param tags: The tags to be assigned to the cluster.
         :param use_latest_restorable_time: A value that is set to ``true`` to restore the cluster to the latest restorable backup time, and ``false`` otherwise. Default: ``false`` Constraints: Cannot be specified if the ``RestoreToTime`` parameter is provided.
         :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this cluster.
@@ -1132,6 +1132,7 @@ class CfnDBCluster(
     def serverless_v2_scaling_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]]:
+        '''Contains the scaling configuration of an Amazon DocumentDB Serverless cluster.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDBCluster.ServerlessV2ScalingConfigurationProperty"]], jsii.get(self, "serverlessV2ScalingConfiguration"))
 
     @serverless_v2_scaling_configuration.setter
@@ -1263,9 +1264,10 @@ class CfnDBCluster(
             max_capacity: jsii.Number,
             min_capacity: jsii.Number,
         ) -> None:
-            '''
-            :param max_capacity: 
-            :param min_capacity: 
+            '''Sets the scaling configuration of an Amazon DocumentDB Serverless cluster.
+
+            :param max_capacity: The maximum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster. You can specify DCU values in half-step increments, such as 32, 32.5, 33, and so on.
+            :param min_capacity: The minimum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster. You can specify DCU values in half-step increments, such as 8, 8.5, 9, and so on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-docdb-dbcluster-serverlessv2scalingconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1292,7 +1294,10 @@ class CfnDBCluster(
 
         @builtins.property
         def max_capacity(self) -> jsii.Number:
-            '''
+            '''The maximum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster.
+
+            You can specify DCU values in half-step increments, such as 32, 32.5, 33, and so on.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-docdb-dbcluster-serverlessv2scalingconfiguration.html#cfn-docdb-dbcluster-serverlessv2scalingconfiguration-maxcapacity
             '''
             result = self._values.get("max_capacity")
@@ -1301,7 +1306,10 @@ class CfnDBCluster(
 
         @builtins.property
         def min_capacity(self) -> jsii.Number:
-            '''
+            '''The minimum number of Amazon DocumentDB capacity units (DCUs) for an instance in an Amazon DocumentDB Serverless cluster.
+
+            You can specify DCU values in half-step increments, such as 8, 8.5, 9, and so on.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-docdb-dbcluster-serverlessv2scalingconfiguration.html#cfn-docdb-dbcluster-serverlessv2scalingconfiguration-mincapacity
             '''
             result = self._values.get("min_capacity")
@@ -1745,11 +1753,11 @@ class CfnDBClusterProps:
         :param restore_to_time: The date and time to restore the cluster to. Valid values: A time in Universal Coordinated Time (UTC) format. Constraints: - Must be before the latest restorable time for the instance. - Must be specified if the ``UseLatestRestorableTime`` parameter is not provided. - Cannot be specified if the ``UseLatestRestorableTime`` parameter is ``true`` . - Cannot be specified if the ``RestoreType`` parameter is ``copy-on-write`` . Example: ``2015-03-07T23:45:00Z``
         :param restore_type: The type of restore to be performed. You can specify one of the following values:. - ``full-copy`` - The new DB cluster is restored as a full copy of the source DB cluster. - ``copy-on-write`` - The new DB cluster is restored as a clone of the source DB cluster. Constraints: You can't specify ``copy-on-write`` if the engine version of the source DB cluster is earlier than 1.11. If you don't specify a ``RestoreType`` value, then the new DB cluster is restored as a full copy of the source DB cluster.
         :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services Secrets Manager for the master user password. This setting is valid only if the master user password is managed by Amazon DocumentDB in Amazon Web Services Secrets Manager for the cluster. The secret value contains the updated password. Constraint: You must apply the change immediately when rotating the master user password.
-        :param serverless_v2_scaling_configuration: 
+        :param serverless_v2_scaling_configuration: Contains the scaling configuration of an Amazon DocumentDB Serverless cluster.
         :param snapshot_identifier: The identifier for the snapshot or cluster snapshot to restore from. You can use either the name or the Amazon Resource Name (ARN) to specify a cluster snapshot. However, you can use only the ARN to specify a snapshot. Constraints: - Must match the identifier of an existing snapshot.
         :param source_db_cluster_identifier: The identifier of the source cluster from which to restore. Constraints: - Must match the identifier of an existing ``DBCluster`` .
         :param storage_encrypted: Specifies whether the cluster is encrypted. If you specify ``SourceDBClusterIdentifier`` or ``SnapshotIdentifier`` and don’t specify ``StorageEncrypted`` , the encryption property is inherited from the source cluster or snapshot (unless ``KMSKeyId`` is specified, in which case the restored cluster will be encrypted with that KMS key). If the source is encrypted and ``StorageEncrypted`` is specified to be true, the restored cluster will be encrypted (if you want to use a different KMS key, specify the ``KMSKeyId`` property as well). If the source is unencrypted and ``StorageEncrypted`` is specified to be true, then the ``KMSKeyId`` property must be specified. If the source is encrypted, don’t specify ``StorageEncrypted`` to be false as opting out of encryption is not allowed.
-        :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Amazon DocumentDB clusters, see Cluster storage configurations in the *Amazon DocumentDB Developer Guide* . Valid values for storage type - ``standard | iopt1`` Default value is ``standard`` .. epigraph:: When you create a DocumentDB DB cluster with the storage type set to ``iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``standard`` .
+        :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Amazon DocumentDB clusters, see Cluster storage configurations in the *Amazon DocumentDB Developer Guide* . Valid values for storage type - ``standard | iopt1`` Default value is ``standard`` .. epigraph:: When you create an Amazon DocumentDB cluster with the storage type set to ``iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``standard`` .
         :param tags: The tags to be assigned to the cluster.
         :param use_latest_restorable_time: A value that is set to ``true`` to restore the cluster to the latest restorable backup time, and ``false`` otherwise. Default: ``false`` Constraints: Cannot be specified if the ``RestoreToTime`` parameter is provided.
         :param vpc_security_group_ids: A list of EC2 VPC security groups to associate with this cluster.
@@ -2202,7 +2210,8 @@ class CfnDBClusterProps:
     def serverless_v2_scaling_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDBCluster.ServerlessV2ScalingConfigurationProperty]]:
-        '''
+        '''Contains the scaling configuration of an Amazon DocumentDB Serverless cluster.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbcluster.html#cfn-docdb-dbcluster-serverlessv2scalingconfiguration
         '''
         result = self._values.get("serverless_v2_scaling_configuration")
@@ -2260,7 +2269,7 @@ class CfnDBClusterProps:
         Default value is ``standard``
         .. epigraph::
 
-           When you create a DocumentDB DB cluster with the storage type set to ``iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``standard`` .
+           When you create an Amazon DocumentDB cluster with the storage type set to ``iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``standard`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-docdb-dbcluster.html#cfn-docdb-dbcluster-storagetype
         '''

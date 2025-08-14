@@ -1,5 +1,6 @@
 from orionis.services.introspection.abstract.reflection import ReflectionAbstract
-from orionis.services.introspection.dependencies.entities.class_dependencies import ClassDependency
+from orionis.services.introspection.dependencies.entities.argument import Argument
+from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
 from tests.services.introspection.reflection.mock.fake_reflect_instance import AbstractFakeClass
 from orionis.test.cases.asynchronous import AsyncTestCase
 
@@ -987,11 +988,11 @@ class TestServiceReflectionAbstract(AsyncTestCase):
 
         Assertions
         ----------
-        Should return a ClassDependency instance with constructor dependencies.
+        Should return a ResolveArguments instance with constructor dependencies.
         """
         reflect = ReflectionAbstract(AbstractFakeClass)
         dependencies = reflect.getConstructorDependencies()
-        self.assertIsInstance(dependencies, ClassDependency)
+        self.assertIsInstance(dependencies, ResolveArguments)
 
     async def testGetMethodDependencies(self):
         """
@@ -1005,7 +1006,7 @@ class TestServiceReflectionAbstract(AsyncTestCase):
         Should return method dependencies with correct parameter types and metadata.
         """
         reflect = ReflectionAbstract(AbstractFakeClass)
-        method_deps = reflect.getMethodDependencies('instanceSyncMethod')
+        method_deps: ResolveArguments = reflect.getMethodDependencies('instanceSyncMethod')
         self.assertIn('x', method_deps.resolved)
         self.assertIn('y', method_deps.resolved)
         self.assertEqual(method_deps.resolved['x'].class_name, 'int')

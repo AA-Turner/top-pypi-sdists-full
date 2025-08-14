@@ -100,6 +100,7 @@ class CfnCluster(
             cluster_endpoint_encryption_type="clusterEndpointEncryptionType",
             cluster_name="clusterName",
             description="description",
+            network_type="networkType",
             notification_topic_arn="notificationTopicArn",
             parameter_group_name="parameterGroupName",
             preferred_maintenance_window="preferredMaintenanceWindow",
@@ -124,6 +125,7 @@ class CfnCluster(
         cluster_endpoint_encryption_type: typing.Optional[builtins.str] = None,
         cluster_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
         notification_topic_arn: typing.Optional[builtins.str] = None,
         parameter_group_name: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
@@ -142,6 +144,7 @@ class CfnCluster(
         :param cluster_endpoint_encryption_type: The encryption type of the cluster's endpoint. Available values are:. - ``NONE`` - The cluster's endpoint will be unencrypted. - ``TLS`` - The cluster's endpoint will be encrypted with Transport Layer Security, and will provide an x509 certificate for authentication. The default value is ``NONE`` .
         :param cluster_name: The name of the DAX cluster.
         :param description: The description of the cluster.
+        :param network_type: 
         :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to which notifications will be sent. .. epigraph:: The Amazon SNS topic owner must be same as the DAX cluster owner.
         :param parameter_group_name: The parameter group to be associated with the DAX cluster.
         :param preferred_maintenance_window: A range of time when maintenance of DAX cluster software will be performed. For example: ``sun:01:00-sun:09:00`` . Cluster maintenance normally takes less than 30 minutes, and is performed automatically within the maintenance window.
@@ -162,6 +165,7 @@ class CfnCluster(
             cluster_endpoint_encryption_type=cluster_endpoint_encryption_type,
             cluster_name=cluster_name,
             description=description,
+            network_type=network_type,
             notification_topic_arn=notification_topic_arn,
             parameter_group_name=parameter_group_name,
             preferred_maintenance_window=preferred_maintenance_window,
@@ -362,6 +366,18 @@ class CfnCluster(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="networkType")
+    def network_type(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkType"))
+
+    @network_type.setter
+    def network_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff7558bb38dbc4bcadee03929865e52ee37088214e910d3784cedcbfc0b496ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="notificationTopicArn")
     def notification_topic_arn(self) -> typing.Optional[builtins.str]:
         '''The Amazon Resource Name (ARN) of the Amazon SNS topic to which notifications will be sent.'''
@@ -532,6 +548,7 @@ class CfnCluster(
         "cluster_endpoint_encryption_type": "clusterEndpointEncryptionType",
         "cluster_name": "clusterName",
         "description": "description",
+        "network_type": "networkType",
         "notification_topic_arn": "notificationTopicArn",
         "parameter_group_name": "parameterGroupName",
         "preferred_maintenance_window": "preferredMaintenanceWindow",
@@ -552,6 +569,7 @@ class CfnClusterProps:
         cluster_endpoint_encryption_type: typing.Optional[builtins.str] = None,
         cluster_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
         notification_topic_arn: typing.Optional[builtins.str] = None,
         parameter_group_name: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
@@ -569,6 +587,7 @@ class CfnClusterProps:
         :param cluster_endpoint_encryption_type: The encryption type of the cluster's endpoint. Available values are:. - ``NONE`` - The cluster's endpoint will be unencrypted. - ``TLS`` - The cluster's endpoint will be encrypted with Transport Layer Security, and will provide an x509 certificate for authentication. The default value is ``NONE`` .
         :param cluster_name: The name of the DAX cluster.
         :param description: The description of the cluster.
+        :param network_type: 
         :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic to which notifications will be sent. .. epigraph:: The Amazon SNS topic owner must be same as the DAX cluster owner.
         :param parameter_group_name: The parameter group to be associated with the DAX cluster.
         :param preferred_maintenance_window: A range of time when maintenance of DAX cluster software will be performed. For example: ``sun:01:00-sun:09:00`` . Cluster maintenance normally takes less than 30 minutes, and is performed automatically within the maintenance window.
@@ -598,6 +617,7 @@ class CfnClusterProps:
                 cluster_endpoint_encryption_type="clusterEndpointEncryptionType",
                 cluster_name="clusterName",
                 description="description",
+                network_type="networkType",
                 notification_topic_arn="notificationTopicArn",
                 parameter_group_name="parameterGroupName",
                 preferred_maintenance_window="preferredMaintenanceWindow",
@@ -618,6 +638,7 @@ class CfnClusterProps:
             check_type(argname="argument cluster_endpoint_encryption_type", value=cluster_endpoint_encryption_type, expected_type=type_hints["cluster_endpoint_encryption_type"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
             check_type(argname="argument notification_topic_arn", value=notification_topic_arn, expected_type=type_hints["notification_topic_arn"])
             check_type(argname="argument parameter_group_name", value=parameter_group_name, expected_type=type_hints["parameter_group_name"])
             check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
@@ -638,6 +659,8 @@ class CfnClusterProps:
             self._values["cluster_name"] = cluster_name
         if description is not None:
             self._values["description"] = description
+        if network_type is not None:
+            self._values["network_type"] = network_type
         if notification_topic_arn is not None:
             self._values["notification_topic_arn"] = notification_topic_arn
         if parameter_group_name is not None:
@@ -733,6 +756,14 @@ class CfnClusterProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-description
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dax-cluster.html#cfn-dax-cluster-networktype
+        '''
+        result = self._values.get("network_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -1314,6 +1345,7 @@ def _typecheckingstub__324ad6077b574145119496cf9145399149504cf843373d16080bbfc26
     cluster_endpoint_encryption_type: typing.Optional[builtins.str] = None,
     cluster_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
     notification_topic_arn: typing.Optional[builtins.str] = None,
     parameter_group_name: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
@@ -1379,6 +1411,12 @@ def _typecheckingstub__e936f055c9c5c8fb047e8707a99756966620342b83efe4e4d27033690
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ff7558bb38dbc4bcadee03929865e52ee37088214e910d3784cedcbfc0b496ac(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__852eb5b1ac0dc6981cbea6d3a51527ef97091db66755959ae1dc62f475cd0c3b(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -1437,6 +1475,7 @@ def _typecheckingstub__ece2ee11399f77b699021f70d8286031a08ea0aa17f1c2afcda136bb9
     cluster_endpoint_encryption_type: typing.Optional[builtins.str] = None,
     cluster_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
     notification_topic_arn: typing.Optional[builtins.str] = None,
     parameter_group_name: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,

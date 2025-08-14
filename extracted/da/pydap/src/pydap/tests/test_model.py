@@ -89,7 +89,7 @@ def test_BaseType_no_data():
     assert var.dims == []
 
 
-def test_BaseType_data_and_dimensions():
+def test_BaseType_data_and_dims():
     """Test data and dimensions assignment."""
     var = BaseType(
         "var",
@@ -104,10 +104,23 @@ def test_BaseType_data_and_dimensions():
     ]
 
 
+def test_BaseType_raiseWarning_dimensions():
+    """Test data and dimensions assignment."""
+    with pytest.warns(DeprecationWarning, match="`dimensions`"):
+        var = BaseType(
+            "var",
+            [42],
+            [
+                "x",
+            ],
+        )
+        assert var.dimensions == ("x",)
+
+
 def test_BaseType_repr():
     """Test ``__repr__`` method."""
     var = BaseType("var", 42, foo="bar")
-    assert repr(var) == "<BaseType with data array(42)>"
+    assert repr(var) == "<BaseType with data array(shape=(), dtype=int64)>"
 
 
 def test_BaseType_dtype():
@@ -720,3 +733,64 @@ def test_error_session(session):
         # test attemps to set the session object with a string type - not allowed
         with pytest.raises(TypeError):
             DatasetType("name", session=session)
+
+
+def test_DatasetType_set_parent():
+    """Tests that setting a parent within a nested Hierarchy
+        yields the right parent/child relationship.
+
+        root.
+        |-- Group1
+        |   |-- subGroup2
+        |   |   |-- var
+        |-- Group2
+
+        Check that the parent of `var` is `subGroup2`
+        and the parent of `subGroup2` is `Group1`.
+
+        Also test that for each of the dap elements, `.dataset` returns
+        the root.
+    `
+    """
+    ds = DatasetType("root")
+    ds.createVariable("root_var")
+    ds.createGroup("Group1")
+    ds.createGroup("Group2")
+    ds.createGroup("Group1/subGroup2")
+    ds.createVariable("Group1/subGroup2/var")
+    ds.assign_dataset_recursive(ds)
+
+    assert ds["Group1/subGroup2/var"].parent.id == "/Group1/subGroup2"
+    assert ds["Group1/subGroup2/var"].parent == ds["Group1/subGroup2"]
+    assert ds["Group1/subGroup2/var"].parent.parent.id == ds["/Group1"].id
+    assert ds["Group1"].parent.id == "/"
+    assert ds["Group2"].parent.id == "/"
+    assert ds["root_var"].parent == ds
+    assert ds["Group1/subGroup2/var"].dataset == ds
+
+
+def test_set_dataset():
+    """
+    Tests that the dataset is set correctly for all dap objects in the hierarchy.
+    """
+    ds = DatasetType("root")
+    ds.createGroup("Group1")
+    ds.createGroup("Group2")
+    ds.createGroup("Group1/subGroup2")
+    ds.createVariable("Group1/subGroup2/var")
+
+    ds.assign_dataset_recursive(ds)
+
+    assert ds.dataset.id == "/"
+    assert ds["Group1"].dataset.id == "/"
+    assert ds["Group1/subGroup2"].dataset.id == "/"
+    assert ds["Group1/subGroup2/var"].dataset.id == "/"
+
+
+def test_enable_batch_mode():
+    """Test that batch mode can be enabled."""
+    ds = DatasetType("root")
+    ds.enable_batch_mode()
+    assert ds.is_batch_mode() is True
+    ds.disable_batch_mode()
+    assert ds.is_batch_mode() is False

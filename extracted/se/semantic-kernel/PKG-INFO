@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.35.2
+Version: 1.35.3
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -78,7 +78,7 @@ Requires-Dist: redisvl ~= 0.4 ; extra == "redis"
 Requires-Dist: pyodbc >= 5.2 ; extra == "sql"
 Requires-Dist: usearch ~= 2.16 ; extra == "usearch"
 Requires-Dist: pyarrow >= 12.0,< 22.0 ; extra == "usearch"
-Requires-Dist: weaviate-client>=4.10,<5.0 ; extra == "weaviate"
+Requires-Dist: weaviate-client>=4.10,<5.0,!=4.16.7 ; extra == "weaviate"
 Project-URL: homepage, https://learn.microsoft.com/en-us/semantic-kernel/overview/
 Project-URL: issues, https://github.com/microsoft/semantic-kernel/issues
 Project-URL: release_notes, https://github.com/microsoft/semantic-kernel/releases?q=tag%3Apython-1&expanded=true

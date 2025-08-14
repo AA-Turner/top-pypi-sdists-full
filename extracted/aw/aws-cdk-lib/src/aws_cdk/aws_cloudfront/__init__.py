@@ -7215,7 +7215,7 @@ class CfnDistribution(
             :param http_port: The HTTP port that CloudFront uses to connect to the origin. Specify the HTTP port that the origin listens on. Default: - 80
             :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Specify the HTTPS port that the origin listens on. Default: - 443
             :param origin_keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 5 seconds. For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 5
-            :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
+            :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
             :param origin_ssl_protocols: Specifies the minimum SSL/TLS protocol that CloudFront uses when connecting to your origin over HTTPS. Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` . For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html
@@ -7321,7 +7321,7 @@ class CfnDistribution(
 
             This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds.
 
-            For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* .
+            For more information, see `Response timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* .
 
             :default: - 30
 
@@ -9940,7 +9940,7 @@ class CfnDistribution(
             :param origin_custom_headers: A list of HTTP header names and values that CloudFront adds to the requests that it sends to the origin. For more information, see `Adding Custom Headers to Origin Requests <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/add-origin-custom-headers.html>`_ in the *Amazon CloudFront Developer Guide* .
             :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. For more information, see `Origin Path <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html#DownloadDistValuesOriginPath>`_ in the *Amazon CloudFront Developer Guide* . Default: - ""
             :param origin_shield: CloudFront Origin Shield. Using Origin Shield can help reduce the load on your origin. For more information, see `Using Origin Shield <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/origin-shield.html>`_ in the *Amazon CloudFront Developer Guide* .
-            :param response_completion_timeout: 
+            :param response_completion_timeout: The time (in seconds) that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. The value for ``ResponseCompletionTimeout`` must be equal to or greater than the value for ``OriginReadTimeout`` . If you don't set a value for ``ResponseCompletionTimeout`` , CloudFront doesn't enforce a maximum value. For more information, see `Response completion timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#response-completion-timeout>`_ in the *Amazon CloudFront Developer Guide* .
             :param s3_origin_config: Use this type to specify an origin that is an Amazon S3 bucket that is not configured with static website hosting. To specify any other type of origin, including an Amazon S3 bucket that is configured with static website hosting, use the ``CustomOriginConfig`` type instead.
             :param vpc_origin_config: The VPC origin configuration.
 
@@ -10150,7 +10150,14 @@ class CfnDistribution(
 
         @builtins.property
         def response_completion_timeout(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The time (in seconds) that a request from CloudFront to the origin can stay open and wait for a response.
+
+            If the complete response isn't received from the origin by this time, CloudFront ends the connection.
+
+            The value for ``ResponseCompletionTimeout`` must be equal to or greater than the value for ``OriginReadTimeout`` . If you don't set a value for ``ResponseCompletionTimeout`` , CloudFront doesn't enforce a maximum value.
+
+            For more information, see `Response completion timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#response-completion-timeout>`_ in the *Amazon CloudFront Developer Guide* .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-origin.html#cfn-cloudfront-distribution-origin-responsecompletiontimeout
             '''
             result = self._values.get("response_completion_timeout")
@@ -10442,7 +10449,7 @@ class CfnDistribution(
             If the origin is a custom origin or an S3 bucket that is configured as a website endpoint, use the ``CustomOriginConfig`` element instead.
 
             :param origin_access_identity: .. epigraph:: If you're using origin access control (OAC) instead of origin access identity, specify an empty ``OriginAccessIdentity`` element. For more information, see `Restricting access to an AWS <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-origin.html>`_ in the *Amazon CloudFront Developer Guide* . The CloudFront origin access identity to associate with the origin. Use an origin access identity to configure the origin so that viewers can *only* access objects in an Amazon S3 bucket through CloudFront. The format of the value is: ``origin-access-identity/cloudfront/ID-of-origin-access-identity`` The ``*ID-of-origin-access-identity*`` is the value that CloudFront returned in the ``ID`` element when you created the origin access identity. If you want viewers to be able to access objects using either the CloudFront URL or the Amazon S3 URL, specify an empty ``OriginAccessIdentity`` element. To delete the origin access identity from an existing distribution, update the distribution configuration and include an empty ``OriginAccessIdentity`` element. To replace the origin access identity, update the distribution configuration and specify the new origin access identity. For more information about the origin access identity, see `Serving Private Content through CloudFront <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PrivateContent.html>`_ in the *Amazon CloudFront Developer Guide* . Default: - ""
-            :param origin_read_timeout: Default: - 30
+            :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-s3originconfig.html
             :exampleMetadata: fixture=_generated
@@ -10499,7 +10506,12 @@ class CfnDistribution(
 
         @builtins.property
         def origin_read_timeout(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''Specifies how long, in seconds, CloudFront waits for a response from the origin.
+
+            This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds.
+
+            For more information, see `Response timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* .
+
             :default: - 30
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-s3originconfig.html#cfn-cloudfront-distribution-s3originconfig-originreadtimeout
@@ -10957,7 +10969,7 @@ class CfnDistribution(
 
             :param vpc_origin_id: The VPC origin ID.
             :param origin_keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 5 seconds. For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 5
-            :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
+            :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-vpcoriginconfig.html
             :exampleMetadata: fixture=_generated
@@ -11020,7 +11032,7 @@ class CfnDistribution(
 
             This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds.
 
-            For more information, see `Response timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* .
+            For more information, see `Response timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* .
 
             :default: - 30
 

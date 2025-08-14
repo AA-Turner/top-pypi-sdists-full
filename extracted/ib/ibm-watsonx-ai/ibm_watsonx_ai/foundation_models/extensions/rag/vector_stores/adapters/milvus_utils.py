@@ -5,13 +5,12 @@
 
 from typing import Any
 
-from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
-from ibm_watsonx_ai.wml_client_error import MissingExtension
-
 from langchain_core.embeddings import Embeddings as LCEmbeddings
-
 from langchain_milvus.function import BM25BuiltInFunction
 from langchain_milvus.utils.sparse import BaseSparseEmbedding
+
+from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
+from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 __all__ = ["MilvusBM25BuiltinFunction", "MilvusSpladeEmbeddingFunction"]
 
@@ -98,7 +97,6 @@ class MilvusSpladeEmbeddingFunction(BaseSparseEmbedding, BaseEmbeddings):
     def __init__(
         self, model_name: str = "naver/splade-cocondenser-ensembledistil", **kwargs: Any
     ) -> None:
-
         try:
             from pymilvus import model
         except ImportError:

@@ -17,8 +17,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from legit_api_client.models.issue_type import IssueType
 from legit_api_client.models.severity import Severity
 from typing import Optional, Set
@@ -28,10 +28,11 @@ class BasicIssue(BaseModel):
     """
     BasicIssue
     """ # noqa: E501
-    issue_type: Optional[IssueType] = Field(default=None, alias="issueType")
-    severity: Optional[Severity] = None
-    id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["issueType", "severity", "id"]
+    issue_type: Optional[IssueType] = Field(default=None, description="The type of the issue", alias="issueType")
+    severity: Optional[Severity] = Field(default=None, description="Severity level of the issue")
+    id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the issue")
+    score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Risk score of the issue (0-100)")
+    __properties: ClassVar[List[str]] = ["issueType", "severity", "id", "score"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -77,6 +78,11 @@ class BasicIssue(BaseModel):
         if self.id is None and "id" in self.model_fields_set:
             _dict['id'] = None
 
+        # set to None if score (nullable) is None
+        # and model_fields_set contains the field
+        if self.score is None and "score" in self.model_fields_set:
+            _dict['score'] = None
+
         return _dict
 
     @classmethod
@@ -91,7 +97,8 @@ class BasicIssue(BaseModel):
         _obj = cls.model_validate({
             "issueType": obj.get("issueType"),
             "severity": obj.get("severity"),
-            "id": obj.get("id")
+            "id": obj.get("id"),
+            "score": obj.get("score")
         })
         return _obj
 

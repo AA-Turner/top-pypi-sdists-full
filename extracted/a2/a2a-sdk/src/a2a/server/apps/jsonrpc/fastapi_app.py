@@ -1,15 +1,30 @@
 import logging
 
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-from typing import Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
-from fastapi import FastAPI
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
+
+    _package_fastapi_installed = True
+else:
+    try:
+        from fastapi import FastAPI
+
+        _package_fastapi_installed = True
+    except ImportError:
+        FastAPI = Any
+
+        _package_fastapi_installed = False
 
 from a2a.server.apps.jsonrpc.jsonrpc_app import (
+    CallContextBuilder,
     JSONRPCApplication,
 )
-from a2a.types import A2ARequest
+from a2a.server.context import ServerCallContext
+from a2a.server.request_handlers.jsonrpc_handler import RequestHandler
+from a2a.types import A2ARequest, AgentCard
 from a2a.utils.constants import (
     AGENT_CARD_WELL_KNOWN_PATH,
     DEFAULT_RPC_URL,
@@ -21,6 +36,28 @@ from a2a.utils.constants import (
 logger = logging.getLogger(__name__)
 
 
+class A2AFastAPI(FastAPI):
+    """A FastAPI application that adds A2A-specific OpenAPI components."""
+
+    _a2a_components_added: bool = False
+
+    def openapi(self) -> dict[str, Any]:
+        """Generates the OpenAPI schema for the application."""
+        openapi_schema = super().openapi()
+        if not self._a2a_components_added:
+            a2a_request_schema = A2ARequest.model_json_schema(
+                ref_template='#/components/schemas/{model}'
+            )
+            defs = a2a_request_schema.pop('$defs', {})
+            component_schemas = openapi_schema.setdefault(
+                'components', {}
+            ).setdefault('schemas', {})
+            component_schemas.update(defs)
+            component_schemas['A2ARequest'] = a2a_request_schema
+            self._a2a_components_added = True
+        return openapi_schema
+
+
 class A2AFastAPIApplication(JSONRPCApplication):
     """A FastAPI application implementing the A2A protocol server endpoints.
 
@@ -28,6 +65,50 @@ class A2AFastAPIApplication(JSONRPCApplication):
     handler methods, and manages response generation including Server-Sent Events
     (SSE).
     """
+
+    def __init__(  # noqa: PLR0913
+        self,
+        agent_card: AgentCard,
+        http_handler: RequestHandler,
+        extended_agent_card: AgentCard | None = None,
+        context_builder: CallContextBuilder | None = None,
+        card_modifier: Callable[[AgentCard], AgentCard] | None = None,
+        extended_card_modifier: Callable[
+            [AgentCard, ServerCallContext], AgentCard
+        ]
+        | None = None,
+    ) -> None:
+        """Initializes the A2AFastAPIApplication.
+
+        Args:
+            agent_card: The AgentCard describing the agent's capabilities.
+            http_handler: The handler instance responsible for processing A2A
+              requests via http.
+            extended_agent_card: An optional, distinct AgentCard to be served
+              at the authenticated extended card endpoint.
+            context_builder: The CallContextBuilder used to construct the
+              ServerCallContext passed to the http_handler. If None, no
+              ServerCallContext is passed.
+            card_modifier: An optional callback to dynamically modify the public
+              agent card before it is served.
+            extended_card_modifier: An optional callback to dynamically modify
+              the extended agent card before it is served. It receives the
+              call context.
+        """
+        if not _package_fastapi_installed:
+            raise ImportError(
+                'The `fastapi` package is required to use the `A2AFastAPIApplication`.'
+                ' It can be added as a part of `a2a-sdk` optional dependencies,'
+                ' `a2a-sdk[http-server]`.'
+            )
+        super().__init__(
+            agent_card=agent_card,
+            http_handler=http_handler,
+            extended_agent_card=extended_agent_card,
+            context_builder=context_builder,
+            card_modifier=card_modifier,
+            extended_card_modifier=extended_card_modifier,
+        )
 
     def add_routes_to_app(
         self,
@@ -92,23 +173,7 @@ class A2AFastAPIApplication(JSONRPCApplication):
         Returns:
             A configured FastAPI application instance.
         """
-
-        @asynccontextmanager
-        async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-            a2a_request_schema = A2ARequest.model_json_schema(
-                ref_template='#/components/schemas/{model}'
-            )
-            defs = a2a_request_schema.pop('$defs', {})
-            openapi_schema = app.openapi()
-            component_schemas = openapi_schema.setdefault(
-                'components', {}
-            ).setdefault('schemas', {})
-            component_schemas.update(defs)
-            component_schemas['A2ARequest'] = a2a_request_schema
-
-            yield
-
-        app = FastAPI(lifespan=lifespan, **kwargs)
+        app = A2AFastAPI(**kwargs)
 
         self.add_routes_to_app(
             app, agent_card_url, rpc_url, extended_agent_card_url

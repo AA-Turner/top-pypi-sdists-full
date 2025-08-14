@@ -4,25 +4,23 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-import copy
-from enum import Enum
 
+import copy
 import logging
+from enum import Enum
 from typing import Any, Optional
 
-from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_store import (
-    BaseVectorStore,
-)
-
-from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
-    LangChainVectorStoreAdapter,
-)
+from langchain_core.vectorstores import VectorStore as LangChainVectorStore
 
 from ibm_watsonx_ai.foundation_models.extensions.rag.utils.utils import (
     save_ssl_certificate_as_file,
 )
-
-from langchain_core.vectorstores import VectorStore as LangChainVectorStore
+from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_store import (
+    BaseVectorStore,
+)
+from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
+    LangChainVectorStoreAdapter,
+)
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 logger = logging.getLogger(__name__)
@@ -146,6 +144,7 @@ class VectorStoreConnector:
         """
         try:
             from langchain_chroma import Chroma
+
             from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.chroma_adapter import (
                 ChromaVectorStore,
             )
@@ -194,13 +193,14 @@ class VectorStoreConnector:
         :rtype: LangChainVectorStoreAdapter
         """
 
+        from langchain_milvus import Milvus
+
         from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.milvus_adapter import (
             MilvusVectorStore,
         )
         from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.milvus_utils import (
             DEFAULT_INDEX_PARAM,
         )
-        from langchain_milvus import Milvus
 
         parsed_params = self._get_milvus_connection_params()
         parsed_params.pop("datasource_type", None)
@@ -296,12 +296,13 @@ class VectorStoreConnector:
         """
         try:
             from langchain_elasticsearch import (
-                ElasticsearchStore,
-                SparseVectorStrategy,
                 DenseVectorScriptScoreStrategy,
-                RetrievalStrategy,
                 DistanceMetric,
+                ElasticsearchStore,
+                RetrievalStrategy,
+                SparseVectorStrategy,
             )
+
             from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.es_adapter import (
                 ElasticsearchVectorStore,
             )
@@ -440,6 +441,7 @@ class VectorStoreConnector:
         try:
             from langchain_db2 import DB2VS
             from langchain_db2.db2vs import DistanceStrategy
+
             from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.db2_adapter import (
                 DB2VectorStore,
             )
@@ -496,8 +498,11 @@ class VectorStoreConnector:
             parsed_params["connection_args"] = {}
 
         # Connection 'ssl' is 'security' in DB2
-        if "ssl" in parsed_params:
-            parsed_params["security"] = parsed_params.pop("ssl")
+        ssl_flag = parsed_params.pop("ssl", None)
+        if ssl_flag is True or (
+            isinstance(ssl_flag, str) and ssl_flag.strip().lower() == "true"
+        ):
+            parsed_params["security"] = "ssl"
 
         # Move each param that was in parsed_params to connection_args if we expect it here
         for param in [

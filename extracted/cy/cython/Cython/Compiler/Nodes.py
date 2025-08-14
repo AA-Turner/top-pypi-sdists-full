@@ -9029,7 +9029,7 @@ class CriticalSectionStatNode(TryFinallyStatNode):
 
     def generate_execution_code(self, code):
         code.globalstate.use_utility_code(
-            UtilityCode.load_cached("CriticalSections", "ModuleSetupCode.c"))
+            UtilityCode.load_cached("CriticalSections", "Synchronization.c"))
 
         code.mark_pos(self.pos)
         code.begin_block()
@@ -9149,14 +9149,6 @@ class CythonLockStatNode(TryFinallyStatNode):
         body = self.body
         if isinstance(body, StatListNode) and len(body.stats) >= 1:
             body = body.stats[0]
-        if isinstance(body, GILStatNode) and body.state == "gil":
-            # Only warn about the initial and most obvious mistake (directly nesting the loops)
-            type_name = self.arg.type.empty_declaration_code(pyrex=True).strip()
-            warning(
-                body.pos,
-                f"Acquiring the GIL inside a {type_name} lock. "
-                "To avoid potential deadlocks acquire the GIL first.",
-                2)
         return super().analyse_expressions(env)
 
     def generate_execution_code(self, code):
@@ -9841,7 +9833,7 @@ class ParallelStatNode(StatNode, ParallelNode):
                     c.globalstate.use_utility_code(
                         UtilityCode.load_cached(
                             "SharedInFreeThreading",
-                            "ModuleSetupCode.c"))
+                            "Synchronization.c"))
                     c.put(f" __Pyx_shared_in_cpython_freethreading({Naming.parallel_freethreading_mutex})")
                     c.put(" private(%s, %s, %s)" % self.pos_info)
 

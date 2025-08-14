@@ -183,7 +183,7 @@ class VaspErrorHandler(ErrorHandler):
         incar = Incar.from_file(os.path.join(directory, "INCAR"))
         self.errors = set()
         error_msgs = set()
-        with zopen(os.path.join(directory, self.output_filename), mode="rt") as file:
+        with zopen(os.path.join(directory, self.output_filename), mode="rt", encoding="utf-8") as file:
             text = file.read()
 
             # Check for errors
@@ -556,8 +556,10 @@ class VaspErrorHandler(ErrorHandler):
             if vi["INCAR"].get("ALGO", "Normal").lower() in {"fast", "veryfast"}:
                 actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
             else:
-                potim = round(vi["INCAR"].get("POTIM", 0.5) / 2.0, 2)
-                actions.append({"dict": "INCAR", "action": {"_set": {"POTIM": potim}}})
+                current_potim = vi["INCAR"].get("POTIM", 0.5)
+                if (potim := round(current_potim / 2.0, 2)) < current_potim:
+                    actions.append({"dict": "INCAR", "action": {"_set": {"POTIM": potim}}})
+
             if vi["INCAR"].get("ICHARG", 0) < 10:
                 actions += [
                     {"file": "CHGCAR", "action": {"_file_delete": {"mode": "actual"}}},

@@ -4,21 +4,24 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-import sys
-import ssl
 import ast
 import base64
-import pandas as pd
 import logging
+import ssl
+import sys
 import tempfile
-from typing import TYPE_CHECKING, cast, Any, Callable
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
-from ibm_watsonx_ai.wml_client_error import MissingValue, UnexpectedKeyWordArgument
+from typing import TYPE_CHECKING, Any, Callable, cast
+
+import pandas as pd
+
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema
+from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 from ibm_watsonx_ai.utils.utils import _get_default_args
+from ibm_watsonx_ai.wml_client_error import MissingValue, UnexpectedKeyWordArgument
 
 if TYPE_CHECKING:
     from langchain_core.documents import Document
+
     from ibm_watsonx_ai.foundation_models import ModelInference
 
 logger = logging.getLogger(__name__)
@@ -50,7 +53,7 @@ def verbose_search(
     documents = cast(list[Document], documents)
     if "ipykernel" in sys.modules:
         try:
-            from IPython.display import display, Markdown
+            from IPython.display import Markdown, display
         except ImportError:
             raise ImportError(
                 "To use verbose search, please install make sure IPython package is installed."
@@ -263,7 +266,11 @@ class FunctionTransformer(ast.NodeTransformer):
                                         attr="from_dict",
                                         ctx=ast.Load(),
                                     ),
-                                    args=[ast.parse(str(el), filename="tmp", mode="exec").body[0].value],  # type: ignore[attr-defined]
+                                    args=[
+                                        ast.parse(str(el), filename="tmp", mode="exec")  # type: ignore[attr-defined]
+                                        .body[0]
+                                        .value
+                                    ],
                                     keywords=[],
                                 )
                                 for el in self.args_to_replace[node.value.id]

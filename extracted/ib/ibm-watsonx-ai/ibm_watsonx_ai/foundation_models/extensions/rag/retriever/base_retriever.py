@@ -6,6 +6,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Any
+
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_store import (
     BaseVectorStore,
 )

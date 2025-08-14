@@ -4,27 +4,30 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-import json
 
+import json
 from typing import TYPE_CHECKING
-from urllib.parse import unquote, quote
+from urllib.parse import quote, unquote
 from warnings import warn
-from cachetools import cached, TTLCache
+
+from cachetools import TTLCache, cached
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import ConnectionMetaNames
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    UnsupportedOperation,
     ApiRequestFailure,
+    UnsupportedOperation,
+    WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from collections.abc import Iterable
+
     import pandas as pd
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Connections(WMLResource):
@@ -37,7 +40,6 @@ class Connections(WMLResource):
         WMLResource.__init__(self, __name__, client)
 
     def _get_required_element_from_response(self, response_data: dict) -> dict:
-
         WMLResource._validate_type(response_data, "connection_response", dict)
 
         new_el = {
@@ -67,7 +69,7 @@ class Connections(WMLResource):
             },
         }
 
-        for el in ["description", "origin_country", "owner_id", "properties"]:
+        for el in ["description", "origin_country", "owner_id", "properties", "flags"]:
             if el in response_data["entity"]:
                 new_el["entity"][el] = response_data["entity"].get(el)
 
@@ -509,7 +511,7 @@ class Connections(WMLResource):
             if not self.get_uploaded_db_drivers():
                 raise Exception("List empty for new api")
             table = self._list_uploaded_db_drivers_new_api()
-        except:
+        except Exception:
             response = requests.get(
                 self._client._href_definitions.get_wsd_model_attachment_href()
                 + "dbdrivers",
@@ -675,8 +677,7 @@ class Connections(WMLResource):
 
         """
         get_datasource_type_uid_deprecation_warning = (
-            "This method is deprecated, "
-            "please use get_datasource_type_id_by_name(name)"
+            "This method is deprecated, please use get_datasource_type_id_by_name(name)"
         )
         warn(get_datasource_type_uid_deprecation_warning, category=DeprecationWarning)
 
@@ -756,7 +757,7 @@ class Connections(WMLResource):
 
         try:
             self._upload_db_driver_new_api(path)
-        except:
+        except Exception:
             driver_file_name = path.split("/")[-1]
 
             with open(path, "rb") as fdata:
@@ -857,7 +858,7 @@ class Connections(WMLResource):
             return self.get_uploaded_db_drivers()[name]
         except WMLClientError as e:
             raise e
-        except:
+        except Exception:
             raise WMLClientError(f"Driver jar with name {name} not found.")
 
     def sign_db_driver_url(self, jar_name: str) -> str:
@@ -881,7 +882,7 @@ class Connections(WMLResource):
         try:
             res = self.get_db_driver_url(jar_name)
             return res
-        except:
+        except Exception:
             if not self._client.ICP_PLATFORM_SPACES:
                 raise UnsupportedOperation(
                     "Get signed db driver jar url db driver is supported only  IBM Cloud Pak® for Data only, version 4.0.4 and later."

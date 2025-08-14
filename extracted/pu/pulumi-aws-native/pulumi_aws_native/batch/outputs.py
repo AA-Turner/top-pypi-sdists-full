@@ -74,8 +74,10 @@ __all__ = [
     'JobDefinitionVolume',
     'JobQueueComputeEnvironmentOrder',
     'JobQueueJobStateTimeLimitAction',
+    'JobQueueServiceEnvironmentOrder',
     'SchedulingPolicyFairsharePolicy',
     'SchedulingPolicyShareAttributes',
+    'ServiceEnvironmentCapacityLimit',
 ]
 
 @pulumi.output_type
@@ -4331,10 +4333,10 @@ class JobDefinitionRuntimePlatform(dict):
         """
         :param builtins.str cpu_architecture: The vCPU architecture. The default value is `X86_64` . Valid values are `X86_64` and `ARM64` .
                
-               > This parameter must be set to `X86_64` for Windows containers. > Fargate Spot is not supported for `ARM64` and Windows-based containers on Fargate. A job queue will be blocked if a Fargate `ARM64` or Windows job is submitted to a job queue with only Fargate Spot compute environments. However, you can attach both `FARGATE` and `FARGATE_SPOT` compute environments to the same job queue.
+               > This parameter must be set to `X86_64` for Windows containers. > Fargate Spot is not supported on Windows-based containers on Fargate. A job queue will be blocked if a Windows job is submitted to a job queue with only Fargate Spot compute environments. However, you can attach both `FARGATE` and `FARGATE_SPOT` compute environments to the same job queue.
         :param builtins.str operating_system_family: The operating system for the compute environment. Valid values are: `LINUX` (default), `WINDOWS_SERVER_2019_CORE` , `WINDOWS_SERVER_2019_FULL` , `WINDOWS_SERVER_2022_CORE` , and `WINDOWS_SERVER_2022_FULL` .
                
-               > The following parameters can’t be set for Windows containers: `linuxParameters` , `privileged` , `user` , `ulimits` , `readonlyRootFilesystem` , and `efsVolumeConfiguration` . > The AWS Batch Scheduler checks the compute environments that are attached to the job queue before registering a task definition with Fargate. In this scenario, the job queue is where the job is submitted. If the job requires a Windows container and the first compute environment is `LINUX` , the compute environment is skipped and the next compute environment is checked until a Windows-based compute environment is found. > Fargate Spot is not supported for `ARM64` and Windows-based containers on Fargate. A job queue will be blocked if a Fargate `ARM64` or Windows job is submitted to a job queue with only Fargate Spot compute environments. However, you can attach both `FARGATE` and `FARGATE_SPOT` compute environments to the same job queue.
+               > The following parameters can’t be set for Windows containers: `linuxParameters` , `privileged` , `user` , `ulimits` , `readonlyRootFilesystem` , and `efsVolumeConfiguration` . > The AWS Batch Scheduler checks the compute environments that are attached to the job queue before registering a task definition with Fargate. In this scenario, the job queue is where the job is submitted. If the job requires a Windows container and the first compute environment is `LINUX` , the compute environment is skipped and the next compute environment is checked until a Windows-based compute environment is found. > Fargate Spot is not supported on Windows-based containers on Fargate. A job queue will be blocked if a Windows job is submitted to a job queue with only Fargate Spot compute environments. However, you can attach both `FARGATE` and `FARGATE_SPOT` compute environments to the same job queue.
         """
         if cpu_architecture is not None:
             pulumi.set(__self__, "cpu_architecture", cpu_architecture)
@@ -4347,7 +4349,7 @@ class JobDefinitionRuntimePlatform(dict):
         """
         The vCPU architecture. The default value is `X86_64` . Valid values are `X86_64` and `ARM64` .
 
-        > This parameter must be set to `X86_64` for Windows containers. > Fargate Spot is not supported for `ARM64` and Windows-based containers on Fargate. A job queue will be blocked if a Fargate `ARM64` or Windows job is submitted to a job queue with only Fargate Spot compute environments. However, you can attach both `FARGATE` and `FARGATE_SPOT` compute environments to the same job queue.
+        > This parameter must be set to `X86_64` for Windows containers. > Fargate Spot is not supported on Windows-based containers on Fargate. A job queue will be blocked if a Windows job is submitted to a job queue with only Fargate Spot compute environments. However, you can attach both `FARGATE` and `FARGATE_SPOT` compute environments to the same job queue.
         """
         return pulumi.get(self, "cpu_architecture")
 
@@ -4357,7 +4359,7 @@ class JobDefinitionRuntimePlatform(dict):
         """
         The operating system for the compute environment. Valid values are: `LINUX` (default), `WINDOWS_SERVER_2019_CORE` , `WINDOWS_SERVER_2019_FULL` , `WINDOWS_SERVER_2022_CORE` , and `WINDOWS_SERVER_2022_FULL` .
 
-        > The following parameters can’t be set for Windows containers: `linuxParameters` , `privileged` , `user` , `ulimits` , `readonlyRootFilesystem` , and `efsVolumeConfiguration` . > The AWS Batch Scheduler checks the compute environments that are attached to the job queue before registering a task definition with Fargate. In this scenario, the job queue is where the job is submitted. If the job requires a Windows container and the first compute environment is `LINUX` , the compute environment is skipped and the next compute environment is checked until a Windows-based compute environment is found. > Fargate Spot is not supported for `ARM64` and Windows-based containers on Fargate. A job queue will be blocked if a Fargate `ARM64` or Windows job is submitted to a job queue with only Fargate Spot compute environments. However, you can attach both `FARGATE` and `FARGATE_SPOT` compute environments to the same job queue.
+        > The following parameters can’t be set for Windows containers: `linuxParameters` , `privileged` , `user` , `ulimits` , `readonlyRootFilesystem` , and `efsVolumeConfiguration` . > The AWS Batch Scheduler checks the compute environments that are attached to the job queue before registering a task definition with Fargate. In this scenario, the job queue is where the job is submitted. If the job requires a Windows container and the first compute environment is `LINUX` , the compute environment is skipped and the next compute environment is checked until a Windows-based compute environment is found. > Fargate Spot is not supported on Windows-based containers on Fargate. A job queue will be blocked if a Windows job is submitted to a job queue with only Fargate Spot compute environments. However, you can attach both `FARGATE` and `FARGATE_SPOT` compute environments to the same job queue.
         """
         return pulumi.get(self, "operating_system_family")
 
@@ -5117,6 +5119,52 @@ class JobQueueJobStateTimeLimitAction(dict):
 
 
 @pulumi.output_type
+class JobQueueServiceEnvironmentOrder(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "serviceEnvironment":
+            suggest = "service_environment"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in JobQueueServiceEnvironmentOrder. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        JobQueueServiceEnvironmentOrder.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        JobQueueServiceEnvironmentOrder.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 order: builtins.int,
+                 service_environment: builtins.str):
+        """
+        :param builtins.int order: The order of the service environment. Job queues with a higher priority are evaluated first when associated with the same service environment.
+        :param builtins.str service_environment: The name or ARN of the service environment.
+        """
+        pulumi.set(__self__, "order", order)
+        pulumi.set(__self__, "service_environment", service_environment)
+
+    @property
+    @pulumi.getter
+    def order(self) -> builtins.int:
+        """
+        The order of the service environment. Job queues with a higher priority are evaluated first when associated with the same service environment.
+        """
+        return pulumi.get(self, "order")
+
+    @property
+    @pulumi.getter(name="serviceEnvironment")
+    def service_environment(self) -> builtins.str:
+        """
+        The name or ARN of the service environment.
+        """
+        return pulumi.get(self, "service_environment")
+
+
+@pulumi.output_type
 class SchedulingPolicyFairsharePolicy(dict):
     """
     Fair Share Policy for the Job Queue.
@@ -5260,5 +5308,45 @@ class SchedulingPolicyShareAttributes(dict):
         The smallest supported value is 0.0001, and the largest supported value is 999.9999.
         """
         return pulumi.get(self, "weight_factor")
+
+
+@pulumi.output_type
+class ServiceEnvironmentCapacityLimit(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "capacityUnit":
+            suggest = "capacity_unit"
+        elif key == "maxCapacity":
+            suggest = "max_capacity"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ServiceEnvironmentCapacityLimit. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ServiceEnvironmentCapacityLimit.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ServiceEnvironmentCapacityLimit.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 capacity_unit: Optional[builtins.str] = None,
+                 max_capacity: Optional[builtins.int] = None):
+        if capacity_unit is not None:
+            pulumi.set(__self__, "capacity_unit", capacity_unit)
+        if max_capacity is not None:
+            pulumi.set(__self__, "max_capacity", max_capacity)
+
+    @property
+    @pulumi.getter(name="capacityUnit")
+    def capacity_unit(self) -> Optional[builtins.str]:
+        return pulumi.get(self, "capacity_unit")
+
+    @property
+    @pulumi.getter(name="maxCapacity")
+    def max_capacity(self) -> Optional[builtins.int]:
+        return pulumi.get(self, "max_capacity")
 
 

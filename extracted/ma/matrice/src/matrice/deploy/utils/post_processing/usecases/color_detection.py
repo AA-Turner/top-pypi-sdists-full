@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import tempfile
 import os
 import cv2
+import copy
 import numpy as np
 from collections import defaultdict
 import time
@@ -34,9 +35,16 @@ class ColorDetectionConfig(BaseConfig):
     confidence_threshold: float = 0.5
     top_k_colors: int = 3
     frame_skip: int = 1
-    target_categories: Optional[List[str]] = field(default_factory=lambda: [
-        "person", "people", "car", "cars", "truck", "trucks", "motorcycle", "motorcycles", "vehicle", "vehicles", "bus", "bicycle"
-    ])
+    usecase_categories: List[str] = field(
+        default_factory=lambda: [
+            "bicycle", "car", "motorbike", "auto rickshaw", "bus", "garbagevan",
+            "truck", "minibus", "army vehicle", "pickup", "policecar", "rickshaw",
+            "scooter", "suv", "taxi", "three wheelers -CNG-", "human hauler", "van", "wheelbarrow"
+        ]
+    )
+    target_categories: List[str] = field(
+        default_factory=lambda: ['car', 'bicycle', 'bus', 'garbagevan', 'truck', 'motorbike', 'van']
+    )
     fps: Optional[float] = None
     bbox_format: str = "auto"
     index_to_category: Optional[Dict[int, str]] = None
@@ -50,6 +58,30 @@ class ColorDetectionConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
+    index_to_category: Optional[Dict[int, str]] = field(
+        default_factory=lambda: {
+                0: "ambulance",
+                1: "army vehicle",
+                2: "car",
+                3: "bicycle",
+                4: "bus",
+                5: "auto rickshaw",
+                6: "garbagevan",
+                7: "truck",
+                8: "minibus",
+                9: "minivan",
+                10: "motorbike",
+                11: "pickup",
+                12: "policecar",
+                13: "rickshaw",
+                14: "scooter",
+                15: "suv",
+                16: "taxi",
+                17: "three wheelers -CNG-",
+                18: "human hauler",
+                19: "van",
+                20: "wheelbarrow"
+            })
 
     def validate(self) -> List[str]:
         """Validate configuration parameters."""
@@ -73,16 +105,41 @@ class ColorDetectionConfig(BaseConfig):
 
 class ColorDetectionUseCase(BaseProcessor):
     """Color detection processor for analyzing object colors in video streams with tracking."""
+    CATEGORY_DISPLAY = {
+        "bicycle": "Bicycle", "car": "Car", "motorbike": "Motorbike", "auto rickshaw": "Auto Rickshaw",
+        "bus": "Bus", "garbagevan": "Garbage Van", "truck": "Truck", "minibus": "Minibus",
+        "army vehicle": "Army Vehicle", "pickup": "Pickup", "policecar": "Police Car",
+        "rickshaw": "Rickshaw", "scooter": "Scooter", "suv": "SUV", "taxi": "Taxi",
+        "three wheelers -CNG-": "Three Wheelers (CNG)", "human hauler": "Human Hauler",
+        "van": "Van", "wheelbarrow": "Wheelbarrow"
+    }
     
     def __init__(self):
         super().__init__("color_detection")
         self.category = "visual_appearance"
+        
+        self.target_categories = ['car', 'bicycle', 'bus', 'garbagevan', 'truck', 'motorbike', 'van']
+        
+        self.CASE_TYPE: Optional[str] = 'color_detection'
+        self.CASE_VERSION: Optional[str] = '1.3'
+        
         self.tracker = None  # AdvancedTracker instance
         self.smoothing_tracker = None  # BBoxSmoothingTracker instance
         self._total_frame_counter = 0  # Total frames processed
         self._global_frame_offset = 0  # Frame offset for new sessions
-        self._color_total_track_ids = {}  # Cumulative track IDs per category and color
-        self._color_current_frame_track_ids = {}  # Per-frame track IDs per category and color
+        self._color_total_track_ids = defaultdict(set)  # Cumulative track IDs per category-color
+        self._color_current_frame_track_ids = defaultdict(set)  # Per-frame track IDs per category-color
+        
+        self._tracking_start_time = None
+        
+        self._track_aliases: Dict[Any, Any] = {}
+        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
+        # Tunable parameters – adjust if necessary for specific scenarios
+        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 →
+        self._track_merge_time_window: float = 7.0  # seconds within which to merge
+
+        self._ascending_alert_list: List[int] = []
+        self.current_incident_end_timestamp: str = "N/A"
 
     def reset_tracker(self) -> None:
         """Reset the advanced tracker instance."""
@@ -92,8 +149,8 @@ class ColorDetectionUseCase(BaseProcessor):
 
     def reset_color_tracking(self) -> None:
         """Reset color tracking state."""
-        self._color_total_track_ids = {}
-        self._color_current_frame_track_ids = {}
+        self._color_total_track_ids = defaultdict(set)
+        self._color_current_frame_track_ids = defaultdict(set)
         self._total_frame_counter = 0
         self._global_frame_offset = 0
         self.logger.info("Color tracking state reset")
@@ -192,20 +249,55 @@ class ColorDetectionUseCase(BaseProcessor):
     
     def _update_color_tracking_state(self, detections: List[Dict]):
         """Track unique track_ids per category and color for total count."""
-        self._color_total_track_ids = getattr(self, '_color_total_track_ids', defaultdict(set))
+        # Ensure storage is a defaultdict(set) to allow safe .add()
+        existing_store = getattr(self, '_color_total_track_ids', None)
+        if not isinstance(existing_store, defaultdict):
+            existing_store = {} if existing_store is None else dict(existing_store)
+            self._color_total_track_ids = defaultdict(set, existing_store)
+        else:
+            self._color_total_track_ids = existing_store
         self._color_current_frame_track_ids = defaultdict(set)
         for det in detections:
             cat = det.get('category')
             color = det.get('main_color')
             track_id = det.get('track_id')
-            if cat and color and track_id is not None:
-                key = f"{cat}:{color}"  # Unique key for category-color pair
+            if cat and track_id is not None:
+                # If color not yet computed at this stage, fall back to category-only key
+                key = f"{cat}:{color}" if color else cat
                 self._color_total_track_ids[key].add(track_id)
                 self._color_current_frame_track_ids[key].add(track_id)
 
     def get_total_color_counts(self):
-        """Return total unique track_id count for each category-color pair."""
-        return {key: len(ids) for key, ids in getattr(self, '_color_total_track_ids', {}).items()}
+        """Return total unique track_id count per color (across all categories)."""
+        store = getattr(self, '_color_total_track_ids', {})
+        if not isinstance(store, dict):
+            return {}
+        color_to_ids = defaultdict(set)
+        for key, id_set in store.items():
+            if isinstance(key, str) and ':' in key:
+                _, color = key.split(':', 1)
+            else:
+                color = None
+            # Support both set and iterable
+            ids = id_set if isinstance(id_set, set) else set(id_set or [])
+            if color:
+                color_to_ids[color].update(ids)
+        return {color: len(ids) for color, ids in color_to_ids.items()}
+
+    def get_total_category_counts(self):
+        """Return total unique track_id count per category (across all colors)."""
+        store = getattr(self, '_color_total_track_ids', {})
+        if not isinstance(store, dict):
+            return {}
+        category_to_ids = defaultdict(set)
+        for key, id_set in store.items():
+            if isinstance(key, str) and ':' in key:
+                cat, _ = key.split(':', 1)
+            else:
+                cat = key
+            ids = id_set if isinstance(id_set, set) else set(id_set or [])
+            category_to_ids[cat].update(ids)
+        return {cat: len(ids) for cat, ids in category_to_ids.items()}
 
     def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
         """Get detailed information about track IDs for color detections (per frame)."""
@@ -274,11 +366,19 @@ class ColorDetectionUseCase(BaseProcessor):
             if config.index_to_category:
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
                 self.logger.debug("Applied category mapping")
+
+            if config.target_categories:
+                color_processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
+                self.logger.debug("Applied category filtering")
+                print("-------------------COLOR_PROCESSED_DATA-------------------")
+                print(color_processed_data)
+                print("-------------------COLOR_PROCESSED_DATA-------------------")
             
             # Step 2.5: Filter to only include target categories
-            color_processed_data = filter_by_categories(processed_data.copy(), config.target_categories)
-            self.logger.debug(f"Applied target category filtering for: {config.target_categories}")
+            # color_processed_data = filter_by_categories(processed_data.copy(), config.target_categories)
+            # self.logger.debug(f"Applied target category filtering for: {config.target_categories}")
             
+            raw_processed_data = [copy.deepcopy(det) for det in color_processed_data]
             # Step 3: Apply bounding box smoothing if enabled
             # if config.enable_smoothing:
             #     if self.smoothing_tracker is None:
@@ -313,6 +413,7 @@ class ColorDetectionUseCase(BaseProcessor):
             
             # Step 6: Update tracking state
             self._update_color_tracking_state(color_processed_data)
+            color_processed_data = self._attach_masks_to_detections(color_processed_data, raw_processed_data)
             self._total_frame_counter += 1
             
             frame_number = None
@@ -330,15 +431,35 @@ class ColorDetectionUseCase(BaseProcessor):
                 input_bytes, 
                 config
             )
+            print("-------------------COLOR_ANALYSIS-------------------")
+            print(color_analysis)
+            print("-------------------COLOR_ANALYSIS-------------------")
             
             # Step 8: Calculate summaries
+            # After color extraction, update cumulative color-aware tracking totals
+            self._update_color_tracking_state_from_analysis(color_analysis)
             color_summary = self._calculate_color_summary(color_analysis, config)
-            general_summary = self._calculate_general_summary(processed_data, config)
-            color_summary['total_color_counts'] = self.get_total_color_counts()
+            # Ensure total_color_counts is populated even on first frame/session
+            totals = self.get_total_color_counts()
+            if not totals:
+                tmp = defaultdict(set)
+                for rec in color_analysis:
+                    color = rec.get('main_color')
+                    tid = rec.get('track_id') or rec.get('detection_id')
+                    if color and tid is not None:
+                        tmp[color].add(tid)
+                totals = {color: len(ids) for color, ids in tmp.items()}
+            # Also compute total per-category counts
+            total_category_counts = self.get_total_category_counts()
             
+            general_summary = self._calculate_general_summary(processed_data, config)
+            color_summary['total_color_counts'] = totals
+            color_summary['total_category_counts'] = total_category_counts
+            print("-------------------COLOR_SUMMARY-------------------")
+            print(color_summary)
+            print("-------------------COLOR_SUMMARY-------------------")
             # Step 9: Generate insights and alerts
-            insights = self._generate_insights(color_summary, config)
-            alerts = self._check_alerts(color_summary, config)
+            # insights = self._generate_insights(color_summary, config)
             
             # Step 10: Calculate metrics
             metrics = self._calculate_metrics(color_analysis, color_summary, config, context)
@@ -347,44 +468,52 @@ class ColorDetectionUseCase(BaseProcessor):
             predictions = self._extract_predictions(color_analysis, config)
             
             # Step 12: Generate human-readable summary
-            summary = self._generate_summary(color_summary, general_summary, alerts)
+            
             
             # Step 13: Generate structured events and tracking stats
             # frame_number = None  # Extract from input_bytes or data if available
-            events_list = self._generate_events(color_summary, alerts, config, frame_number)
-            tracking_stats_list = self._generate_tracking_stats(color_summary, insights, summary, config, frame_number)
+            alerts = self._check_alerts(color_summary,frame_number, config)
+            print("-------------------ALERTS-------------------")
+            print(alerts)
+            print("-------------------ALERTS-------------------")
+            incidents_list = self._generate_incidents(color_summary, alerts, config, frame_number, stream_info)
+            print("-------------------INCIDENTS_LIST-------------------")
+            print(incidents_list)
+            print("-------------------INCIDENTS_LIST-------------------")
+            # events_list = self._generate_events(color_summary, alerts, config, frame_number)
+            tracking_stats_list = self._generate_tracking_stats(color_summary, alerts, config, frame_number,stream_info)
+            print("-------------------TRACKING_STATS_LIST-------------------")
+            print(tracking_stats_list)
+            print("-------------------TRACKING_STATS_LIST-------------------")
+            business_analytics_list = []
+            summary_list = self._generate_summary(color_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
+            print("-------------------SUMMARY_LIST-------------------")
+            print(summary_list)
+            print("-------------------SUMMARY_LIST-------------------")
             
-            events = events_list[0] if events_list else {}
+            incidents = incidents_list[0] if incidents_list else {}
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
-            
+            business_analytics = business_analytics_list[0] if business_analytics_list else {}
+            summary = summary_list[0] if summary_list else {}
+            agg_summary = {str(frame_number): {
+                            "incidents": incidents,
+                            "tracking_stats": tracking_stats,
+                            "business_analytics": business_analytics,
+                            "alerts": alerts,
+                            "human_text": summary}
+                        }
+        
             context.mark_completed()
-            
+
+            # Build result object following the new pattern
+
             result = self.create_result(
-                data={
-                    "color_analysis": color_analysis,
-                    "color_summary": color_summary,
-                    "general_summary": general_summary,
-                    "alerts": alerts,
-                    "total_detections": len(color_analysis),
-                    "unique_colors": len(color_summary.get("color_distribution", {})),
-                    "events": events,
-                    "tracking_stats": tracking_stats
-                },
+                data={"agg_summary": agg_summary},
                 usecase=self.name,
                 category=self.category,
                 context=context
             )
             
-            result.summary = summary
-            result.insights = insights
-            result.predictions = predictions
-            result.metrics = metrics
-            
-            if config.confidence_threshold and config.confidence_threshold < 0.3:
-                result.add_warning(f"Low confidence threshold ({config.confidence_threshold}) may result in false positives")
-            
-            processing_time = context.processing_time or time.time() - start_time
-            self.logger.info(f"Color detection completed successfully in {processing_time:.2f}s")
             return result
             
         except Exception as e:
@@ -414,6 +543,25 @@ class ColorDetectionUseCase(BaseProcessor):
             return self._analyze_colors_in_video(data, media_bytes, config)
         else:
             return self._analyze_colors_in_image(data, media_bytes, config)
+
+    def _update_color_tracking_state_from_analysis(self, color_analysis: List[Dict[str, Any]]) -> None:
+        """Update total tracking store using analyzed color results.
+        Ensures totals are populated even if pre-analysis detections lacked colors/track_ids."""
+        existing_store = getattr(self, '_color_total_track_ids', None)
+        if not isinstance(existing_store, defaultdict):
+            existing_store = {} if existing_store is None else dict(existing_store)
+            self._color_total_track_ids = defaultdict(set, existing_store)
+        else:
+            self._color_total_track_ids = existing_store
+        for rec in color_analysis:
+            cat = rec.get('category')
+            color = rec.get('main_color')
+            track_id = rec.get('track_id')
+            if track_id is None:
+                track_id = rec.get('detection_id')
+            if cat and track_id is not None:
+                key = f"{cat}:{color}" if color else cat
+                self._color_total_track_ids[key].add(track_id)
     
     def _is_video_bytes(self, media_bytes: bytes) -> bool:
         """Determine if bytes represent a video file."""
@@ -596,11 +744,12 @@ class ColorDetectionUseCase(BaseProcessor):
         category_colors = defaultdict(lambda: defaultdict(int))
         total_detections = len(color_analysis)
         detections = []
-
+        counts = {}
         for record in color_analysis:
             category = record["category"]
             main_color = record["main_color"]
             category_colors[category][main_color] += 1
+            counts[category] = counts.get(category, 0) + 1
             detections.append({
                 "bounding_box": record["bbox"],
                 "category": record["category"],
@@ -609,29 +758,44 @@ class ColorDetectionUseCase(BaseProcessor):
                 "frame_id": record["frame_id"],
                 "main_color": record["main_color"]
             })
-
+        print("-------------------category_colors-------------------")
+        print(category_colors)
+        print("-------------------category_colors-------------------")
+            
+        self.logger.debug(f"Valid detections after filtering: {len(detections)}")
         summary = {
-            "total_detections": total_detections,
-            "categories": dict(category_colors),
-            "color_distribution": {},
+            "total_count": sum(counts.values()),
+            "per_category_count": counts,
+            "detections": detections,
             "dominant_colors": {},
-            "detections": detections
         }
+        print("-------------------summary-------------------")
+        print(summary)
+        print("-------------------summary-------------------")
 
         all_colors = defaultdict(int)
         for category_data in category_colors.values():
             for color, count in category_data.items():
                 all_colors[color] += count
         summary["color_distribution"] = dict(all_colors)
+        print("-------------------summary1-------------------")
+        print(summary)
+        print("-------------------summary1-------------------")
 
         for category, colors in category_colors.items():
             if colors:
-                dominant_color = max(colors.items(), key=lambda x: x[1])
-                summary["dominant_colors"][category] = {
-                    "color": dominant_color[0],
-                    "count": dominant_color[1],
-                    "percentage": round((dominant_color[1] / sum(colors.values())) * 100, 1)
-                }
+                if "dominant_colors" not in summary:
+                    summary["dominant_colors"] = {}
+                else:
+                    dominant_color = max(colors.items(), key=lambda x: x[1])
+                    summary["dominant_colors"][category] = {
+                        "color": dominant_color[0],
+                        "count": dominant_color[1],
+                        "percentage": round((dominant_color[1] / sum(colors.values())) * 100, 1)
+                    }
+        print("-------------------summary2-------------------")
+        print(summary)
+        print("-------------------summary2-------------------")
 
         return summary
         
@@ -665,83 +829,7 @@ class ColorDetectionUseCase(BaseProcessor):
             "categories_detected": list(category_counts.keys())
         }
         
-    def _generate_insights(self, color_summary: Dict, config: ColorDetectionConfig) -> List[str]:
-        """Generate insights from color analysis."""
-        insights = []
-
-        total_detections = color_summary.get("total_detections", 0)
-        if total_detections == 0:
-            insights.append("No objects detected for color analysis.")
-            return insights
-
-        categories = color_summary.get("categories", {})
-        dominant_colors = color_summary.get("dominant_colors", {})
-        color_distribution = color_summary.get("color_distribution", {})
-
-        # Per-category color insights
-        for category, colors in categories.items():
-            total = sum(colors.values())
-            color_details = ", ".join([f"{color}: {count}" for color, count in colors.items()])
-            insights.append(f"{category.capitalize()} colors: {color_details} (Total: {total})")
-
-        # Dominant color summary per category
-        for category, info in dominant_colors.items():
-            insights.append(
-                f"{category.capitalize()} is mostly {info['color']} "
-                f"({info['count']} detections, {info['percentage']}%)"
-            )
-
-        # Color diversity insights
-        unique_colors = len(color_distribution)
-        if unique_colors > 1:
-            insights.append(f"Detected {unique_colors} unique colors across all categories.")
-
-        # Most common color overall
-        if color_distribution:
-            most_common_color = max(color_distribution.items(), key=lambda x: x[1])
-            insights.append(
-                f"Most common color overall: {most_common_color[0]} ({most_common_color[1]} detections)"
-            )
-
-        return insights
-
         
-    def _check_alerts(self, color_summary: Dict, config: ColorDetectionConfig) -> List[Dict]:
-        """Check for alert conditions."""
-        alerts = []
-        
-        if not config.alert_config:
-            return alerts
-            
-        total_detections = color_summary.get("total_detections", 0)
-        
-        # Count threshold alerts
-        if config.alert_config.count_thresholds:
-            for category, threshold in config.alert_config.count_thresholds.items():
-                if category == "all" and total_detections >= threshold:
-                    alerts.append({
-                        "type": "count_threshold",
-                        "severity": "warning",
-                        "message": f"Total detections ({total_detections}) exceeds threshold ({threshold})",
-                        "category": category,
-                        "current_count": total_detections,
-                        "threshold": threshold,
-                        "timestamp": datetime.now().isoformat()
-                    })
-                elif category in color_summary.get("categories", {}):
-                    category_total = sum(color_summary["categories"][category].values())
-                    if category_total >= threshold:
-                        alerts.append({
-                            "type": "count_threshold",
-                            "severity": "warning", 
-                            "message": f"{category} detections ({category_total}) exceeds threshold ({threshold})",
-                            "category": category,
-                            "current_count": category_total,
-                            "threshold": threshold,
-                            "timestamp": datetime.now().isoformat()
-                        })
-                        
-        return alerts
         
     def _calculate_metrics(self, color_analysis: List[Dict], color_summary: Dict, config: ColorDetectionConfig, context: ProcessingContext) -> Dict[str, Any]:
         """Calculate detailed metrics for analytics."""
@@ -811,28 +899,24 @@ class ColorDetectionUseCase(BaseProcessor):
             
         return predictions
     
-    def _generate_summary(self, color_summary: Dict, general_summary: Dict, alerts: List) -> str:
-        """Generate human-readable summary."""
-        total_detections = color_summary.get("total_detections", 0)
-        unique_colors = len(color_summary.get("color_distribution", {}))
-        
-        if total_detections == 0:
-            return "No objects detected for color analysis"
-        
-        summary_parts = [f"{total_detections} objects analyzed for colors"]
-        
-        if unique_colors > 0:
-            summary_parts.append(f"{unique_colors} unique colors detected")
-        
-        categories = color_summary.get("categories", {})
-        if len(categories) > 1:
-            summary_parts.append(f"across {len(categories)} categories")
-        
-        if alerts:
-            alert_count = len(alerts)
-            summary_parts.append(f"with {alert_count} alert{'s' if alert_count != 1 else ''}")
-        
-        return ", ".join(summary_parts)
+    def _generate_summary(self, summary: dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[str]:
+        """
+        Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
+        """
+        lines = {}
+        lines["Application Name"] = self.CASE_TYPE
+        lines["Application Version"] = self.CASE_VERSION
+        if len(incidents) > 0:
+            lines["Incidents:"]=f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+        if len(tracking_stats) > 0:
+            lines["Tracking Statistics:"]=f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+        if len(business_analytics) > 0:
+            lines["Business Analytics:"]=f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+
+        if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
+            lines["Summary"] = "No Summary Data"
+
+        return [lines]
     
     def _generate_events(self, color_summary: Dict, alerts: List, config: ColorDetectionConfig, frame_number: Optional[int] = None) -> List[Dict]:
         """Generate structured events with frame-based keys."""
@@ -898,30 +982,168 @@ class ColorDetectionUseCase(BaseProcessor):
 
         return events
     
-    def _generate_tracking_stats(self, color_summary: Dict, insights: List[str], summary: str, config: ColorDetectionConfig, frame_number: Optional[int] = None) -> List[Dict]:
-        """Generate structured tracking stats with frame-based keys."""
-        frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = [{frame_key: []}]
-        frame_tracking_stats = tracking_stats[0][frame_key]
-        total_detections = color_summary.get("total_detections", 0)
+    def _generate_tracking_stats(
+            self,
+            counting_summary: Dict,
+            alerts: Any,
+            config: ColorDetectionConfig,
+            frame_number: Optional[int] = None,
+            stream_info: Optional[Dict[str, Any]] = None
+    ) -> List[Dict]:
+        """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info and detections with masks."""
+        # frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        # tracking_stats = [{frame_key: []}]
+        # frame_tracking_stats = tracking_stats[0][frame_key]
+        tracking_stats = []
 
-        # Always generate tracking stats, even when there are no detections
-        # This ensures track_ids_info and total_count are always available
-        track_ids_info = self._get_track_ids_info(color_summary.get("detections", []))
-        tracking_stat = {
-            "type": "color_tracking",
-            "category": "visual_appearance",
-            "count": total_detections,
-            "insights": insights,
-            "summary": summary,
-            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
-            "human_text": self._generate_human_text_for_tracking(total_detections, color_summary, insights, summary, config),
-            "track_ids_info": track_ids_info,
-            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key
-        }
-        frame_tracking_stats.append(tracking_stat)
+        total_detections = counting_summary.get("total_count", 0)
+        total_color_counts_dict = counting_summary.get("total_color_counts", {})
+        total_category_counts_dict = counting_summary.get("total_category_counts", {})
+        cumulative_total = sum(total_color_counts_dict.values()) if total_color_counts_dict else 0
+        per_category_count = counting_summary.get("per_category_count", {})
 
+        # Compute current color counts from detections
+        current_color_count: Dict[str, int] = {}
+        for det in counting_summary.get("detections", []):
+            color = det.get("main_color")
+            if color:
+                current_color_count[color] = current_color_count.get(color, 0) + 1
+
+        track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
+
+        current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
+        start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
+        
+        # Create high precision timestamps for input_timestamp and reset_timestamp
+        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        human_text_lines = []
+
+        # CURRENT FRAME section
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+        if total_detections > 0:
+            # Vehicle categories (current frame)
+            category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
+            if len(category_counts) == 1:
+                detection_text = category_counts[0] + " detected"
+            elif len(category_counts) == 2:
+                detection_text = f"{category_counts[0]} and {category_counts[1]} detected"
+            else:
+                detection_text = f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
+            human_text_lines.append(f"\t- {detection_text}")
+
+            # Colors (current frame)
+            if current_color_count:
+                color_counts_text = ", ".join([f"{count} {color}" for color, count in current_color_count.items()])
+                human_text_lines.append(f"\t- Colors: {color_counts_text}")
+        else:
+            human_text_lines.append(f"\t- No detections")
+
+        human_text_lines.append("")  # spacing
+
+        # TOTAL SINCE section
+        human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
+        human_text_lines.append(f"\t- Total Detected (by color): {cumulative_total}")
+        # Add category-wise totals
+        if total_category_counts_dict:
+            human_text_lines.append("\t- Categories:")
+            for cat, count in total_category_counts_dict.items():
+                if count > 0:
+                    human_text_lines.append(f"\t\t- {cat}: {count}")
+        # Add color-wise totals
+        if total_color_counts_dict:
+            human_text_lines.append("\t- Colors:")
+            for color, count in total_color_counts_dict.items():
+                if count > 0:
+                    human_text_lines.append(f"\t\t- {color}: {count}")
+        # Build current_counts array in expected format  
+        # Build arrays
+        current_counts_categories = []
+        for cat, count in per_category_count.items():
+            if count > 0 or total_detections > 0:
+                current_counts_categories.append({"category": cat, "count": count})
+        current_counts_colors = []
+        for color, count in current_color_count.items():
+            if count > 0 or total_detections > 0:
+                current_counts_colors.append({"color": color, "count": count})
+        total_counts_categories = []
+        for cat, count in total_category_counts_dict.items():
+            if count > 0 or cumulative_total > 0:
+                total_counts_categories.append({"category": cat, "count": count})
+        total_counts_colors = []
+        for color, count in total_color_counts_dict.items():
+            if count > 0 or cumulative_total > 0:
+                total_counts_colors.append({"category": color, "count": count})
+
+        human_text = "\n".join(human_text_lines)
+
+        # Include detections with masks from counting_summary
+        # Prepare detections without confidence scores (as per eg.json)
+        detections = []
+        for detection in counting_summary.get("detections", []):
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "person")
+            if category == "Point d-eau":
+                category = "Water Body" 
+            # Include segmentation if available (like in eg.json)
+            if detection.get("masks"):
+                segmentation= detection.get("masks", [])
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("segmentation"):
+                segmentation= detection.get("segmentation")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("mask"):
+                segmentation= detection.get("mask")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            else:
+                detection_obj = self.create_detection_object(category, bbox)
+            detections.append(detection_obj)
+
+        # Build alert_settings array in expected format
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            alert_settings.append({
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                "ascending": True,
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                            }
+            })
+
+        if alerts:
+            for alert in alerts:
+                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+        else:
+            human_text_lines.append("Alerts: None")
+
+        human_text = "\n".join(human_text_lines)
+        reset_settings = [
+                {
+                    "interval_type": "daily",
+                    "reset_time": {
+                        "value": 9,
+                        "time_unit": "hour"
+                    }
+                }
+            ]
+
+        # Keep backward-compat: put colors into total_counts and categories into current_counts
+        tracking_stat=self.create_tracking_stats(total_counts=total_counts_colors, current_counts=current_counts_categories,
+                            detections=detections, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                            reset_settings=reset_settings, start_time=high_precision_start_timestamp ,
+                            reset_time=high_precision_reset_timestamp)
+
+        # Add explicit breakdowns for consumers who want both types
+        # tracking_stat["current_category_counts"] = current_counts_categories
+        # tracking_stat["current_color_counts"] = current_counts_colors
+        # tracking_stat["total_category_counts"] = total_counts_categories
+        # tracking_stat["total_color_counts"] = total_counts_colors
+
+        tracking_stats.append(tracking_stat)
         return tracking_stats
     
     def _generate_human_text_for_tracking(self, total_detections: int, color_summary: Dict, insights: List[str], summary: str, config: ColorDetectionConfig) -> str:
@@ -971,3 +1193,409 @@ class ColorDetectionUseCase(BaseProcessor):
         #         text_parts.append(f"  - {insight}")
         
         return "\n".join(text_parts)
+
+
+    def _attach_masks_to_detections(
+            self,
+            processed_detections: List[Dict[str, Any]],
+            raw_detections: List[Dict[str, Any]],
+            iou_threshold: float = 0.5,
+        ) -> List[Dict[str, Any]]:
+            """
+            Attach segmentation masks from the original `raw_detections` list to the
+            `processed_detections` list returned after smoothing/tracking.
+
+            Matching between detections is performed using Intersection-over-Union
+            (IoU) of the bounding boxes. For each processed detection we select the
+            raw detection with the highest IoU above `iou_threshold` and copy its
+            `masks` (or `mask`) field. If no suitable match is found, the detection
+            keeps an empty list for `masks` to maintain a consistent schema.
+            """
+
+            if not processed_detections or not raw_detections:
+                # Nothing to do – ensure masks key exists for downstream logic.
+                for det in processed_detections:
+                    det.setdefault("masks", [])
+                return processed_detections
+
+            # Track which raw detections have already been matched to avoid
+            # assigning the same mask to multiple processed detections.
+            used_raw_indices = set()
+
+            for det in processed_detections:
+                best_iou = 0.0
+                best_idx = None
+
+                for idx, raw_det in enumerate(raw_detections):
+                    if idx in used_raw_indices:
+                        continue
+
+                    iou = self._compute_iou(det.get("bounding_box"), raw_det.get("bounding_box"))
+                    if iou > best_iou:
+                        best_iou = iou
+                        best_idx = idx
+
+                if best_idx is not None and best_iou >= iou_threshold:
+                    raw_det = raw_detections[best_idx]
+                    masks = raw_det.get("masks", raw_det.get("mask"))
+                    if masks is not None:
+                        det["masks"] = masks
+                    used_raw_indices.add(best_idx)
+                else:
+                    # No adequate match – default to empty list to keep schema consistent.
+                    det.setdefault("masks", ["EMPTY"])
+
+            return processed_detections
+        
+    def _generate_incidents(self, counting_summary: Dict, alerts: List, config: ColorDetectionConfig,
+                        frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[
+        Dict]:
+        """Generate structured events for the output format with frame-based keys."""
+
+        # Use frame number as key, fallback to 'current_frame' if not available
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        incidents=[]
+        total_detections = counting_summary.get("total_count", 0)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        
+        self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+
+        if total_detections > 0:
+            # Determine event level based on thresholds
+            level = "low"
+            intensity = 5.0
+            start_timestamp = self._get_start_timestamp_str(stream_info)
+            if start_timestamp and self.current_incident_end_timestamp=='N/A':
+                self.current_incident_end_timestamp = 'Incident still active'
+            elif start_timestamp and self.current_incident_end_timestamp=='Incident still active':
+                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5: 
+                    self.current_incident_end_timestamp = current_timestamp
+            elif self.current_incident_end_timestamp!='Incident still active' and self.current_incident_end_timestamp!='N/A':
+                self.current_incident_end_timestamp = 'N/A'
+                
+            if config.alert_config and config.alert_config.count_thresholds:
+                threshold = config.alert_config.count_thresholds.get("all", 15)
+                intensity = min(10.0, (total_detections / threshold) * 10)
+
+                if intensity >= 9:
+                    level = "critical"
+                    self._ascending_alert_list.append(3)
+                elif intensity >= 7:
+                    level = "significant"
+                    self._ascending_alert_list.append(2)
+                elif intensity >= 5:
+                    level = "medium"
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    self._ascending_alert_list.append(0)
+            else:
+                if total_detections > 30:
+                    level = "critical"
+                    intensity = 10.0
+                    self._ascending_alert_list.append(3)
+                elif total_detections > 25:
+                    level = "significant"
+                    intensity = 9.0
+                    self._ascending_alert_list.append(2)
+                elif total_detections > 15:
+                    level = "medium"
+                    intensity = 7.0
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    intensity = min(10.0, total_detections / 3.0)
+                    self._ascending_alert_list.append(0)
+
+            # Generate human text in new format
+            human_text_lines = [f"INCIDENTS DETECTED @ {current_timestamp}:"]
+            human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE,level)}")
+            human_text = "\n".join(human_text_lines)
+
+            alert_settings=[]
+            if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+                alert_settings.append({
+                    "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                    "incident_category": self.CASE_TYPE,
+                    "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                    "ascending": True,
+                    "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                        getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                }
+                })
+        
+            event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(frame_number), incident_type=self.CASE_TYPE,
+                        severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                        start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
+                        level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
+            incidents.append(event)
+
+        else:
+            self._ascending_alert_list.append(0)
+            incidents.append({})
+
+        return incidents
+    
+    def _check_alerts(self, summary: dict, frame_number:Any, config: ColorDetectionConfig) -> List[Dict]:
+        """
+        Check if any alert thresholds are exceeded and return alert dicts.
+        """
+        def get_trend(data, lookback=900, threshold=0.6):
+            '''
+            Determine if the trend is ascending or descending based on actual value progression.
+            Now works with values 0,1,2,3 (not just binary).
+            '''
+            window = data[-lookback:] if len(data) >= lookback else data
+            if len(window) < 2:
+                return True  # not enough data to determine trend
+            increasing = 0
+            total = 0
+            for i in range(1, len(window)):
+                if window[i] >= window[i - 1]:
+                    increasing += 1
+                total += 1
+            ratio = increasing / total
+            if ratio >= threshold:
+                return True
+            elif ratio <= (1 - threshold):
+                return False
+
+        frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        alerts = []
+        total_detections = summary.get("total_count", 0) #CURRENT combined total count of all classes
+        total_counts_dict = summary.get("total_color_counts", {}) #TOTAL cumulative counts per class
+        if isinstance(total_counts_dict, int):
+            total_counts_dict = {}
+        cumulative_total = sum(total_counts_dict.values()) if total_counts_dict else 0 #TOTAL combined cumulative count
+        per_category_count = summary.get("per_category_count", {}) #CURRENT count per class
+
+        if not config.alert_config:
+            return alerts
+
+        total = summary.get("total_count", 0)
+        #self._ascending_alert_list
+        if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
+
+            for category, threshold in config.alert_config.count_thresholds.items():
+                if category == "all" and total > threshold:  
+
+                    alerts.append({
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                        "alert_id": "alert_"+category+'_'+frame_key,
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                }                    
+                    })
+                elif category in summary.get("per_category_count", {}):
+                    count = summary.get("per_category_count", {})[category]
+                    if count > threshold:  # Fixed logic: alert when EXCEEDING threshold
+                        alerts.append({
+                            "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                            "alert_id": "alert_"+category+'_'+frame_key,
+                            "incident_category": self.CASE_TYPE,
+                            "threshold_level": threshold,
+                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                }       
+                        })
+        else:
+            pass
+        return alerts
+    
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = round(float(timestamp % 60),2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime('%Y:%m:%d %H:%M:%S')
+
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
+        """Get formatted current timestamp based on stream type."""
+        if not stream_info:
+            return "00:00:00.00"
+        # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        if precision:
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
+        else:
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            if stream_time_str:
+                # Parse the high precision timestamp string to get timestamp
+                try:
+                    # Remove " UTC" suffix and parse
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    # Fallback to current time if parsing fails
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+        if precision:
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                return "00:00:00"
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+            # If video format, start from 00:00:00
+            return "00:00:00"
+        else:
+            # For streams, use tracking start time or current time with minutes/seconds reset
+            if self._tracking_start_time is None:
+                # Try to extract timestamp from stream_time string
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        # Remove " UTC" suffix and parse
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        # Fallback to current time if parsing fails
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
+    
+    def _compute_iou(self, box1: Any, box2: Any) -> float:
+        """Compute IoU between two bounding boxes which may be dicts or lists.
+        Falls back to 0 when insufficient data is available."""
+
+        # Helper to convert bbox (dict or list) to [x1, y1, x2, y2]
+        def _bbox_to_list(bbox):
+            if bbox is None:
+                return []
+            if isinstance(bbox, list):
+                return bbox[:4] if len(bbox) >= 4 else []
+            if isinstance(bbox, dict):
+                if "xmin" in bbox:
+                    return [bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]]
+                if "x1" in bbox:
+                    return [bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]]
+                # Fallback: first four numeric values
+                values = [v for v in bbox.values() if isinstance(v, (int, float))]
+                return values[:4] if len(values) >= 4 else []
+            return []
+
+        l1 = _bbox_to_list(box1)
+        l2 = _bbox_to_list(box2)
+        if len(l1) < 4 or len(l2) < 4:
+            return 0.0
+        x1_min, y1_min, x1_max, y1_max = l1
+        x2_min, y2_min, x2_max, y2_max = l2
+
+        # Ensure correct order
+        x1_min, x1_max = min(x1_min, x1_max), max(x1_min, x1_max)
+        y1_min, y1_max = min(y1_min, y1_max), max(y1_min, y1_max)
+        x2_min, x2_max = min(x2_min, x2_max), max(x2_min, x2_max)
+        y2_min, y2_max = min(y2_min, y2_max), max(y2_min, y2_max)
+
+        inter_x_min = max(x1_min, x2_min)
+        inter_y_min = max(y1_min, y2_min)
+        inter_x_max = min(x1_max, x2_max)
+        inter_y_max = min(y1_max, y2_max)
+
+        inter_w = max(0.0, inter_x_max - inter_x_min)
+        inter_h = max(0.0, inter_y_max - inter_y_min)
+        inter_area = inter_w * inter_h
+
+        area1 = (x1_max - x1_min) * (y1_max - y1_min)
+        area2 = (x2_max - x2_min) * (y2_max - y2_min)
+        union_area = area1 + area2 - inter_area
+
+        return (inter_area / union_area) if union_area > 0 else 0.0
+
+    def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
+        """Return a stable canonical ID for a raw tracker ID, merging fragmented
+        tracks when IoU and temporal constraints indicate they represent the
+        same physical."""
+        if raw_id is None or bbox is None:
+            # Nothing to merge
+            return raw_id
+
+        now = time.time()
+
+        # Fast path – raw_id already mapped
+        if raw_id in self._track_aliases:
+            canonical_id = self._track_aliases[raw_id]
+            track_info = self._canonical_tracks.get(canonical_id)
+            if track_info is not None:
+                track_info["last_bbox"] = bbox
+                track_info["last_update"] = now
+                track_info["raw_ids"].add(raw_id)
+            return canonical_id
+
+        # Attempt to merge with an existing canonical track
+        for canonical_id, info in self._canonical_tracks.items():
+            # Only consider recently updated tracks
+            if now - info["last_update"] > self._track_merge_time_window:
+                continue
+            iou = self._compute_iou(bbox, info["last_bbox"])
+            if iou >= self._track_merge_iou_threshold:
+                # Merge
+                self._track_aliases[raw_id] = canonical_id
+                info["last_bbox"] = bbox
+                info["last_update"] = now
+                info["raw_ids"].add(raw_id)
+                return canonical_id
+
+        # No match – register new canonical track
+        canonical_id = raw_id
+        self._track_aliases[raw_id] = canonical_id
+        self._canonical_tracks[canonical_id] = {
+            "last_bbox": bbox,
+            "last_update": now,
+            "raw_ids": {raw_id},
+        }
+        return canonical_id
+
+    def _format_timestamp(self, timestamp: float) -> str:
+        """Format a timestamp for human-readable output."""
+        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+
+    def _get_tracking_start_time(self) -> str:
+        """Get the tracking start time, formatted as a string."""
+        if self._tracking_start_time is None:
+            return "N/A"
+        return self._format_timestamp(self._tracking_start_time)
+
+    def _set_tracking_start_time(self) -> None:
+        """Set the tracking start time to the current time."""
+        self._tracking_start_time = time.time()

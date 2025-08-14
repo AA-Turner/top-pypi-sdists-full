@@ -13640,7 +13640,6 @@ class Environment:
         Example::
 
             import aws_cdk as cdk
-            import aws_cdk.aws_cloudwatch as cloudwatch
             
             
             app = cdk.App()
@@ -13648,18 +13647,10 @@ class Environment:
             
             global_table = dynamodb.TableV2(stack, "GlobalTable",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
-                ]
+                replicas=[dynamodb.ReplicaTableProps(region="us-east-1")]
             )
             
-            # metric is only for the table in us-west-2
-            metric = global_table.metric_consumed_read_capacity_units()
-            
-            cloudwatch.Alarm(self, "Alarm",
-                metric=metric,
-                evaluation_periods=1,
-                threshold=1
-            )
+            global_table.add_replica(region="us-east-2", deletion_protection=True)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__779551ef0a4b144070fd2c3e88ff076e32ad12d30facdc65a940b7a8791f27c6)
@@ -37883,6 +37874,7 @@ __all__ = [
     "aws_appsync",
     "aws_apptest",
     "aws_aps",
+    "aws_arcregionswitch",
     "aws_arczonalshift",
     "aws_athena",
     "aws_auditmanager",
@@ -38055,6 +38047,7 @@ __all__ = [
     "aws_notifications",
     "aws_notificationscontacts",
     "aws_oam",
+    "aws_observabilityadmin",
     "aws_odb",
     "aws_omics",
     "aws_opensearchserverless",
@@ -38186,6 +38179,7 @@ from . import aws_appstream
 from . import aws_appsync
 from . import aws_apptest
 from . import aws_aps
+from . import aws_arcregionswitch
 from . import aws_arczonalshift
 from . import aws_athena
 from . import aws_auditmanager
@@ -38358,6 +38352,7 @@ from . import aws_nimblestudio
 from . import aws_notifications
 from . import aws_notificationscontacts
 from . import aws_oam
+from . import aws_observabilityadmin
 from . import aws_odb
 from . import aws_omics
 from . import aws_opensearchserverless

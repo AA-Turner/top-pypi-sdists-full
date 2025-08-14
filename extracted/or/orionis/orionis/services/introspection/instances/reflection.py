@@ -2,8 +2,7 @@ import inspect
 import keyword
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 from orionis.services.asynchrony.coroutines import Coroutine
-from orionis.services.introspection.dependencies.entities.class_dependencies import ClassDependency
-from orionis.services.introspection.dependencies.entities.method_dependencies import MethodDependency
+from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
 from orionis.services.introspection.dependencies.reflection import ReflectDependencies
 from orionis.services.introspection.exceptions import (
     ReflectionAttributeError,
@@ -1561,13 +1560,13 @@ class ReflectionInstance(IReflectionInstance):
         # If the property does not exist, raise an error
         raise ReflectionAttributeError(f"Property '{original_name}' does not exist on '{self.getClassName()}'.")
 
-    def getConstructorDependencies(self) -> ClassDependency:
+    def getConstructorDependencies(self) -> ResolveArguments:
         """
         Retrieves the resolved and unresolved dependencies from the constructor (__init__) of the instance's class.
 
         Returns
         -------
-        ClassDependency
+        ResolveArguments
             An object representing the constructor dependencies, including:
             - resolved : dict
                 Dictionary of resolved dependencies with their names and values.
@@ -1581,7 +1580,7 @@ class ReflectionInstance(IReflectionInstance):
         """
         return ReflectDependencies(self._instance.__class__).getConstructorDependencies()
 
-    def getMethodDependencies(self, method_name: str) -> MethodDependency:
+    def getMethodDependencies(self, method_name: str) -> ResolveArguments:
         """
         Get the resolved and unresolved dependencies from a method of the instance's class.
 
@@ -1592,7 +1591,7 @@ class ReflectionInstance(IReflectionInstance):
 
         Returns
         -------
-        MethodDependency
+        ResolveArguments
             A structured representation of the method dependencies, containing:
             - resolved: Dictionary of resolved dependencies with their names and values.
             - unresolved: List of unresolved dependencies (parameter names without default values or annotations).

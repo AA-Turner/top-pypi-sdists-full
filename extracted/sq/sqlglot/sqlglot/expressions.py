@@ -1458,6 +1458,11 @@ class DDL(Expression):
         return self.expression.named_selects if isinstance(self.expression, Query) else []
 
 
+# https://docs.teradata.com/r/Enterprise_IntelliFlex_VMware/SQL-Data-Manipulation-Language/Statement-Syntax/LOCKING-Request-Modifier/LOCKING-Request-Modifier-Syntax
+class LockingStatement(Expression):
+    arg_types = {"this": True, "expression": True}
+
+
 class DML(Expression):
     def returning(
         self,
@@ -1613,6 +1618,10 @@ class SetItem(Expression):
     }
 
 
+class QueryBand(Expression):
+    arg_types = {"this": True, "scope": False, "update": False}
+
+
 class Show(Expression):
     arg_types = {
         "this": True,
@@ -1680,7 +1689,7 @@ class ProjectionDef(Expression):
 
 
 class TableAlias(Expression):
-    arg_types = {"this": False, "columns": False, "column_only": False}
+    arg_types = {"this": False, "columns": False}
 
     @property
     def columns(self):
@@ -5416,6 +5425,10 @@ class BitwiseCountAgg(AggFunc):
     _sql_names = ["BIT_COUNT"]
 
 
+class ByteLength(Func):
+    pass
+
+
 class ArrayRemove(Func):
     arg_types = {"this": True, "expression": True}
 
@@ -5562,6 +5575,10 @@ class ConvertTimezone(Func):
         "timestamp": True,
         "options": False,
     }
+
+
+class CodePointsToString(Func):
+    pass
 
 
 class GenerateSeries(Func):
@@ -5791,6 +5808,18 @@ class JSONCast(Cast):
     pass
 
 
+class JustifyDays(Func):
+    pass
+
+
+class JustifyHours(Func):
+    pass
+
+
+class JustifyInterval(Func):
+    pass
+
+
 class Try(Func):
     pass
 
@@ -5945,6 +5974,10 @@ class DatetimeDiff(Func, TimeUnit):
 
 class DatetimeTrunc(Func, TimeUnit):
     arg_types = {"this": True, "unit": True, "zone": False}
+
+
+class DateFromUnixDate(Func):
+    pass
 
 
 class DayOfWeek(Func):
@@ -6509,6 +6542,14 @@ class ParseJSON(Func):
     arg_types = {"this": True, "expression": False, "safe": False}
 
 
+class ParseTime(Func):
+    arg_types = {"this": True, "format": True}
+
+
+class ParseDatetime(Func):
+    arg_types = {"this": True, "format": False, "zone": False}
+
+
 class Least(Func):
     arg_types = {"this": True, "expressions": False}
     is_var_len_args = True
@@ -6520,6 +6561,10 @@ class Left(Func):
 
 class Right(Func):
     arg_types = {"this": True, "expression": True}
+
+
+class Reverse(Func):
+    pass
 
 
 class Length(Func):
@@ -7047,6 +7092,14 @@ class UnixSeconds(Func):
     pass
 
 
+class UnixMicros(Func):
+    pass
+
+
+class UnixMillis(Func):
+    pass
+
+
 class Uuid(Func):
     _sql_names = ["UUID", "GEN_RANDOM_UUID", "GENERATE_UUID", "UUID_STRING"]
 
@@ -7094,6 +7147,10 @@ class CovarPop(Binary, AggFunc):
 
 class Week(Func):
     arg_types = {"this": True, "mode": False}
+
+
+class WeekStart(Expression):
+    pass
 
 
 class XMLElement(Func):

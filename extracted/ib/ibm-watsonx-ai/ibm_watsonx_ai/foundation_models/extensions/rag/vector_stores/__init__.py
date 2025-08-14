@@ -3,14 +3,13 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import Any
 import importlib
+from typing import Any
 
 from .base_vector_store import BaseVectorStore
 from .langchain_vector_store_adapter import LangChainVectorStoreAdapter
-from .vector_store_connector import VectorStoreConnector
 from .vector_store import VectorStore
-
+from .vector_store_connector import VectorStoreConnector
 
 __all__ = [
     "BaseVectorStore",

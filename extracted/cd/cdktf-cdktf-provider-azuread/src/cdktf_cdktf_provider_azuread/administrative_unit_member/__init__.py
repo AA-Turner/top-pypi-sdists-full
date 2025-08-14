@@ -1,7 +1,7 @@
 r'''
 # `azuread_administrative_unit_member`
 
-Refer to the Terraform Registry for docs: [`azuread_administrative_unit_member`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member).
+Refer to the Terraform Registry for docs: [`azuread_administrative_unit_member`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AdministrativeUnitMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.administrativeUnitMember.AdministrativeUnitMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member azuread_administrative_unit_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member azuread_administrative_unit_member}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class AdministrativeUnitMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member azuread_administrative_unit_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member azuread_administrative_unit_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param administrative_unit_object_id: The object ID of the administrative unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#administrative_unit_object_id AdministrativeUnitMember#administrative_unit_object_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#id AdministrativeUnitMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param member_object_id: The object ID of the member. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#member_object_id AdministrativeUnitMember#member_object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#timeouts AdministrativeUnitMember#timeouts}
+        :param administrative_unit_object_id: The object ID of the administrative unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#administrative_unit_object_id AdministrativeUnitMember#administrative_unit_object_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#id AdministrativeUnitMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member_object_id: The object ID of the member. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#member_object_id AdministrativeUnitMember#member_object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#timeouts AdministrativeUnitMember#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class AdministrativeUnitMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AdministrativeUnitMember to import.
-        :param import_from_id: The id of the existing AdministrativeUnitMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AdministrativeUnitMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AdministrativeUnitMember to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class AdministrativeUnitMember(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#create AdministrativeUnitMember#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#delete AdministrativeUnitMember#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#read AdministrativeUnitMember#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#create AdministrativeUnitMember#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#delete AdministrativeUnitMember#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#read AdministrativeUnitMember#read}.
         '''
         value = AdministrativeUnitMemberTimeouts(
             create=create, delete=delete, read=read
@@ -276,10 +276,10 @@ class AdministrativeUnitMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param administrative_unit_object_id: The object ID of the administrative unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#administrative_unit_object_id AdministrativeUnitMember#administrative_unit_object_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#id AdministrativeUnitMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param member_object_id: The object ID of the member. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#member_object_id AdministrativeUnitMember#member_object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#timeouts AdministrativeUnitMember#timeouts}
+        :param administrative_unit_object_id: The object ID of the administrative unit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#administrative_unit_object_id AdministrativeUnitMember#administrative_unit_object_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#id AdministrativeUnitMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member_object_id: The object ID of the member. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#member_object_id AdministrativeUnitMember#member_object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#timeouts AdministrativeUnitMember#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -390,14 +390,14 @@ class AdministrativeUnitMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def administrative_unit_object_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the administrative unit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#administrative_unit_object_id AdministrativeUnitMember#administrative_unit_object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#administrative_unit_object_id AdministrativeUnitMember#administrative_unit_object_id}
         '''
         result = self._values.get("administrative_unit_object_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#id AdministrativeUnitMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#id AdministrativeUnitMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -409,7 +409,7 @@ class AdministrativeUnitMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def member_object_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the member.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#member_object_id AdministrativeUnitMember#member_object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#member_object_id AdministrativeUnitMember#member_object_id}
         '''
         result = self._values.get("member_object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -418,7 +418,7 @@ class AdministrativeUnitMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AdministrativeUnitMemberTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#timeouts AdministrativeUnitMember#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#timeouts AdministrativeUnitMember#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AdministrativeUnitMemberTimeouts"], result)
@@ -449,9 +449,9 @@ class AdministrativeUnitMemberTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#create AdministrativeUnitMember#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#delete AdministrativeUnitMember#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#read AdministrativeUnitMember#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#create AdministrativeUnitMember#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#delete AdministrativeUnitMember#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#read AdministrativeUnitMember#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e21c28a23adc036f945530670c74e0f1bad943455f3b7c40ab6d7a682bac35cd)
@@ -468,19 +468,19 @@ class AdministrativeUnitMemberTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#create AdministrativeUnitMember#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#create AdministrativeUnitMember#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#delete AdministrativeUnitMember#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#delete AdministrativeUnitMember#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/administrative_unit_member#read AdministrativeUnitMember#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/administrative_unit_member#read AdministrativeUnitMember#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

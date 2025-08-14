@@ -3,14 +3,15 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import Union
 import sys
+from typing import Union
+
+from tqdm import tqdm as TQDM
 
 from ibm_watsonx_ai.utils.autoai.utils import try_import_tqdm
 
 try_import_tqdm()
 
-from tqdm import tqdm as TQDM
 
 __all__ = ["ProgressBar"]
 

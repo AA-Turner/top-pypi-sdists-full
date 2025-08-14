@@ -1,7 +1,7 @@
 r'''
 # `azurerm_notification_hub`
 
-Refer to the Terraform Registry for docs: [`azurerm_notification_hub`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub).
+Refer to the Terraform Registry for docs: [`azurerm_notification_hub`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NotificationHub(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.notificationHub.NotificationHub",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub azurerm_notification_hub}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub azurerm_notification_hub}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class NotificationHub(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub azurerm_notification_hub} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub azurerm_notification_hub} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#location NotificationHub#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#name NotificationHub#name}.
-        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#namespace_name NotificationHub#namespace_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#resource_group_name NotificationHub#resource_group_name}.
-        :param apns_credential: apns_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#apns_credential NotificationHub#apns_credential}
-        :param browser_credential: browser_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#browser_credential NotificationHub#browser_credential}
-        :param gcm_credential: gcm_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#gcm_credential NotificationHub#gcm_credential}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#id NotificationHub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#tags NotificationHub#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#timeouts NotificationHub#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#location NotificationHub#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#name NotificationHub#name}.
+        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#namespace_name NotificationHub#namespace_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#resource_group_name NotificationHub#resource_group_name}.
+        :param apns_credential: apns_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#apns_credential NotificationHub#apns_credential}
+        :param browser_credential: browser_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#browser_credential NotificationHub#browser_credential}
+        :param gcm_credential: gcm_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#gcm_credential NotificationHub#gcm_credential}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#id NotificationHub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#tags NotificationHub#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#timeouts NotificationHub#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class NotificationHub(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NotificationHub to import.
-        :param import_from_id: The id of the existing NotificationHub that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NotificationHub that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NotificationHub to import is found.
         '''
         if __debug__:
@@ -152,11 +152,11 @@ class NotificationHub(
         token: builtins.str,
     ) -> None:
         '''
-        :param application_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#application_mode NotificationHub#application_mode}.
-        :param bundle_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#bundle_id NotificationHub#bundle_id}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#key_id NotificationHub#key_id}.
-        :param team_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#team_id NotificationHub#team_id}.
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#token NotificationHub#token}.
+        :param application_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#application_mode NotificationHub#application_mode}.
+        :param bundle_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#bundle_id NotificationHub#bundle_id}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#key_id NotificationHub#key_id}.
+        :param team_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#team_id NotificationHub#team_id}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#token NotificationHub#token}.
         '''
         value = NotificationHubApnsCredential(
             application_mode=application_mode,
@@ -177,9 +177,9 @@ class NotificationHub(
         vapid_public_key: builtins.str,
     ) -> None:
         '''
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#subject NotificationHub#subject}.
-        :param vapid_private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#vapid_private_key NotificationHub#vapid_private_key}.
-        :param vapid_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#vapid_public_key NotificationHub#vapid_public_key}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#subject NotificationHub#subject}.
+        :param vapid_private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#vapid_private_key NotificationHub#vapid_private_key}.
+        :param vapid_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#vapid_public_key NotificationHub#vapid_public_key}.
         '''
         value = NotificationHubBrowserCredential(
             subject=subject,
@@ -192,7 +192,7 @@ class NotificationHub(
     @jsii.member(jsii_name="putGcmCredential")
     def put_gcm_credential(self, *, api_key: builtins.str) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#api_key NotificationHub#api_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#api_key NotificationHub#api_key}.
         '''
         value = NotificationHubGcmCredential(api_key=api_key)
 
@@ -208,10 +208,10 @@ class NotificationHub(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#create NotificationHub#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#delete NotificationHub#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#read NotificationHub#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#update NotificationHub#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#create NotificationHub#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#delete NotificationHub#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#read NotificationHub#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#update NotificationHub#update}.
         '''
         value = NotificationHubTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -425,11 +425,11 @@ class NotificationHubApnsCredential:
         token: builtins.str,
     ) -> None:
         '''
-        :param application_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#application_mode NotificationHub#application_mode}.
-        :param bundle_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#bundle_id NotificationHub#bundle_id}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#key_id NotificationHub#key_id}.
-        :param team_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#team_id NotificationHub#team_id}.
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#token NotificationHub#token}.
+        :param application_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#application_mode NotificationHub#application_mode}.
+        :param bundle_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#bundle_id NotificationHub#bundle_id}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#key_id NotificationHub#key_id}.
+        :param team_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#team_id NotificationHub#team_id}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#token NotificationHub#token}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c46b5b928ec7f09a4f01d44e4ee661638c18d956d31149b0c4ff1fa543d68c5)
@@ -448,35 +448,35 @@ class NotificationHubApnsCredential:
 
     @builtins.property
     def application_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#application_mode NotificationHub#application_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#application_mode NotificationHub#application_mode}.'''
         result = self._values.get("application_mode")
         assert result is not None, "Required property 'application_mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bundle_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#bundle_id NotificationHub#bundle_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#bundle_id NotificationHub#bundle_id}.'''
         result = self._values.get("bundle_id")
         assert result is not None, "Required property 'bundle_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#key_id NotificationHub#key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#key_id NotificationHub#key_id}.'''
         result = self._values.get("key_id")
         assert result is not None, "Required property 'key_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def team_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#team_id NotificationHub#team_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#team_id NotificationHub#team_id}.'''
         result = self._values.get("team_id")
         assert result is not None, "Required property 'team_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def token(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#token NotificationHub#token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#token NotificationHub#token}.'''
         result = self._values.get("token")
         assert result is not None, "Required property 'token' is missing"
         return typing.cast(builtins.str, result)
@@ -632,9 +632,9 @@ class NotificationHubBrowserCredential:
         vapid_public_key: builtins.str,
     ) -> None:
         '''
-        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#subject NotificationHub#subject}.
-        :param vapid_private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#vapid_private_key NotificationHub#vapid_private_key}.
-        :param vapid_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#vapid_public_key NotificationHub#vapid_public_key}.
+        :param subject: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#subject NotificationHub#subject}.
+        :param vapid_private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#vapid_private_key NotificationHub#vapid_private_key}.
+        :param vapid_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#vapid_public_key NotificationHub#vapid_public_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5d6af304caaf4293452a6baf6bcb0feed19ba6d46ce0dc37fb4f85d39a1e3a7)
@@ -649,21 +649,21 @@ class NotificationHubBrowserCredential:
 
     @builtins.property
     def subject(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#subject NotificationHub#subject}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#subject NotificationHub#subject}.'''
         result = self._values.get("subject")
         assert result is not None, "Required property 'subject' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vapid_private_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#vapid_private_key NotificationHub#vapid_private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#vapid_private_key NotificationHub#vapid_private_key}.'''
         result = self._values.get("vapid_private_key")
         assert result is not None, "Required property 'vapid_private_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vapid_public_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#vapid_public_key NotificationHub#vapid_public_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#vapid_public_key NotificationHub#vapid_public_key}.'''
         result = self._values.get("vapid_public_key")
         assert result is not None, "Required property 'vapid_public_key' is missing"
         return typing.cast(builtins.str, result)
@@ -820,16 +820,16 @@ class NotificationHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#location NotificationHub#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#name NotificationHub#name}.
-        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#namespace_name NotificationHub#namespace_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#resource_group_name NotificationHub#resource_group_name}.
-        :param apns_credential: apns_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#apns_credential NotificationHub#apns_credential}
-        :param browser_credential: browser_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#browser_credential NotificationHub#browser_credential}
-        :param gcm_credential: gcm_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#gcm_credential NotificationHub#gcm_credential}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#id NotificationHub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#tags NotificationHub#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#timeouts NotificationHub#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#location NotificationHub#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#name NotificationHub#name}.
+        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#namespace_name NotificationHub#namespace_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#resource_group_name NotificationHub#resource_group_name}.
+        :param apns_credential: apns_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#apns_credential NotificationHub#apns_credential}
+        :param browser_credential: browser_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#browser_credential NotificationHub#browser_credential}
+        :param gcm_credential: gcm_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#gcm_credential NotificationHub#gcm_credential}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#id NotificationHub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#tags NotificationHub#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#timeouts NotificationHub#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -959,28 +959,28 @@ class NotificationHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#location NotificationHub#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#location NotificationHub#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#name NotificationHub#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#name NotificationHub#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def namespace_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#namespace_name NotificationHub#namespace_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#namespace_name NotificationHub#namespace_name}.'''
         result = self._values.get("namespace_name")
         assert result is not None, "Required property 'namespace_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#resource_group_name NotificationHub#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#resource_group_name NotificationHub#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -989,7 +989,7 @@ class NotificationHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def apns_credential(self) -> typing.Optional[NotificationHubApnsCredential]:
         '''apns_credential block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#apns_credential NotificationHub#apns_credential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#apns_credential NotificationHub#apns_credential}
         '''
         result = self._values.get("apns_credential")
         return typing.cast(typing.Optional[NotificationHubApnsCredential], result)
@@ -998,7 +998,7 @@ class NotificationHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def browser_credential(self) -> typing.Optional[NotificationHubBrowserCredential]:
         '''browser_credential block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#browser_credential NotificationHub#browser_credential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#browser_credential NotificationHub#browser_credential}
         '''
         result = self._values.get("browser_credential")
         return typing.cast(typing.Optional[NotificationHubBrowserCredential], result)
@@ -1007,14 +1007,14 @@ class NotificationHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gcm_credential(self) -> typing.Optional["NotificationHubGcmCredential"]:
         '''gcm_credential block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#gcm_credential NotificationHub#gcm_credential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#gcm_credential NotificationHub#gcm_credential}
         '''
         result = self._values.get("gcm_credential")
         return typing.cast(typing.Optional["NotificationHubGcmCredential"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#id NotificationHub#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#id NotificationHub#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1024,7 +1024,7 @@ class NotificationHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#tags NotificationHub#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#tags NotificationHub#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1032,7 +1032,7 @@ class NotificationHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NotificationHubTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#timeouts NotificationHub#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#timeouts NotificationHub#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NotificationHubTimeouts"], result)
@@ -1057,7 +1057,7 @@ class NotificationHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class NotificationHubGcmCredential:
     def __init__(self, *, api_key: builtins.str) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#api_key NotificationHub#api_key}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#api_key NotificationHub#api_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7017c94e70d8f6f6ab6d78ee683c63d7e3e00ee5097db2722284f75cf738de2)
@@ -1068,7 +1068,7 @@ class NotificationHubGcmCredential:
 
     @builtins.property
     def api_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#api_key NotificationHub#api_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#api_key NotificationHub#api_key}.'''
         result = self._values.get("api_key")
         assert result is not None, "Required property 'api_key' is missing"
         return typing.cast(builtins.str, result)
@@ -1158,10 +1158,10 @@ class NotificationHubTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#create NotificationHub#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#delete NotificationHub#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#read NotificationHub#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#update NotificationHub#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#create NotificationHub#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#delete NotificationHub#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#read NotificationHub#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#update NotificationHub#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__408538843b6e9427e17a79d165d69069e2261fa95e7a87c0afe8237853f00ee9)
@@ -1181,25 +1181,25 @@ class NotificationHubTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#create NotificationHub#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#create NotificationHub#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#delete NotificationHub#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#delete NotificationHub#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#read NotificationHub#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#read NotificationHub#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/notification_hub#update NotificationHub#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/notification_hub#update NotificationHub#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

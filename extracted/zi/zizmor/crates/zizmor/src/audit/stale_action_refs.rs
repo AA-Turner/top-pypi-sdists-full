@@ -47,7 +47,7 @@ impl StaleActionRefs {
                     .confidence(Confidence::High)
                     .severity(Severity::Low)
                     .persona(Persona::Pedantic)
-                    .add_location(step.location().primary().with_keys(&["uses".into()]))
+                    .add_location(step.location().primary().with_keys(["uses".into()]))
                     .build(step)?,
             );
         }
@@ -67,13 +67,11 @@ impl Audit for StaleActionRefs {
             )));
         }
 
-        let Some(client) = state.github_client() else {
-            return Err(AuditLoadError::Skip(anyhow!(
-                "can't run without a GitHub API token"
-            )));
-        };
-
-        Ok(Self { client })
+        state
+            .gh_client
+            .clone()
+            .ok_or_else(|| AuditLoadError::Skip(anyhow!("can't run without a GitHub API token")))
+            .map(|client| StaleActionRefs { client })
     }
 
     fn audit_step<'w>(&self, step: &Step<'w>) -> Result<Vec<Finding<'w>>> {

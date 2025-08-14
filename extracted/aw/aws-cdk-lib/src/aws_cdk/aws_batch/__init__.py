@@ -10561,14 +10561,15 @@ class CfnJobQueue(
         from aws_cdk import aws_batch as batch
         
         cfn_job_queue = batch.CfnJobQueue(self, "MyCfnJobQueue",
+            priority=123,
+        
+            # the properties below are optional
             compute_environment_order=[batch.CfnJobQueue.ComputeEnvironmentOrderProperty(
                 compute_environment="computeEnvironment",
                 order=123
             )],
-            priority=123,
-        
-            # the properties below are optional
             job_queue_name="jobQueueName",
+            job_queue_type="jobQueueType",
             job_state_time_limit_actions=[batch.CfnJobQueue.JobStateTimeLimitActionProperty(
                 action="action",
                 max_time_seconds=123,
@@ -10576,6 +10577,10 @@ class CfnJobQueue(
                 state="state"
             )],
             scheduling_policy_arn="schedulingPolicyArn",
+            service_environment_order=[batch.CfnJobQueue.ServiceEnvironmentOrderProperty(
+                order=123,
+                service_environment="serviceEnvironment"
+            )],
             state="state",
             tags={
                 "tags_key": "tags"
@@ -10588,22 +10593,26 @@ class CfnJobQueue(
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        compute_environment_order: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJobQueue.ComputeEnvironmentOrderProperty", typing.Dict[builtins.str, typing.Any]]]]],
         priority: jsii.Number,
+        compute_environment_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJobQueue.ComputeEnvironmentOrderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         job_queue_name: typing.Optional[builtins.str] = None,
+        job_queue_type: typing.Optional[builtins.str] = None,
         job_state_time_limit_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJobQueue.JobStateTimeLimitActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         scheduling_policy_arn: typing.Optional[builtins.str] = None,
+        service_environment_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnJobQueue.ServiceEnvironmentOrderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         state: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param compute_environment_order: The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the ``VALID`` state before you can associate them with a job queue. You can associate up to three compute environments with a job queue. All of the compute environments must be either EC2 ( ``EC2`` or ``SPOT`` ) or Fargate ( ``FARGATE`` or ``FARGATE_SPOT`` ); EC2 and Fargate compute environments can't be mixed. .. epigraph:: All compute environments that are associated with a job queue must share the same architecture. AWS Batch doesn't support mixing compute environment architecture types in a single job queue.
         :param priority: The priority of the job queue. Job queues with a higher priority (or a higher integer value for the ``priority`` parameter) are evaluated first when associated with the same compute environment. Priority is determined in descending order. For example, a job queue with a priority value of ``10`` is given scheduling preference over a job queue with a priority value of ``1`` . All of the compute environments must be either EC2 ( ``EC2`` or ``SPOT`` ) or Fargate ( ``FARGATE`` or ``FARGATE_SPOT`` ); EC2 and Fargate compute environments can't be mixed.
+        :param compute_environment_order: The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the ``VALID`` state before you can associate them with a job queue. You can associate up to three compute environments with a job queue. All of the compute environments must be either EC2 ( ``EC2`` or ``SPOT`` ) or Fargate ( ``FARGATE`` or ``FARGATE_SPOT`` ); EC2 and Fargate compute environments can't be mixed. .. epigraph:: All compute environments that are associated with a job queue must share the same architecture. AWS Batch doesn't support mixing compute environment architecture types in a single job queue.
         :param job_queue_name: The name of the job queue. It can be up to 128 letters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
+        :param job_queue_type: The type of job queue. For service jobs that run on SageMaker AI , this value is ``SAGEMAKER_TRAINING`` . For regular container jobs, this value is ``EKS`` , ``ECS`` , or ``ECS_FARGATE`` depending on the compute environment.
         :param job_state_time_limit_actions: The set of actions that AWS Batch perform on jobs that remain at the head of the job queue in the specified state longer than specified times. AWS Batch will perform each action after ``maxTimeSeconds`` has passed.
         :param scheduling_policy_arn: The Amazon Resource Name (ARN) of the scheduling policy. The format is ``aws: *Partition* :batch: *Region* : *Account* :scheduling-policy/ *Name*`` . For example, ``aws:aws:batch:us-west-2:123456789012:scheduling-policy/MySchedulingPolicy`` .
+        :param service_environment_order: The order of the service environment associated with the job queue. Job queues with a higher priority are evaluated first when associated with the same service environment.
         :param state: The state of the job queue. If the job queue state is ``ENABLED`` , it is able to accept jobs. If the job queue state is ``DISABLED`` , new jobs can't be added to the queue, but jobs already in the queue can finish.
         :param tags: The tags that are applied to the job queue. For more information, see `Tagging your AWS Batch resources <https://docs.aws.amazon.com/batch/latest/userguide/using-tags.html>`_ in *AWS Batch User Guide* .
         '''
@@ -10612,11 +10621,13 @@ class CfnJobQueue(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnJobQueueProps(
-            compute_environment_order=compute_environment_order,
             priority=priority,
+            compute_environment_order=compute_environment_order,
             job_queue_name=job_queue_name,
+            job_queue_type=job_queue_type,
             job_state_time_limit_actions=job_state_time_limit_actions,
             scheduling_policy_arn=scheduling_policy_arn,
+            service_environment_order=service_environment_order,
             state=state,
             tags=tags,
         )
@@ -10674,24 +10685,6 @@ class CfnJobQueue(
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="computeEnvironmentOrder")
-    def compute_environment_order(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobQueue.ComputeEnvironmentOrderProperty"]]]:
-        '''The set of compute environments mapped to a job queue and their order relative to each other.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobQueue.ComputeEnvironmentOrderProperty"]]], jsii.get(self, "computeEnvironmentOrder"))
-
-    @compute_environment_order.setter
-    def compute_environment_order(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobQueue.ComputeEnvironmentOrderProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa1c2f3f42165309672c3fdf8c286ff9dc5e99756ec1a5b3ffca9e719d4c7036)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computeEnvironmentOrder", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="priority")
     def priority(self) -> jsii.Number:
         '''The priority of the job queue.'''
@@ -10705,6 +10698,24 @@ class CfnJobQueue(
         jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="computeEnvironmentOrder")
+    def compute_environment_order(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobQueue.ComputeEnvironmentOrderProperty"]]]]:
+        '''The set of compute environments mapped to a job queue and their order relative to each other.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobQueue.ComputeEnvironmentOrderProperty"]]]], jsii.get(self, "computeEnvironmentOrder"))
+
+    @compute_environment_order.setter
+    def compute_environment_order(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobQueue.ComputeEnvironmentOrderProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa1c2f3f42165309672c3fdf8c286ff9dc5e99756ec1a5b3ffca9e719d4c7036)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "computeEnvironmentOrder", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="jobQueueName")
     def job_queue_name(self) -> typing.Optional[builtins.str]:
         '''The name of the job queue.'''
@@ -10716,6 +10727,19 @@ class CfnJobQueue(
             type_hints = typing.get_type_hints(_typecheckingstub__3b88e27e62b46f1049263a61bb14f62674a8121083de64c2db32d585651e1c30)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "jobQueueName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="jobQueueType")
+    def job_queue_type(self) -> typing.Optional[builtins.str]:
+        '''The type of job queue.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "jobQueueType"))
+
+    @job_queue_type.setter
+    def job_queue_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf7ba788adc96e65e278a0278721e322a7b2c5ad42c7d2cafd707c74e58d6e65)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "jobQueueType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="jobStateTimeLimitActions")
@@ -10747,6 +10771,24 @@ class CfnJobQueue(
             type_hints = typing.get_type_hints(_typecheckingstub__48a6952b4a8d4426554895a52085bf8c88701735f3f94a3426e81e56ab8a5761)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schedulingPolicyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceEnvironmentOrder")
+    def service_environment_order(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobQueue.ServiceEnvironmentOrderProperty"]]]]:
+        '''The order of the service environment associated with the job queue.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobQueue.ServiceEnvironmentOrderProperty"]]]], jsii.get(self, "serviceEnvironmentOrder"))
+
+    @service_environment_order.setter
+    def service_environment_order(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnJobQueue.ServiceEnvironmentOrderProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59b5173dac1cdbe1bbc03df51cc226f4cddcdbdc7dd27fbfc1081cce50fc2d50)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceEnvironmentOrder", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="state")
@@ -10967,16 +11009,93 @@ class CfnJobQueue(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnJobQueue.ServiceEnvironmentOrderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"order": "order", "service_environment": "serviceEnvironment"},
+    )
+    class ServiceEnvironmentOrderProperty:
+        def __init__(
+            self,
+            *,
+            order: jsii.Number,
+            service_environment: builtins.str,
+        ) -> None:
+            '''Specifies the order of a service environment for a job queue.
+
+            This determines the priority order when multiple service environments are associated with the same job queue.
+
+            :param order: The order of the service environment. Job queues with a higher priority are evaluated first when associated with the same service environment.
+            :param service_environment: The name or ARN of the service environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobqueue-serviceenvironmentorder.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                service_environment_order_property = batch.CfnJobQueue.ServiceEnvironmentOrderProperty(
+                    order=123,
+                    service_environment="serviceEnvironment"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__04c4b071542df93d5d7f1e7493b1bd821aaeae2008c337f58b1d399f309446bf)
+                check_type(argname="argument order", value=order, expected_type=type_hints["order"])
+                check_type(argname="argument service_environment", value=service_environment, expected_type=type_hints["service_environment"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "order": order,
+                "service_environment": service_environment,
+            }
+
+        @builtins.property
+        def order(self) -> jsii.Number:
+            '''The order of the service environment.
+
+            Job queues with a higher priority are evaluated first when associated with the same service environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobqueue-serviceenvironmentorder.html#cfn-batch-jobqueue-serviceenvironmentorder-order
+            '''
+            result = self._values.get("order")
+            assert result is not None, "Required property 'order' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def service_environment(self) -> builtins.str:
+            '''The name or ARN of the service environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-jobqueue-serviceenvironmentorder.html#cfn-batch-jobqueue-serviceenvironmentorder-serviceenvironment
+            '''
+            result = self._values.get("service_environment")
+            assert result is not None, "Required property 'service_environment' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceEnvironmentOrderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_batch.CfnJobQueueProps",
     jsii_struct_bases=[],
     name_mapping={
-        "compute_environment_order": "computeEnvironmentOrder",
         "priority": "priority",
+        "compute_environment_order": "computeEnvironmentOrder",
         "job_queue_name": "jobQueueName",
+        "job_queue_type": "jobQueueType",
         "job_state_time_limit_actions": "jobStateTimeLimitActions",
         "scheduling_policy_arn": "schedulingPolicyArn",
+        "service_environment_order": "serviceEnvironmentOrder",
         "state": "state",
         "tags": "tags",
     },
@@ -10985,21 +11104,25 @@ class CfnJobQueueProps:
     def __init__(
         self,
         *,
-        compute_environment_order: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.ComputeEnvironmentOrderProperty, typing.Dict[builtins.str, typing.Any]]]]],
         priority: jsii.Number,
+        compute_environment_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.ComputeEnvironmentOrderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         job_queue_name: typing.Optional[builtins.str] = None,
+        job_queue_type: typing.Optional[builtins.str] = None,
         job_state_time_limit_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.JobStateTimeLimitActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         scheduling_policy_arn: typing.Optional[builtins.str] = None,
+        service_environment_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.ServiceEnvironmentOrderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         state: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnJobQueue``.
 
-        :param compute_environment_order: The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the ``VALID`` state before you can associate them with a job queue. You can associate up to three compute environments with a job queue. All of the compute environments must be either EC2 ( ``EC2`` or ``SPOT`` ) or Fargate ( ``FARGATE`` or ``FARGATE_SPOT`` ); EC2 and Fargate compute environments can't be mixed. .. epigraph:: All compute environments that are associated with a job queue must share the same architecture. AWS Batch doesn't support mixing compute environment architecture types in a single job queue.
         :param priority: The priority of the job queue. Job queues with a higher priority (or a higher integer value for the ``priority`` parameter) are evaluated first when associated with the same compute environment. Priority is determined in descending order. For example, a job queue with a priority value of ``10`` is given scheduling preference over a job queue with a priority value of ``1`` . All of the compute environments must be either EC2 ( ``EC2`` or ``SPOT`` ) or Fargate ( ``FARGATE`` or ``FARGATE_SPOT`` ); EC2 and Fargate compute environments can't be mixed.
+        :param compute_environment_order: The set of compute environments mapped to a job queue and their order relative to each other. The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the ``VALID`` state before you can associate them with a job queue. You can associate up to three compute environments with a job queue. All of the compute environments must be either EC2 ( ``EC2`` or ``SPOT`` ) or Fargate ( ``FARGATE`` or ``FARGATE_SPOT`` ); EC2 and Fargate compute environments can't be mixed. .. epigraph:: All compute environments that are associated with a job queue must share the same architecture. AWS Batch doesn't support mixing compute environment architecture types in a single job queue.
         :param job_queue_name: The name of the job queue. It can be up to 128 letters long. It can contain uppercase and lowercase letters, numbers, hyphens (-), and underscores (_).
+        :param job_queue_type: The type of job queue. For service jobs that run on SageMaker AI , this value is ``SAGEMAKER_TRAINING`` . For regular container jobs, this value is ``EKS`` , ``ECS`` , or ``ECS_FARGATE`` depending on the compute environment.
         :param job_state_time_limit_actions: The set of actions that AWS Batch perform on jobs that remain at the head of the job queue in the specified state longer than specified times. AWS Batch will perform each action after ``maxTimeSeconds`` has passed.
         :param scheduling_policy_arn: The Amazon Resource Name (ARN) of the scheduling policy. The format is ``aws: *Partition* :batch: *Region* : *Account* :scheduling-policy/ *Name*`` . For example, ``aws:aws:batch:us-west-2:123456789012:scheduling-policy/MySchedulingPolicy`` .
+        :param service_environment_order: The order of the service environment associated with the job queue. Job queues with a higher priority are evaluated first when associated with the same service environment.
         :param state: The state of the job queue. If the job queue state is ``ENABLED`` , it is able to accept jobs. If the job queue state is ``DISABLED`` , new jobs can't be added to the queue, but jobs already in the queue can finish.
         :param tags: The tags that are applied to the job queue. For more information, see `Tagging your AWS Batch resources <https://docs.aws.amazon.com/batch/latest/userguide/using-tags.html>`_ in *AWS Batch User Guide* .
 
@@ -11013,14 +11136,15 @@ class CfnJobQueueProps:
             from aws_cdk import aws_batch as batch
             
             cfn_job_queue_props = batch.CfnJobQueueProps(
+                priority=123,
+            
+                # the properties below are optional
                 compute_environment_order=[batch.CfnJobQueue.ComputeEnvironmentOrderProperty(
                     compute_environment="computeEnvironment",
                     order=123
                 )],
-                priority=123,
-            
-                # the properties below are optional
                 job_queue_name="jobQueueName",
+                job_queue_type="jobQueueType",
                 job_state_time_limit_actions=[batch.CfnJobQueue.JobStateTimeLimitActionProperty(
                     action="action",
                     max_time_seconds=123,
@@ -11028,6 +11152,10 @@ class CfnJobQueueProps:
                     state="state"
                 )],
                 scheduling_policy_arn="schedulingPolicyArn",
+                service_environment_order=[batch.CfnJobQueue.ServiceEnvironmentOrderProperty(
+                    order=123,
+                    service_environment="serviceEnvironment"
+                )],
                 state="state",
                 tags={
                     "tags_key": "tags"
@@ -11036,44 +11164,34 @@ class CfnJobQueueProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__009d6d384b1b723169e64875095e05fe852ae3931adf5ba2004d22475a76caa9)
-            check_type(argname="argument compute_environment_order", value=compute_environment_order, expected_type=type_hints["compute_environment_order"])
             check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument compute_environment_order", value=compute_environment_order, expected_type=type_hints["compute_environment_order"])
             check_type(argname="argument job_queue_name", value=job_queue_name, expected_type=type_hints["job_queue_name"])
+            check_type(argname="argument job_queue_type", value=job_queue_type, expected_type=type_hints["job_queue_type"])
             check_type(argname="argument job_state_time_limit_actions", value=job_state_time_limit_actions, expected_type=type_hints["job_state_time_limit_actions"])
             check_type(argname="argument scheduling_policy_arn", value=scheduling_policy_arn, expected_type=type_hints["scheduling_policy_arn"])
+            check_type(argname="argument service_environment_order", value=service_environment_order, expected_type=type_hints["service_environment_order"])
             check_type(argname="argument state", value=state, expected_type=type_hints["state"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "compute_environment_order": compute_environment_order,
             "priority": priority,
         }
+        if compute_environment_order is not None:
+            self._values["compute_environment_order"] = compute_environment_order
         if job_queue_name is not None:
             self._values["job_queue_name"] = job_queue_name
+        if job_queue_type is not None:
+            self._values["job_queue_type"] = job_queue_type
         if job_state_time_limit_actions is not None:
             self._values["job_state_time_limit_actions"] = job_state_time_limit_actions
         if scheduling_policy_arn is not None:
             self._values["scheduling_policy_arn"] = scheduling_policy_arn
+        if service_environment_order is not None:
+            self._values["service_environment_order"] = service_environment_order
         if state is not None:
             self._values["state"] = state
         if tags is not None:
             self._values["tags"] = tags
-
-    @builtins.property
-    def compute_environment_order(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobQueue.ComputeEnvironmentOrderProperty]]]:
-        '''The set of compute environments mapped to a job queue and their order relative to each other.
-
-        The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the ``VALID`` state before you can associate them with a job queue. You can associate up to three compute environments with a job queue. All of the compute environments must be either EC2 ( ``EC2`` or ``SPOT`` ) or Fargate ( ``FARGATE`` or ``FARGATE_SPOT`` ); EC2 and Fargate compute environments can't be mixed.
-        .. epigraph::
-
-           All compute environments that are associated with a job queue must share the same architecture. AWS Batch doesn't support mixing compute environment architecture types in a single job queue.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-jobqueue.html#cfn-batch-jobqueue-computeenvironmentorder
-        '''
-        result = self._values.get("compute_environment_order")
-        assert result is not None, "Required property 'compute_environment_order' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobQueue.ComputeEnvironmentOrderProperty]]], result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
@@ -11088,6 +11206,22 @@ class CfnJobQueueProps:
         return typing.cast(jsii.Number, result)
 
     @builtins.property
+    def compute_environment_order(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobQueue.ComputeEnvironmentOrderProperty]]]]:
+        '''The set of compute environments mapped to a job queue and their order relative to each other.
+
+        The job scheduler uses this parameter to determine which compute environment runs a specific job. Compute environments must be in the ``VALID`` state before you can associate them with a job queue. You can associate up to three compute environments with a job queue. All of the compute environments must be either EC2 ( ``EC2`` or ``SPOT`` ) or Fargate ( ``FARGATE`` or ``FARGATE_SPOT`` ); EC2 and Fargate compute environments can't be mixed.
+        .. epigraph::
+
+           All compute environments that are associated with a job queue must share the same architecture. AWS Batch doesn't support mixing compute environment architecture types in a single job queue.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-jobqueue.html#cfn-batch-jobqueue-computeenvironmentorder
+        '''
+        result = self._values.get("compute_environment_order")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobQueue.ComputeEnvironmentOrderProperty]]]], result)
+
+    @builtins.property
     def job_queue_name(self) -> typing.Optional[builtins.str]:
         '''The name of the job queue.
 
@@ -11096,6 +11230,17 @@ class CfnJobQueueProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-jobqueue.html#cfn-batch-jobqueue-jobqueuename
         '''
         result = self._values.get("job_queue_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def job_queue_type(self) -> typing.Optional[builtins.str]:
+        '''The type of job queue.
+
+        For service jobs that run on SageMaker AI , this value is ``SAGEMAKER_TRAINING`` . For regular container jobs, this value is ``EKS`` , ``ECS`` , or ``ECS_FARGATE`` depending on the compute environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-jobqueue.html#cfn-batch-jobqueue-jobqueuetype
+        '''
+        result = self._values.get("job_queue_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -11121,6 +11266,19 @@ class CfnJobQueueProps:
         '''
         result = self._values.get("scheduling_policy_arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_environment_order(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobQueue.ServiceEnvironmentOrderProperty]]]]:
+        '''The order of the service environment associated with the job queue.
+
+        Job queues with a higher priority are evaluated first when associated with the same service environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-jobqueue.html#cfn-batch-jobqueue-serviceenvironmentorder
+        '''
+        result = self._values.get("service_environment_order")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobQueue.ServiceEnvironmentOrderProperty]]]], result)
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
@@ -11610,6 +11768,418 @@ class CfnSchedulingPolicyProps:
 
     def __repr__(self) -> str:
         return "CfnSchedulingPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnServiceEnvironment(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_batch.CfnServiceEnvironment",
+):
+    '''Creates a service environment for running service jobs.
+
+    Service environments define capacity limits for specific service types such as SageMaker Training jobs.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-serviceenvironment.html
+    :cloudformationResource: AWS::Batch::ServiceEnvironment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_batch as batch
+        
+        cfn_service_environment = batch.CfnServiceEnvironment(self, "MyCfnServiceEnvironment",
+            capacity_limits=[batch.CfnServiceEnvironment.CapacityLimitProperty(
+                capacity_unit="capacityUnit",
+                max_capacity=123
+            )],
+            service_environment_type="serviceEnvironmentType",
+        
+            # the properties below are optional
+            service_environment_name="serviceEnvironmentName",
+            state="state",
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        capacity_limits: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnServiceEnvironment.CapacityLimitProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        service_environment_type: builtins.str,
+        service_environment_name: typing.Optional[builtins.str] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param capacity_limits: The capacity limits for the service environment. This defines the maximum resources that can be used by service jobs in this environment.
+        :param service_environment_type: The type of service environment. For SageMaker Training jobs, this value is ``SAGEMAKER_TRAINING`` .
+        :param service_environment_name: The name of the service environment.
+        :param state: The state of the service environment. Valid values are ``ENABLED`` and ``DISABLED`` .
+        :param tags: The tags associated with the service environment. Each tag consists of a key and an optional value. For more information, see `Tagging your AWS Batch resources <https://docs.aws.amazon.com/batch/latest/userguide/using-tags.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a6f9de8dd6d91e1ef3541444262c3bd9eba874d47c3dbe2b368127e55802962d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnServiceEnvironmentProps(
+            capacity_limits=capacity_limits,
+            service_environment_type=service_environment_type,
+            service_environment_name=service_environment_name,
+            state=state,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96e0974d2660553889a9af3a927bfad81828948853f01018235f809576a4c6b9)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6991ed0f2dc20fa74e5cde5971e4b3997019046ee7c1e1fc7eca96b677bc91b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrServiceEnvironmentArn")
+    def attr_service_environment_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the service environment.
+
+        :cloudformationAttribute: ServiceEnvironmentArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrServiceEnvironmentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="capacityLimits")
+    def capacity_limits(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceEnvironment.CapacityLimitProperty"]]]:
+        '''The capacity limits for the service environment.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceEnvironment.CapacityLimitProperty"]]], jsii.get(self, "capacityLimits"))
+
+    @capacity_limits.setter
+    def capacity_limits(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnServiceEnvironment.CapacityLimitProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d996fbedbaec7f1ef9fada43375af4381f0a867d50517c77d6662e6e7d7d26ae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "capacityLimits", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceEnvironmentType")
+    def service_environment_type(self) -> builtins.str:
+        '''The type of service environment.'''
+        return typing.cast(builtins.str, jsii.get(self, "serviceEnvironmentType"))
+
+    @service_environment_type.setter
+    def service_environment_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__555f27a186fb86df6655903dee02e46968e9230d8927d6c74bb13420e35fb703)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceEnvironmentType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceEnvironmentName")
+    def service_environment_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the service environment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serviceEnvironmentName"))
+
+    @service_environment_name.setter
+    def service_environment_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f9d1cde60619bebd040c4ca1b04e45af9a3d96ad1c7d934c1fe4f4c102b0fde)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceEnvironmentName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="state")
+    def state(self) -> typing.Optional[builtins.str]:
+        '''The state of the service environment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "state"))
+
+    @state.setter
+    def state(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb9c6d092d73d302c59d162da7ef41f680de210ef8b625b0d6804765c19c16cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags associated with the service environment.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__07a3aaaa5bb4d6dbce1c225211ed2ba7848e8258ea1ae35767262fbfb6c68d93)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnServiceEnvironment.CapacityLimitProperty",
+        jsii_struct_bases=[],
+        name_mapping={"capacity_unit": "capacityUnit", "max_capacity": "maxCapacity"},
+    )
+    class CapacityLimitProperty:
+        def __init__(
+            self,
+            *,
+            capacity_unit: typing.Optional[builtins.str] = None,
+            max_capacity: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Defines the capacity limit for a service environment.
+
+            This structure specifies the maximum amount of resources that can be used by service jobs in the environment.
+
+            :param capacity_unit: The unit of measure for the capacity limit. This defines how the maxCapacity value should be interpreted. For ``SAGEMAKER_TRAINING`` jobs, use ``NUM_INSTANCES`` .
+            :param max_capacity: The maximum capacity available for the service environment. This value represents the maximum amount resources that can be allocated to service jobs. For example, ``maxCapacity=50`` , ``capacityUnit=NUM_INSTANCES`` . This indicates that the maximum number of instances that can be run on this service environment is 50. You could then run 5 SageMaker Training jobs that each use 10 instances. However, if you submit another job that requires 10 instances, it will wait in the queue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-serviceenvironment-capacitylimit.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                capacity_limit_property = batch.CfnServiceEnvironment.CapacityLimitProperty(
+                    capacity_unit="capacityUnit",
+                    max_capacity=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8d4366eeddf34eff3fc133ef72e4bd900563fba6b925f9d9524d8c92ac2f3e4a)
+                check_type(argname="argument capacity_unit", value=capacity_unit, expected_type=type_hints["capacity_unit"])
+                check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if capacity_unit is not None:
+                self._values["capacity_unit"] = capacity_unit
+            if max_capacity is not None:
+                self._values["max_capacity"] = max_capacity
+
+        @builtins.property
+        def capacity_unit(self) -> typing.Optional[builtins.str]:
+            '''The unit of measure for the capacity limit.
+
+            This defines how the maxCapacity value should be interpreted. For ``SAGEMAKER_TRAINING`` jobs, use ``NUM_INSTANCES`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-serviceenvironment-capacitylimit.html#cfn-batch-serviceenvironment-capacitylimit-capacityunit
+            '''
+            result = self._values.get("capacity_unit")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def max_capacity(self) -> typing.Optional[jsii.Number]:
+            '''The maximum capacity available for the service environment.
+
+            This value represents the maximum amount resources that can be allocated to service jobs.
+
+            For example, ``maxCapacity=50`` , ``capacityUnit=NUM_INSTANCES`` . This indicates that the maximum number of instances that can be run on this service environment is 50. You could then run 5 SageMaker Training jobs that each use 10 instances. However, if you submit another job that requires 10 instances, it will wait in the queue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-serviceenvironment-capacitylimit.html#cfn-batch-serviceenvironment-capacitylimit-maxcapacity
+            '''
+            result = self._values.get("max_capacity")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityLimitProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_batch.CfnServiceEnvironmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "capacity_limits": "capacityLimits",
+        "service_environment_type": "serviceEnvironmentType",
+        "service_environment_name": "serviceEnvironmentName",
+        "state": "state",
+        "tags": "tags",
+    },
+)
+class CfnServiceEnvironmentProps:
+    def __init__(
+        self,
+        *,
+        capacity_limits: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceEnvironment.CapacityLimitProperty, typing.Dict[builtins.str, typing.Any]]]]],
+        service_environment_type: builtins.str,
+        service_environment_name: typing.Optional[builtins.str] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnServiceEnvironment``.
+
+        :param capacity_limits: The capacity limits for the service environment. This defines the maximum resources that can be used by service jobs in this environment.
+        :param service_environment_type: The type of service environment. For SageMaker Training jobs, this value is ``SAGEMAKER_TRAINING`` .
+        :param service_environment_name: The name of the service environment.
+        :param state: The state of the service environment. Valid values are ``ENABLED`` and ``DISABLED`` .
+        :param tags: The tags associated with the service environment. Each tag consists of a key and an optional value. For more information, see `Tagging your AWS Batch resources <https://docs.aws.amazon.com/batch/latest/userguide/using-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-serviceenvironment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_batch as batch
+            
+            cfn_service_environment_props = batch.CfnServiceEnvironmentProps(
+                capacity_limits=[batch.CfnServiceEnvironment.CapacityLimitProperty(
+                    capacity_unit="capacityUnit",
+                    max_capacity=123
+                )],
+                service_environment_type="serviceEnvironmentType",
+            
+                # the properties below are optional
+                service_environment_name="serviceEnvironmentName",
+                state="state",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfdb5cc25e8550eb4e42278bd3377213122f3560aa9c8e788955ad66e1ecad9a)
+            check_type(argname="argument capacity_limits", value=capacity_limits, expected_type=type_hints["capacity_limits"])
+            check_type(argname="argument service_environment_type", value=service_environment_type, expected_type=type_hints["service_environment_type"])
+            check_type(argname="argument service_environment_name", value=service_environment_name, expected_type=type_hints["service_environment_name"])
+            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "capacity_limits": capacity_limits,
+            "service_environment_type": service_environment_type,
+        }
+        if service_environment_name is not None:
+            self._values["service_environment_name"] = service_environment_name
+        if state is not None:
+            self._values["state"] = state
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def capacity_limits(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServiceEnvironment.CapacityLimitProperty]]]:
+        '''The capacity limits for the service environment.
+
+        This defines the maximum resources that can be used by service jobs in this environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-serviceenvironment.html#cfn-batch-serviceenvironment-capacitylimits
+        '''
+        result = self._values.get("capacity_limits")
+        assert result is not None, "Required property 'capacity_limits' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServiceEnvironment.CapacityLimitProperty]]], result)
+
+    @builtins.property
+    def service_environment_type(self) -> builtins.str:
+        '''The type of service environment.
+
+        For SageMaker Training jobs, this value is ``SAGEMAKER_TRAINING`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-serviceenvironment.html#cfn-batch-serviceenvironment-serviceenvironmenttype
+        '''
+        result = self._values.get("service_environment_type")
+        assert result is not None, "Required property 'service_environment_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_environment_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the service environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-serviceenvironment.html#cfn-batch-serviceenvironment-serviceenvironmentname
+        '''
+        result = self._values.get("service_environment_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def state(self) -> typing.Optional[builtins.str]:
+        '''The state of the service environment.
+
+        Valid values are ``ENABLED`` and ``DISABLED`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-serviceenvironment.html#cfn-batch-serviceenvironment-state
+        '''
+        result = self._values.get("state")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags associated with the service environment.
+
+        Each tag consists of a key and an optional value. For more information, see `Tagging your AWS Batch resources <https://docs.aws.amazon.com/batch/latest/userguide/using-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-batch-serviceenvironment.html#cfn-batch-serviceenvironment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServiceEnvironmentProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -24871,6 +25441,8 @@ __all__ = [
     "CfnJobQueueProps",
     "CfnSchedulingPolicy",
     "CfnSchedulingPolicyProps",
+    "CfnServiceEnvironment",
+    "CfnServiceEnvironmentProps",
     "ComputeEnvironmentProps",
     "CustomReason",
     "Device",
@@ -25817,11 +26389,13 @@ def _typecheckingstub__6480ab252bc515b2cdb6dc0c833877438fd473fd39eadf6b8a064969a
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    compute_environment_order: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.ComputeEnvironmentOrderProperty, typing.Dict[builtins.str, typing.Any]]]]],
     priority: jsii.Number,
+    compute_environment_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.ComputeEnvironmentOrderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     job_queue_name: typing.Optional[builtins.str] = None,
+    job_queue_type: typing.Optional[builtins.str] = None,
     job_state_time_limit_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.JobStateTimeLimitActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     scheduling_policy_arn: typing.Optional[builtins.str] = None,
+    service_environment_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.ServiceEnvironmentOrderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     state: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -25840,19 +26414,25 @@ def _typecheckingstub__ce1fe922d9589f26998c2113a8a19530d98bfc01fe2462a8639a35935
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__aa1c2f3f42165309672c3fdf8c286ff9dc5e99756ec1a5b3ffca9e719d4c7036(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobQueue.ComputeEnvironmentOrderProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__620331f74c116d31a6d43627e1a45e7041bc3c110194265f30dc193863c8ed94(
     value: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__aa1c2f3f42165309672c3fdf8c286ff9dc5e99756ec1a5b3ffca9e719d4c7036(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobQueue.ComputeEnvironmentOrderProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3b88e27e62b46f1049263a61bb14f62674a8121083de64c2db32d585651e1c30(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf7ba788adc96e65e278a0278721e322a7b2c5ad42c7d2cafd707c74e58d6e65(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -25866,6 +26446,12 @@ def _typecheckingstub__6e248d0029fc3043fabb974edf0f06b8f9f721a8f13ce794fd6c39b5a
 
 def _typecheckingstub__48a6952b4a8d4426554895a52085bf8c88701735f3f94a3426e81e56ab8a5761(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59b5173dac1cdbe1bbc03df51cc226f4cddcdbdc7dd27fbfc1081cce50fc2d50(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobQueue.ServiceEnvironmentOrderProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25900,13 +26486,23 @@ def _typecheckingstub__78ff35092216cfb2ffd2106f7da574c86c17494e3404a6f2ccdc020cc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__04c4b071542df93d5d7f1e7493b1bd821aaeae2008c337f58b1d399f309446bf(
+    *,
+    order: jsii.Number,
+    service_environment: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__009d6d384b1b723169e64875095e05fe852ae3931adf5ba2004d22475a76caa9(
     *,
-    compute_environment_order: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.ComputeEnvironmentOrderProperty, typing.Dict[builtins.str, typing.Any]]]]],
     priority: jsii.Number,
+    compute_environment_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.ComputeEnvironmentOrderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     job_queue_name: typing.Optional[builtins.str] = None,
+    job_queue_type: typing.Optional[builtins.str] = None,
     job_state_time_limit_actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.JobStateTimeLimitActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     scheduling_policy_arn: typing.Optional[builtins.str] = None,
+    service_environment_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnJobQueue.ServiceEnvironmentOrderProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     state: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -25975,6 +26571,80 @@ def _typecheckingstub__baa72ee437297b58169f0020ba3178c321d8f72981fcd34857611be31
     *,
     fairshare_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSchedulingPolicy.FairsharePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6f9de8dd6d91e1ef3541444262c3bd9eba874d47c3dbe2b368127e55802962d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    capacity_limits: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceEnvironment.CapacityLimitProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    service_environment_type: builtins.str,
+    service_environment_name: typing.Optional[builtins.str] = None,
+    state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96e0974d2660553889a9af3a927bfad81828948853f01018235f809576a4c6b9(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6991ed0f2dc20fa74e5cde5971e4b3997019046ee7c1e1fc7eca96b677bc91b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d996fbedbaec7f1ef9fada43375af4381f0a867d50517c77d6662e6e7d7d26ae(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnServiceEnvironment.CapacityLimitProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__555f27a186fb86df6655903dee02e46968e9230d8927d6c74bb13420e35fb703(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f9d1cde60619bebd040c4ca1b04e45af9a3d96ad1c7d934c1fe4f4c102b0fde(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb9c6d092d73d302c59d162da7ef41f680de210ef8b625b0d6804765c19c16cf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07a3aaaa5bb4d6dbce1c225211ed2ba7848e8258ea1ae35767262fbfb6c68d93(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d4366eeddf34eff3fc133ef72e4bd900563fba6b925f9d9524d8c92ac2f3e4a(
+    *,
+    capacity_unit: typing.Optional[builtins.str] = None,
+    max_capacity: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfdb5cc25e8550eb4e42278bd3377213122f3560aa9c8e788955ad66e1ecad9a(
+    *,
+    capacity_limits: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServiceEnvironment.CapacityLimitProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    service_environment_type: builtins.str,
+    service_environment_name: typing.Optional[builtins.str] = None,
+    state: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

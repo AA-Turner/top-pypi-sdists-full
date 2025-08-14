@@ -1,7 +1,7 @@
 r'''
 # `data_azuread_application`
 
-Refer to the Terraform Registry for docs: [`data_azuread_application`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application).
+Refer to the Terraform Registry for docs: [`data_azuread_application`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzureadApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.dataAzureadApplication.DataAzureadApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application azuread_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application azuread_application}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataAzureadApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application azuread_application} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application azuread_application} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param client_id: The Client ID (also called Application ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#client_id DataAzureadApplication#client_id}
-        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#display_name DataAzureadApplication#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#id DataAzureadApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identifier_uri: One of the application's identifier URIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#identifier_uri DataAzureadApplication#identifier_uri}
-        :param object_id: The application's object ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#object_id DataAzureadApplication#object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#timeouts DataAzureadApplication#timeouts}
+        :param client_id: The Client ID (also called Application ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#client_id DataAzureadApplication#client_id}
+        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#display_name DataAzureadApplication#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#id DataAzureadApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identifier_uri: One of the application's identifier URIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#identifier_uri DataAzureadApplication#identifier_uri}
+        :param object_id: The application's object ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#object_id DataAzureadApplication#object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#timeouts DataAzureadApplication#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataAzureadApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzureadApplication to import.
-        :param import_from_id: The id of the existing DataAzureadApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzureadApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzureadApplication to import is found.
         '''
         if __debug__:
@@ -132,7 +132,7 @@ class DataAzureadApplication(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#read DataAzureadApplication#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#read DataAzureadApplication#read}.
         '''
         value = DataAzureadApplicationTimeouts(read=read)
 
@@ -967,12 +967,12 @@ class DataAzureadApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param client_id: The Client ID (also called Application ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#client_id DataAzureadApplication#client_id}
-        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#display_name DataAzureadApplication#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#id DataAzureadApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identifier_uri: One of the application's identifier URIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#identifier_uri DataAzureadApplication#identifier_uri}
-        :param object_id: The application's object ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#object_id DataAzureadApplication#object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#timeouts DataAzureadApplication#timeouts}
+        :param client_id: The Client ID (also called Application ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#client_id DataAzureadApplication#client_id}
+        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#display_name DataAzureadApplication#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#id DataAzureadApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identifier_uri: One of the application's identifier URIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#identifier_uri DataAzureadApplication#identifier_uri}
+        :param object_id: The application's object ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#object_id DataAzureadApplication#object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#timeouts DataAzureadApplication#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1089,7 +1089,7 @@ class DataAzureadApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_id(self) -> typing.Optional[builtins.str]:
         '''The Client ID (also called Application ID).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#client_id DataAzureadApplication#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#client_id DataAzureadApplication#client_id}
         '''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1098,14 +1098,14 @@ class DataAzureadApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name for the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#display_name DataAzureadApplication#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#display_name DataAzureadApplication#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#id DataAzureadApplication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#id DataAzureadApplication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1117,7 +1117,7 @@ class DataAzureadApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identifier_uri(self) -> typing.Optional[builtins.str]:
         '''One of the application's identifier URIs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#identifier_uri DataAzureadApplication#identifier_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#identifier_uri DataAzureadApplication#identifier_uri}
         '''
         result = self._values.get("identifier_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1126,7 +1126,7 @@ class DataAzureadApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def object_id(self) -> typing.Optional[builtins.str]:
         '''The application's object ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#object_id DataAzureadApplication#object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#object_id DataAzureadApplication#object_id}
         '''
         result = self._values.get("object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1135,7 +1135,7 @@ class DataAzureadApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataAzureadApplicationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#timeouts DataAzureadApplication#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#timeouts DataAzureadApplication#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzureadApplicationTimeouts"], result)
@@ -2550,7 +2550,7 @@ class DataAzureadApplicationSinglePageApplicationOutputReference(
 class DataAzureadApplicationTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#read DataAzureadApplication#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#read DataAzureadApplication#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e38a7dca50e6fcc48fa2a7312f691108674010f924350f13e69236614490f136)
@@ -2561,7 +2561,7 @@ class DataAzureadApplicationTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application#read DataAzureadApplication#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application#read DataAzureadApplication#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

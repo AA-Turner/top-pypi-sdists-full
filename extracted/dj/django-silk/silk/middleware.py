@@ -2,12 +2,13 @@ import logging
 import random
 
 from django.conf import settings
-from django.db import DatabaseError, transaction
+from django.db import DatabaseError, router, transaction
 from django.db.models.sql.compiler import SQLCompiler
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from silk import models
 from silk.collector import DataCollector
 from silk.config import SilkyConfig
 from silk.errors import SilkNotConfigured
@@ -40,6 +41,8 @@ AUTH_AND_SESSION_MIDDLEWARES = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
 ]
+
+ORIGINAL_EXECUTE_SQL = SQLCompiler.execute_sql
 
 
 def _should_intercept(request):
@@ -142,7 +145,7 @@ class SilkyMiddleware:
         request_model = RequestModelFactory(request).construct_request_model()
         DataCollector().configure(request_model, should_profile=should_profile)
 
-    @transaction.atomic()
+    @transaction.atomic(using=router.db_for_write(models.SQLQuery))
     def _process_response(self, request, response):
         Logger.debug('Process response')
         with silk_meta_profiler():
@@ -181,4 +184,8 @@ class SilkyMiddleware:
                         Logger.warning('Exhausted _process_response attempts; not processing request')
                         break
                 attempts += 1
+        # Clean up after ourselves for the next request:
+        if hasattr(SQLCompiler, '_execute_sql'):
+            SQLCompiler.execute_sql = ORIGINAL_EXECUTE_SQL
+            delattr(SQLCompiler, '_execute_sql')
         return response

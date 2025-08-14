@@ -191,7 +191,6 @@ class Credentials:
         )
 
     def _set_env_vars_from_credentials(self) -> None:
-
         env_vars_mapping = {
             "FLIGHT_SERVICE_LOCATION": "flight_service_location",
             "FLIGHT_SERVICE_PORT": "flight_service_port",

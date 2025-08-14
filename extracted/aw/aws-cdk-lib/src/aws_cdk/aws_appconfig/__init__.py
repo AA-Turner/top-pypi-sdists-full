@@ -2124,6 +2124,15 @@ class CfnDeployment(
         return typing.cast(builtins.str, jsii.get(self, "attrDeploymentNumber"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the deployment.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
     def cdk_tag_manager(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''

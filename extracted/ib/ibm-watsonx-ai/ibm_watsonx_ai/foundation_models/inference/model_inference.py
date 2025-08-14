@@ -4,41 +4,43 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
+from enum import Enum
 from typing import (
     TYPE_CHECKING,
+    AsyncGenerator,
     Generator,
+    Literal,
     cast,
     overload,
-    Literal,
-    AsyncGenerator,
 )
-from enum import Enum
 from warnings import warn
 
 import httpx
 
-from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    ParamOutOfRange,
-    InvalidMultipleArguments,
-    MissingExtension,
-)
+import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai._wrappers.requests import (
-    _get_httpx_client,
     _get_async_client,
+    _get_httpx_client,
 )
 from ibm_watsonx_ai.foundation_models.schema import (
     TextChatParameters,
     TextGenParameters,
 )
-import ibm_watsonx_ai._wrappers.requests as requests
+from ibm_watsonx_ai.wml_client_error import (
+    InvalidMultipleArguments,
+    MissingExtension,
+    ParamOutOfRange,
+    WMLClientError,
+)
+
 from .base_model_inference import BaseModelInference
-from .fm_model_inference import FMModelInference
 from .deployment_model_inference import DeploymentModelInference
+from .fm_model_inference import FMModelInference
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient, Credentials
     from langchain_ibm import WatsonxLLM
+
+    from ibm_watsonx_ai import APIClient, Credentials
 
 
 class ModelInference(BaseModelInference):

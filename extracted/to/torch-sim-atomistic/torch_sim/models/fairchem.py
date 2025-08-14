@@ -45,7 +45,7 @@ try:
 except ImportError as exc:
     warnings.warn(f"FairChem import failed: {traceback.format_exc()}", stacklevel=2)
 
-    class FairChemModel(torch.nn.Module, ModelInterface):
+    class FairChemModel(ModelInterface):
         """FairChem model wrapper for torch_sim.
 
         This class is a placeholder for the FairChemModel class.
@@ -70,7 +70,7 @@ _DTYPE_DICT = {
 }
 
 
-class FairChemModel(torch.nn.Module, ModelInterface):
+class FairChemModel(ModelInterface):
     """Computes atomistic energies, forces and stresses using a FairChem model.
 
     This class wraps a FairChem model to compute energies, forces, and stresses for
@@ -349,8 +349,8 @@ class FairChemModel(torch.nn.Module, ModelInterface):
         if state.device != self._device:
             state = state.to(self._device)
 
-        if state.batch is None:
-            state.batch = torch.zeros(state.positions.shape[0], dtype=torch.int)
+        if state.system_idx is None:
+            state.system_idx = torch.zeros(state.positions.shape[0], dtype=torch.int)
 
         if self.pbc != state.pbc:
             raise ValueError(
@@ -358,8 +358,8 @@ class FairChemModel(torch.nn.Module, ModelInterface):
                 "For FairChemModel PBC needs to be defined in the model class."
             )
 
-        natoms = torch.bincount(state.batch)
-        fixed = torch.zeros((state.batch.size(0), natoms.sum()), dtype=torch.int)
+        natoms = torch.bincount(state.system_idx)
+        fixed = torch.zeros((state.system_idx.size(0), natoms.sum()), dtype=torch.int)
         data_list = []
         for i, (n, c) in enumerate(
             zip(natoms, torch.cumsum(natoms, dim=0), strict=False)

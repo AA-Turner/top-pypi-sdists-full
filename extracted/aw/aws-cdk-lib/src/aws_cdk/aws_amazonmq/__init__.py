@@ -2358,7 +2358,8 @@ class CfnConfigurationAssociation(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''
+        '''The ID of the ConfigurationAssociation Resource.
+
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))

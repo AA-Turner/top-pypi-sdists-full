@@ -5,14 +5,21 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
     id: str,
+    *,
+    remove_ansi_warnings: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["remove_ansi_warnings"] = remove_ansi_warnings
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
@@ -20,6 +27,7 @@ def _get_kwargs(
             workspace=workspace,
             id=id,
         ),
+        "params": params,
     }
 
 
@@ -44,12 +52,14 @@ def sync_detailed(
     id: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    remove_ansi_warnings: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """get job logs
 
     Args:
         workspace (str):
         id (str):
+        remove_ansi_warnings (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -62,6 +72,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         id=id,
+        remove_ansi_warnings=remove_ansi_warnings,
     )
 
     response = client.get_httpx_client().request(
@@ -76,12 +87,14 @@ async def asyncio_detailed(
     id: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    remove_ansi_warnings: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """get job logs
 
     Args:
         workspace (str):
         id (str):
+        remove_ansi_warnings (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -94,6 +107,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         id=id,
+        remove_ansi_warnings=remove_ansi_warnings,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

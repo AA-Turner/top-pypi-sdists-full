@@ -13,6 +13,7 @@ class FieldType(str, Enum):
 
 SemanticType = t.Literal[
     "account-id",
+    "application-id",
     "aws-external-id",
     "password",
     "key-pair",

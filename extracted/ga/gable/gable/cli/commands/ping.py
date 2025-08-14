@@ -1,8 +1,9 @@
 import click
 from click.core import Context as ClickContext
+from loguru import logger
+
 from gable.api.client import GableAPIClient
 from gable.cli.options import global_options
-from loguru import logger
 
 
 @click.command()

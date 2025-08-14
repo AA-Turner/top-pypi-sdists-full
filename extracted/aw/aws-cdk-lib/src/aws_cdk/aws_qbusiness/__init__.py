@@ -7386,7 +7386,7 @@ class CfnWebExperience(
         :param customization_configuration: Contains the configuration information to customize the logo, font, and color of an Amazon Q Business web experience with individual files for each property or a CSS file for them all.
         :param identity_provider_configuration: Provides information about the identity provider (IdP) used to authenticate end users of an Amazon Q Business web experience.
         :param origins: Sets the website domain origins that are allowed to embed the Amazon Q Business web experience. The *domain origin* refers to the base URL for accessing a website including the protocol ( ``http/https`` ), the domain name, and the port number (if specified). .. epigraph:: You must only submit a *base URL* and not a full path. For example, ``https://docs.aws.amazon.com`` .
-        :param role_arn: The Amazon Resource Name (ARN) of the service role attached to your web experience. .. epigraph:: You must provide this value if you're using IAM Identity Center to manage end user access to your application. If you're using legacy identity management to manage user access, you don't need to provide this value.
+        :param role_arn: The Amazon Resource Name (ARN) of the service role attached to your web experience. .. epigraph:: The ``roleArn`` parameter is required when your Amazon Q Business application is created with IAM Identity Center. It is not required for SAML-based applications.
         :param sample_prompts_control_mode: Determines whether sample prompts are enabled in the web experience for an end user.
         :param subtitle: A subtitle to personalize your Amazon Q Business web experience.
         :param tags: A list of key-value pairs that identify or categorize your Amazon Q Business web experience. You can also use tags to help control access to the web experience. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
@@ -8079,7 +8079,7 @@ class CfnWebExperienceProps:
         :param customization_configuration: Contains the configuration information to customize the logo, font, and color of an Amazon Q Business web experience with individual files for each property or a CSS file for them all.
         :param identity_provider_configuration: Provides information about the identity provider (IdP) used to authenticate end users of an Amazon Q Business web experience.
         :param origins: Sets the website domain origins that are allowed to embed the Amazon Q Business web experience. The *domain origin* refers to the base URL for accessing a website including the protocol ( ``http/https`` ), the domain name, and the port number (if specified). .. epigraph:: You must only submit a *base URL* and not a full path. For example, ``https://docs.aws.amazon.com`` .
-        :param role_arn: The Amazon Resource Name (ARN) of the service role attached to your web experience. .. epigraph:: You must provide this value if you're using IAM Identity Center to manage end user access to your application. If you're using legacy identity management to manage user access, you don't need to provide this value.
+        :param role_arn: The Amazon Resource Name (ARN) of the service role attached to your web experience. .. epigraph:: The ``roleArn`` parameter is required when your Amazon Q Business application is created with IAM Identity Center. It is not required for SAML-based applications.
         :param sample_prompts_control_mode: Determines whether sample prompts are enabled in the web experience for an end user.
         :param subtitle: A subtitle to personalize your Amazon Q Business web experience.
         :param tags: A list of key-value pairs that identify or categorize your Amazon Q Business web experience. You can also use tags to help control access to the web experience. Tag keys and values can consist of Unicode letters, digits, white space, and any of the following symbols: _ . : / = + -
@@ -8229,7 +8229,7 @@ class CfnWebExperienceProps:
 
         .. epigraph::
 
-           You must provide this value if you're using IAM Identity Center to manage end user access to your application. If you're using legacy identity management to manage user access, you don't need to provide this value.
+           The ``roleArn`` parameter is required when your Amazon Q Business application is created with IAM Identity Center. It is not required for SAML-based applications.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-qbusiness-webexperience.html#cfn-qbusiness-webexperience-rolearn
         '''

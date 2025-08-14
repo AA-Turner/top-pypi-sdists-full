@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import inspect
 import sys
-from typing import Any, Callable, Iterable, Literal, NamedTuple, Union
+from collections.abc import Iterable
+from typing import Any, Callable, Literal, NamedTuple, Union
 
 import numpy as np
 
@@ -239,7 +240,7 @@ def plot2d_full(
     side_kwargs = _filter_dict(kwargs, "side_")
 
     # judge whether some arguments left
-    if len(kwargs):
+    if kwargs:
         raise ValueError(f"{set(kwargs)} not needed")
 
     # Plot: plot the 2d-histogram

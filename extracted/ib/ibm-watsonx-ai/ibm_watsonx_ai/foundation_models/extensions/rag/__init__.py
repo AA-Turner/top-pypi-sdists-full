@@ -3,8 +3,8 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from .vector_stores import VectorStore
 from .pattern import RAGPattern
 from .retriever import Retriever
+from .vector_stores import VectorStore
 
 __all__ = ["VectorStore", "RAGPattern", "Retriever"]

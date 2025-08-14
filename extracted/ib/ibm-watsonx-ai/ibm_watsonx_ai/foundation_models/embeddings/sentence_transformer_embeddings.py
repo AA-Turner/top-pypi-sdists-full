@@ -34,7 +34,6 @@ class SentenceTransformerEmbeddings(BaseEmbeddings):
         model_params: dict | None = None,
         encode_params: dict | None = None,
     ) -> None:
-
         sentence_transformer_class_deprecated_warning = "The `SentenceTransformerEmbeddings` class is deprecated and will be removed in a future release."
         warn(sentence_transformer_class_deprecated_warning, category=DeprecationWarning)
 

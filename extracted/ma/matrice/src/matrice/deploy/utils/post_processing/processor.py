@@ -97,6 +97,7 @@ from .usecases import (
     FaceRecognitionUseCase,
     DrowsyDriverUseCase,
     WaterBodyUseCase,
+    LicensePlateMonitorUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -237,6 +238,7 @@ class PostProcessor:
         registry.register_use_case("oil_gas", "leak_detection", LeakDetectionUseCase)
         registry.register_use_case("general", "human_activity_recognition", HumanActivityUseCase)
         registry.register_use_case("oil_gas", "gas_leak_detection", GasLeakDetectionUseCase)
+        registry.register_use_case("license_plate_monitor", "license_plate_monitor", LicensePlateMonitorUseCase)
 
         #Put all IMAGE based usecases here
         registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
@@ -415,6 +417,8 @@ class PostProcessor:
             elif isinstance(use_case, HumanActivityUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, GasLeakDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, LicensePlateMonitorUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             
             #Put all IMAGE based usecases here

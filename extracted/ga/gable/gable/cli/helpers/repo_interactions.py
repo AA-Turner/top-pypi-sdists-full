@@ -186,7 +186,11 @@ def get_git_repo_info(path: Union[os.PathLike, str]) -> GitInfo:
         git_branch = repo.active_branch.name
     else:
         # Fallback to Github or GitLab environment variables if available
-        git_branch = os.environ.get('GITHUB_HEAD_REF') or os.environ.get('CI_MERGE_REQUEST_SOURCE_BRANCH_NAME') or ""
+        git_branch = (
+            os.environ.get("GITHUB_HEAD_REF")
+            or os.environ.get("CI_MERGE_REQUEST_SOURCE_BRANCH_NAME")
+            or ""
+        )
 
     # Decode the git URL, no-op if it's already done by the git library
     parsed_repo = giturlparse.parse(unquote(get_origin_url(repo.remotes.origin.url)))

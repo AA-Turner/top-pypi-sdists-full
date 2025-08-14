@@ -36,7 +36,7 @@ class Request(webob.BaseRequest):
 
         # These fields are set by an ActivityMasker and will be used for reporting.
         self._masked = False
-        self._masked_body = None
+        self._masked_body: str | None = None
         self._masked_cookies = None
         self._masked_headers = None
         self._masked_params = None

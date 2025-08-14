@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-silk
-Version: 5.4.0
+Version: 5.4.1
 Summary: Silky smooth profiling for the Django Framework
 Home-page: https://github.com/jazzband/django-silk
 Author: Michael Ford
@@ -148,7 +148,7 @@ if required. The UI can be reached at `/silk/`
 Via [github tags](https://github.com/jazzband/django-silk/releases):
 
 ```bash
-pip install https://github.com/jazzband/silk/archive/<version>.tar.gz
+pip install git+https://github.com/jazzband/django-silk.git@<version>#egg=django_silk
 ```
 
 You can install from master using the following, but please be aware that the version in master

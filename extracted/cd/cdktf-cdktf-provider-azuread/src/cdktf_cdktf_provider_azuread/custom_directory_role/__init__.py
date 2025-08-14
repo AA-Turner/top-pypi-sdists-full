@@ -1,7 +1,7 @@
 r'''
 # `azuread_custom_directory_role`
 
-Refer to the Terraform Registry for docs: [`azuread_custom_directory_role`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role).
+Refer to the Terraform Registry for docs: [`azuread_custom_directory_role`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CustomDirectoryRole(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.customDirectoryRole.CustomDirectoryRole",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role azuread_custom_directory_role}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role azuread_custom_directory_role}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class CustomDirectoryRole(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role azuread_custom_directory_role} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role azuread_custom_directory_role} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The display name of the custom directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#display_name CustomDirectoryRole#display_name}
-        :param enabled: Indicates whether the role is enabled for assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#enabled CustomDirectoryRole#enabled}
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#permissions CustomDirectoryRole#permissions}
-        :param version: The version of the role definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#version CustomDirectoryRole#version}
-        :param description: The description of the custom directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#description CustomDirectoryRole#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#id CustomDirectoryRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param template_id: Custom template identifier that is typically used if one needs an identifier to be the same across different directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#template_id CustomDirectoryRole#template_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#timeouts CustomDirectoryRole#timeouts}
+        :param display_name: The display name of the custom directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#display_name CustomDirectoryRole#display_name}
+        :param enabled: Indicates whether the role is enabled for assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#enabled CustomDirectoryRole#enabled}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#permissions CustomDirectoryRole#permissions}
+        :param version: The version of the role definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#version CustomDirectoryRole#version}
+        :param description: The description of the custom directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#description CustomDirectoryRole#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#id CustomDirectoryRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param template_id: Custom template identifier that is typically used if one needs an identifier to be the same across different directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#template_id CustomDirectoryRole#template_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#timeouts CustomDirectoryRole#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class CustomDirectoryRole(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CustomDirectoryRole to import.
-        :param import_from_id: The id of the existing CustomDirectoryRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CustomDirectoryRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CustomDirectoryRole to import is found.
         '''
         if __debug__:
@@ -158,10 +158,10 @@ class CustomDirectoryRole(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#create CustomDirectoryRole#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#delete CustomDirectoryRole#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#read CustomDirectoryRole#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#update CustomDirectoryRole#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#create CustomDirectoryRole#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#delete CustomDirectoryRole#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#read CustomDirectoryRole#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#update CustomDirectoryRole#update}.
         '''
         value = CustomDirectoryRoleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -384,14 +384,14 @@ class CustomDirectoryRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The display name of the custom directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#display_name CustomDirectoryRole#display_name}
-        :param enabled: Indicates whether the role is enabled for assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#enabled CustomDirectoryRole#enabled}
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#permissions CustomDirectoryRole#permissions}
-        :param version: The version of the role definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#version CustomDirectoryRole#version}
-        :param description: The description of the custom directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#description CustomDirectoryRole#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#id CustomDirectoryRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param template_id: Custom template identifier that is typically used if one needs an identifier to be the same across different directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#template_id CustomDirectoryRole#template_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#timeouts CustomDirectoryRole#timeouts}
+        :param display_name: The display name of the custom directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#display_name CustomDirectoryRole#display_name}
+        :param enabled: Indicates whether the role is enabled for assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#enabled CustomDirectoryRole#enabled}
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#permissions CustomDirectoryRole#permissions}
+        :param version: The version of the role definition. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#version CustomDirectoryRole#version}
+        :param description: The description of the custom directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#description CustomDirectoryRole#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#id CustomDirectoryRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param template_id: Custom template identifier that is typically used if one needs an identifier to be the same across different directories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#template_id CustomDirectoryRole#template_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#timeouts CustomDirectoryRole#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -511,7 +511,7 @@ class CustomDirectoryRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The display name of the custom directory role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#display_name CustomDirectoryRole#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#display_name CustomDirectoryRole#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -521,7 +521,7 @@ class CustomDirectoryRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Indicates whether the role is enabled for assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#enabled CustomDirectoryRole#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#enabled CustomDirectoryRole#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -533,7 +533,7 @@ class CustomDirectoryRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CustomDirectoryRolePermissions"]]:
         '''permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#permissions CustomDirectoryRole#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#permissions CustomDirectoryRole#permissions}
         '''
         result = self._values.get("permissions")
         assert result is not None, "Required property 'permissions' is missing"
@@ -543,7 +543,7 @@ class CustomDirectoryRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def version(self) -> builtins.str:
         '''The version of the role definition.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#version CustomDirectoryRole#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#version CustomDirectoryRole#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -553,14 +553,14 @@ class CustomDirectoryRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the custom directory role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#description CustomDirectoryRole#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#description CustomDirectoryRole#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#id CustomDirectoryRole#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#id CustomDirectoryRole#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -572,7 +572,7 @@ class CustomDirectoryRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template_id(self) -> typing.Optional[builtins.str]:
         '''Custom template identifier that is typically used if one needs an identifier to be the same across different directories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#template_id CustomDirectoryRole#template_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#template_id CustomDirectoryRole#template_id}
         '''
         result = self._values.get("template_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -581,7 +581,7 @@ class CustomDirectoryRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CustomDirectoryRoleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#timeouts CustomDirectoryRole#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#timeouts CustomDirectoryRole#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CustomDirectoryRoleTimeouts"], result)
@@ -610,7 +610,7 @@ class CustomDirectoryRolePermissions:
         allowed_resource_actions: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_resource_actions: Set of tasks that can be performed on a resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#allowed_resource_actions CustomDirectoryRole#allowed_resource_actions}
+        :param allowed_resource_actions: Set of tasks that can be performed on a resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#allowed_resource_actions CustomDirectoryRole#allowed_resource_actions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__037212c85f34871d36b02deab060b7a8b0e6e89749ad259d9eaf2a64ebd65633)
@@ -623,7 +623,7 @@ class CustomDirectoryRolePermissions:
     def allowed_resource_actions(self) -> typing.List[builtins.str]:
         '''Set of tasks that can be performed on a resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#allowed_resource_actions CustomDirectoryRole#allowed_resource_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#allowed_resource_actions CustomDirectoryRole#allowed_resource_actions}
         '''
         result = self._values.get("allowed_resource_actions")
         assert result is not None, "Required property 'allowed_resource_actions' is missing"
@@ -817,10 +817,10 @@ class CustomDirectoryRoleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#create CustomDirectoryRole#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#delete CustomDirectoryRole#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#read CustomDirectoryRole#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#update CustomDirectoryRole#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#create CustomDirectoryRole#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#delete CustomDirectoryRole#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#read CustomDirectoryRole#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#update CustomDirectoryRole#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__013ddb373c499e761300c04fc668326d5c850b6af498465a03fb94e5fe1001ee)
@@ -840,25 +840,25 @@ class CustomDirectoryRoleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#create CustomDirectoryRole#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#create CustomDirectoryRole#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#delete CustomDirectoryRole#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#delete CustomDirectoryRole#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#read CustomDirectoryRole#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#read CustomDirectoryRole#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/custom_directory_role#update CustomDirectoryRole#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/custom_directory_role#update CustomDirectoryRole#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

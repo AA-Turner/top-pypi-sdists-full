@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.47.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.48.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.47.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.48.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -573,8 +573,11 @@ __all__ = [
     "data_google_artifact_registry_docker_image",
     "data_google_artifact_registry_docker_images",
     "data_google_artifact_registry_locations",
+    "data_google_artifact_registry_package",
+    "data_google_artifact_registry_repositories",
     "data_google_artifact_registry_repository",
     "data_google_artifact_registry_repository_iam_policy",
+    "data_google_artifact_registry_version",
     "data_google_backup_dr_backup",
     "data_google_backup_dr_backup_plan",
     "data_google_backup_dr_backup_plan_association",
@@ -1021,6 +1024,7 @@ __all__ = [
     "dialogflow_cx_generator",
     "dialogflow_cx_intent",
     "dialogflow_cx_page",
+    "dialogflow_cx_playbook",
     "dialogflow_cx_security_settings",
     "dialogflow_cx_test_case",
     "dialogflow_cx_tool",
@@ -1573,6 +1577,7 @@ __all__ = [
     "vertex_ai_index",
     "vertex_ai_index_endpoint",
     "vertex_ai_index_endpoint_deployed_index",
+    "vertex_ai_rag_engine_config",
     "vertex_ai_tensorboard",
     "vmwareengine_cluster",
     "vmwareengine_external_access_rule",
@@ -2040,8 +2045,11 @@ from . import data_google_apphub_discovered_workload
 from . import data_google_artifact_registry_docker_image
 from . import data_google_artifact_registry_docker_images
 from . import data_google_artifact_registry_locations
+from . import data_google_artifact_registry_package
+from . import data_google_artifact_registry_repositories
 from . import data_google_artifact_registry_repository
 from . import data_google_artifact_registry_repository_iam_policy
+from . import data_google_artifact_registry_version
 from . import data_google_backup_dr_backup
 from . import data_google_backup_dr_backup_plan
 from . import data_google_backup_dr_backup_plan_association
@@ -2488,6 +2496,7 @@ from . import dialogflow_cx_generative_settings
 from . import dialogflow_cx_generator
 from . import dialogflow_cx_intent
 from . import dialogflow_cx_page
+from . import dialogflow_cx_playbook
 from . import dialogflow_cx_security_settings
 from . import dialogflow_cx_test_case
 from . import dialogflow_cx_tool
@@ -3040,6 +3049,7 @@ from . import vertex_ai_featurestore_entitytype_feature
 from . import vertex_ai_index
 from . import vertex_ai_index_endpoint
 from . import vertex_ai_index_endpoint_deployed_index
+from . import vertex_ai_rag_engine_config
 from . import vertex_ai_tensorboard
 from . import vmwareengine_cluster
 from . import vmwareengine_external_access_rule

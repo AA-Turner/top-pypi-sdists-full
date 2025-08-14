@@ -1,7 +1,7 @@
 r'''
 # `azuread_application_password`
 
-Refer to the Terraform Registry for docs: [`azuread_application_password`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password).
+Refer to the Terraform Registry for docs: [`azuread_application_password`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationPasswordA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.applicationPassword.ApplicationPasswordA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password azuread_application_password}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password azuread_application_password}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class ApplicationPasswordA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password azuread_application_password} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password azuread_application_password} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: The resource ID of the application for which this password should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#application_id ApplicationPasswordA#application_id}
-        :param display_name: A display name for the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#display_name ApplicationPasswordA#display_name}
-        :param end_date: The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#end_date ApplicationPasswordA#end_date}
-        :param end_date_relative: A relative duration for which the password is valid until, for example ``240h`` (10 days) or ``2400h30m``. Changing this field forces a new resource to be created Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#end_date_relative ApplicationPasswordA#end_date_relative}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#id ApplicationPasswordA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rotate_when_changed: Arbitrary map of values that, when changed, will trigger rotation of the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#rotate_when_changed ApplicationPasswordA#rotate_when_changed}
-        :param start_date: The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#start_date ApplicationPasswordA#start_date}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#timeouts ApplicationPasswordA#timeouts}
+        :param application_id: The resource ID of the application for which this password should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#application_id ApplicationPasswordA#application_id}
+        :param display_name: A display name for the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#display_name ApplicationPasswordA#display_name}
+        :param end_date: The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#end_date ApplicationPasswordA#end_date}
+        :param end_date_relative: A relative duration for which the password is valid until, for example ``240h`` (10 days) or ``2400h30m``. Changing this field forces a new resource to be created Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#end_date_relative ApplicationPasswordA#end_date_relative}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#id ApplicationPasswordA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rotate_when_changed: Arbitrary map of values that, when changed, will trigger rotation of the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#rotate_when_changed ApplicationPasswordA#rotate_when_changed}
+        :param start_date: The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#start_date ApplicationPasswordA#start_date}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#timeouts ApplicationPasswordA#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class ApplicationPasswordA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationPasswordA to import.
-        :param import_from_id: The id of the existing ApplicationPasswordA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationPasswordA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationPasswordA to import is found.
         '''
         if __debug__:
@@ -145,10 +145,10 @@ class ApplicationPasswordA(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#create ApplicationPasswordA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#delete ApplicationPasswordA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#read ApplicationPasswordA#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#update ApplicationPasswordA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#create ApplicationPasswordA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#delete ApplicationPasswordA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#read ApplicationPasswordA#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#update ApplicationPasswordA#update}.
         '''
         value = ApplicationPasswordTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -393,14 +393,14 @@ class ApplicationPasswordAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: The resource ID of the application for which this password should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#application_id ApplicationPasswordA#application_id}
-        :param display_name: A display name for the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#display_name ApplicationPasswordA#display_name}
-        :param end_date: The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#end_date ApplicationPasswordA#end_date}
-        :param end_date_relative: A relative duration for which the password is valid until, for example ``240h`` (10 days) or ``2400h30m``. Changing this field forces a new resource to be created Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#end_date_relative ApplicationPasswordA#end_date_relative}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#id ApplicationPasswordA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rotate_when_changed: Arbitrary map of values that, when changed, will trigger rotation of the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#rotate_when_changed ApplicationPasswordA#rotate_when_changed}
-        :param start_date: The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#start_date ApplicationPasswordA#start_date}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#timeouts ApplicationPasswordA#timeouts}
+        :param application_id: The resource ID of the application for which this password should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#application_id ApplicationPasswordA#application_id}
+        :param display_name: A display name for the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#display_name ApplicationPasswordA#display_name}
+        :param end_date: The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#end_date ApplicationPasswordA#end_date}
+        :param end_date_relative: A relative duration for which the password is valid until, for example ``240h`` (10 days) or ``2400h30m``. Changing this field forces a new resource to be created Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#end_date_relative ApplicationPasswordA#end_date_relative}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#id ApplicationPasswordA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rotate_when_changed: Arbitrary map of values that, when changed, will trigger rotation of the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#rotate_when_changed ApplicationPasswordA#rotate_when_changed}
+        :param start_date: The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#start_date ApplicationPasswordA#start_date}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#timeouts ApplicationPasswordA#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -523,7 +523,7 @@ class ApplicationPasswordAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''The resource ID of the application for which this password should be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#application_id ApplicationPasswordA#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#application_id ApplicationPasswordA#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -533,7 +533,7 @@ class ApplicationPasswordAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''A display name for the password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#display_name ApplicationPasswordA#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#display_name ApplicationPasswordA#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -542,7 +542,7 @@ class ApplicationPasswordAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def end_date(self) -> typing.Optional[builtins.str]:
         '''The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#end_date ApplicationPasswordA#end_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#end_date ApplicationPasswordA#end_date}
         '''
         result = self._values.get("end_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -553,14 +553,14 @@ class ApplicationPasswordAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Changing this field forces a new resource to be created
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#end_date_relative ApplicationPasswordA#end_date_relative}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#end_date_relative ApplicationPasswordA#end_date_relative}
         '''
         result = self._values.get("end_date_relative")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#id ApplicationPasswordA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#id ApplicationPasswordA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -574,7 +574,7 @@ class ApplicationPasswordAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Arbitrary map of values that, when changed, will trigger rotation of the password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#rotate_when_changed ApplicationPasswordA#rotate_when_changed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#rotate_when_changed ApplicationPasswordA#rotate_when_changed}
         '''
         result = self._values.get("rotate_when_changed")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -583,7 +583,7 @@ class ApplicationPasswordAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def start_date(self) -> typing.Optional[builtins.str]:
         '''The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#start_date ApplicationPasswordA#start_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#start_date ApplicationPasswordA#start_date}
         '''
         result = self._values.get("start_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -592,7 +592,7 @@ class ApplicationPasswordAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationPasswordTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#timeouts ApplicationPasswordA#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#timeouts ApplicationPasswordA#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationPasswordTimeouts"], result)
@@ -629,10 +629,10 @@ class ApplicationPasswordTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#create ApplicationPasswordA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#delete ApplicationPasswordA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#read ApplicationPasswordA#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#update ApplicationPasswordA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#create ApplicationPasswordA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#delete ApplicationPasswordA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#read ApplicationPasswordA#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#update ApplicationPasswordA#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf0e9662fda2d2de7369cd35f83c63ba650dfa657af62a0667b1fc5ead9b4f0c)
@@ -652,25 +652,25 @@ class ApplicationPasswordTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#create ApplicationPasswordA#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#create ApplicationPasswordA#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#delete ApplicationPasswordA#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#delete ApplicationPasswordA#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#read ApplicationPasswordA#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#read ApplicationPasswordA#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_password#update ApplicationPasswordA#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_password#update ApplicationPasswordA#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

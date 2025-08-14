@@ -14,41 +14,44 @@ import sys
 def tracking_import(module, locals=None, globals=None, fromlist=None,
                     level=0):
     rv = real_import(module, locals, globals, fromlist, level)
-    if globals and '__name__' in globals and globals['__name__'].startswith('asyncclick') and level == 0:
+    if globals and globals.get('__name__','').startswith('asyncclick') and level == 0:
         found_imports.add(module)
     return rv
 builtins.__import__ = tracking_import
 
-import asyncclick
+import asyncclick as click
 rv = list(found_imports)
 import json
-asyncclick.echo(json.dumps(rv))
+click.echo(json.dumps(rv))
 """
 
 ALLOWED_IMPORTS = {
+    "__future__",
     "anyio",
-    "weakref",
-    "os",
-    "struct",
-    "collections",
-    "sys",
-    "contextlib",
-    "functools",
-    "stat",
-    "re",
     "codecs",
-    "inspect",
-    "itertools",
-    "io",
-    "threading",
-    "errno",
-    "fcntl",
+    "collections",
+    "collections.abc",
+    "configparser",
+    "contextlib",
     "datetime",
     "enum",
-    "typing",
-    "types",
+    "errno",
+    "fcntl",
+    "functools",
     "gettext",
+    "inspect",
+    "io",
+    "itertools",
+    "os",
+    "re",
     "shutil",
+    "stat",
+    "struct",
+    "sys",
+    "threading",
+    "types",
+    "typing",
+    "weakref",
 }
 
 if WIN:

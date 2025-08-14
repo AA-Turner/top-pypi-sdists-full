@@ -1,11 +1,15 @@
 import json
-import os
 
 import click
 from click.core import Context as ClickContext
-from gable.cli.helpers.auth import format_npmrc_credentials, write_npm_credentials, set_pip_config_credentials
-from gable.cli.options import global_options
 from loguru import logger
+
+from gable.cli.helpers.auth import (
+    format_npmrc_credentials,
+    set_pip_config_credentials,
+    write_npm_credentials,
+)
+from gable.cli.options import global_options
 
 
 @click.group()
@@ -111,5 +115,7 @@ def pip(ctx: ClickContext, output: str, write: bool, file: str):
     if output == "json":
         logger.info(json.dumps(pip_credentials.dict(), indent=4))
     else:
-        logger.info(f"PIP configuration with index URL: {pip_credentials.repositoryEndpoint}")
+        logger.info(
+            f"PIP configuration with index URL: {pip_credentials.repositoryEndpoint}"
+        )
         logger.info("Environment variables set for the current session.")

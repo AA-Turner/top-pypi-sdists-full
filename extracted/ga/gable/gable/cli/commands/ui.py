@@ -1,5 +1,6 @@
 import click
 from click.core import Context as ClickContext
+
 from gable.cli.client import GableAPIClient
 from gable.cli.helpers.shell_output import shell_linkify
 from gable.cli.options import global_options

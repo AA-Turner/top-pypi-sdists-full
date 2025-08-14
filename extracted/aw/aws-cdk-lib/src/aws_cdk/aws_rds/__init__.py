@@ -5426,6 +5426,7 @@ class CfnDBCluster(
             ),
             snapshot_identifier="snapshotIdentifier",
             source_db_cluster_identifier="sourceDbClusterIdentifier",
+            source_db_cluster_resource_id="sourceDbClusterResourceId",
             source_region="sourceRegion",
             storage_encrypted=False,
             storage_type="storageType",
@@ -5496,6 +5497,7 @@ class CfnDBCluster(
         serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDBCluster.ServerlessV2ScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         snapshot_identifier: typing.Optional[builtins.str] = None,
         source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+        source_db_cluster_resource_id: typing.Optional[builtins.str] = None,
         source_region: typing.Optional[builtins.str] = None,
         storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         storage_type: typing.Optional[builtins.str] = None,
@@ -5559,6 +5561,7 @@ class CfnDBCluster(
         :param serverless_v2_scaling_configuration: The scaling configuration of an Aurora Serverless V2 DB cluster. This property is only supported for Aurora Serverless v2. For Aurora Serverless v1, Use the ``ScalingConfiguration`` property. Valid for: Aurora Serverless v2 DB clusters only
         :param snapshot_identifier: The identifier for the DB snapshot or DB cluster snapshot to restore from. You can use either the name or the Amazon Resource Name (ARN) to specify a DB cluster snapshot. However, you can use only the ARN to specify a DB snapshot. After you restore a DB cluster with a ``SnapshotIdentifier`` property, you must specify the same ``SnapshotIdentifier`` property for any future updates to the DB cluster. When you specify this property for an update, the DB cluster is not restored from the snapshot again, and the data in the database is not changed. However, if you don't specify the ``SnapshotIdentifier`` property, an empty DB cluster is created, and the original DB cluster is deleted. If you specify a property that is different from the previous snapshot restore property, a new DB cluster is restored from the specified ``SnapshotIdentifier`` property, and the original DB cluster is deleted. If you specify the ``SnapshotIdentifier`` property to restore a DB cluster (as opposed to specifying it for DB cluster updates), then don't specify the following properties: - ``GlobalClusterIdentifier`` - ``MasterUsername`` - ``MasterUserPassword`` - ``ReplicationSourceIdentifier`` - ``RestoreType`` - ``SourceDBClusterIdentifier`` - ``SourceRegion`` - ``StorageEncrypted`` (for an encrypted snapshot) - ``UseLatestRestorableTime`` Constraints: - Must match the identifier of an existing Snapshot. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param source_db_cluster_identifier: When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore. Constraints: - Must match the identifier of an existing DBCluster. - Cannot be specified if ``SourceDbClusterResourceId`` is specified. You must specify either ``SourceDBClusterIdentifier`` or ``SourceDbClusterResourceId`` , but not both. Valid for: Aurora DB clusters and Multi-AZ DB clusters
+        :param source_db_cluster_resource_id: The resource ID of the source DB cluster from which to restore.
         :param source_region: The AWS Region which contains the source DB cluster when replicating a DB cluster. For example, ``us-east-1`` . Valid for: Aurora DB clusters only
         :param storage_encrypted: Indicates whether the DB cluster is encrypted. If you specify the ``KmsKeyId`` property, then you must enable encryption. If you specify the ``SourceDBClusterIdentifier`` property, don't specify this property. The value is inherited from the source DB cluster, and if the DB cluster is encrypted, the specified ``KmsKeyId`` property is used. If you specify the ``SnapshotIdentifier`` and the specified snapshot is encrypted, don't specify this property. The value is inherited from the snapshot, and the specified ``KmsKeyId`` property is used. If you specify the ``SnapshotIdentifier`` and the specified snapshot isn't encrypted, you can use this property to specify that the restored DB cluster is encrypted. Specify the ``KmsKeyId`` property for the KMS key to use for encryption. If you don't want the restored DB cluster to be encrypted, then don't set this property or set it to ``false`` . .. epigraph:: If you specify both the ``StorageEncrypted`` and ``SnapshotIdentifier`` properties without specifying the ``KmsKeyId`` property, then the restored DB cluster inherits the encryption settings from the DB snapshot that provide. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Aurora DB clusters, see `Storage configurations for Amazon Aurora DB clusters <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Overview.StorageReliability.html#aurora-storage-type>`_ . For information on storage types for Multi-AZ DB clusters, see `Settings for creating Multi-AZ DB clusters <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/create-multi-az-db-cluster.html#create-multi-az-db-cluster-settings>`_ . This setting is required to create a Multi-AZ DB cluster. When specified for a Multi-AZ DB cluster, a value for the ``Iops`` parameter is required. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters Valid Values: - Aurora DB clusters - ``aurora | aurora-iopt1`` - Multi-AZ DB clusters - ``io1 | io2 | gp3`` Default: - Aurora DB clusters - ``aurora`` - Multi-AZ DB clusters - ``io1`` .. epigraph:: When you create an Aurora DB cluster with the storage type set to ``aurora-iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``aurora`` .
@@ -5624,6 +5627,7 @@ class CfnDBCluster(
             serverless_v2_scaling_configuration=serverless_v2_scaling_configuration,
             snapshot_identifier=snapshot_identifier,
             source_db_cluster_identifier=source_db_cluster_identifier,
+            source_db_cluster_resource_id=source_db_cluster_resource_id,
             source_region=source_region,
             storage_encrypted=storage_encrypted,
             storage_type=storage_type,
@@ -6576,6 +6580,22 @@ class CfnDBCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__df647406eec5ba2e24bb07694e286def32cd947e8728ac6ec3727fd145515f2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceDbClusterResourceId")
+    def source_db_cluster_resource_id(self) -> typing.Optional[builtins.str]:
+        '''The resource ID of the source DB cluster from which to restore.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceDbClusterResourceId"))
+
+    @source_db_cluster_resource_id.setter
+    def source_db_cluster_resource_id(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08ac64c9167e517f4b6604f3b8380f98125ef714845161ef2afeeebf02f97b3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceDbClusterResourceId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="sourceRegion")
@@ -7648,6 +7668,7 @@ class CfnDBClusterParameterGroupProps:
         "serverless_v2_scaling_configuration": "serverlessV2ScalingConfiguration",
         "snapshot_identifier": "snapshotIdentifier",
         "source_db_cluster_identifier": "sourceDbClusterIdentifier",
+        "source_db_cluster_resource_id": "sourceDbClusterResourceId",
         "source_region": "sourceRegion",
         "storage_encrypted": "storageEncrypted",
         "storage_type": "storageType",
@@ -7713,6 +7734,7 @@ class CfnDBClusterProps:
         serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.ServerlessV2ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         snapshot_identifier: typing.Optional[builtins.str] = None,
         source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+        source_db_cluster_resource_id: typing.Optional[builtins.str] = None,
         source_region: typing.Optional[builtins.str] = None,
         storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         storage_type: typing.Optional[builtins.str] = None,
@@ -7775,6 +7797,7 @@ class CfnDBClusterProps:
         :param serverless_v2_scaling_configuration: The scaling configuration of an Aurora Serverless V2 DB cluster. This property is only supported for Aurora Serverless v2. For Aurora Serverless v1, Use the ``ScalingConfiguration`` property. Valid for: Aurora Serverless v2 DB clusters only
         :param snapshot_identifier: The identifier for the DB snapshot or DB cluster snapshot to restore from. You can use either the name or the Amazon Resource Name (ARN) to specify a DB cluster snapshot. However, you can use only the ARN to specify a DB snapshot. After you restore a DB cluster with a ``SnapshotIdentifier`` property, you must specify the same ``SnapshotIdentifier`` property for any future updates to the DB cluster. When you specify this property for an update, the DB cluster is not restored from the snapshot again, and the data in the database is not changed. However, if you don't specify the ``SnapshotIdentifier`` property, an empty DB cluster is created, and the original DB cluster is deleted. If you specify a property that is different from the previous snapshot restore property, a new DB cluster is restored from the specified ``SnapshotIdentifier`` property, and the original DB cluster is deleted. If you specify the ``SnapshotIdentifier`` property to restore a DB cluster (as opposed to specifying it for DB cluster updates), then don't specify the following properties: - ``GlobalClusterIdentifier`` - ``MasterUsername`` - ``MasterUserPassword`` - ``ReplicationSourceIdentifier`` - ``RestoreType`` - ``SourceDBClusterIdentifier`` - ``SourceRegion`` - ``StorageEncrypted`` (for an encrypted snapshot) - ``UseLatestRestorableTime`` Constraints: - Must match the identifier of an existing Snapshot. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param source_db_cluster_identifier: When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore. Constraints: - Must match the identifier of an existing DBCluster. - Cannot be specified if ``SourceDbClusterResourceId`` is specified. You must specify either ``SourceDBClusterIdentifier`` or ``SourceDbClusterResourceId`` , but not both. Valid for: Aurora DB clusters and Multi-AZ DB clusters
+        :param source_db_cluster_resource_id: The resource ID of the source DB cluster from which to restore.
         :param source_region: The AWS Region which contains the source DB cluster when replicating a DB cluster. For example, ``us-east-1`` . Valid for: Aurora DB clusters only
         :param storage_encrypted: Indicates whether the DB cluster is encrypted. If you specify the ``KmsKeyId`` property, then you must enable encryption. If you specify the ``SourceDBClusterIdentifier`` property, don't specify this property. The value is inherited from the source DB cluster, and if the DB cluster is encrypted, the specified ``KmsKeyId`` property is used. If you specify the ``SnapshotIdentifier`` and the specified snapshot is encrypted, don't specify this property. The value is inherited from the snapshot, and the specified ``KmsKeyId`` property is used. If you specify the ``SnapshotIdentifier`` and the specified snapshot isn't encrypted, you can use this property to specify that the restored DB cluster is encrypted. Specify the ``KmsKeyId`` property for the KMS key to use for encryption. If you don't want the restored DB cluster to be encrypted, then don't set this property or set it to ``false`` . .. epigraph:: If you specify both the ``StorageEncrypted`` and ``SnapshotIdentifier`` properties without specifying the ``KmsKeyId`` property, then the restored DB cluster inherits the encryption settings from the DB snapshot that provide. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Aurora DB clusters, see `Storage configurations for Amazon Aurora DB clusters <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Overview.StorageReliability.html#aurora-storage-type>`_ . For information on storage types for Multi-AZ DB clusters, see `Settings for creating Multi-AZ DB clusters <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/create-multi-az-db-cluster.html#create-multi-az-db-cluster-settings>`_ . This setting is required to create a Multi-AZ DB cluster. When specified for a Multi-AZ DB cluster, a value for the ``Iops`` parameter is required. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters Valid Values: - Aurora DB clusters - ``aurora | aurora-iopt1`` - Multi-AZ DB clusters - ``io1 | io2 | gp3`` Default: - Aurora DB clusters - ``aurora`` - Multi-AZ DB clusters - ``io1`` .. epigraph:: When you create an Aurora DB cluster with the storage type set to ``aurora-iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``aurora`` .
@@ -7864,6 +7887,7 @@ class CfnDBClusterProps:
                 ),
                 snapshot_identifier="snapshotIdentifier",
                 source_db_cluster_identifier="sourceDbClusterIdentifier",
+                source_db_cluster_resource_id="sourceDbClusterResourceId",
                 source_region="sourceRegion",
                 storage_encrypted=False,
                 storage_type="storageType",
@@ -7930,6 +7954,7 @@ class CfnDBClusterProps:
             check_type(argname="argument serverless_v2_scaling_configuration", value=serverless_v2_scaling_configuration, expected_type=type_hints["serverless_v2_scaling_configuration"])
             check_type(argname="argument snapshot_identifier", value=snapshot_identifier, expected_type=type_hints["snapshot_identifier"])
             check_type(argname="argument source_db_cluster_identifier", value=source_db_cluster_identifier, expected_type=type_hints["source_db_cluster_identifier"])
+            check_type(argname="argument source_db_cluster_resource_id", value=source_db_cluster_resource_id, expected_type=type_hints["source_db_cluster_resource_id"])
             check_type(argname="argument source_region", value=source_region, expected_type=type_hints["source_region"])
             check_type(argname="argument storage_encrypted", value=storage_encrypted, expected_type=type_hints["storage_encrypted"])
             check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
@@ -8043,6 +8068,8 @@ class CfnDBClusterProps:
             self._values["snapshot_identifier"] = snapshot_identifier
         if source_db_cluster_identifier is not None:
             self._values["source_db_cluster_identifier"] = source_db_cluster_identifier
+        if source_db_cluster_resource_id is not None:
+            self._values["source_db_cluster_resource_id"] = source_db_cluster_resource_id
         if source_region is not None:
             self._values["source_region"] = source_region
         if storage_encrypted is not None:
@@ -8999,6 +9026,15 @@ class CfnDBClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def source_db_cluster_resource_id(self) -> typing.Optional[builtins.str]:
+        '''The resource ID of the source DB cluster from which to restore.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html#cfn-rds-dbcluster-sourcedbclusterresourceid
+        '''
+        result = self._values.get("source_db_cluster_resource_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def source_region(self) -> typing.Optional[builtins.str]:
         '''The AWS Region which contains the source DB cluster when replicating a DB cluster. For example, ``us-east-1`` .
 
@@ -9251,6 +9287,12 @@ class CfnDBInstance(
             source_db_instance_identifier="sourceDbInstanceIdentifier",
             source_dbi_resource_id="sourceDbiResourceId",
             source_region="sourceRegion",
+            status_infos=[rds.CfnDBInstance.DBInstanceStatusInfoProperty(
+                message="message",
+                normal=False,
+                status="status",
+                status_type="statusType"
+            )],
             storage_encrypted=False,
             storage_throughput=123,
             storage_type="storageType",
@@ -9343,6 +9385,7 @@ class CfnDBInstance(
         source_db_instance_identifier: typing.Optional[builtins.str] = None,
         source_dbi_resource_id: typing.Optional[builtins.str] = None,
         source_region: typing.Optional[builtins.str] = None,
+        status_infos: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDBInstance.DBInstanceStatusInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         storage_throughput: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
@@ -9428,6 +9471,7 @@ class CfnDBInstance(
         :param source_db_instance_identifier: If you want to create a read replica DB instance, specify the ID of the source DB instance. Each DB instance can have a limited number of read replicas. For more information, see `Working with Read Replicas <https://docs.aws.amazon.com/AmazonRDS/latest/DeveloperGuide/USER_ReadRepl.html>`_ in the *Amazon RDS User Guide* . For information about constraints that apply to DB instance identifiers, see `Naming constraints in Amazon RDS <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_Limits.html#RDS_Limits.Constraints>`_ in the *Amazon RDS User Guide* . The ``SourceDBInstanceIdentifier`` property determines whether a DB instance is a read replica. If you remove the ``SourceDBInstanceIdentifier`` property from your template and then update your stack, AWS CloudFormation promotes the read replica to a standalone DB instance. If you specify the ``UseLatestRestorableTime`` or ``RestoreTime`` properties in conjunction with the ``SourceDBInstanceIdentifier`` property, RDS restores the DB instance to the requested point in time, thereby creating a new DB instance. .. epigraph:: - If you specify a source DB instance that uses VPC security groups, we recommend that you specify the ``VPCSecurityGroups`` property. If you don't specify the property, the read replica inherits the value of the ``VPCSecurityGroups`` property from the source DB when you create the replica. However, if you update the stack, AWS CloudFormation reverts the replica's ``VPCSecurityGroups`` property to the default value because it's not defined in the stack's template. This change might cause unexpected issues. - Read replicas don't support deletion policies. AWS CloudFormation ignores any deletion policy that's associated with a read replica. - If you specify ``SourceDBInstanceIdentifier`` , don't specify the ``DBSnapshotIdentifier`` property. You can't create a read replica from a snapshot. - Don't set the ``BackupRetentionPeriod`` , ``DBName`` , ``MasterUsername`` , ``MasterUserPassword`` , and ``PreferredBackupWindow`` properties. The database attributes are inherited from the source DB instance, and backups are disabled for read replicas. - If the source DB instance is in a different region than the read replica, specify the source region in ``SourceRegion`` , and specify an ARN for a valid DB instance in ``SourceDBInstanceIdentifier`` . For more information, see `Constructing a Amazon RDS Amazon Resource Name (ARN) <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Tagging.html#USER_Tagging.ARN>`_ in the *Amazon RDS User Guide* . - For DB instances in Amazon Aurora clusters, don't specify this property. Amazon RDS automatically assigns writer and reader DB instances.
         :param source_dbi_resource_id: The resource ID of the source DB instance from which to restore.
         :param source_region: The ID of the region that contains the source DB instance for the read replica.
+        :param status_infos: The status of a read replica. If the DB instance isn't a read replica, the value is blank.
         :param storage_encrypted: A value that indicates whether the DB instance is encrypted. By default, it isn't encrypted. If you specify the ``KmsKeyId`` property, then you must enable encryption. If you specify the ``SourceDBInstanceIdentifier`` or ``SourceDbiResourceId`` property, don't specify this property. The value is inherited from the source DB instance, and if the DB instance is encrypted, the specified ``KmsKeyId`` property is used. If you specify the ``SourceDBInstanceAutomatedBackupsArn`` property, don't specify this property. The value is inherited from the source DB instance automated backup. If you specify ``DBSnapshotIdentifier`` property, don't specify this property. The value is inherited from the snapshot. *Amazon Aurora* Not applicable. The encryption for DB instances is managed by the DB cluster.
         :param storage_throughput: Specifies the storage throughput value, in mebibyte per second (MiBps), for the DB instance. This setting applies only to the ``gp3`` storage type. This setting doesn't apply to RDS Custom or Amazon Aurora.
         :param storage_type: The storage type to associate with the DB instance. If you specify ``io1`` , ``io2`` , or ``gp3`` , you must also include a value for the ``Iops`` parameter. This setting doesn't apply to Amazon Aurora DB instances. Storage is managed by the DB cluster. Valid Values: ``gp2 | gp3 | io1 | io2 | standard`` Default: ``io1`` , if the ``Iops`` parameter is specified. Otherwise, ``gp3`` .
@@ -9515,6 +9559,7 @@ class CfnDBInstance(
             source_db_instance_identifier=source_db_instance_identifier,
             source_dbi_resource_id=source_dbi_resource_id,
             source_region=source_region,
+            status_infos=status_infos,
             storage_encrypted=storage_encrypted,
             storage_throughput=storage_throughput,
             storage_type=storage_type,
@@ -9558,6 +9603,15 @@ class CfnDBInstance(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAutomaticRestartTime")
+    def attr_automatic_restart_time(self) -> builtins.str:
+        '''The time when a stopped DB instance is restarted automatically.
+
+        :cloudformationAttribute: AutomaticRestartTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAutomaticRestartTime"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCertificateDetails")
@@ -9761,6 +9815,15 @@ class CfnDBInstance(
         return typing.cast(builtins.str, jsii.get(self, "attrMasterUserSecretSecretArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrPercentProgress")
+    def attr_percent_progress(self) -> builtins.str:
+        '''The progress of the storage optimization operation as a percentage.
+
+        :cloudformationAttribute: PercentProgress
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPercentProgress"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrReadReplicaDbClusterIdentifiers")
     def attr_read_replica_db_cluster_identifiers(self) -> typing.List[builtins.str]:
         '''The identifiers of Aurora DB clusters to which the RDS DB instance is replicated as a read replica.
@@ -9777,6 +9840,37 @@ class CfnDBInstance(
         :cloudformationAttribute: ReadReplicaDBInstanceIdentifiers
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrReadReplicaDbInstanceIdentifiers"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResumeFullAutomationModeTime")
+    def attr_resume_full_automation_mode_time(self) -> builtins.str:
+        '''The number of minutes to pause the automation.
+
+        When the time period ends, RDS Custom resumes full automation. The minimum value is 60 (default). The maximum value is 1,440.
+
+        :cloudformationAttribute: ResumeFullAutomationModeTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResumeFullAutomationModeTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSecondaryAvailabilityZone")
+    def attr_secondary_availability_zone(self) -> builtins.str:
+        '''If present, specifies the name of the secondary Availability Zone for a DB instance with multi-AZ support.
+
+        :cloudformationAttribute: SecondaryAvailabilityZone
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSecondaryAvailabilityZone"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatusInfos")
+    def attr_status_infos(self) -> _IResolvable_da3f097b:
+        '''The status of a read replica.
+
+        If the DB instance isn't a read replica, the value is blank.
+
+        :cloudformationAttribute: StatusInfos
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrStatusInfos"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -10836,6 +10930,24 @@ class CfnDBInstance(
         jsii.set(self, "sourceRegion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="statusInfos")
+    def status_infos(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDBInstance.DBInstanceStatusInfoProperty"]]]]:
+        '''The status of a read replica.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDBInstance.DBInstanceStatusInfoProperty"]]]], jsii.get(self, "statusInfos"))
+
+    @status_infos.setter
+    def status_infos(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDBInstance.DBInstanceStatusInfoProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4884ce950f15c984dfbc419b109b2a3debd2bad2b67c4c46d41dcddbe16eadc4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "statusInfos", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="storageEncrypted")
     def storage_encrypted(
         self,
@@ -11136,6 +11248,117 @@ class CfnDBInstance(
 
         def __repr__(self) -> str:
             return "DBInstanceRoleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_rds.CfnDBInstance.DBInstanceStatusInfoProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "message": "message",
+            "normal": "normal",
+            "status": "status",
+            "status_type": "statusType",
+        },
+    )
+    class DBInstanceStatusInfoProperty:
+        def __init__(
+            self,
+            *,
+            message: typing.Optional[builtins.str] = None,
+            normal: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            status: typing.Optional[builtins.str] = None,
+            status_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Provides a list of status information for a DB instance.
+
+            :param message: Details of the error if there is an error for the instance. If the instance isn't in an error state, this value is blank.
+            :param normal: Indicates whether the instance is operating normally (TRUE) or is in an error state (FALSE).
+            :param status: The status of the DB instance. For a StatusType of read replica, the values can be replicating, replication stop point set, replication stop point reached, error, stopped, or terminated.
+            :param status_type: This value is currently "read replication.".
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-dbinstancestatusinfo.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_rds as rds
+                
+                d_bInstance_status_info_property = rds.CfnDBInstance.DBInstanceStatusInfoProperty(
+                    message="message",
+                    normal=False,
+                    status="status",
+                    status_type="statusType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9b08398c0c2c9b422598a57f6105a8f3372b51bc76bcfc59658ffa7c37cbe3b3)
+                check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+                check_type(argname="argument normal", value=normal, expected_type=type_hints["normal"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+                check_type(argname="argument status_type", value=status_type, expected_type=type_hints["status_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if message is not None:
+                self._values["message"] = message
+            if normal is not None:
+                self._values["normal"] = normal
+            if status is not None:
+                self._values["status"] = status
+            if status_type is not None:
+                self._values["status_type"] = status_type
+
+        @builtins.property
+        def message(self) -> typing.Optional[builtins.str]:
+            '''Details of the error if there is an error for the instance.
+
+            If the instance isn't in an error state, this value is blank.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-dbinstancestatusinfo.html#cfn-rds-dbinstance-dbinstancestatusinfo-message
+            '''
+            result = self._values.get("message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def normal(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Indicates whether the instance is operating normally (TRUE) or is in an error state (FALSE).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-dbinstancestatusinfo.html#cfn-rds-dbinstance-dbinstancestatusinfo-normal
+            '''
+            result = self._values.get("normal")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The status of the DB instance.
+
+            For a StatusType of read replica, the values can be replicating, replication stop point set, replication stop point reached, error, stopped, or terminated.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-dbinstancestatusinfo.html#cfn-rds-dbinstance-dbinstancestatusinfo-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status_type(self) -> typing.Optional[builtins.str]:
+            '''This value is currently "read replication.".
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-dbinstancestatusinfo.html#cfn-rds-dbinstance-dbinstancestatusinfo-statustype
+            '''
+            result = self._values.get("status_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DBInstanceStatusInfoProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -11458,6 +11681,7 @@ class CfnDBInstance(
         "source_db_instance_identifier": "sourceDbInstanceIdentifier",
         "source_dbi_resource_id": "sourceDbiResourceId",
         "source_region": "sourceRegion",
+        "status_infos": "statusInfos",
         "storage_encrypted": "storageEncrypted",
         "storage_throughput": "storageThroughput",
         "storage_type": "storageType",
@@ -11545,6 +11769,7 @@ class CfnDBInstanceProps:
         source_db_instance_identifier: typing.Optional[builtins.str] = None,
         source_dbi_resource_id: typing.Optional[builtins.str] = None,
         source_region: typing.Optional[builtins.str] = None,
+        status_infos: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBInstance.DBInstanceStatusInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         storage_throughput: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
@@ -11629,6 +11854,7 @@ class CfnDBInstanceProps:
         :param source_db_instance_identifier: If you want to create a read replica DB instance, specify the ID of the source DB instance. Each DB instance can have a limited number of read replicas. For more information, see `Working with Read Replicas <https://docs.aws.amazon.com/AmazonRDS/latest/DeveloperGuide/USER_ReadRepl.html>`_ in the *Amazon RDS User Guide* . For information about constraints that apply to DB instance identifiers, see `Naming constraints in Amazon RDS <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_Limits.html#RDS_Limits.Constraints>`_ in the *Amazon RDS User Guide* . The ``SourceDBInstanceIdentifier`` property determines whether a DB instance is a read replica. If you remove the ``SourceDBInstanceIdentifier`` property from your template and then update your stack, AWS CloudFormation promotes the read replica to a standalone DB instance. If you specify the ``UseLatestRestorableTime`` or ``RestoreTime`` properties in conjunction with the ``SourceDBInstanceIdentifier`` property, RDS restores the DB instance to the requested point in time, thereby creating a new DB instance. .. epigraph:: - If you specify a source DB instance that uses VPC security groups, we recommend that you specify the ``VPCSecurityGroups`` property. If you don't specify the property, the read replica inherits the value of the ``VPCSecurityGroups`` property from the source DB when you create the replica. However, if you update the stack, AWS CloudFormation reverts the replica's ``VPCSecurityGroups`` property to the default value because it's not defined in the stack's template. This change might cause unexpected issues. - Read replicas don't support deletion policies. AWS CloudFormation ignores any deletion policy that's associated with a read replica. - If you specify ``SourceDBInstanceIdentifier`` , don't specify the ``DBSnapshotIdentifier`` property. You can't create a read replica from a snapshot. - Don't set the ``BackupRetentionPeriod`` , ``DBName`` , ``MasterUsername`` , ``MasterUserPassword`` , and ``PreferredBackupWindow`` properties. The database attributes are inherited from the source DB instance, and backups are disabled for read replicas. - If the source DB instance is in a different region than the read replica, specify the source region in ``SourceRegion`` , and specify an ARN for a valid DB instance in ``SourceDBInstanceIdentifier`` . For more information, see `Constructing a Amazon RDS Amazon Resource Name (ARN) <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Tagging.html#USER_Tagging.ARN>`_ in the *Amazon RDS User Guide* . - For DB instances in Amazon Aurora clusters, don't specify this property. Amazon RDS automatically assigns writer and reader DB instances.
         :param source_dbi_resource_id: The resource ID of the source DB instance from which to restore.
         :param source_region: The ID of the region that contains the source DB instance for the read replica.
+        :param status_infos: The status of a read replica. If the DB instance isn't a read replica, the value is blank.
         :param storage_encrypted: A value that indicates whether the DB instance is encrypted. By default, it isn't encrypted. If you specify the ``KmsKeyId`` property, then you must enable encryption. If you specify the ``SourceDBInstanceIdentifier`` or ``SourceDbiResourceId`` property, don't specify this property. The value is inherited from the source DB instance, and if the DB instance is encrypted, the specified ``KmsKeyId`` property is used. If you specify the ``SourceDBInstanceAutomatedBackupsArn`` property, don't specify this property. The value is inherited from the source DB instance automated backup. If you specify ``DBSnapshotIdentifier`` property, don't specify this property. The value is inherited from the snapshot. *Amazon Aurora* Not applicable. The encryption for DB instances is managed by the DB cluster.
         :param storage_throughput: Specifies the storage throughput value, in mebibyte per second (MiBps), for the DB instance. This setting applies only to the ``gp3`` storage type. This setting doesn't apply to RDS Custom or Amazon Aurora.
         :param storage_type: The storage type to associate with the DB instance. If you specify ``io1`` , ``io2`` , or ``gp3`` , you must also include a value for the ``Iops`` parameter. This setting doesn't apply to Amazon Aurora DB instances. Storage is managed by the DB cluster. Valid Values: ``gp2 | gp3 | io1 | io2 | standard`` Default: ``io1`` , if the ``Iops`` parameter is specified. Otherwise, ``gp3`` .
@@ -11730,6 +11956,12 @@ class CfnDBInstanceProps:
                 source_db_instance_identifier="sourceDbInstanceIdentifier",
                 source_dbi_resource_id="sourceDbiResourceId",
                 source_region="sourceRegion",
+                status_infos=[rds.CfnDBInstance.DBInstanceStatusInfoProperty(
+                    message="message",
+                    normal=False,
+                    status="status",
+                    status_type="statusType"
+                )],
                 storage_encrypted=False,
                 storage_throughput=123,
                 storage_type="storageType",
@@ -11818,6 +12050,7 @@ class CfnDBInstanceProps:
             check_type(argname="argument source_db_instance_identifier", value=source_db_instance_identifier, expected_type=type_hints["source_db_instance_identifier"])
             check_type(argname="argument source_dbi_resource_id", value=source_dbi_resource_id, expected_type=type_hints["source_dbi_resource_id"])
             check_type(argname="argument source_region", value=source_region, expected_type=type_hints["source_region"])
+            check_type(argname="argument status_infos", value=status_infos, expected_type=type_hints["status_infos"])
             check_type(argname="argument storage_encrypted", value=storage_encrypted, expected_type=type_hints["storage_encrypted"])
             check_type(argname="argument storage_throughput", value=storage_throughput, expected_type=type_hints["storage_throughput"])
             check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
@@ -11971,6 +12204,8 @@ class CfnDBInstanceProps:
             self._values["source_dbi_resource_id"] = source_dbi_resource_id
         if source_region is not None:
             self._values["source_region"] = source_region
+        if status_infos is not None:
+            self._values["status_infos"] = status_infos
         if storage_encrypted is not None:
             self._values["storage_encrypted"] = storage_encrypted
         if storage_throughput is not None:
@@ -13425,6 +13660,19 @@ class CfnDBInstanceProps:
         '''
         result = self._values.get("source_region")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status_infos(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDBInstance.DBInstanceStatusInfoProperty]]]]:
+        '''The status of a read replica.
+
+        If the DB instance isn't a read replica, the value is blank.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html#cfn-rds-dbinstance-statusinfos
+        '''
+        result = self._values.get("status_infos")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDBInstance.DBInstanceStatusInfoProperty]]]], result)
 
     @builtins.property
     def storage_encrypted(
@@ -49380,6 +49628,7 @@ def _typecheckingstub__1eb14b9dcc306eabcc2963c7b6ef9b87bf8d616bb5691dbc6656242be
     serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.ServerlessV2ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     snapshot_identifier: typing.Optional[builtins.str] = None,
     source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+    source_db_cluster_resource_id: typing.Optional[builtins.str] = None,
     source_region: typing.Optional[builtins.str] = None,
     storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     storage_type: typing.Optional[builtins.str] = None,
@@ -49720,6 +49969,12 @@ def _typecheckingstub__df647406eec5ba2e24bb07694e286def32cd947e8728ac6ec3727fd14
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__08ac64c9167e517f4b6604f3b8380f98125ef714845161ef2afeeebf02f97b3b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2ee6860d8d1d897c5c878ca6693329e97bdddac0cb37f822ceb26aabdb5b78fb(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -49929,6 +50184,7 @@ def _typecheckingstub__aaf089104646bb0ea95e48cd2107d642585c3eb3785a21112fc029b15
     serverless_v2_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBCluster.ServerlessV2ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     snapshot_identifier: typing.Optional[builtins.str] = None,
     source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+    source_db_cluster_resource_id: typing.Optional[builtins.str] = None,
     source_region: typing.Optional[builtins.str] = None,
     storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     storage_type: typing.Optional[builtins.str] = None,
@@ -50014,6 +50270,7 @@ def _typecheckingstub__255b0779ca741853674876540bf77279f6293bea05de2cd18724d2b92
     source_db_instance_identifier: typing.Optional[builtins.str] = None,
     source_dbi_resource_id: typing.Optional[builtins.str] = None,
     source_region: typing.Optional[builtins.str] = None,
+    status_infos: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBInstance.DBInstanceStatusInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     storage_throughput: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
@@ -50466,6 +50723,12 @@ def _typecheckingstub__54e6abd38ac0878b58009488af0c37180d8361eafe2d4e20fd21251d2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4884ce950f15c984dfbc419b109b2a3debd2bad2b67c4c46d41dcddbe16eadc4(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDBInstance.DBInstanceStatusInfoProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e45dbb04a9f91d51cce34e9ad406fb8b0bf3ca45ebf5191d2c3fe3ef60c0f73a(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -50538,6 +50801,16 @@ def _typecheckingstub__f9f3eeec177271fb0e6eb23b5e89d9aa215910a445a7f378d200e7c8d
     *,
     feature_name: builtins.str,
     role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b08398c0c2c9b422598a57f6105a8f3372b51bc76bcfc59658ffa7c37cbe3b3(
+    *,
+    message: typing.Optional[builtins.str] = None,
+    normal: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    status: typing.Optional[builtins.str] = None,
+    status_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -50640,6 +50913,7 @@ def _typecheckingstub__3bddb1be0bd1f1699e3a084c5859d94d8879ff15011f2f2eaac29ec16
     source_db_instance_identifier: typing.Optional[builtins.str] = None,
     source_dbi_resource_id: typing.Optional[builtins.str] = None,
     source_region: typing.Optional[builtins.str] = None,
+    status_infos: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBInstance.DBInstanceStatusInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     storage_throughput: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,

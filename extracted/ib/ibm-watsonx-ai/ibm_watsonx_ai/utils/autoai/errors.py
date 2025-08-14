@@ -76,8 +76,8 @@ __all__ = [
 ]
 
 
-from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.utils.autoai.enums import PredictionType
+from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 
 class MissingPipeline(WMLClientError, ValueError):
@@ -98,7 +98,7 @@ class FitNotCompleted(WMLClientError, ValueError):
 
 class FitNeeded(WMLClientError, ValueError):
     def __init__(self, value_name=None, reason=None):
-        WMLClientError.__init__(self, f"Fit run was not performed.", reason)
+        WMLClientError.__init__(self, "Fit run was not performed.", reason)
 
 
 class AutoAIComputeError(WMLClientError, ValueError):
@@ -131,7 +131,7 @@ class PipelineNotLoaded(WMLClientError, ValueError):
 
 class MissingCOSStudioConnection(WMLClientError, ValueError):
     def __init__(self, reason=None):
-        WMLClientError.__init__(self, f"Missing COS Studio connection.", reason)
+        WMLClientError.__init__(self, "Missing COS Studio connection.", reason)
 
 
 class MissingIBMWatsonStudioLib(WMLClientError, ValueError):
@@ -158,7 +158,7 @@ class DataFormatNotSupported(WMLClientError, ValueError):
     def __init__(self, reason=None):
         WMLClientError.__init__(
             self,
-            f"Attempt to read data failed.",
+            "Attempt to read data failed.",
             reason,
         )
 
@@ -166,13 +166,13 @@ class DataFormatNotSupported(WMLClientError, ValueError):
 class HoldoutSplitNotSupported(WMLClientError, ValueError):
     def __init__(self, value_name=None, reason=None):
         WMLClientError.__init__(
-            self, f"Holdout split is not supported for xlsx data.", reason
+            self, "Holdout split is not supported for xlsx data.", reason
         )
 
 
 class LibraryNotCompatible(WMLClientError, ValueError):
     def __init__(self, value_name=None, reason=None):
-        WMLClientError.__init__(self, f"Library not compatible or missing!", reason)
+        WMLClientError.__init__(self, "Library not compatible or missing!", reason)
 
 
 class CannotInstallLibrary(WMLClientError, ValueError):
@@ -184,15 +184,15 @@ class CannotInstallLibrary(WMLClientError, ValueError):
 
 class InvalidCOSCredentials(WMLClientError, ValueError):
     def __init__(self, value_name=None, reason=None):
-        WMLClientError.__init__(self, f"Wrong COS credentials!", reason)
+        WMLClientError.__init__(self, "Wrong COS credentials!", reason)
 
 
 class CannotDownloadTrainingDetails(WMLClientError, ValueError):
     def __init__(self, value_name, reason=None):
         WMLClientError.__init__(
             self,
-            f"Cannot download training details, training is not done yet. "
-            f"Please try again after training is finished.",
+            "Cannot download training details, training is not done yet. "
+            "Please try again after training is finished.",
             reason,
         )
 
@@ -215,12 +215,12 @@ class MissingPositiveLabel(WMLClientError, ValueError):
 
 class MissingDataPreprocessingStep(WMLClientError, ValueError):
     def __init__(self, value_name=None, reason=None):
-        WMLClientError.__init__(self, f"Data preprocessing step not performed.", reason)
+        WMLClientError.__init__(self, "Data preprocessing step not performed.", reason)
 
 
 class CannotDownloadWMLPipelineDetails(WMLClientError, ValueError):
     def __init__(self, value_name, reason=None):
-        WMLClientError.__init__(self, f"Cannot download WML pipeline details ", reason)
+        WMLClientError.__init__(self, "Cannot download WML pipeline details ", reason)
 
 
 class SetIDFailed(WMLClientError, ValueError):
@@ -239,8 +239,8 @@ class DataSourceSizeNotSupported(WMLClientError, ValueError):
     def __init__(self, reason=None):
         WMLClientError.__init__(
             self,
-            f"The selected data source is too large for selected compute configuration "
-            f"and might fail to run. Consider increasing the compute configuration",
+            "The selected data source is too large for selected compute configuration "
+            "and might fail to run. Consider increasing the compute configuration",
             reason,
         )
 
@@ -257,7 +257,7 @@ class TrainingDataSourceIsNotFile(WMLClientError, ValueError):
 
 class VisualizationFailed(WMLClientError, ValueError):
     def __init__(self, value_name=None, reason=None):
-        WMLClientError.__init__(self, f"Cannot perform visualization.", reason)
+        WMLClientError.__init__(self, "Cannot perform visualization.", reason)
 
 
 class InvalidPredictionType(WMLClientError, ValueError):
@@ -282,7 +282,7 @@ class NoneDataConnection(WMLClientError, ValueError):
 
 class CannotReadSavedRemoteDataBeforeFit(WMLClientError, ValueError):
     def __init__(self):
-        WMLClientError.__init__(self, f"Cannot read saved remote data before fit.")
+        WMLClientError.__init__(self, "Cannot read saved remote data before fit.")
 
 
 class NotExistingCOSResource(WMLClientError, ValueError):
@@ -331,13 +331,13 @@ class NonForecastPredictionColumnMissing(WMLClientError):
 
 class ForecastingCannotBeRunAsLocalScenario(WMLClientError):
     def __init__(self):
-        WMLClientError.__init__(self, f"Forecasting cannot be run in local scenario.")
+        WMLClientError.__init__(self, "Forecasting cannot be run in local scenario.")
 
 
 class TimeseriesAnomalyPredictionCannotBeRunAsLocalScenario(WMLClientError):
     def __init__(self):
         WMLClientError.__init__(
-            self, f"Timeseries anomaly prediction cannot be run in local scenario."
+            self, "Timeseries anomaly prediction cannot be run in local scenario."
         )
 
 
@@ -345,7 +345,7 @@ class ForecastingUnsupportedOperation(WMLClientError):
     def __init__(self):
         WMLClientError.__init__(
             self,
-            f"Operation is unsupported for timeseries forecasting prediction type.",
+            "Operation is unsupported for timeseries forecasting prediction type.",
         )
 
 
@@ -360,7 +360,7 @@ class InvalidSequenceValue(WMLClientError, ValueError):
 
 class NoAvailableMetrics(WMLClientError):
     def __init__(self):
-        WMLClientError.__init__(self, f"Currently there is no available metrics.")
+        WMLClientError.__init__(self, "Currently there is no available metrics.")
 
 
 class WrongAssetType(WMLClientError):
@@ -373,7 +373,7 @@ class WrongAssetType(WMLClientError):
 class TSNotSupported(WMLClientError):
     def __init__(self):
         WMLClientError.__init__(
-            self, f"Time series forecasting is not supported for CPD 2.5, 3.0 and 3.5."
+            self, "Time series forecasting is not supported for CPD 2.5, 3.0 and 3.5."
         )
 
 
@@ -381,7 +381,7 @@ class TSADNotSupported(WMLClientError):
     def __init__(self):
         WMLClientError.__init__(
             self,
-            f"Time series anomaly prediction is not supported in the current version of your Cloud Pak for Data (CPD) platform.",
+            "Time series anomaly prediction is not supported in the current version of your Cloud Pak for Data (CPD) platform.",
         )
 
 
@@ -444,8 +444,8 @@ class StrategyIsNotApplicable(WMLClientError, ValueError):
         WMLClientError.__init__(
             self,
             f"{strategy} is not valid for "
-            f'{"forecasting" if prediction_type == PredictionType.FORECASTING else "non-forecasting"} '
-            f'scenario. Valid strategies are: {", ".join(valid_strategies)}',
+            f"{'forecasting' if prediction_type == PredictionType.FORECASTING else 'non-forecasting'} "
+            f"scenario. Valid strategies are: {', '.join(valid_strategies)}",
         )
 
 
@@ -476,10 +476,10 @@ class InvalidImputationParameterTS(WMLClientError, ValueError):
 
 class InconsistentImputationListElements(WMLClientError, ValueError):
     def __init__(self, strategies):
-        l = ["ImputationStrategy." + s.name for s in strategies]
+        imputation_strategy = ["ImputationStrategy." + s.name for s in strategies]
         WMLClientError.__init__(
             self,
-            f'`categorical_imputation_strategy` list elements are not compatible: {", ".join(l)}',
+            f"`categorical_imputation_strategy` list elements are not compatible: {', '.join(imputation_strategy)}",
         )
 
 
@@ -487,7 +487,7 @@ class ImputationListNotSupported(WMLClientError, ValueError):
     def __init__(self):
         WMLClientError.__init__(
             self,
-            f"List passed as imputation strategy is not supported for non-forecasting scenarios.",
+            "List passed as imputation strategy is not supported for non-forecasting scenarios.",
         )
 
 
@@ -503,7 +503,7 @@ class MissingEstimatorForExistingBatchedEstimator(WMLClientError, ValueError):
     def __init__(self, batched_estimator: str, missing_estimator: str):
         WMLClientError.__init__(
             self,
-            f"There is no corresponding estimator in `include_only_estimators` list for "
+            "There is no corresponding estimator in `include_only_estimators` list for "
             + f"{batched_estimator} estimator in `include_batched_ensemble_estimators` list. "
             + f"Add {missing_estimator} estimator to `include_only_estimators` list.",
         )
@@ -532,8 +532,8 @@ class ContainerTypeNotSupported(WMLClientError, ValueError):
     def __init__(self):
         WMLClientError.__init__(
             self,
-            f"The container data connection type is not supported for CP4D environment."
-            f" Supported types are: data asset and connection asset. ",
+            "The container data connection type is not supported for CP4D environment."
+            " Supported types are: data asset and connection asset. ",
         )
 
 
@@ -586,7 +586,7 @@ class MaxSizeOfFileExceeded(WMLClientError, ValueError):
 class NotS3Connection(WMLClientError, ValueError):
     def __init__(self, _internal: bool = False):
         WMLClientError.__init__(
-            self, f"Connection asset is not S3.", logg_messages=not _internal
+            self, "Connection asset is not S3.", logg_messages=not _internal
         )
 
 
@@ -599,13 +599,13 @@ class InvalidLocationInDataConnection(WMLClientError, ValueError):
 
 class DirectoryHasNoFilename(WMLClientError, ValueError):
     def __init__(self):
-        WMLClientError.__init__(self, f"Directory has no file name.")
+        WMLClientError.__init__(self, "Directory has no file name.")
 
 
 class CannotGetFilename(WMLClientError, ValueError):
     def __init__(self):
         WMLClientError.__init__(
-            self, f"Unsupported connection type for extracting file name."
+            self, "Unsupported connection type for extracting file name."
         )
 
 
@@ -613,8 +613,8 @@ class TokenRemovedDuringClientCopy(WMLClientError):
     def __init__(self):
         WMLClientError.__init__(
             self,
-            f"APIClient had authentication data removed during `APIClient.get_copy()` operation."
-            f"Use `APIClient.set_token(token)` to setup authentication in client copy.",
+            "APIClient had authentication data removed during `APIClient.get_copy()` operation."
+            "Use `APIClient.set_token(token)` to setup authentication in client copy.",
         )
 
 

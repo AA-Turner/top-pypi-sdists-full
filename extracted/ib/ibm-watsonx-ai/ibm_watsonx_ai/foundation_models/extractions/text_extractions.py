@@ -3,22 +3,23 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
+
 from typing import TYPE_CHECKING, Literal
 from warnings import warn
 
+from ibm_watsonx_ai.helpers import DataConnection
 from ibm_watsonx_ai.wml_client_error import (
     InvalidMultipleArguments,
-    WMLClientError,
-    UnexpectedType,
     InvalidValue,
+    UnexpectedType,
+    WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai._wrappers import requests
-from ibm_watsonx_ai.helpers import DataConnection
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient, Credentials
     import pandas
+
+    from ibm_watsonx_ai import APIClient, Credentials
 
 
 class TextExtractions(WMLResource):
@@ -60,7 +61,6 @@ class TextExtractions(WMLResource):
         space_id: str | None = None,
         api_client: APIClient | None = None,
     ) -> None:
-
         if credentials is not None:
             from ibm_watsonx_ai import APIClient
 

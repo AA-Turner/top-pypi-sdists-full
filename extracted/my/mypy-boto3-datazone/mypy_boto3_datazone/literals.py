@@ -66,6 +66,8 @@ __all__ = (
     "JobTypeType",
     "LineageEventProcessingStatusType",
     "LineageImportStatusType",
+    "ListAccountPoolsPaginatorName",
+    "ListAccountsInAccountPoolPaginatorName",
     "ListAssetFiltersPaginatorName",
     "ListAssetRevisionsPaginatorName",
     "ListConnectionsPaginatorName",
@@ -113,6 +115,7 @@ __all__ = (
     "ProtocolType",
     "RegionName",
     "RejectRuleBehaviorType",
+    "ResolutionStrategyType",
     "ResourceServiceName",
     "RuleActionType",
     "RuleScopeSelectionModeType",
@@ -126,6 +129,7 @@ __all__ = (
     "SearchUserProfilesPaginatorName",
     "SelfGrantStatusType",
     "ServiceName",
+    "SortFieldAccountPoolType",
     "SortFieldConnectionType",
     "SortFieldProjectType",
     "SortKeyType",
@@ -288,6 +292,8 @@ JobRunStatusType = Literal[
 JobTypeType = Literal["LINEAGE"]
 LineageEventProcessingStatusType = Literal["FAILED", "PROCESSING", "REQUESTED", "SUCCESS"]
 LineageImportStatusType = Literal["FAILED", "IN_PROGRESS", "PARTIALLY_SUCCEEDED", "SUCCESS"]
+ListAccountPoolsPaginatorName = Literal["list_account_pools"]
+ListAccountsInAccountPoolPaginatorName = Literal["list_accounts_in_account_pool"]
 ListAssetFiltersPaginatorName = Literal["list_asset_filters"]
 ListAssetRevisionsPaginatorName = Literal["list_asset_revisions"]
 ListConnectionsPaginatorName = Literal["list_connections"]
@@ -358,6 +364,7 @@ ProtocolType = Literal[
     "ATHENA", "GLUE_INTERACTIVE_SESSION", "HTTPS", "JDBC", "LIVY", "ODBC", "PRISM"
 ]
 RejectRuleBehaviorType = Literal["ALL", "NONE"]
+ResolutionStrategyType = Literal["MANUAL"]
 RuleActionType = Literal["CREATE_LISTING_CHANGE_SET", "CREATE_SUBSCRIPTION_REQUEST"]
 RuleScopeSelectionModeType = Literal["ALL", "SPECIFIC"]
 RuleTargetTypeType = Literal["DOMAIN_UNIT"]
@@ -379,6 +386,7 @@ SelfGrantStatusType = Literal[
     "REVOKE_IN_PROGRESS",
     "REVOKE_PENDING",
 ]
+SortFieldAccountPoolType = Literal["NAME"]
 SortFieldConnectionType = Literal["NAME"]
 SortFieldProjectType = Literal["NAME"]
 SortKeyType = Literal["CREATED_AT", "UPDATED_AT"]
@@ -517,6 +525,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -917,6 +926,8 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "list_account_pools",
+    "list_accounts_in_account_pool",
     "list_asset_filters",
     "list_asset_revisions",
     "list_connections",

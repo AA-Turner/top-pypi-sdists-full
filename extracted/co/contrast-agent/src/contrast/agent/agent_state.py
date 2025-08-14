@@ -216,6 +216,13 @@ def _log_environment(settings: Settings):
         default_encoding=DEFAULT_ENCODING,
     )
 
+    # py39: remove
+    if sys.version_info[:2] == (3, 9):
+        _log_and_warn(
+            "Contrast Security support for Python 3.9 is deprecated "
+            "and will be removed in October 2025"
+        )
+
 
 def _warn_for_misleading_config(settings: Settings):
     protect_option = settings.config.get_option("protect.enable")
@@ -326,7 +333,9 @@ def set_protect_enabled(config: Mapping):
 
 
 def set_observe_enabled(config: Mapping):
-    module.observe_enabled = config["observe.enable"]
+    module.observe_enabled = (
+        config["observe.enable"] and config["agent.python.observe_preview"]
+    )
 
 
 @fail_loudly("Failed to register detected framework")

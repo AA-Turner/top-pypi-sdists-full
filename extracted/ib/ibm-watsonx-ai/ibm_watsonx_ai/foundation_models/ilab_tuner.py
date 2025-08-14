@@ -12,17 +12,12 @@ from ibm_watsonx_ai.foundation_models.base_tuner import BaseTuner
 from ibm_watsonx_ai.foundation_models.ilab.documents import DocumentExtractions
 from ibm_watsonx_ai.foundation_models.ilab.synthetic_data import SyntheticData
 from ibm_watsonx_ai.foundation_models.ilab.taxonomies import Taxonomies
-from ibm_watsonx_ai.helpers import (
-    S3Location,
-    ContainerLocation,
-)
-from ibm_watsonx_ai.helpers.connections.connections import GithubLocation
-from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.helpers.connections import (
     DataConnection,
 )
+from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -224,7 +219,9 @@ class ILabTuner(BaseTuner):
                 Messages.get_message(message_id="fm_ilab_tuning_not_scheduled")
             )
 
-        return self._client.training.get_status(training_id=self.id, _is_fine_tuning=True).get("state")  # type: ignore[return-value]
+        return self._client.training.get_status(
+            training_id=self.id, _is_fine_tuning=True
+        ).get("state")  # type: ignore[return-value]
 
     def get_run_details(self, include_metrics: bool = False) -> dict:
         """Get details of an ilab tuning run.

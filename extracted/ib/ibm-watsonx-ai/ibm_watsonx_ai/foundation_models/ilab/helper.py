@@ -10,7 +10,7 @@ from typing import Any
 import pandas as pd
 
 from ibm_watsonx_ai import APIClient
-from ibm_watsonx_ai.utils import print_text_header_h1, StatusLogger
+from ibm_watsonx_ai.utils import StatusLogger, print_text_header_h1
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 
@@ -78,7 +78,6 @@ class BaseRuns(WMLResource):
                 break
 
             if {"entity", "metadata"}.issubset(run.keys()):
-
                 timestamp = run["metadata"].get("modified_at")
                 run_id = run["metadata"].get("id", run["metadata"].get("guid"))
                 state = run["entity"].get("status", {}).get("state")

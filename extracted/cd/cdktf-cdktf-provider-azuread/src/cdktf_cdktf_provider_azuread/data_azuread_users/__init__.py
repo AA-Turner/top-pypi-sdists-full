@@ -1,7 +1,7 @@
 r'''
 # `data_azuread_users`
 
-Refer to the Terraform Registry for docs: [`data_azuread_users`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users).
+Refer to the Terraform Registry for docs: [`data_azuread_users`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzureadUsers(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.dataAzureadUsers.DataAzureadUsers",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users azuread_users}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users azuread_users}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class DataAzureadUsers(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users azuread_users} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users azuread_users} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param employee_ids: The employee identifier assigned to the user by the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#employee_ids DataAzureadUsers#employee_ids}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#id DataAzureadUsers#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_missing: Ignore missing users and return users that were found. The data source will still fail if no users are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#ignore_missing DataAzureadUsers#ignore_missing}
-        :param mail_nicknames: The email aliases of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#mail_nicknames DataAzureadUsers#mail_nicknames}
-        :param mails: The SMTP address of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#mails DataAzureadUsers#mails}
-        :param object_ids: The object IDs of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#object_ids DataAzureadUsers#object_ids}
-        :param return_all: Fetch all users with no filter and return all that were found. The data source will still fail if no users are found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#return_all DataAzureadUsers#return_all}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#timeouts DataAzureadUsers#timeouts}
-        :param user_principal_names: The user principal names (UPNs) of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#user_principal_names DataAzureadUsers#user_principal_names}
+        :param employee_ids: The employee identifier assigned to the user by the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#employee_ids DataAzureadUsers#employee_ids}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#id DataAzureadUsers#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_missing: Ignore missing users and return users that were found. The data source will still fail if no users are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#ignore_missing DataAzureadUsers#ignore_missing}
+        :param mail_nicknames: The email aliases of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#mail_nicknames DataAzureadUsers#mail_nicknames}
+        :param mails: The SMTP address of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#mails DataAzureadUsers#mails}
+        :param object_ids: The object IDs of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#object_ids DataAzureadUsers#object_ids}
+        :param return_all: Fetch all users with no filter and return all that were found. The data source will still fail if no users are found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#return_all DataAzureadUsers#return_all}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#timeouts DataAzureadUsers#timeouts}
+        :param user_principal_names: The user principal names (UPNs) of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#user_principal_names DataAzureadUsers#user_principal_names}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class DataAzureadUsers(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzureadUsers to import.
-        :param import_from_id: The id of the existing DataAzureadUsers that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzureadUsers that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzureadUsers to import is found.
         '''
         if __debug__:
@@ -141,7 +141,7 @@ class DataAzureadUsers(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#read DataAzureadUsers#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#read DataAzureadUsers#read}.
         '''
         value = DataAzureadUsersTimeouts(read=read)
 
@@ -413,15 +413,15 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param employee_ids: The employee identifier assigned to the user by the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#employee_ids DataAzureadUsers#employee_ids}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#id DataAzureadUsers#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_missing: Ignore missing users and return users that were found. The data source will still fail if no users are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#ignore_missing DataAzureadUsers#ignore_missing}
-        :param mail_nicknames: The email aliases of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#mail_nicknames DataAzureadUsers#mail_nicknames}
-        :param mails: The SMTP address of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#mails DataAzureadUsers#mails}
-        :param object_ids: The object IDs of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#object_ids DataAzureadUsers#object_ids}
-        :param return_all: Fetch all users with no filter and return all that were found. The data source will still fail if no users are found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#return_all DataAzureadUsers#return_all}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#timeouts DataAzureadUsers#timeouts}
-        :param user_principal_names: The user principal names (UPNs) of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#user_principal_names DataAzureadUsers#user_principal_names}
+        :param employee_ids: The employee identifier assigned to the user by the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#employee_ids DataAzureadUsers#employee_ids}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#id DataAzureadUsers#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_missing: Ignore missing users and return users that were found. The data source will still fail if no users are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#ignore_missing DataAzureadUsers#ignore_missing}
+        :param mail_nicknames: The email aliases of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#mail_nicknames DataAzureadUsers#mail_nicknames}
+        :param mails: The SMTP address of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#mails DataAzureadUsers#mails}
+        :param object_ids: The object IDs of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#object_ids DataAzureadUsers#object_ids}
+        :param return_all: Fetch all users with no filter and return all that were found. The data source will still fail if no users are found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#return_all DataAzureadUsers#return_all}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#timeouts DataAzureadUsers#timeouts}
+        :param user_principal_names: The user principal names (UPNs) of the users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#user_principal_names DataAzureadUsers#user_principal_names}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -547,14 +547,14 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def employee_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The employee identifier assigned to the user by the organisation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#employee_ids DataAzureadUsers#employee_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#employee_ids DataAzureadUsers#employee_ids}
         '''
         result = self._values.get("employee_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#id DataAzureadUsers#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#id DataAzureadUsers#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -570,7 +570,7 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The data source will still fail if no users are found
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#ignore_missing DataAzureadUsers#ignore_missing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#ignore_missing DataAzureadUsers#ignore_missing}
         '''
         result = self._values.get("ignore_missing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -579,7 +579,7 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mail_nicknames(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The email aliases of the users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#mail_nicknames DataAzureadUsers#mail_nicknames}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#mail_nicknames DataAzureadUsers#mail_nicknames}
         '''
         result = self._values.get("mail_nicknames")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -588,7 +588,7 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mails(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The SMTP address of the users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#mails DataAzureadUsers#mails}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#mails DataAzureadUsers#mails}
         '''
         result = self._values.get("mails")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -597,7 +597,7 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def object_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The object IDs of the users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#object_ids DataAzureadUsers#object_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#object_ids DataAzureadUsers#object_ids}
         '''
         result = self._values.get("object_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -610,7 +610,7 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The data source will still fail if no users are found.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#return_all DataAzureadUsers#return_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#return_all DataAzureadUsers#return_all}
         '''
         result = self._values.get("return_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -619,7 +619,7 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataAzureadUsersTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#timeouts DataAzureadUsers#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#timeouts DataAzureadUsers#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzureadUsersTimeouts"], result)
@@ -628,7 +628,7 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_principal_names(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The user principal names (UPNs) of the users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#user_principal_names DataAzureadUsers#user_principal_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#user_principal_names DataAzureadUsers#user_principal_names}
         '''
         result = self._values.get("user_principal_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -653,7 +653,7 @@ class DataAzureadUsersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataAzureadUsersTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#read DataAzureadUsers#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#read DataAzureadUsers#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c0d5e9bb2414e4f1c579f65658f766dca19a8de7f31b461b7391047a7094f8b)
@@ -664,7 +664,7 @@ class DataAzureadUsersTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/users#read DataAzureadUsers#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/users#read DataAzureadUsers#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -77,6 +77,7 @@ class DbClusterArgs:
                  serverless_v2_scaling_configuration: Optional[pulumi.Input['DbClusterServerlessV2ScalingConfigurationArgs']] = None,
                  snapshot_identifier: Optional[pulumi.Input[builtins.str]] = None,
                  source_db_cluster_identifier: Optional[pulumi.Input[builtins.str]] = None,
+                 source_db_cluster_resource_id: Optional[pulumi.Input[builtins.str]] = None,
                  source_region: Optional[pulumi.Input[builtins.str]] = None,
                  storage_encrypted: Optional[pulumi.Input[builtins.bool]] = None,
                  storage_type: Optional[pulumi.Input[builtins.str]] = None,
@@ -107,6 +108,7 @@ class DbClusterArgs:
                  
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param pulumi.Input[builtins.str] cluster_scalability_type: Specifies the scalability mode of the Aurora DB cluster. When set to ``limitless``, the cluster operates as an Aurora Limitless Database, allowing you to create a DB shard group for horizontal scaling (sharding) capabilities. When set to ``standard`` (the default), the cluster uses normal DB instance creation.
+                *Important:* Automated backup retention isn't supported with Aurora Limitless Database clusters. If you set this property to ``limitless``, you cannot set ``DeleteAutomatedBackups`` to ``false``. To create a backup, use manual snapshots instead.
         :param pulumi.Input[builtins.bool] copy_tags_to_snapshot: A value that indicates whether to copy all tags from the DB cluster to snapshots of the DB cluster. The default is not to copy them.
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param pulumi.Input[builtins.str] database_insights_mode: The mode of Database Insights to enable for the DB cluster.
@@ -356,8 +358,10 @@ class DbClusterArgs:
         :param pulumi.Input[builtins.str] source_db_cluster_identifier: When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore.
                 Constraints:
                  +  Must match the identifier of an existing DBCluster.
+                 +  Cannot be specified if ``SourceDbClusterResourceId`` is specified. You must specify either ``SourceDBClusterIdentifier`` or ``SourceDbClusterResourceId``, but not both.
                  
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
+        :param pulumi.Input[builtins.str] source_db_cluster_resource_id: The resource ID of the source DB cluster from which to restore.
         :param pulumi.Input[builtins.str] source_region: The AWS Region which contains the source DB cluster when replicating a DB cluster. For example, ``us-east-1``. 
                 Valid for: Aurora DB clusters only
         :param pulumi.Input[builtins.bool] storage_encrypted: Indicates whether the DB cluster is encrypted.
@@ -495,6 +499,8 @@ class DbClusterArgs:
             pulumi.set(__self__, "snapshot_identifier", snapshot_identifier)
         if source_db_cluster_identifier is not None:
             pulumi.set(__self__, "source_db_cluster_identifier", source_db_cluster_identifier)
+        if source_db_cluster_resource_id is not None:
+            pulumi.set(__self__, "source_db_cluster_resource_id", source_db_cluster_resource_id)
         if source_region is not None:
             pulumi.set(__self__, "source_region", source_region)
         if storage_encrypted is not None:
@@ -600,6 +606,7 @@ class DbClusterArgs:
     def cluster_scalability_type(self) -> Optional[pulumi.Input[builtins.str]]:
         """
         Specifies the scalability mode of the Aurora DB cluster. When set to ``limitless``, the cluster operates as an Aurora Limitless Database, allowing you to create a DB shard group for horizontal scaling (sharding) capabilities. When set to ``standard`` (the default), the cluster uses normal DB instance creation.
+         *Important:* Automated backup retention isn't supported with Aurora Limitless Database clusters. If you set this property to ``limitless``, you cannot set ``DeleteAutomatedBackups`` to ``false``. To create a backup, use manual snapshots instead.
         """
         return pulumi.get(self, "cluster_scalability_type")
 
@@ -1355,6 +1362,7 @@ class DbClusterArgs:
         When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore.
          Constraints:
           +  Must match the identifier of an existing DBCluster.
+          +  Cannot be specified if ``SourceDbClusterResourceId`` is specified. You must specify either ``SourceDBClusterIdentifier`` or ``SourceDbClusterResourceId``, but not both.
           
          Valid for: Aurora DB clusters and Multi-AZ DB clusters
         """
@@ -1363,6 +1371,18 @@ class DbClusterArgs:
     @source_db_cluster_identifier.setter
     def source_db_cluster_identifier(self, value: Optional[pulumi.Input[builtins.str]]):
         pulumi.set(self, "source_db_cluster_identifier", value)
+
+    @property
+    @pulumi.getter(name="sourceDbClusterResourceId")
+    def source_db_cluster_resource_id(self) -> Optional[pulumi.Input[builtins.str]]:
+        """
+        The resource ID of the source DB cluster from which to restore.
+        """
+        return pulumi.get(self, "source_db_cluster_resource_id")
+
+    @source_db_cluster_resource_id.setter
+    def source_db_cluster_resource_id(self, value: Optional[pulumi.Input[builtins.str]]):
+        pulumi.set(self, "source_db_cluster_resource_id", value)
 
     @property
     @pulumi.getter(name="sourceRegion")
@@ -1520,6 +1540,7 @@ class DbCluster(pulumi.CustomResource):
                  serverless_v2_scaling_configuration: Optional[pulumi.Input[Union['DbClusterServerlessV2ScalingConfigurationArgs', 'DbClusterServerlessV2ScalingConfigurationArgsDict']]] = None,
                  snapshot_identifier: Optional[pulumi.Input[builtins.str]] = None,
                  source_db_cluster_identifier: Optional[pulumi.Input[builtins.str]] = None,
+                 source_db_cluster_resource_id: Optional[pulumi.Input[builtins.str]] = None,
                  source_region: Optional[pulumi.Input[builtins.str]] = None,
                  storage_encrypted: Optional[pulumi.Input[builtins.bool]] = None,
                  storage_type: Optional[pulumi.Input[builtins.str]] = None,
@@ -1570,6 +1591,7 @@ class DbCluster(pulumi.CustomResource):
                  
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param pulumi.Input[builtins.str] cluster_scalability_type: Specifies the scalability mode of the Aurora DB cluster. When set to ``limitless``, the cluster operates as an Aurora Limitless Database, allowing you to create a DB shard group for horizontal scaling (sharding) capabilities. When set to ``standard`` (the default), the cluster uses normal DB instance creation.
+                *Important:* Automated backup retention isn't supported with Aurora Limitless Database clusters. If you set this property to ``limitless``, you cannot set ``DeleteAutomatedBackups`` to ``false``. To create a backup, use manual snapshots instead.
         :param pulumi.Input[builtins.bool] copy_tags_to_snapshot: A value that indicates whether to copy all tags from the DB cluster to snapshots of the DB cluster. The default is not to copy them.
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param pulumi.Input[builtins.str] database_insights_mode: The mode of Database Insights to enable for the DB cluster.
@@ -1819,8 +1841,10 @@ class DbCluster(pulumi.CustomResource):
         :param pulumi.Input[builtins.str] source_db_cluster_identifier: When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore.
                 Constraints:
                  +  Must match the identifier of an existing DBCluster.
+                 +  Cannot be specified if ``SourceDbClusterResourceId`` is specified. You must specify either ``SourceDBClusterIdentifier`` or ``SourceDbClusterResourceId``, but not both.
                  
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
+        :param pulumi.Input[builtins.str] source_db_cluster_resource_id: The resource ID of the source DB cluster from which to restore.
         :param pulumi.Input[builtins.str] source_region: The AWS Region which contains the source DB cluster when replicating a DB cluster. For example, ``us-east-1``. 
                 Valid for: Aurora DB clusters only
         :param pulumi.Input[builtins.bool] storage_encrypted: Indicates whether the DB cluster is encrypted.
@@ -1945,6 +1969,7 @@ class DbCluster(pulumi.CustomResource):
                  serverless_v2_scaling_configuration: Optional[pulumi.Input[Union['DbClusterServerlessV2ScalingConfigurationArgs', 'DbClusterServerlessV2ScalingConfigurationArgsDict']]] = None,
                  snapshot_identifier: Optional[pulumi.Input[builtins.str]] = None,
                  source_db_cluster_identifier: Optional[pulumi.Input[builtins.str]] = None,
+                 source_db_cluster_resource_id: Optional[pulumi.Input[builtins.str]] = None,
                  source_region: Optional[pulumi.Input[builtins.str]] = None,
                  storage_encrypted: Optional[pulumi.Input[builtins.bool]] = None,
                  storage_type: Optional[pulumi.Input[builtins.str]] = None,
@@ -2013,6 +2038,7 @@ class DbCluster(pulumi.CustomResource):
             __props__.__dict__["serverless_v2_scaling_configuration"] = serverless_v2_scaling_configuration
             __props__.__dict__["snapshot_identifier"] = snapshot_identifier
             __props__.__dict__["source_db_cluster_identifier"] = source_db_cluster_identifier
+            __props__.__dict__["source_db_cluster_resource_id"] = source_db_cluster_resource_id
             __props__.__dict__["source_region"] = source_region
             __props__.__dict__["storage_encrypted"] = storage_encrypted
             __props__.__dict__["storage_type"] = storage_type
@@ -2024,7 +2050,7 @@ class DbCluster(pulumi.CustomResource):
             __props__.__dict__["endpoint"] = None
             __props__.__dict__["read_endpoint"] = None
             __props__.__dict__["storage_throughput"] = None
-        replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["availabilityZones[*]", "clusterScalabilityType", "databaseName", "dbClusterIdentifier", "dbSubnetGroupName", "dbSystemId", "engineMode", "kmsKeyId", "publiclyAccessible", "restoreToTime", "restoreType", "snapshotIdentifier", "sourceDbClusterIdentifier", "sourceRegion", "storageEncrypted", "useLatestRestorableTime"])
+        replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["availabilityZones[*]", "clusterScalabilityType", "databaseName", "dbClusterIdentifier", "dbSubnetGroupName", "dbSystemId", "engineMode", "kmsKeyId", "publiclyAccessible", "restoreToTime", "restoreType", "snapshotIdentifier", "sourceDbClusterIdentifier", "sourceDbClusterResourceId", "sourceRegion", "storageEncrypted", "useLatestRestorableTime"])
         opts = pulumi.ResourceOptions.merge(opts, replace_on_changes)
         super(DbCluster, __self__).__init__(
             'aws-native:rds:DbCluster',
@@ -2105,6 +2131,7 @@ class DbCluster(pulumi.CustomResource):
         __props__.__dict__["serverless_v2_scaling_configuration"] = None
         __props__.__dict__["snapshot_identifier"] = None
         __props__.__dict__["source_db_cluster_identifier"] = None
+        __props__.__dict__["source_db_cluster_resource_id"] = None
         __props__.__dict__["source_region"] = None
         __props__.__dict__["storage_encrypted"] = None
         __props__.__dict__["storage_throughput"] = None
@@ -2182,6 +2209,7 @@ class DbCluster(pulumi.CustomResource):
     def cluster_scalability_type(self) -> pulumi.Output[Optional[builtins.str]]:
         """
         Specifies the scalability mode of the Aurora DB cluster. When set to ``limitless``, the cluster operates as an Aurora Limitless Database, allowing you to create a DB shard group for horizontal scaling (sharding) capabilities. When set to ``standard`` (the default), the cluster uses normal DB instance creation.
+         *Important:* Automated backup retention isn't supported with Aurora Limitless Database clusters. If you set this property to ``limitless``, you cannot set ``DeleteAutomatedBackups`` to ``false``. To create a backup, use manual snapshots instead.
         """
         return pulumi.get(self, "cluster_scalability_type")
 
@@ -2779,10 +2807,19 @@ class DbCluster(pulumi.CustomResource):
         When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore.
          Constraints:
           +  Must match the identifier of an existing DBCluster.
+          +  Cannot be specified if ``SourceDbClusterResourceId`` is specified. You must specify either ``SourceDBClusterIdentifier`` or ``SourceDbClusterResourceId``, but not both.
           
          Valid for: Aurora DB clusters and Multi-AZ DB clusters
         """
         return pulumi.get(self, "source_db_cluster_identifier")
+
+    @property
+    @pulumi.getter(name="sourceDbClusterResourceId")
+    def source_db_cluster_resource_id(self) -> pulumi.Output[Optional[builtins.str]]:
+        """
+        The resource ID of the source DB cluster from which to restore.
+        """
+        return pulumi.get(self, "source_db_cluster_resource_id")
 
     @property
     @pulumi.getter(name="sourceRegion")

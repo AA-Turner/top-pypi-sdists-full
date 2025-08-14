@@ -1,4 +1,5 @@
 import click
+
 from gable.cli.commands.data_asset_check import check_data_asset
 from gable.cli.commands.data_asset_check_plugin import (
     check_click_command_for_asset_plugin,

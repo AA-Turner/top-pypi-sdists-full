@@ -231,6 +231,11 @@ def _GoogleSearch_to_mldev(
         _Interval_to_mldev(getv(from_object, ['time_range_filter']), to_object),
     )
 
+  if getv(from_object, ['exclude_domains']) is not None:
+    raise ValueError(
+        'exclude_domains parameter is not supported in Gemini API.'
+    )
+
   return to_object
 
 
@@ -274,6 +279,17 @@ def _UrlContext_to_mldev(
     parent_object: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
   to_object: dict[str, Any] = {}
+
+  return to_object
+
+
+def _ToolComputerUse_to_mldev(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+  to_object: dict[str, Any] = {}
+  if getv(from_object, ['environment']) is not None:
+    setv(to_object, ['environment'], getv(from_object, ['environment']))
 
   return to_object
 
@@ -327,11 +343,17 @@ def _Tool_to_mldev(
         _UrlContext_to_mldev(getv(from_object, ['url_context']), to_object),
     )
 
+  if getv(from_object, ['computer_use']) is not None:
+    setv(
+        to_object,
+        ['computerUse'],
+        _ToolComputerUse_to_mldev(
+            getv(from_object, ['computer_use']), to_object
+        ),
+    )
+
   if getv(from_object, ['code_execution']) is not None:
     setv(to_object, ['codeExecution'], getv(from_object, ['code_execution']))
-
-  if getv(from_object, ['computer_use']) is not None:
-    setv(to_object, ['computerUse'], getv(from_object, ['computer_use']))
 
   return to_object
 
@@ -811,6 +833,9 @@ def _GoogleSearch_to_vertex(
         ),
     )
 
+  if getv(from_object, ['exclude_domains']) is not None:
+    setv(to_object, ['excludeDomains'], getv(from_object, ['exclude_domains']))
+
   return to_object
 
 
@@ -854,6 +879,8 @@ def _EnterpriseWebSearch_to_vertex(
     parent_object: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
   to_object: dict[str, Any] = {}
+  if getv(from_object, ['exclude_domains']) is not None:
+    setv(to_object, ['excludeDomains'], getv(from_object, ['exclude_domains']))
 
   return to_object
 
@@ -933,6 +960,17 @@ def _UrlContext_to_vertex(
   return to_object
 
 
+def _ToolComputerUse_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+  to_object: dict[str, Any] = {}
+  if getv(from_object, ['environment']) is not None:
+    setv(to_object, ['environment'], getv(from_object, ['environment']))
+
+  return to_object
+
+
 def _Tool_to_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -992,11 +1030,17 @@ def _Tool_to_vertex(
         _UrlContext_to_vertex(getv(from_object, ['url_context']), to_object),
     )
 
+  if getv(from_object, ['computer_use']) is not None:
+    setv(
+        to_object,
+        ['computerUse'],
+        _ToolComputerUse_to_vertex(
+            getv(from_object, ['computer_use']), to_object
+        ),
+    )
+
   if getv(from_object, ['code_execution']) is not None:
     setv(to_object, ['codeExecution'], getv(from_object, ['code_execution']))
-
-  if getv(from_object, ['computer_use']) is not None:
-    setv(to_object, ['computerUse'], getv(from_object, ['computer_use']))
 
   return to_object
 

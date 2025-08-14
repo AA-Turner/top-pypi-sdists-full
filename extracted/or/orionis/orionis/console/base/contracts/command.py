@@ -1,7 +1,5 @@
-
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
-
 from orionis.console.args.argument import CLIArgument
 
 class IBaseCommand(ABC):

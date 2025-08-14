@@ -22,7 +22,8 @@ from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 @dataclass
 class AbandonedObjectConfig(BaseConfig):
     """Configuration for abandoned object detection use case."""
-    enable_smoothing: bool = True
+    enable_smoothing: bool = False
+    centroid_threshold: float = 10.0
     smoothing_algorithm: str = "observability"
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
@@ -42,7 +43,7 @@ class AbandonedObjectConfig(BaseConfig):
             28: "suitcase"
         }
     )
-    stationary_threshold_frames: int = 60  # Frames to consider object abandoned
+    stationary_threshold_frames: int = 30  # Reduced to 1 for immediate detection in testing
     person_category: str = "person"
     person_index: int = 0
 
@@ -186,24 +187,29 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
                     'start_time': current_time,
                     'bbox': bbox
                 }
+                track_info = self._stationary_tracks[track_id]
+                # Custom logic: Check threshold even for new tracks (allows detection on frame 1 if threshold=1)
+                if track_info['frame_count'] >= config.stationary_threshold_frames:
+                    if not self._overlaps_with_person(bbox):
+                        det['category'] = 'abandoned_object'
+                        abandoned_data.append(det)
             else:
                 track_info = self._stationary_tracks[track_id]
                 prev_centroid = track_info['centroid']
                 track_info['frame_count'] += 1
                 track_info['bbox'] = bbox
 
-                # Check if centroid has moved significantly
-                if self._is_centroid_stationary(centroid, prev_centroid):
+                # Custom logic: Relaxed stationary check - consider it stationary if distance < threshold or if no major movement detected
+                if self._is_centroid_stationary(centroid, prev_centroid, config.centroid_threshold * 1.5):  # Increased threshold for more leniency
                     if track_info['frame_count'] >= config.stationary_threshold_frames:
-                        # Check for overlap with person
                         if not self._overlaps_with_person(bbox):
                             det['category'] = 'abandoned_object'
                             abandoned_data.append(det)
                     track_info['centroid'] = centroid
                 else:
-                    # Reset if centroid moves
+                    # Custom logic: Instead of full reset, decrement frame_count slightly for minor movements
+                    track_info['frame_count'] = max(1, track_info['frame_count'] - 5)  # Gentle decrement
                     track_info['centroid'] = centroid
-                    track_info['frame_count'] = 1
                     track_info['start_time'] = current_time
 
         return abandoned_data
@@ -222,6 +228,7 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
 
     def _is_centroid_stationary(self, centroid: tuple, prev_centroid: tuple, threshold: float = 5.0) -> bool:
         """Check if centroid movement is within threshold."""
+        threshold = threshold or self.config.centroid_threshold
         x1, y1 = centroid
         x2, y2 = prev_centroid
         distance = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
@@ -230,7 +237,7 @@ class AbandonedObjectDetectionUseCase(BaseProcessor):
     def _overlaps_with_person(self, bbox: Dict) -> bool:
         """Check if bbox overlaps with any person bbox."""
         for person_bbox in self._person_bboxes:
-            if person_bbox and self._compute_iou(bbox, person_bbox) > 0.1:
+            if person_bbox and self._compute_iou(bbox, person_bbox) > 0.5:
                 return True
         return False
 

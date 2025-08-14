@@ -57,13 +57,22 @@ pub async fn handle_hover(
         .ok()
         .flatten();
 
-    let root_comment_directive = tombi_comment_directive::get_root_comment_directive(&root).await;
+    let document_tombi_comment_directive =
+        tombi_comment_directive::get_document_tombi_comment_directive(&root).await;
     let (toml_version, _) = backend
-        .source_toml_version(root_comment_directive, source_schema.as_ref(), &config)
+        .source_toml_version(
+            document_tombi_comment_directive,
+            source_schema.as_ref(),
+            &config,
+        )
         .await;
 
+    let source_path = text_document.uri.to_file_path().ok();
+
     // Check if position is in a #:tombi comment directive
-    if let Some(content) = get_comment_directive_hover_info(&root, position).await {
+    if let Some(content) =
+        get_comment_directive_hover_info(&root, position, source_path.as_deref()).await
+    {
         return Ok(Some(content));
     }
 

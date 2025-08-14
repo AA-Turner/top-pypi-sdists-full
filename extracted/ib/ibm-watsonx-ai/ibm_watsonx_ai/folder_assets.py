@@ -4,7 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.messages.messages import Messages
@@ -16,6 +16,7 @@ from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from pandas import DataFrame
+
     from ibm_watsonx_ai import APIClient
 
 
@@ -317,7 +318,6 @@ class FolderAssets(WMLResource):
         )
 
     def _get_required_element_from_response(self, response_data: dict) -> dict:
-
         WMLResource._validate_type(response_data, "folder assets response", dict)
 
         import copy

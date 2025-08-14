@@ -281,6 +281,7 @@ class Automation:
     on_error: Notification = field(default=None)
     on_success: Notification = field(default=None)
     jfrog_token_id: str = field(default="")
+    platform_url: str = field(default="")
 
     def to_proto(self):
         return AutomationProto(
@@ -304,6 +305,7 @@ class Automation:
             create_audit=self.create_audit.to_proto(),
             is_deleted=self.is_deleted,
             jfrog_token_id=self.jfrog_token_id,
+            platform_url=self.platform_url,
         )
 
     @staticmethod
@@ -349,6 +351,7 @@ class Automation:
                 else None
             ),
             jfrog_token_id=message.jfrog_token_id,
+            platform_url=message.platform_url,
         )
 
     def __str__(self):

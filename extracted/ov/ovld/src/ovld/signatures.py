@@ -30,7 +30,7 @@ class LazySignature(inspect.Signature):
 
     @property
     def parameters(self):
-        anal = self.ovld.analyze_arguments()
+        anal = self.ovld.argument_analysis
         parameters = []
         if anal.is_method:
             parameters.append(
@@ -117,7 +117,7 @@ class Signature:
     arginfo: list[Arginfo] = field(default_factory=list, hash=False, compare=False)
 
     @classmethod
-    def extract(cls, fn):
+    def extract(cls, fn, lcl={}):
         typelist = []
         sig = inspect.signature(fn)
         max_pos = 0
@@ -135,7 +135,7 @@ class Signature:
                 is_method = True
                 continue
             pos = nm = None
-            ann = normalize_type(param.annotation, fn)
+            ann = normalize_type(param.annotation, fn, lcl)
             if param.kind is inspect._POSITIONAL_ONLY:
                 pos = i - is_method
                 typelist.append(ann)
@@ -188,9 +188,8 @@ class ArgumentAnalyzer:
         self.is_method = None
         self.done = False
 
-    def add(self, fn):
+    def add(self, sig):
         self.done = False
-        sig = Signature.extract(fn)
         self.complex_transforms.update(arg.canonical for arg in sig.arginfo if arg.is_complex)
         for arg in sig.arginfo:
             if arg.position is not None:

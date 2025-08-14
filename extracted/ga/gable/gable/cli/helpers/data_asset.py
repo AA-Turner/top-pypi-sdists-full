@@ -7,6 +7,8 @@ from typing import Any, List, Optional, Tuple, TypedDict, cast
 
 import click
 import jsonref
+from loguru import logger
+
 from gable.api.client import GableAPIClient
 from gable.cli.helpers.emoji import EMOJI
 from gable.cli.helpers.npm import (
@@ -35,7 +37,6 @@ from gable.openapi import (
     SourceType,
     StructuredDataAssetResourceName,
 )
-from loguru import logger
 
 
 class EventAsset(TypedDict):

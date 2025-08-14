@@ -10,18 +10,15 @@ __all__ = [
 
 import logging
 import sys
-
-from ibm_watsonx_ai.data_loaders.datasets.base_documents import (
-    BaseDocumentsIterableDataset,
-    DEFAULT_SAMPLE_SIZE_LIMIT,
-    DEFAULT_DOCUMENTS_SAMPLING_TYPE,
-)
-
-logger = logging.getLogger(__name__)
-
-import pandas as pd
 from typing import TYPE_CHECKING, Any, Callable
 
+import pandas as pd
+
+from ibm_watsonx_ai.data_loaders.datasets.base_documents import (
+    DEFAULT_DOCUMENTS_SAMPLING_TYPE,
+    DEFAULT_SAMPLE_SIZE_LIMIT,
+    BaseDocumentsIterableDataset,
+)
 from ibm_watsonx_ai.data_loaders.text_loader import (
     TextLoader,
 )
@@ -29,7 +26,10 @@ from ibm_watsonx_ai.helpers.remote_document import RemoteDocument
 
 if TYPE_CHECKING:
     from langchain_core.documents import Document
+
     from ibm_watsonx_ai.helpers.connections import DataConnection
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentsIterableDataset(BaseDocumentsIterableDataset):

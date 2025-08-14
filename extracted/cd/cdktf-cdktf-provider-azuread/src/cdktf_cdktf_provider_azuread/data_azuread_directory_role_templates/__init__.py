@@ -1,7 +1,7 @@
 r'''
 # `data_azuread_directory_role_templates`
 
-Refer to the Terraform Registry for docs: [`data_azuread_directory_role_templates`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates).
+Refer to the Terraform Registry for docs: [`data_azuread_directory_role_templates`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzureadDirectoryRoleTemplates(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.dataAzureadDirectoryRoleTemplates.DataAzureadDirectoryRoleTemplates",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates azuread_directory_role_templates}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates azuread_directory_role_templates}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataAzureadDirectoryRoleTemplates(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates azuread_directory_role_templates} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates azuread_directory_role_templates} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#id DataAzureadDirectoryRoleTemplates#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#timeouts DataAzureadDirectoryRoleTemplates#timeouts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#id DataAzureadDirectoryRoleTemplates#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#timeouts DataAzureadDirectoryRoleTemplates#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataAzureadDirectoryRoleTemplates(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzureadDirectoryRoleTemplates to import.
-        :param import_from_id: The id of the existing DataAzureadDirectoryRoleTemplates that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzureadDirectoryRoleTemplates that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzureadDirectoryRoleTemplates to import is found.
         '''
         if __debug__:
@@ -120,7 +120,7 @@ class DataAzureadDirectoryRoleTemplates(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#read DataAzureadDirectoryRoleTemplates#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#read DataAzureadDirectoryRoleTemplates#read}.
         '''
         value = DataAzureadDirectoryRoleTemplatesTimeouts(read=read)
 
@@ -224,8 +224,8 @@ class DataAzureadDirectoryRoleTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArgum
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#id DataAzureadDirectoryRoleTemplates#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#timeouts DataAzureadDirectoryRoleTemplates#timeouts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#id DataAzureadDirectoryRoleTemplates#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#timeouts DataAzureadDirectoryRoleTemplates#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -328,7 +328,7 @@ class DataAzureadDirectoryRoleTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArgum
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#id DataAzureadDirectoryRoleTemplates#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#id DataAzureadDirectoryRoleTemplates#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -340,7 +340,7 @@ class DataAzureadDirectoryRoleTemplatesConfig(_cdktf_9a9027ec.TerraformMetaArgum
     def timeouts(self) -> typing.Optional["DataAzureadDirectoryRoleTemplatesTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#timeouts DataAzureadDirectoryRoleTemplates#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#timeouts DataAzureadDirectoryRoleTemplates#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzureadDirectoryRoleTemplatesTimeouts"], result)
@@ -521,7 +521,7 @@ class DataAzureadDirectoryRoleTemplatesRoleTemplatesOutputReference(
 class DataAzureadDirectoryRoleTemplatesTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#read DataAzureadDirectoryRoleTemplates#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#read DataAzureadDirectoryRoleTemplates#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c01963380e73e19f45dc5b3fd15950c2f69dd43fe2fa0a02c6be56767211b52b)
@@ -532,7 +532,7 @@ class DataAzureadDirectoryRoleTemplatesTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/directory_role_templates#read DataAzureadDirectoryRoleTemplates#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/directory_role_templates#read DataAzureadDirectoryRoleTemplates#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

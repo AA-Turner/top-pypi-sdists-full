@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "16.9.0",
+    "version": "16.10.0",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -470,8 +470,11 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_artifact_registry_docker_image",
         "cdktf_cdktf_provider_google.data_google_artifact_registry_docker_images",
         "cdktf_cdktf_provider_google.data_google_artifact_registry_locations",
+        "cdktf_cdktf_provider_google.data_google_artifact_registry_package",
+        "cdktf_cdktf_provider_google.data_google_artifact_registry_repositories",
         "cdktf_cdktf_provider_google.data_google_artifact_registry_repository",
         "cdktf_cdktf_provider_google.data_google_artifact_registry_repository_iam_policy",
+        "cdktf_cdktf_provider_google.data_google_artifact_registry_version",
         "cdktf_cdktf_provider_google.data_google_backup_dr_backup",
         "cdktf_cdktf_provider_google.data_google_backup_dr_backup_plan",
         "cdktf_cdktf_provider_google.data_google_backup_dr_backup_plan_association",
@@ -918,6 +921,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.dialogflow_cx_generator",
         "cdktf_cdktf_provider_google.dialogflow_cx_intent",
         "cdktf_cdktf_provider_google.dialogflow_cx_page",
+        "cdktf_cdktf_provider_google.dialogflow_cx_playbook",
         "cdktf_cdktf_provider_google.dialogflow_cx_security_settings",
         "cdktf_cdktf_provider_google.dialogflow_cx_test_case",
         "cdktf_cdktf_provider_google.dialogflow_cx_tool",
@@ -1470,6 +1474,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.vertex_ai_index",
         "cdktf_cdktf_provider_google.vertex_ai_index_endpoint",
         "cdktf_cdktf_provider_google.vertex_ai_index_endpoint_deployed_index",
+        "cdktf_cdktf_provider_google.vertex_ai_rag_engine_config",
         "cdktf_cdktf_provider_google.vertex_ai_tensorboard",
         "cdktf_cdktf_provider_google.vmwareengine_cluster",
         "cdktf_cdktf_provider_google.vmwareengine_external_access_rule",
@@ -1488,7 +1493,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@16.9.0.jsii.tgz"
+            "provider-google@16.10.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "21.6.0",
+    "version": "21.7.0",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -1571,6 +1571,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.networkfirewall_resource_policy",
         "cdktf_cdktf_provider_aws.networkfirewall_rule_group",
         "cdktf_cdktf_provider_aws.networkfirewall_tls_inspection_configuration",
+        "cdktf_cdktf_provider_aws.networkfirewall_vpc_endpoint_association",
         "cdktf_cdktf_provider_aws.networkmanager_attachment_accepter",
         "cdktf_cdktf_provider_aws.networkmanager_connect_attachment",
         "cdktf_cdktf_provider_aws.networkmanager_connect_peer",
@@ -1656,6 +1657,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.quicksight_account_settings",
         "cdktf_cdktf_provider_aws.quicksight_account_subscription",
         "cdktf_cdktf_provider_aws.quicksight_analysis",
+        "cdktf_cdktf_provider_aws.quicksight_custom_permissions",
         "cdktf_cdktf_provider_aws.quicksight_dashboard",
         "cdktf_cdktf_provider_aws.quicksight_data_set",
         "cdktf_cdktf_provider_aws.quicksight_data_source",
@@ -1669,11 +1671,13 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.quicksight_key_registration",
         "cdktf_cdktf_provider_aws.quicksight_namespace",
         "cdktf_cdktf_provider_aws.quicksight_refresh_schedule",
+        "cdktf_cdktf_provider_aws.quicksight_role_custom_permission",
         "cdktf_cdktf_provider_aws.quicksight_role_membership",
         "cdktf_cdktf_provider_aws.quicksight_template",
         "cdktf_cdktf_provider_aws.quicksight_template_alias",
         "cdktf_cdktf_provider_aws.quicksight_theme",
         "cdktf_cdktf_provider_aws.quicksight_user",
+        "cdktf_cdktf_provider_aws.quicksight_user_custom_permission",
         "cdktf_cdktf_provider_aws.quicksight_vpc_connection",
         "cdktf_cdktf_provider_aws.ram_principal_association",
         "cdktf_cdktf_provider_aws.ram_resource_association",
@@ -2135,6 +2139,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.wafv2_web_acl",
         "cdktf_cdktf_provider_aws.wafv2_web_acl_association",
         "cdktf_cdktf_provider_aws.wafv2_web_acl_logging_configuration",
+        "cdktf_cdktf_provider_aws.wafv2_web_acl_rule_group_association",
         "cdktf_cdktf_provider_aws.workspaces_connection_alias",
         "cdktf_cdktf_provider_aws.workspaces_directory",
         "cdktf_cdktf_provider_aws.workspaces_ip_group",
@@ -2152,7 +2157,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@21.6.0.jsii.tgz"
+            "provider-aws@21.7.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"
@@ -2162,7 +2167,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdktf>=0.21.0, <0.22.0",
         "constructs>=10.4.2, <11.0.0",
-        "jsii>=1.112.0, <2.0.0",
+        "jsii>=1.113.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

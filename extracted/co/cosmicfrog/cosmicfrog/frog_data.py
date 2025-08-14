@@ -358,6 +358,90 @@ class FrogModel:
         # give significant performance over dataframe (though may be better for memory)
         # Decided to leave as is for now
 
+    def write_table_fast(
+            self, table_name: str, data: pd.DataFrame | Iterable, overwrite: bool = False
+    ) -> None:
+        """Pushes data into a model table from a data frame or iterable object
+
+        Fast bulk write of a DataFrame to PostgreSQL using psycopg2's copy_from. This is 
+        typically 5x-50x faster than DataFrame.to_sql.
+
+        Args:
+        table_name: The target table
+        data:       The data to be written
+        overwrite:  Set to true to overwrite current table contents
+        """
+
+        table_name = table_name.lower().strip()
+
+        self.log.info("write_table_fast, writing to: %s", table_name)
+
+        # TODO: Should be under same transaction as the write
+        if overwrite:
+            self.clear_table(table_name)
+
+        if isinstance(data, pd.DataFrame) is False:
+            data = pd.DataFrame(data)
+
+        data.columns = data.columns.astype(str).str.lower().map(str.strip)
+
+        # Convert DataFrame to CSV format in memory
+        buffer = StringIO()
+        data.to_csv(buffer, index=False, header=False, sep='\t')
+        buffer.seek(0)
+
+        with self.begin() as conn:
+            with conn.connection.cursor() as cur:
+                cur.copy_from(buffer, table_name, sep='\t', null='', columns=list(data.columns))
+
+    def update_columns(
+        self,
+        table_name: str,
+        df: pd.DataFrame,
+        columns: list[str],
+    ) -> None:
+        """
+        Updates one or more columns in a Postgres table using a DataFrame and key columns.
+
+        Args:
+            table_name: Name of the target table.
+            df:         DataFrame containing key columns and columns to update.
+            columns:    List of column names to update (must be in df).
+        """
+        table_name = table_name.lower().strip()
+
+        self.log.info("update_columns, writing %s to: %s", columns, table_name)
+
+        existing_columns = self.get_table_columns_from_model(table_name)
+        assert all(col in existing_columns for col in columns), 'Warning: Attempting to update columns that do not exist in the database.'
+
+        key_cols = self.get_key_columns(table_name)
+        all_cols = key_cols + columns
+        df = df[all_cols]
+
+        # Compose the VALUES string: (val1, val2, ..., valN)
+        values = ",".join(
+            "(" + ", ".join(repr(row[col]) for col in all_cols) + ")"
+            for _, row in df.iterrows()
+        )
+
+        cte_cols = ", ".join(all_cols)
+        join_condition = " AND ".join(f"t.{col} = u.{col}" for col in key_cols)
+        set_clause = ", ".join(f"{col} = u.{col}" for col in columns)
+
+        query = f"""
+            WITH updates ({cte_cols}) AS (
+                VALUES {values}
+            )
+            UPDATE {table_name} AS t
+            SET {set_clause}
+            FROM updates AS u
+            WHERE {join_condition}
+        """
+
+        self.exec_sql(query)
+
+
     def read_table(self, table_name: str, id_col: bool = False) -> DataFrame:
         """Read a single model table and return as a DataFrame
 
@@ -377,15 +461,50 @@ class FrogModel:
                 result.drop(columns=["id"], inplace=True)
             return result
 
+    def read_table_fast(self, table_name: str, id_col: bool = False, columns: list[str] | None = None) -> pd.DataFrame:
+        """Read a single model table and return as a DataFrame
+
+        Fast bulk read of a PostgreSQL table into a DataFrame using psycopg2's COPY TO.
+
+        Args:
+            table_name: Table name to be read (supporting custom tables)
+            id_col:     Indicates whether the table id column should be returned
+            columns:    List of columns to select. Defaults to all columns
+
+        Returns:
+            Single dataframe holding table contents
+        """
+        table_name = table_name.lower().strip()
+        self.log.info("read_table_fast, reading from: %s", table_name)
+
+        # Use SELECT * if columns not provided, else select specific columns
+        col_str = ', '.join(columns) if columns else '*'
+        copy_sql = f"COPY (SELECT {col_str} FROM {table_name}) TO STDOUT WITH (FORMAT CSV, HEADER TRUE, DELIMITER '\t')"
+
+        buffer = StringIO()
+
+        with self.begin() as conn:
+            with conn.connection.cursor() as cur:
+                cur.copy_expert(copy_sql, buffer)
+
+        buffer.seek(0)
+        result = pd.read_csv(buffer, sep='\t')
+
+        if "id" in result.columns and not id_col:
+            result.drop(columns=["id"], inplace=True)
+
+        return result
+    
     # Read all, or multiple Anura tables
     def read_tables(
-        self, table_list: List[str] = None, id_col: bool = False
+        self, table_list: List[str] = None, id_col: bool = False, fast: bool = False
     ) -> Dict[str, pd.DataFrame]:
         """Read multiple Anura tables and return as a dictionary, indexed by table name
 
         Args:
             table_list: List of table names to be read (supporting custom tables)
             id_col: Indicates whether the table id column should be returned
+            fast: Indicates if `read_table` or `read_table_fast` should be used.
 
         Returns:
             Dictionary of tables, where key is table name and value is dataframe of contents
@@ -394,22 +513,29 @@ class FrogModel:
         result = {}
 
         for t in table_list:
-            result[t] = self.read_table(t, id_col=id_col)
+            if fast:
+                result[t] = self.read_table_fast(t, id_col=id_col)
+            else:
+                result[t] = self.read_table(t, id_col=id_col)
 
         return result
 
     # Read all, or multiple Anura tables
-    def write_tables(self, tables: Dict[str, pd.DataFrame], overwrite: bool = False) -> None:
+    def write_tables(self, tables: Dict[str, pd.DataFrame], overwrite: bool = False, fast: bool = False) -> None:
         """Write multiple Anura tables from a dictionary, as returned by read_tables()
 
         Args:
             tables: Dictionary of table data indexed by table name
             overwrite: Set to true to overwrite current table contents
+            fast: Indicates if `write_table` or `write_table_fast` should be used. 
 
         """
 
         for key in tables:
-            self.write_table(key, tables[key], overwrite)
+            if fast:
+                self.write_table_fast(key, tables[key], overwrite)
+            else:
+                self.write_table(key, tables[key], overwrite)
 
     def clear_table(self, table_name: str, send_signal: bool = False):
         """Clear table of all content
@@ -1356,7 +1482,7 @@ class FrogModel:
     @check_connection_type("app_key")
     def run_scenario(
         self,
-        scenarios: [str] = ["Baseline"],
+        scenarios: List[str] = ["Baseline"],
         workspace: str = "Studio",
         engine: None | ENGINES = None,
         run_neo_with_infeasibility: bool = False,

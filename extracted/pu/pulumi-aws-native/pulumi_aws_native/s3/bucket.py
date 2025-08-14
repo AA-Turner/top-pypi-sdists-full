@@ -60,9 +60,10 @@ class BucketArgs:
                  If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         :param pulumi.Input['BucketCorsConfigurationArgs'] cors_configuration: Describes the cross-origin access configuration for objects in an Amazon S3 bucket. For more information, see [Enabling Cross-Origin Resource Sharing](https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html) in the *Amazon S3 User Guide*.
         :param pulumi.Input[Sequence[pulumi.Input['BucketIntelligentTieringConfigurationArgs']]] intelligent_tiering_configurations: Defines how Amazon S3 handles Intelligent-Tiering storage.
-        :param pulumi.Input[Sequence[pulumi.Input['BucketInventoryConfigurationArgs']]] inventory_configurations: Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+        :param pulumi.Input[Sequence[pulumi.Input['BucketInventoryConfigurationArgs']]] inventory_configurations: Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
         :param pulumi.Input['BucketLifecycleConfigurationArgs'] lifecycle_configuration: Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see [Object Lifecycle Management](https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html) in the *Amazon S3 User Guide*.
         :param pulumi.Input['BucketLoggingConfigurationArgs'] logging_configuration: Settings that define where logs are stored.
+        :param pulumi.Input['BucketMetadataConfigurationArgs'] metadata_configuration: The S3 Metadata configuration for a general purpose bucket.
         :param pulumi.Input['BucketMetadataTableConfigurationArgs'] metadata_table_configuration: The metadata table configuration of an S3 general purpose bucket.
         :param pulumi.Input[Sequence[pulumi.Input['BucketMetricsConfigurationArgs']]] metrics_configurations: Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket. If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see [PutBucketMetricsConfiguration](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html).
         :param pulumi.Input['BucketNotificationConfigurationArgs'] notification_configuration: Configuration that defines how Amazon S3 handles bucket notifications.
@@ -218,7 +219,7 @@ class BucketArgs:
     @pulumi.getter(name="inventoryConfigurations")
     def inventory_configurations(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['BucketInventoryConfigurationArgs']]]]:
         """
-        Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+        Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
         """
         return pulumi.get(self, "inventory_configurations")
 
@@ -253,6 +254,9 @@ class BucketArgs:
     @property
     @pulumi.getter(name="metadataConfiguration")
     def metadata_configuration(self) -> Optional[pulumi.Input['BucketMetadataConfigurationArgs']]:
+        """
+        The S3 Metadata configuration for a general purpose bucket.
+        """
         return pulumi.get(self, "metadata_configuration")
 
     @metadata_configuration.setter
@@ -930,9 +934,10 @@ class Bucket(pulumi.CustomResource):
                  If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         :param pulumi.Input[Union['BucketCorsConfigurationArgs', 'BucketCorsConfigurationArgsDict']] cors_configuration: Describes the cross-origin access configuration for objects in an Amazon S3 bucket. For more information, see [Enabling Cross-Origin Resource Sharing](https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html) in the *Amazon S3 User Guide*.
         :param pulumi.Input[Sequence[pulumi.Input[Union['BucketIntelligentTieringConfigurationArgs', 'BucketIntelligentTieringConfigurationArgsDict']]]] intelligent_tiering_configurations: Defines how Amazon S3 handles Intelligent-Tiering storage.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['BucketInventoryConfigurationArgs', 'BucketInventoryConfigurationArgsDict']]]] inventory_configurations: Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['BucketInventoryConfigurationArgs', 'BucketInventoryConfigurationArgsDict']]]] inventory_configurations: Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
         :param pulumi.Input[Union['BucketLifecycleConfigurationArgs', 'BucketLifecycleConfigurationArgsDict']] lifecycle_configuration: Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see [Object Lifecycle Management](https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html) in the *Amazon S3 User Guide*.
         :param pulumi.Input[Union['BucketLoggingConfigurationArgs', 'BucketLoggingConfigurationArgsDict']] logging_configuration: Settings that define where logs are stored.
+        :param pulumi.Input[Union['BucketMetadataConfigurationArgs', 'BucketMetadataConfigurationArgsDict']] metadata_configuration: The S3 Metadata configuration for a general purpose bucket.
         :param pulumi.Input[Union['BucketMetadataTableConfigurationArgs', 'BucketMetadataTableConfigurationArgsDict']] metadata_table_configuration: The metadata table configuration of an S3 general purpose bucket.
         :param pulumi.Input[Sequence[pulumi.Input[Union['BucketMetricsConfigurationArgs', 'BucketMetricsConfigurationArgsDict']]]] metrics_configurations: Specifies a metrics configuration for the CloudWatch request metrics (specified by the metrics configuration ID) from an Amazon S3 bucket. If you're updating an existing metrics configuration, note that this is a full replacement of the existing metrics configuration. If you don't include the elements you want to keep, they are erased. For more information, see [PutBucketMetricsConfiguration](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTMetricConfiguration.html).
         :param pulumi.Input[Union['BucketNotificationConfigurationArgs', 'BucketNotificationConfigurationArgsDict']] notification_configuration: Configuration that defines how Amazon S3 handles bucket notifications.
@@ -1669,7 +1674,7 @@ class Bucket(pulumi.CustomResource):
     @pulumi.getter(name="inventoryConfigurations")
     def inventory_configurations(self) -> pulumi.Output[Optional[Sequence['outputs.BucketInventoryConfiguration']]]:
         """
-        Specifies the inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
+        Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see [GET Bucket inventory](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html) in the *Amazon S3 API Reference*.
         """
         return pulumi.get(self, "inventory_configurations")
 
@@ -1692,6 +1697,9 @@ class Bucket(pulumi.CustomResource):
     @property
     @pulumi.getter(name="metadataConfiguration")
     def metadata_configuration(self) -> pulumi.Output[Optional['outputs.BucketMetadataConfiguration']]:
+        """
+        The S3 Metadata configuration for a general purpose bucket.
+        """
         return pulumi.get(self, "metadata_configuration")
 
     @property

@@ -44,7 +44,7 @@ class Utils:
     @staticmethod
     def parse_timestamp(ts: str) -> datetime:
         """Parse a timestamp string to a datetime object
-        
+
         Supports multiple formats:
         - ISO format with Z: 2025-05-25T13:00:14.000Z
         - ISO format with timezone: 2025-05-25T13:00:14+00:00
@@ -56,16 +56,16 @@ class Utils:
         if ts.endswith("Z"):
             ts_str = ts[:-1] + "+00:00"
             return datetime.fromisoformat(ts_str)
-        
+
         # Handle UTC format: "2024-07-25 03:01:54 UTC"
         if ts.endswith(" UTC"):
             ts_str = ts[:-4] + "+00:00"
             return datetime.fromisoformat(ts_str)
-        
+
         # Handle ISO format with timezone offset
         if "T" in ts or ("+" in ts or "-" in ts[-6:]):
             return datetime.fromisoformat(ts)
-        
+
         # Handle standard format: "2024-07-25 03:01:54"
         if " " in ts and ":" in ts:
             try:
@@ -73,11 +73,11 @@ class Utils:
             except ValueError:
                 # Try with microseconds
                 return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f")
-        
+
         # Handle date only format: "2024-07-25"
         if len(ts) == 10 and ts.count("-") == 2:
             return datetime.strptime(ts, "%Y-%m-%d")
-        
+
         # Try ISO format without timezone
         try:
             return datetime.fromisoformat(ts)
@@ -93,11 +93,11 @@ class Utils:
                 "%d/%m/%Y %H:%M:%S",
                 "%d/%m/%Y %H:%M:%S.%f",
             ]
-            
+
             for fmt in formats:
                 try:
                     return datetime.strptime(ts, fmt)
                 except ValueError:
                     continue
-            
+
             raise ValueError(f"Unable to parse timestamp: {ts}")

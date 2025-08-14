@@ -5,20 +5,22 @@
 
 __all__ = ["LocalAutoPipelinesRuns"]
 
-from typing import List, Dict, Union, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from warnings import warn
 
 from pandas import DataFrame
-from warnings import warn
 
 from ibm_watsonx_ai.experiment.autoai.optimizers.local_auto_pipelines import (
     LocalAutoPipelines,
 )
 from ibm_watsonx_ai.helpers import DataConnection
 from ibm_watsonx_ai.utils.autoai.utils import prepare_cos_client
+
 from .base_auto_pipelines_runs import BaseAutoPipelinesRuns
 
-
 if TYPE_CHECKING:
+    from ibm_watsonx_ai import APIClient
+
     from ..optimizers import RemoteAutoPipelines
 
 

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_pim_eligible_role_assignment`
 
-Refer to the Terraform Registry for docs: [`azurerm_pim_eligible_role_assignment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment).
+Refer to the Terraform Registry for docs: [`azurerm_pim_eligible_role_assignment`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PimEligibleRoleAssignment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.pimEligibleRoleAssignment.PimEligibleRoleAssignment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment azurerm_pim_eligible_role_assignment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment azurerm_pim_eligible_role_assignment}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class PimEligibleRoleAssignment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment azurerm_pim_eligible_role_assignment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment azurerm_pim_eligible_role_assignment} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param principal_id: Object ID of the principal for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#principal_id PimEligibleRoleAssignment#principal_id}
-        :param role_definition_id: Role definition ID for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#role_definition_id PimEligibleRoleAssignment#role_definition_id}
-        :param scope: Scope for this eligible role assignment, should be a valid resource ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#scope PimEligibleRoleAssignment#scope}
-        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#condition PimEligibleRoleAssignment#condition}.
-        :param condition_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#condition_version PimEligibleRoleAssignment#condition_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#id PimEligibleRoleAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param justification: The justification for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#justification PimEligibleRoleAssignment#justification}
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#schedule PimEligibleRoleAssignment#schedule}
-        :param ticket: ticket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#ticket PimEligibleRoleAssignment#ticket}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#timeouts PimEligibleRoleAssignment#timeouts}
+        :param principal_id: Object ID of the principal for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#principal_id PimEligibleRoleAssignment#principal_id}
+        :param role_definition_id: Role definition ID for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#role_definition_id PimEligibleRoleAssignment#role_definition_id}
+        :param scope: Scope for this eligible role assignment, should be a valid resource ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#scope PimEligibleRoleAssignment#scope}
+        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#condition PimEligibleRoleAssignment#condition}.
+        :param condition_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#condition_version PimEligibleRoleAssignment#condition_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#id PimEligibleRoleAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param justification: The justification for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#justification PimEligibleRoleAssignment#justification}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#schedule PimEligibleRoleAssignment#schedule}
+        :param ticket: ticket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#ticket PimEligibleRoleAssignment#ticket}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#timeouts PimEligibleRoleAssignment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class PimEligibleRoleAssignment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PimEligibleRoleAssignment to import.
-        :param import_from_id: The id of the existing PimEligibleRoleAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PimEligibleRoleAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PimEligibleRoleAssignment to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class PimEligibleRoleAssignment(
         start_date_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expiration: expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#expiration PimEligibleRoleAssignment#expiration}
-        :param start_date_time: The start date/time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#start_date_time PimEligibleRoleAssignment#start_date_time}
+        :param expiration: expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#expiration PimEligibleRoleAssignment#expiration}
+        :param start_date_time: The start date/time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#start_date_time PimEligibleRoleAssignment#start_date_time}
         '''
         value = PimEligibleRoleAssignmentSchedule(
             expiration=expiration, start_date_time=start_date_time
@@ -166,8 +166,8 @@ class PimEligibleRoleAssignment(
         system_attribute: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param number: User-supplied ticket number to be included with the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#number PimEligibleRoleAssignment#number}
-        :param system_attribute: User-supplied ticket system name to be included with the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#system PimEligibleRoleAssignment#system}
+        :param number: User-supplied ticket number to be included with the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#number PimEligibleRoleAssignment#number}
+        :param system_attribute: User-supplied ticket system name to be included with the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#system PimEligibleRoleAssignment#system}
         '''
         value = PimEligibleRoleAssignmentTicket(
             number=number, system_attribute=system_attribute
@@ -184,9 +184,9 @@ class PimEligibleRoleAssignment(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#create PimEligibleRoleAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#delete PimEligibleRoleAssignment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#read PimEligibleRoleAssignment#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#create PimEligibleRoleAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#delete PimEligibleRoleAssignment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#read PimEligibleRoleAssignment#read}.
         '''
         value = PimEligibleRoleAssignmentTimeouts(
             create=create, delete=delete, read=read
@@ -445,16 +445,16 @@ class PimEligibleRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param principal_id: Object ID of the principal for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#principal_id PimEligibleRoleAssignment#principal_id}
-        :param role_definition_id: Role definition ID for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#role_definition_id PimEligibleRoleAssignment#role_definition_id}
-        :param scope: Scope for this eligible role assignment, should be a valid resource ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#scope PimEligibleRoleAssignment#scope}
-        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#condition PimEligibleRoleAssignment#condition}.
-        :param condition_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#condition_version PimEligibleRoleAssignment#condition_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#id PimEligibleRoleAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param justification: The justification for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#justification PimEligibleRoleAssignment#justification}
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#schedule PimEligibleRoleAssignment#schedule}
-        :param ticket: ticket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#ticket PimEligibleRoleAssignment#ticket}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#timeouts PimEligibleRoleAssignment#timeouts}
+        :param principal_id: Object ID of the principal for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#principal_id PimEligibleRoleAssignment#principal_id}
+        :param role_definition_id: Role definition ID for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#role_definition_id PimEligibleRoleAssignment#role_definition_id}
+        :param scope: Scope for this eligible role assignment, should be a valid resource ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#scope PimEligibleRoleAssignment#scope}
+        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#condition PimEligibleRoleAssignment#condition}.
+        :param condition_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#condition_version PimEligibleRoleAssignment#condition_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#id PimEligibleRoleAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param justification: The justification for this eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#justification PimEligibleRoleAssignment#justification}
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#schedule PimEligibleRoleAssignment#schedule}
+        :param ticket: ticket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#ticket PimEligibleRoleAssignment#ticket}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#timeouts PimEligibleRoleAssignment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -585,7 +585,7 @@ class PimEligibleRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def principal_id(self) -> builtins.str:
         '''Object ID of the principal for this eligible role assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#principal_id PimEligibleRoleAssignment#principal_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#principal_id PimEligibleRoleAssignment#principal_id}
         '''
         result = self._values.get("principal_id")
         assert result is not None, "Required property 'principal_id' is missing"
@@ -595,7 +595,7 @@ class PimEligibleRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role_definition_id(self) -> builtins.str:
         '''Role definition ID for this eligible role assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#role_definition_id PimEligibleRoleAssignment#role_definition_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#role_definition_id PimEligibleRoleAssignment#role_definition_id}
         '''
         result = self._values.get("role_definition_id")
         assert result is not None, "Required property 'role_definition_id' is missing"
@@ -605,7 +605,7 @@ class PimEligibleRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope(self) -> builtins.str:
         '''Scope for this eligible role assignment, should be a valid resource ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#scope PimEligibleRoleAssignment#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#scope PimEligibleRoleAssignment#scope}
         '''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
@@ -613,19 +613,19 @@ class PimEligibleRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def condition(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#condition PimEligibleRoleAssignment#condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#condition PimEligibleRoleAssignment#condition}.'''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def condition_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#condition_version PimEligibleRoleAssignment#condition_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#condition_version PimEligibleRoleAssignment#condition_version}.'''
         result = self._values.get("condition_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#id PimEligibleRoleAssignment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#id PimEligibleRoleAssignment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -637,7 +637,7 @@ class PimEligibleRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def justification(self) -> typing.Optional[builtins.str]:
         '''The justification for this eligible role assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#justification PimEligibleRoleAssignment#justification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#justification PimEligibleRoleAssignment#justification}
         '''
         result = self._values.get("justification")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -646,7 +646,7 @@ class PimEligibleRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schedule(self) -> typing.Optional["PimEligibleRoleAssignmentSchedule"]:
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#schedule PimEligibleRoleAssignment#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#schedule PimEligibleRoleAssignment#schedule}
         '''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional["PimEligibleRoleAssignmentSchedule"], result)
@@ -655,7 +655,7 @@ class PimEligibleRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ticket(self) -> typing.Optional["PimEligibleRoleAssignmentTicket"]:
         '''ticket block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#ticket PimEligibleRoleAssignment#ticket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#ticket PimEligibleRoleAssignment#ticket}
         '''
         result = self._values.get("ticket")
         return typing.cast(typing.Optional["PimEligibleRoleAssignmentTicket"], result)
@@ -664,7 +664,7 @@ class PimEligibleRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PimEligibleRoleAssignmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#timeouts PimEligibleRoleAssignment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#timeouts PimEligibleRoleAssignment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PimEligibleRoleAssignmentTimeouts"], result)
@@ -694,8 +694,8 @@ class PimEligibleRoleAssignmentSchedule:
         start_date_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expiration: expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#expiration PimEligibleRoleAssignment#expiration}
-        :param start_date_time: The start date/time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#start_date_time PimEligibleRoleAssignment#start_date_time}
+        :param expiration: expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#expiration PimEligibleRoleAssignment#expiration}
+        :param start_date_time: The start date/time. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#start_date_time PimEligibleRoleAssignment#start_date_time}
         '''
         if isinstance(expiration, dict):
             expiration = PimEligibleRoleAssignmentScheduleExpiration(**expiration)
@@ -715,7 +715,7 @@ class PimEligibleRoleAssignmentSchedule:
     ) -> typing.Optional["PimEligibleRoleAssignmentScheduleExpiration"]:
         '''expiration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#expiration PimEligibleRoleAssignment#expiration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#expiration PimEligibleRoleAssignment#expiration}
         '''
         result = self._values.get("expiration")
         return typing.cast(typing.Optional["PimEligibleRoleAssignmentScheduleExpiration"], result)
@@ -724,7 +724,7 @@ class PimEligibleRoleAssignmentSchedule:
     def start_date_time(self) -> typing.Optional[builtins.str]:
         '''The start date/time.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#start_date_time PimEligibleRoleAssignment#start_date_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#start_date_time PimEligibleRoleAssignment#start_date_time}
         '''
         result = self._values.get("start_date_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -759,9 +759,9 @@ class PimEligibleRoleAssignmentScheduleExpiration:
         end_date_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration_days: The duration of the eligible role assignment in days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#duration_days PimEligibleRoleAssignment#duration_days}
-        :param duration_hours: The duration of the eligible role assignment in hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#duration_hours PimEligibleRoleAssignment#duration_hours}
-        :param end_date_time: The end date/time of the eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#end_date_time PimEligibleRoleAssignment#end_date_time}
+        :param duration_days: The duration of the eligible role assignment in days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#duration_days PimEligibleRoleAssignment#duration_days}
+        :param duration_hours: The duration of the eligible role assignment in hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#duration_hours PimEligibleRoleAssignment#duration_hours}
+        :param end_date_time: The end date/time of the eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#end_date_time PimEligibleRoleAssignment#end_date_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23fe66166dc7292a6ae7ae28a18f1018827ae8e904b8e422c14815d3acd1b7ba)
@@ -780,7 +780,7 @@ class PimEligibleRoleAssignmentScheduleExpiration:
     def duration_days(self) -> typing.Optional[jsii.Number]:
         '''The duration of the eligible role assignment in days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#duration_days PimEligibleRoleAssignment#duration_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#duration_days PimEligibleRoleAssignment#duration_days}
         '''
         result = self._values.get("duration_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -789,7 +789,7 @@ class PimEligibleRoleAssignmentScheduleExpiration:
     def duration_hours(self) -> typing.Optional[jsii.Number]:
         '''The duration of the eligible role assignment in hours.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#duration_hours PimEligibleRoleAssignment#duration_hours}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#duration_hours PimEligibleRoleAssignment#duration_hours}
         '''
         result = self._values.get("duration_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -798,7 +798,7 @@ class PimEligibleRoleAssignmentScheduleExpiration:
     def end_date_time(self) -> typing.Optional[builtins.str]:
         '''The end date/time of the eligible role assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#end_date_time PimEligibleRoleAssignment#end_date_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#end_date_time PimEligibleRoleAssignment#end_date_time}
         '''
         result = self._values.get("end_date_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -945,9 +945,9 @@ class PimEligibleRoleAssignmentScheduleOutputReference(
         end_date_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param duration_days: The duration of the eligible role assignment in days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#duration_days PimEligibleRoleAssignment#duration_days}
-        :param duration_hours: The duration of the eligible role assignment in hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#duration_hours PimEligibleRoleAssignment#duration_hours}
-        :param end_date_time: The end date/time of the eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#end_date_time PimEligibleRoleAssignment#end_date_time}
+        :param duration_days: The duration of the eligible role assignment in days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#duration_days PimEligibleRoleAssignment#duration_days}
+        :param duration_hours: The duration of the eligible role assignment in hours. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#duration_hours PimEligibleRoleAssignment#duration_hours}
+        :param end_date_time: The end date/time of the eligible role assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#end_date_time PimEligibleRoleAssignment#end_date_time}
         '''
         value = PimEligibleRoleAssignmentScheduleExpiration(
             duration_days=duration_days,
@@ -1023,8 +1023,8 @@ class PimEligibleRoleAssignmentTicket:
         system_attribute: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param number: User-supplied ticket number to be included with the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#number PimEligibleRoleAssignment#number}
-        :param system_attribute: User-supplied ticket system name to be included with the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#system PimEligibleRoleAssignment#system}
+        :param number: User-supplied ticket number to be included with the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#number PimEligibleRoleAssignment#number}
+        :param system_attribute: User-supplied ticket system name to be included with the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#system PimEligibleRoleAssignment#system}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f665f09d31259d662c2b8b97e8b43e1d50323efa86cb4a5cb897ad1abbec882e)
@@ -1040,7 +1040,7 @@ class PimEligibleRoleAssignmentTicket:
     def number(self) -> typing.Optional[builtins.str]:
         '''User-supplied ticket number to be included with the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#number PimEligibleRoleAssignment#number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#number PimEligibleRoleAssignment#number}
         '''
         result = self._values.get("number")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1049,7 +1049,7 @@ class PimEligibleRoleAssignmentTicket:
     def system_attribute(self) -> typing.Optional[builtins.str]:
         '''User-supplied ticket system name to be included with the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#system PimEligibleRoleAssignment#system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#system PimEligibleRoleAssignment#system}
         '''
         result = self._values.get("system_attribute")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1158,9 +1158,9 @@ class PimEligibleRoleAssignmentTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#create PimEligibleRoleAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#delete PimEligibleRoleAssignment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#read PimEligibleRoleAssignment#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#create PimEligibleRoleAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#delete PimEligibleRoleAssignment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#read PimEligibleRoleAssignment#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__649fe937ec80799e4f88dfdfd6415da3dc18f9b17546ceb3736a414b9163b82d)
@@ -1177,19 +1177,19 @@ class PimEligibleRoleAssignmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#create PimEligibleRoleAssignment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#create PimEligibleRoleAssignment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#delete PimEligibleRoleAssignment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#delete PimEligibleRoleAssignment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/pim_eligible_role_assignment#read PimEligibleRoleAssignment#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/pim_eligible_role_assignment#read PimEligibleRoleAssignment#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

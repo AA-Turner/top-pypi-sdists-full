@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2025.8.3
+Version: 2025.8.4
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -11,7 +11,7 @@ Project-URL: documentation, https://github.com/unslothai/unsloth
 Project-URL: repository, https://github.com/unslothai/unsloth
 Keywords: ai,llm
 Classifier: Programming Language :: Python
-Requires-Python: <3.13,>=3.9
+Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.4.0

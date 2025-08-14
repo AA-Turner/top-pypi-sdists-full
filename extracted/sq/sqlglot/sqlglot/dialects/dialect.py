@@ -654,6 +654,8 @@ class Dialect(metaclass=_Dialect):
             exp.Length,
             exp.UnixDate,
             exp.UnixSeconds,
+            exp.UnixMicros,
+            exp.UnixMillis,
         },
         exp.DataType.Type.BINARY: {
             exp.FromBase64,
@@ -674,6 +676,7 @@ class Dialect(metaclass=_Dialect):
             exp.DateFromParts,
             exp.DateStrToDate,
             exp.DiToDate,
+            exp.LastDay,
             exp.StrToDate,
             exp.TimeStrToDate,
             exp.TsOrDsToDate,
@@ -718,6 +721,9 @@ class Dialect(metaclass=_Dialect):
         },
         exp.DataType.Type.INTERVAL: {
             exp.Interval,
+            exp.JustifyDays,
+            exp.JustifyHours,
+            exp.JustifyInterval,
             exp.MakeInterval,
         },
         exp.DataType.Type.JSON: {
@@ -1650,9 +1656,11 @@ def unit_to_str(expression: exp.Expression, default: str = "DAY") -> t.Optional[
 def unit_to_var(expression: exp.Expression, default: str = "DAY") -> t.Optional[exp.Expression]:
     unit = expression.args.get("unit")
 
-    if isinstance(unit, (exp.Var, exp.Placeholder)):
+    if isinstance(unit, (exp.Var, exp.Placeholder, exp.WeekStart)):
         return unit
-    return exp.Var(this=default) if default else None
+
+    value = unit.name if unit else default
+    return exp.Var(this=value) if value else None
 
 
 @t.overload

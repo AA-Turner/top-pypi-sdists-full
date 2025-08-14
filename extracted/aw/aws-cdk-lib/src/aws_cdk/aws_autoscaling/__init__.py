@@ -540,7 +540,7 @@ about allowing connections between resources backed by instances.
 ## Max Instance Lifetime
 
 To enable the max instance lifetime support, specify `maxInstanceLifetime` property
-for the `AutoscalingGroup` resource. The value must be between 7 and 365 days(inclusive).
+for the `AutoscalingGroup` resource. The value must be between 1 and 365 days(inclusive).
 To clear a previously set value, leave this property undefined.
 
 ## Instance Monitoring
@@ -13545,7 +13545,7 @@ class CommonAutoScalingGroupProps:
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param max_capacity: Maximum number of instances in the fleet. Default: desiredCapacity
-        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value, leave this property undefined. Default: none
+        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 86,400 seconds (one day). To clear a previously set value, leave this property undefined. Default: none
         :param min_capacity: Minimum number of instances in the fleet. Default: 1
         :param new_instances_protected_from_scale_in: Whether newly-launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in. By default, Auto Scaling can terminate an instance at any time after launch when scaling in an Auto Scaling Group, subject to the group's termination policy. However, you may wish to protect newly-launched instances from being scaled in if they are going to run critical applications that should not be prematurely terminated. This flag must be enabled if the Auto Scaling Group will be associated with an ECS Capacity Provider with managed termination protection. Default: false
         :param notifications: Configure autoscaling group to send notifications about fleet changes to an SNS topic(s). Default: - No fleet change notifications will be sent.
@@ -13952,7 +13952,7 @@ class CommonAutoScalingGroupProps:
         to all current and future instances in the group. As an instance approaches its maximum duration,
         it is terminated and replaced, and cannot be used again.
 
-        You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value,
+        You must specify a value of at least 86,400 seconds (one day). To clear a previously set value,
         leave this property undefined.
 
         :default: none
@@ -19566,7 +19566,7 @@ class AutoScalingGroup(
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param max_capacity: Maximum number of instances in the fleet. Default: desiredCapacity
-        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value, leave this property undefined. Default: none
+        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 86,400 seconds (one day). To clear a previously set value, leave this property undefined. Default: none
         :param min_capacity: Minimum number of instances in the fleet. Default: 1
         :param new_instances_protected_from_scale_in: Whether newly-launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in. By default, Auto Scaling can terminate an instance at any time after launch when scaling in an Auto Scaling Group, subject to the group's termination policy. However, you may wish to protect newly-launched instances from being scaled in if they are going to run critical applications that should not be prematurely terminated. This flag must be enabled if the Auto Scaling Group will be associated with an ECS Capacity Provider with managed termination protection. Default: false
         :param notifications: Configure autoscaling group to send notifications about fleet changes to an SNS topic(s). Default: - No fleet change notifications will be sent.
@@ -20308,7 +20308,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param max_capacity: Maximum number of instances in the fleet. Default: desiredCapacity
-        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value, leave this property undefined. Default: none
+        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 86,400 seconds (one day). To clear a previously set value, leave this property undefined. Default: none
         :param min_capacity: Minimum number of instances in the fleet. Default: 1
         :param new_instances_protected_from_scale_in: Whether newly-launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in. By default, Auto Scaling can terminate an instance at any time after launch when scaling in an Auto Scaling Group, subject to the group's termination policy. However, you may wish to protect newly-launched instances from being scaled in if they are going to run critical applications that should not be prematurely terminated. This flag must be enabled if the Auto Scaling Group will be associated with an ECS Capacity Provider with managed termination protection. Default: false
         :param notifications: Configure autoscaling group to send notifications about fleet changes to an SNS topic(s). Default: - No fleet change notifications will be sent.
@@ -20721,7 +20721,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         to all current and future instances in the group. As an instance approaches its maximum duration,
         it is terminated and replaced, and cannot be used again.
 
-        You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value,
+        You must specify a value of at least 86,400 seconds (one day). To clear a previously set value,
         leave this property undefined.
 
         :default: none

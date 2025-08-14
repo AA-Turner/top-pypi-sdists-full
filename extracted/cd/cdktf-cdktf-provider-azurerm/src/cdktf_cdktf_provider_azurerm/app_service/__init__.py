@@ -1,7 +1,7 @@
 r'''
 # `azurerm_app_service`
 
-Refer to the Terraform Registry for docs: [`azurerm_app_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service).
+Refer to the Terraform Registry for docs: [`azurerm_app_service`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.appService.AppService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service azurerm_app_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service azurerm_app_service}.'''
 
     def __init__(
         self,
@@ -81,32 +81,32 @@ class AppService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service azurerm_app_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service azurerm_app_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_service_plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_service_plan_id AppService#app_service_plan_id}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#location AppService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#resource_group_name AppService#resource_group_name}.
-        :param app_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_settings AppService#app_settings}.
-        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#auth_settings AppService#auth_settings}
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#backup AppService#backup}
-        :param client_affinity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_affinity_enabled AppService#client_affinity_enabled}.
-        :param client_cert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_cert_enabled AppService#client_cert_enabled}.
-        :param client_cert_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_cert_mode AppService#client_cert_mode}.
-        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#connection_string AppService#connection_string}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#enabled AppService#enabled}.
-        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#https_only AppService#https_only}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#id AppService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#identity AppService#identity}
-        :param key_vault_reference_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#key_vault_reference_identity_id AppService#key_vault_reference_identity_id}.
-        :param logs: logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#logs AppService#logs}
-        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#site_config AppService#site_config}
-        :param source_control: source_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#source_control AppService#source_control}
-        :param storage_account: storage_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#storage_account AppService#storage_account}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#tags AppService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#timeouts AppService#timeouts}
+        :param app_service_plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_service_plan_id AppService#app_service_plan_id}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#location AppService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#resource_group_name AppService#resource_group_name}.
+        :param app_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_settings AppService#app_settings}.
+        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#auth_settings AppService#auth_settings}
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#backup AppService#backup}
+        :param client_affinity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_affinity_enabled AppService#client_affinity_enabled}.
+        :param client_cert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_cert_enabled AppService#client_cert_enabled}.
+        :param client_cert_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_cert_mode AppService#client_cert_mode}.
+        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#connection_string AppService#connection_string}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#enabled AppService#enabled}.
+        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#https_only AppService#https_only}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#id AppService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#identity AppService#identity}
+        :param key_vault_reference_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#key_vault_reference_identity_id AppService#key_vault_reference_identity_id}.
+        :param logs: logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#logs AppService#logs}
+        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#site_config AppService#site_config}
+        :param source_control: source_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#source_control AppService#source_control}
+        :param storage_account: storage_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#storage_account AppService#storage_account}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#tags AppService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#timeouts AppService#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -166,7 +166,7 @@ class AppService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppService to import.
-        :param import_from_id: The id of the existing AppService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppService to import is found.
         '''
         if __debug__:
@@ -197,20 +197,20 @@ class AppService(
         unauthenticated_client_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#enabled AppService#enabled}.
-        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#active_directory AppService#active_directory}
-        :param additional_login_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#additional_login_params AppService#additional_login_params}.
-        :param allowed_external_redirect_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#allowed_external_redirect_urls AppService#allowed_external_redirect_urls}.
-        :param default_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#default_provider AppService#default_provider}.
-        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#facebook AppService#facebook}
-        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#google AppService#google}
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#issuer AppService#issuer}.
-        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#microsoft AppService#microsoft}
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#runtime_version AppService#runtime_version}.
-        :param token_refresh_extension_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#token_refresh_extension_hours AppService#token_refresh_extension_hours}.
-        :param token_store_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#token_store_enabled AppService#token_store_enabled}.
-        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#twitter AppService#twitter}
-        :param unauthenticated_client_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#unauthenticated_client_action AppService#unauthenticated_client_action}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#enabled AppService#enabled}.
+        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#active_directory AppService#active_directory}
+        :param additional_login_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#additional_login_params AppService#additional_login_params}.
+        :param allowed_external_redirect_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#allowed_external_redirect_urls AppService#allowed_external_redirect_urls}.
+        :param default_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#default_provider AppService#default_provider}.
+        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#facebook AppService#facebook}
+        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#google AppService#google}
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#issuer AppService#issuer}.
+        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#microsoft AppService#microsoft}
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#runtime_version AppService#runtime_version}.
+        :param token_refresh_extension_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#token_refresh_extension_hours AppService#token_refresh_extension_hours}.
+        :param token_store_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#token_store_enabled AppService#token_store_enabled}.
+        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#twitter AppService#twitter}
+        :param unauthenticated_client_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#unauthenticated_client_action AppService#unauthenticated_client_action}.
         '''
         value = AppServiceAuthSettings(
             enabled=enabled,
@@ -241,10 +241,10 @@ class AppService(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#schedule AppService#schedule}
-        :param storage_account_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#storage_account_url AppService#storage_account_url}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#enabled AppService#enabled}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#schedule AppService#schedule}
+        :param storage_account_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#storage_account_url AppService#storage_account_url}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#enabled AppService#enabled}.
         '''
         value = AppServiceBackup(
             name=name,
@@ -276,8 +276,8 @@ class AppService(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#type AppService#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#identity_ids AppService#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#type AppService#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#identity_ids AppService#identity_ids}.
         '''
         value = AppServiceIdentity(type=type, identity_ids=identity_ids)
 
@@ -293,10 +293,10 @@ class AppService(
         http_logs: typing.Optional[typing.Union["AppServiceLogsHttpLogs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param application_logs: application_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#application_logs AppService#application_logs}
-        :param detailed_error_messages_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#detailed_error_messages_enabled AppService#detailed_error_messages_enabled}.
-        :param failed_request_tracing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#failed_request_tracing_enabled AppService#failed_request_tracing_enabled}.
-        :param http_logs: http_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#http_logs AppService#http_logs}
+        :param application_logs: application_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#application_logs AppService#application_logs}
+        :param detailed_error_messages_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#detailed_error_messages_enabled AppService#detailed_error_messages_enabled}.
+        :param failed_request_tracing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#failed_request_tracing_enabled AppService#failed_request_tracing_enabled}.
+        :param http_logs: http_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#http_logs AppService#http_logs}
         '''
         value = AppServiceLogs(
             application_logs=application_logs,
@@ -344,37 +344,37 @@ class AppService(
         windows_fx_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param acr_use_managed_identity_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#acr_use_managed_identity_credentials AppService#acr_use_managed_identity_credentials}.
-        :param acr_user_managed_identity_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#acr_user_managed_identity_client_id AppService#acr_user_managed_identity_client_id}.
-        :param always_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#always_on AppService#always_on}.
-        :param app_command_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_command_line AppService#app_command_line}.
-        :param auto_swap_slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#auto_swap_slot_name AppService#auto_swap_slot_name}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#cors AppService#cors}
-        :param default_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#default_documents AppService#default_documents}.
-        :param dotnet_framework_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#dotnet_framework_version AppService#dotnet_framework_version}.
-        :param ftps_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ftps_state AppService#ftps_state}.
-        :param health_check_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#health_check_path AppService#health_check_path}.
-        :param http2_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#http2_enabled AppService#http2_enabled}.
-        :param ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ip_restriction AppService#ip_restriction}.
-        :param java_container: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#java_container AppService#java_container}.
-        :param java_container_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#java_container_version AppService#java_container_version}.
-        :param java_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#java_version AppService#java_version}.
-        :param linux_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#linux_fx_version AppService#linux_fx_version}.
-        :param local_mysql_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#local_mysql_enabled AppService#local_mysql_enabled}.
-        :param managed_pipeline_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#managed_pipeline_mode AppService#managed_pipeline_mode}.
-        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#min_tls_version AppService#min_tls_version}.
-        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#number_of_workers AppService#number_of_workers}.
-        :param php_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#php_version AppService#php_version}.
-        :param python_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#python_version AppService#python_version}.
-        :param remote_debugging_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#remote_debugging_enabled AppService#remote_debugging_enabled}.
-        :param remote_debugging_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#remote_debugging_version AppService#remote_debugging_version}.
-        :param scm_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#scm_ip_restriction AppService#scm_ip_restriction}.
-        :param scm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#scm_type AppService#scm_type}.
-        :param scm_use_main_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#scm_use_main_ip_restriction AppService#scm_use_main_ip_restriction}.
-        :param use32_bit_worker_process: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#use_32_bit_worker_process AppService#use_32_bit_worker_process}.
-        :param vnet_route_all_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#vnet_route_all_enabled AppService#vnet_route_all_enabled}.
-        :param websockets_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#websockets_enabled AppService#websockets_enabled}.
-        :param windows_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#windows_fx_version AppService#windows_fx_version}.
+        :param acr_use_managed_identity_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#acr_use_managed_identity_credentials AppService#acr_use_managed_identity_credentials}.
+        :param acr_user_managed_identity_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#acr_user_managed_identity_client_id AppService#acr_user_managed_identity_client_id}.
+        :param always_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#always_on AppService#always_on}.
+        :param app_command_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_command_line AppService#app_command_line}.
+        :param auto_swap_slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#auto_swap_slot_name AppService#auto_swap_slot_name}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#cors AppService#cors}
+        :param default_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#default_documents AppService#default_documents}.
+        :param dotnet_framework_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#dotnet_framework_version AppService#dotnet_framework_version}.
+        :param ftps_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ftps_state AppService#ftps_state}.
+        :param health_check_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#health_check_path AppService#health_check_path}.
+        :param http2_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#http2_enabled AppService#http2_enabled}.
+        :param ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ip_restriction AppService#ip_restriction}.
+        :param java_container: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#java_container AppService#java_container}.
+        :param java_container_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#java_container_version AppService#java_container_version}.
+        :param java_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#java_version AppService#java_version}.
+        :param linux_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#linux_fx_version AppService#linux_fx_version}.
+        :param local_mysql_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#local_mysql_enabled AppService#local_mysql_enabled}.
+        :param managed_pipeline_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#managed_pipeline_mode AppService#managed_pipeline_mode}.
+        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#min_tls_version AppService#min_tls_version}.
+        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#number_of_workers AppService#number_of_workers}.
+        :param php_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#php_version AppService#php_version}.
+        :param python_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#python_version AppService#python_version}.
+        :param remote_debugging_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#remote_debugging_enabled AppService#remote_debugging_enabled}.
+        :param remote_debugging_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#remote_debugging_version AppService#remote_debugging_version}.
+        :param scm_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#scm_ip_restriction AppService#scm_ip_restriction}.
+        :param scm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#scm_type AppService#scm_type}.
+        :param scm_use_main_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#scm_use_main_ip_restriction AppService#scm_use_main_ip_restriction}.
+        :param use32_bit_worker_process: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#use_32_bit_worker_process AppService#use_32_bit_worker_process}.
+        :param vnet_route_all_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#vnet_route_all_enabled AppService#vnet_route_all_enabled}.
+        :param websockets_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#websockets_enabled AppService#websockets_enabled}.
+        :param windows_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#windows_fx_version AppService#windows_fx_version}.
         '''
         value = AppServiceSiteConfig(
             acr_use_managed_identity_credentials=acr_use_managed_identity_credentials,
@@ -423,11 +423,11 @@ class AppService(
         use_mercurial: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#branch AppService#branch}.
-        :param manual_integration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#manual_integration AppService#manual_integration}.
-        :param repo_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#repo_url AppService#repo_url}.
-        :param rollback_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#rollback_enabled AppService#rollback_enabled}.
-        :param use_mercurial: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#use_mercurial AppService#use_mercurial}.
+        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#branch AppService#branch}.
+        :param manual_integration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#manual_integration AppService#manual_integration}.
+        :param repo_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#repo_url AppService#repo_url}.
+        :param rollback_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#rollback_enabled AppService#rollback_enabled}.
+        :param use_mercurial: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#use_mercurial AppService#use_mercurial}.
         '''
         value = AppServiceSourceControl(
             branch=branch,
@@ -462,10 +462,10 @@ class AppService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#create AppService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#delete AppService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#read AppService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#update AppService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#create AppService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#delete AppService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#read AppService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#update AppService#update}.
         '''
         value = AppServiceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -977,20 +977,20 @@ class AppServiceAuthSettings:
         unauthenticated_client_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#enabled AppService#enabled}.
-        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#active_directory AppService#active_directory}
-        :param additional_login_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#additional_login_params AppService#additional_login_params}.
-        :param allowed_external_redirect_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#allowed_external_redirect_urls AppService#allowed_external_redirect_urls}.
-        :param default_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#default_provider AppService#default_provider}.
-        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#facebook AppService#facebook}
-        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#google AppService#google}
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#issuer AppService#issuer}.
-        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#microsoft AppService#microsoft}
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#runtime_version AppService#runtime_version}.
-        :param token_refresh_extension_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#token_refresh_extension_hours AppService#token_refresh_extension_hours}.
-        :param token_store_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#token_store_enabled AppService#token_store_enabled}.
-        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#twitter AppService#twitter}
-        :param unauthenticated_client_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#unauthenticated_client_action AppService#unauthenticated_client_action}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#enabled AppService#enabled}.
+        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#active_directory AppService#active_directory}
+        :param additional_login_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#additional_login_params AppService#additional_login_params}.
+        :param allowed_external_redirect_urls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#allowed_external_redirect_urls AppService#allowed_external_redirect_urls}.
+        :param default_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#default_provider AppService#default_provider}.
+        :param facebook: facebook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#facebook AppService#facebook}
+        :param google: google block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#google AppService#google}
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#issuer AppService#issuer}.
+        :param microsoft: microsoft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#microsoft AppService#microsoft}
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#runtime_version AppService#runtime_version}.
+        :param token_refresh_extension_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#token_refresh_extension_hours AppService#token_refresh_extension_hours}.
+        :param token_store_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#token_store_enabled AppService#token_store_enabled}.
+        :param twitter: twitter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#twitter AppService#twitter}
+        :param unauthenticated_client_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#unauthenticated_client_action AppService#unauthenticated_client_action}.
         '''
         if isinstance(active_directory, dict):
             active_directory = AppServiceAuthSettingsActiveDirectory(**active_directory)
@@ -1050,7 +1050,7 @@ class AppServiceAuthSettings:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#enabled AppService#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#enabled AppService#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1061,7 +1061,7 @@ class AppServiceAuthSettings:
     ) -> typing.Optional["AppServiceAuthSettingsActiveDirectory"]:
         '''active_directory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#active_directory AppService#active_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#active_directory AppService#active_directory}
         '''
         result = self._values.get("active_directory")
         return typing.cast(typing.Optional["AppServiceAuthSettingsActiveDirectory"], result)
@@ -1070,7 +1070,7 @@ class AppServiceAuthSettings:
     def additional_login_params(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#additional_login_params AppService#additional_login_params}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#additional_login_params AppService#additional_login_params}.'''
         result = self._values.get("additional_login_params")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1078,13 +1078,13 @@ class AppServiceAuthSettings:
     def allowed_external_redirect_urls(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#allowed_external_redirect_urls AppService#allowed_external_redirect_urls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#allowed_external_redirect_urls AppService#allowed_external_redirect_urls}.'''
         result = self._values.get("allowed_external_redirect_urls")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def default_provider(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#default_provider AppService#default_provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#default_provider AppService#default_provider}.'''
         result = self._values.get("default_provider")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1092,7 +1092,7 @@ class AppServiceAuthSettings:
     def facebook(self) -> typing.Optional["AppServiceAuthSettingsFacebook"]:
         '''facebook block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#facebook AppService#facebook}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#facebook AppService#facebook}
         '''
         result = self._values.get("facebook")
         return typing.cast(typing.Optional["AppServiceAuthSettingsFacebook"], result)
@@ -1101,14 +1101,14 @@ class AppServiceAuthSettings:
     def google(self) -> typing.Optional["AppServiceAuthSettingsGoogle"]:
         '''google block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#google AppService#google}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#google AppService#google}
         '''
         result = self._values.get("google")
         return typing.cast(typing.Optional["AppServiceAuthSettingsGoogle"], result)
 
     @builtins.property
     def issuer(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#issuer AppService#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#issuer AppService#issuer}.'''
         result = self._values.get("issuer")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1116,20 +1116,20 @@ class AppServiceAuthSettings:
     def microsoft(self) -> typing.Optional["AppServiceAuthSettingsMicrosoft"]:
         '''microsoft block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#microsoft AppService#microsoft}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#microsoft AppService#microsoft}
         '''
         result = self._values.get("microsoft")
         return typing.cast(typing.Optional["AppServiceAuthSettingsMicrosoft"], result)
 
     @builtins.property
     def runtime_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#runtime_version AppService#runtime_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#runtime_version AppService#runtime_version}.'''
         result = self._values.get("runtime_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def token_refresh_extension_hours(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#token_refresh_extension_hours AppService#token_refresh_extension_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#token_refresh_extension_hours AppService#token_refresh_extension_hours}.'''
         result = self._values.get("token_refresh_extension_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1137,7 +1137,7 @@ class AppServiceAuthSettings:
     def token_store_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#token_store_enabled AppService#token_store_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#token_store_enabled AppService#token_store_enabled}.'''
         result = self._values.get("token_store_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1145,14 +1145,14 @@ class AppServiceAuthSettings:
     def twitter(self) -> typing.Optional["AppServiceAuthSettingsTwitter"]:
         '''twitter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#twitter AppService#twitter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#twitter AppService#twitter}
         '''
         result = self._values.get("twitter")
         return typing.cast(typing.Optional["AppServiceAuthSettingsTwitter"], result)
 
     @builtins.property
     def unauthenticated_client_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#unauthenticated_client_action AppService#unauthenticated_client_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#unauthenticated_client_action AppService#unauthenticated_client_action}.'''
         result = self._values.get("unauthenticated_client_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1186,9 +1186,9 @@ class AppServiceAuthSettingsActiveDirectory:
         client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_id AppService#client_id}.
-        :param allowed_audiences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#allowed_audiences AppService#allowed_audiences}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_secret AppService#client_secret}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_id AppService#client_id}.
+        :param allowed_audiences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#allowed_audiences AppService#allowed_audiences}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_secret AppService#client_secret}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__810bdb44925a779fd966478ea935bc171d280f2950d3f005ba2f723e405888ca)
@@ -1205,20 +1205,20 @@ class AppServiceAuthSettingsActiveDirectory:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_id AppService#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_id AppService#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def allowed_audiences(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#allowed_audiences AppService#allowed_audiences}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#allowed_audiences AppService#allowed_audiences}.'''
         result = self._values.get("allowed_audiences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def client_secret(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_secret AppService#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_secret AppService#client_secret}.'''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1347,9 +1347,9 @@ class AppServiceAuthSettingsFacebook:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_id AppService#app_id}.
-        :param app_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_secret AppService#app_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
+        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_id AppService#app_id}.
+        :param app_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_secret AppService#app_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__904517a7b9124f32acab68831f7dd09980e98169405a9da15d16abf22bfabf26)
@@ -1365,21 +1365,21 @@ class AppServiceAuthSettingsFacebook:
 
     @builtins.property
     def app_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_id AppService#app_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_id AppService#app_id}.'''
         result = self._values.get("app_id")
         assert result is not None, "Required property 'app_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def app_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_secret AppService#app_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_secret AppService#app_secret}.'''
         result = self._values.get("app_secret")
         assert result is not None, "Required property 'app_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.'''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1504,9 +1504,9 @@ class AppServiceAuthSettingsGoogle:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_id AppService#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_secret AppService#client_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_id AppService#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_secret AppService#client_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29666d8ab69a2c4fccc3fc941e5270dcf48337de0d37e4ed2ec2bedae503b9cb)
@@ -1522,21 +1522,21 @@ class AppServiceAuthSettingsGoogle:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_id AppService#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_id AppService#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_secret AppService#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_secret AppService#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.'''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1661,9 +1661,9 @@ class AppServiceAuthSettingsMicrosoft:
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_id AppService#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_secret AppService#client_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_id AppService#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_secret AppService#client_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ed182e3c7a64b7ff759426f7b1edee905e746a018b8a89de475a511df76a5f5)
@@ -1679,21 +1679,21 @@ class AppServiceAuthSettingsMicrosoft:
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_id AppService#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_id AppService#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_secret AppService#client_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_secret AppService#client_secret}.'''
         result = self._values.get("client_secret")
         assert result is not None, "Required property 'client_secret' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.'''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1829,9 +1829,9 @@ class AppServiceAuthSettingsOutputReference(
         client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_id AppService#client_id}.
-        :param allowed_audiences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#allowed_audiences AppService#allowed_audiences}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_secret AppService#client_secret}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_id AppService#client_id}.
+        :param allowed_audiences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#allowed_audiences AppService#allowed_audiences}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_secret AppService#client_secret}.
         '''
         value = AppServiceAuthSettingsActiveDirectory(
             client_id=client_id,
@@ -1850,9 +1850,9 @@ class AppServiceAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_id AppService#app_id}.
-        :param app_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_secret AppService#app_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
+        :param app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_id AppService#app_id}.
+        :param app_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_secret AppService#app_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
         '''
         value = AppServiceAuthSettingsFacebook(
             app_id=app_id, app_secret=app_secret, oauth_scopes=oauth_scopes
@@ -1869,9 +1869,9 @@ class AppServiceAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_id AppService#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_secret AppService#client_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_id AppService#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_secret AppService#client_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
         '''
         value = AppServiceAuthSettingsGoogle(
             client_id=client_id, client_secret=client_secret, oauth_scopes=oauth_scopes
@@ -1888,9 +1888,9 @@ class AppServiceAuthSettingsOutputReference(
         oauth_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_id AppService#client_id}.
-        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_secret AppService#client_secret}.
-        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_id AppService#client_id}.
+        :param client_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_secret AppService#client_secret}.
+        :param oauth_scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#oauth_scopes AppService#oauth_scopes}.
         '''
         value = AppServiceAuthSettingsMicrosoft(
             client_id=client_id, client_secret=client_secret, oauth_scopes=oauth_scopes
@@ -1906,8 +1906,8 @@ class AppServiceAuthSettingsOutputReference(
         consumer_secret: builtins.str,
     ) -> None:
         '''
-        :param consumer_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#consumer_key AppService#consumer_key}.
-        :param consumer_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#consumer_secret AppService#consumer_secret}.
+        :param consumer_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#consumer_key AppService#consumer_key}.
+        :param consumer_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#consumer_secret AppService#consumer_secret}.
         '''
         value = AppServiceAuthSettingsTwitter(
             consumer_key=consumer_key, consumer_secret=consumer_secret
@@ -2217,8 +2217,8 @@ class AppServiceAuthSettingsTwitter:
         consumer_secret: builtins.str,
     ) -> None:
         '''
-        :param consumer_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#consumer_key AppService#consumer_key}.
-        :param consumer_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#consumer_secret AppService#consumer_secret}.
+        :param consumer_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#consumer_key AppService#consumer_key}.
+        :param consumer_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#consumer_secret AppService#consumer_secret}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3618c2edd91db9a078bf78745f487aeb0d708c17c0fcd7981f03cf58e46dafd6)
@@ -2231,14 +2231,14 @@ class AppServiceAuthSettingsTwitter:
 
     @builtins.property
     def consumer_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#consumer_key AppService#consumer_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#consumer_key AppService#consumer_key}.'''
         result = self._values.get("consumer_key")
         assert result is not None, "Required property 'consumer_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def consumer_secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#consumer_secret AppService#consumer_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#consumer_secret AppService#consumer_secret}.'''
         result = self._values.get("consumer_secret")
         assert result is not None, "Required property 'consumer_secret' is missing"
         return typing.cast(builtins.str, result)
@@ -2345,10 +2345,10 @@ class AppServiceBackup:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#schedule AppService#schedule}
-        :param storage_account_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#storage_account_url AppService#storage_account_url}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#enabled AppService#enabled}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#schedule AppService#schedule}
+        :param storage_account_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#storage_account_url AppService#storage_account_url}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#enabled AppService#enabled}.
         '''
         if isinstance(schedule, dict):
             schedule = AppServiceBackupSchedule(**schedule)
@@ -2368,7 +2368,7 @@ class AppServiceBackup:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2377,7 +2377,7 @@ class AppServiceBackup:
     def schedule(self) -> "AppServiceBackupSchedule":
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#schedule AppService#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#schedule AppService#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -2385,7 +2385,7 @@ class AppServiceBackup:
 
     @builtins.property
     def storage_account_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#storage_account_url AppService#storage_account_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#storage_account_url AppService#storage_account_url}.'''
         result = self._values.get("storage_account_url")
         assert result is not None, "Required property 'storage_account_url' is missing"
         return typing.cast(builtins.str, result)
@@ -2394,7 +2394,7 @@ class AppServiceBackup:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#enabled AppService#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#enabled AppService#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2441,11 +2441,11 @@ class AppServiceBackupOutputReference(
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param frequency_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#frequency_interval AppService#frequency_interval}.
-        :param frequency_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#frequency_unit AppService#frequency_unit}.
-        :param keep_at_least_one_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#keep_at_least_one_backup AppService#keep_at_least_one_backup}.
-        :param retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_period_in_days AppService#retention_period_in_days}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#start_time AppService#start_time}.
+        :param frequency_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#frequency_interval AppService#frequency_interval}.
+        :param frequency_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#frequency_unit AppService#frequency_unit}.
+        :param keep_at_least_one_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#keep_at_least_one_backup AppService#keep_at_least_one_backup}.
+        :param retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_period_in_days AppService#retention_period_in_days}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#start_time AppService#start_time}.
         '''
         value = AppServiceBackupSchedule(
             frequency_interval=frequency_interval,
@@ -2562,11 +2562,11 @@ class AppServiceBackupSchedule:
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param frequency_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#frequency_interval AppService#frequency_interval}.
-        :param frequency_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#frequency_unit AppService#frequency_unit}.
-        :param keep_at_least_one_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#keep_at_least_one_backup AppService#keep_at_least_one_backup}.
-        :param retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_period_in_days AppService#retention_period_in_days}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#start_time AppService#start_time}.
+        :param frequency_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#frequency_interval AppService#frequency_interval}.
+        :param frequency_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#frequency_unit AppService#frequency_unit}.
+        :param keep_at_least_one_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#keep_at_least_one_backup AppService#keep_at_least_one_backup}.
+        :param retention_period_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_period_in_days AppService#retention_period_in_days}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#start_time AppService#start_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__074ae66d72b1be49f336642e5685ac61a4be9ac31571f6110828f15ca43850b4)
@@ -2588,14 +2588,14 @@ class AppServiceBackupSchedule:
 
     @builtins.property
     def frequency_interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#frequency_interval AppService#frequency_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#frequency_interval AppService#frequency_interval}.'''
         result = self._values.get("frequency_interval")
         assert result is not None, "Required property 'frequency_interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def frequency_unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#frequency_unit AppService#frequency_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#frequency_unit AppService#frequency_unit}.'''
         result = self._values.get("frequency_unit")
         assert result is not None, "Required property 'frequency_unit' is missing"
         return typing.cast(builtins.str, result)
@@ -2604,19 +2604,19 @@ class AppServiceBackupSchedule:
     def keep_at_least_one_backup(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#keep_at_least_one_backup AppService#keep_at_least_one_backup}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#keep_at_least_one_backup AppService#keep_at_least_one_backup}.'''
         result = self._values.get("keep_at_least_one_backup")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def retention_period_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_period_in_days AppService#retention_period_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_period_in_days AppService#retention_period_in_days}.'''
         result = self._values.get("retention_period_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#start_time AppService#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#start_time AppService#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2846,28 +2846,28 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_service_plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_service_plan_id AppService#app_service_plan_id}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#location AppService#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#resource_group_name AppService#resource_group_name}.
-        :param app_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_settings AppService#app_settings}.
-        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#auth_settings AppService#auth_settings}
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#backup AppService#backup}
-        :param client_affinity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_affinity_enabled AppService#client_affinity_enabled}.
-        :param client_cert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_cert_enabled AppService#client_cert_enabled}.
-        :param client_cert_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_cert_mode AppService#client_cert_mode}.
-        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#connection_string AppService#connection_string}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#enabled AppService#enabled}.
-        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#https_only AppService#https_only}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#id AppService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#identity AppService#identity}
-        :param key_vault_reference_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#key_vault_reference_identity_id AppService#key_vault_reference_identity_id}.
-        :param logs: logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#logs AppService#logs}
-        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#site_config AppService#site_config}
-        :param source_control: source_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#source_control AppService#source_control}
-        :param storage_account: storage_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#storage_account AppService#storage_account}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#tags AppService#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#timeouts AppService#timeouts}
+        :param app_service_plan_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_service_plan_id AppService#app_service_plan_id}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#location AppService#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#resource_group_name AppService#resource_group_name}.
+        :param app_settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_settings AppService#app_settings}.
+        :param auth_settings: auth_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#auth_settings AppService#auth_settings}
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#backup AppService#backup}
+        :param client_affinity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_affinity_enabled AppService#client_affinity_enabled}.
+        :param client_cert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_cert_enabled AppService#client_cert_enabled}.
+        :param client_cert_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_cert_mode AppService#client_cert_mode}.
+        :param connection_string: connection_string block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#connection_string AppService#connection_string}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#enabled AppService#enabled}.
+        :param https_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#https_only AppService#https_only}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#id AppService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#identity AppService#identity}
+        :param key_vault_reference_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#key_vault_reference_identity_id AppService#key_vault_reference_identity_id}.
+        :param logs: logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#logs AppService#logs}
+        :param site_config: site_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#site_config AppService#site_config}
+        :param source_control: source_control block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#source_control AppService#source_control}
+        :param storage_account: storage_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#storage_account AppService#storage_account}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#tags AppService#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#timeouts AppService#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3039,28 +3039,28 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def app_service_plan_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_service_plan_id AppService#app_service_plan_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_service_plan_id AppService#app_service_plan_id}.'''
         result = self._values.get("app_service_plan_id")
         assert result is not None, "Required property 'app_service_plan_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#location AppService#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#location AppService#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#resource_group_name AppService#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#resource_group_name AppService#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3069,7 +3069,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_settings(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_settings AppService#app_settings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_settings AppService#app_settings}.'''
         result = self._values.get("app_settings")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3077,7 +3077,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_settings(self) -> typing.Optional[AppServiceAuthSettings]:
         '''auth_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#auth_settings AppService#auth_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#auth_settings AppService#auth_settings}
         '''
         result = self._values.get("auth_settings")
         return typing.cast(typing.Optional[AppServiceAuthSettings], result)
@@ -3086,7 +3086,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup(self) -> typing.Optional[AppServiceBackup]:
         '''backup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#backup AppService#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#backup AppService#backup}
         '''
         result = self._values.get("backup")
         return typing.cast(typing.Optional[AppServiceBackup], result)
@@ -3095,7 +3095,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_affinity_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_affinity_enabled AppService#client_affinity_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_affinity_enabled AppService#client_affinity_enabled}.'''
         result = self._values.get("client_affinity_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3103,13 +3103,13 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_cert_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_cert_enabled AppService#client_cert_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_cert_enabled AppService#client_cert_enabled}.'''
         result = self._values.get("client_cert_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def client_cert_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#client_cert_mode AppService#client_cert_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#client_cert_mode AppService#client_cert_mode}.'''
         result = self._values.get("client_cert_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3119,7 +3119,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceConnectionString"]]]:
         '''connection_string block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#connection_string AppService#connection_string}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#connection_string AppService#connection_string}
         '''
         result = self._values.get("connection_string")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceConnectionString"]]], result)
@@ -3128,7 +3128,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#enabled AppService#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#enabled AppService#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3136,13 +3136,13 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def https_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#https_only AppService#https_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#https_only AppService#https_only}.'''
         result = self._values.get("https_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#id AppService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#id AppService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3154,14 +3154,14 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["AppServiceIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#identity AppService#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#identity AppService#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["AppServiceIdentity"], result)
 
     @builtins.property
     def key_vault_reference_identity_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#key_vault_reference_identity_id AppService#key_vault_reference_identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#key_vault_reference_identity_id AppService#key_vault_reference_identity_id}.'''
         result = self._values.get("key_vault_reference_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3169,7 +3169,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logs(self) -> typing.Optional["AppServiceLogs"]:
         '''logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#logs AppService#logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#logs AppService#logs}
         '''
         result = self._values.get("logs")
         return typing.cast(typing.Optional["AppServiceLogs"], result)
@@ -3178,7 +3178,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def site_config(self) -> typing.Optional["AppServiceSiteConfig"]:
         '''site_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#site_config AppService#site_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#site_config AppService#site_config}
         '''
         result = self._values.get("site_config")
         return typing.cast(typing.Optional["AppServiceSiteConfig"], result)
@@ -3187,7 +3187,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_control(self) -> typing.Optional["AppServiceSourceControl"]:
         '''source_control block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#source_control AppService#source_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#source_control AppService#source_control}
         '''
         result = self._values.get("source_control")
         return typing.cast(typing.Optional["AppServiceSourceControl"], result)
@@ -3198,14 +3198,14 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceStorageAccount"]]]:
         '''storage_account block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#storage_account AppService#storage_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#storage_account AppService#storage_account}
         '''
         result = self._values.get("storage_account")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceStorageAccount"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#tags AppService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#tags AppService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3213,7 +3213,7 @@ class AppServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AppServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#timeouts AppService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#timeouts AppService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AppServiceTimeouts"], result)
@@ -3244,9 +3244,9 @@ class AppServiceConnectionString:
         value: builtins.str,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#type AppService#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#value AppService#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#type AppService#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#value AppService#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b80514d6f8c0b5d12881e362fc16f660f847ffaafd7b8ede824d1f68a1eb002d)
@@ -3261,21 +3261,21 @@ class AppServiceConnectionString:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#type AppService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#type AppService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#value AppService#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#value AppService#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3490,8 +3490,8 @@ class AppServiceIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#type AppService#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#identity_ids AppService#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#type AppService#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#identity_ids AppService#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc6338c557556ffcf37f1ae9f036bf3255de01d6ae508a288078b242512ee6ed)
@@ -3505,14 +3505,14 @@ class AppServiceIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#type AppService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#type AppService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#identity_ids AppService#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#identity_ids AppService#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3629,10 +3629,10 @@ class AppServiceLogs:
         http_logs: typing.Optional[typing.Union["AppServiceLogsHttpLogs", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param application_logs: application_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#application_logs AppService#application_logs}
-        :param detailed_error_messages_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#detailed_error_messages_enabled AppService#detailed_error_messages_enabled}.
-        :param failed_request_tracing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#failed_request_tracing_enabled AppService#failed_request_tracing_enabled}.
-        :param http_logs: http_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#http_logs AppService#http_logs}
+        :param application_logs: application_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#application_logs AppService#application_logs}
+        :param detailed_error_messages_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#detailed_error_messages_enabled AppService#detailed_error_messages_enabled}.
+        :param failed_request_tracing_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#failed_request_tracing_enabled AppService#failed_request_tracing_enabled}.
+        :param http_logs: http_logs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#http_logs AppService#http_logs}
         '''
         if isinstance(application_logs, dict):
             application_logs = AppServiceLogsApplicationLogs(**application_logs)
@@ -3658,7 +3658,7 @@ class AppServiceLogs:
     def application_logs(self) -> typing.Optional["AppServiceLogsApplicationLogs"]:
         '''application_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#application_logs AppService#application_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#application_logs AppService#application_logs}
         '''
         result = self._values.get("application_logs")
         return typing.cast(typing.Optional["AppServiceLogsApplicationLogs"], result)
@@ -3667,7 +3667,7 @@ class AppServiceLogs:
     def detailed_error_messages_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#detailed_error_messages_enabled AppService#detailed_error_messages_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#detailed_error_messages_enabled AppService#detailed_error_messages_enabled}.'''
         result = self._values.get("detailed_error_messages_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3675,7 +3675,7 @@ class AppServiceLogs:
     def failed_request_tracing_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#failed_request_tracing_enabled AppService#failed_request_tracing_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#failed_request_tracing_enabled AppService#failed_request_tracing_enabled}.'''
         result = self._values.get("failed_request_tracing_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3683,7 +3683,7 @@ class AppServiceLogs:
     def http_logs(self) -> typing.Optional["AppServiceLogsHttpLogs"]:
         '''http_logs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#http_logs AppService#http_logs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#http_logs AppService#http_logs}
         '''
         result = self._values.get("http_logs")
         return typing.cast(typing.Optional["AppServiceLogsHttpLogs"], result)
@@ -3716,8 +3716,8 @@ class AppServiceLogsApplicationLogs:
         file_system_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param azure_blob_storage: azure_blob_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
-        :param file_system_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#file_system_level AppService#file_system_level}.
+        :param azure_blob_storage: azure_blob_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
+        :param file_system_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#file_system_level AppService#file_system_level}.
         '''
         if isinstance(azure_blob_storage, dict):
             azure_blob_storage = AppServiceLogsApplicationLogsAzureBlobStorage(**azure_blob_storage)
@@ -3737,14 +3737,14 @@ class AppServiceLogsApplicationLogs:
     ) -> typing.Optional["AppServiceLogsApplicationLogsAzureBlobStorage"]:
         '''azure_blob_storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
         '''
         result = self._values.get("azure_blob_storage")
         return typing.cast(typing.Optional["AppServiceLogsApplicationLogsAzureBlobStorage"], result)
 
     @builtins.property
     def file_system_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#file_system_level AppService#file_system_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#file_system_level AppService#file_system_level}.'''
         result = self._values.get("file_system_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3778,9 +3778,9 @@ class AppServiceLogsApplicationLogsAzureBlobStorage:
         sas_url: builtins.str,
     ) -> None:
         '''
-        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#level AppService#level}.
-        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
-        :param sas_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#sas_url AppService#sas_url}.
+        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#level AppService#level}.
+        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
+        :param sas_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#sas_url AppService#sas_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__756a2cfa4cbb086c67ffc81772177adb1bad891a665b925da15ad8a6cae0b2f6)
@@ -3795,21 +3795,21 @@ class AppServiceLogsApplicationLogsAzureBlobStorage:
 
     @builtins.property
     def level(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#level AppService#level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#level AppService#level}.'''
         result = self._values.get("level")
         assert result is not None, "Required property 'level' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def retention_in_days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_days AppService#retention_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_days AppService#retention_in_days}.'''
         result = self._values.get("retention_in_days")
         assert result is not None, "Required property 'retention_in_days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def sas_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#sas_url AppService#sas_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#sas_url AppService#sas_url}.'''
         result = self._values.get("sas_url")
         assert result is not None, "Required property 'sas_url' is missing"
         return typing.cast(builtins.str, result)
@@ -3944,9 +3944,9 @@ class AppServiceLogsApplicationLogsOutputReference(
         sas_url: builtins.str,
     ) -> None:
         '''
-        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#level AppService#level}.
-        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
-        :param sas_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#sas_url AppService#sas_url}.
+        :param level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#level AppService#level}.
+        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
+        :param sas_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#sas_url AppService#sas_url}.
         '''
         value = AppServiceLogsApplicationLogsAzureBlobStorage(
             level=level, retention_in_days=retention_in_days, sas_url=sas_url
@@ -4025,8 +4025,8 @@ class AppServiceLogsHttpLogs:
         file_system: typing.Optional[typing.Union["AppServiceLogsHttpLogsFileSystem", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param azure_blob_storage: azure_blob_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
-        :param file_system: file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#file_system AppService#file_system}
+        :param azure_blob_storage: azure_blob_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
+        :param file_system: file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#file_system AppService#file_system}
         '''
         if isinstance(azure_blob_storage, dict):
             azure_blob_storage = AppServiceLogsHttpLogsAzureBlobStorage(**azure_blob_storage)
@@ -4048,7 +4048,7 @@ class AppServiceLogsHttpLogs:
     ) -> typing.Optional["AppServiceLogsHttpLogsAzureBlobStorage"]:
         '''azure_blob_storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
         '''
         result = self._values.get("azure_blob_storage")
         return typing.cast(typing.Optional["AppServiceLogsHttpLogsAzureBlobStorage"], result)
@@ -4057,7 +4057,7 @@ class AppServiceLogsHttpLogs:
     def file_system(self) -> typing.Optional["AppServiceLogsHttpLogsFileSystem"]:
         '''file_system block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#file_system AppService#file_system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#file_system AppService#file_system}
         '''
         result = self._values.get("file_system")
         return typing.cast(typing.Optional["AppServiceLogsHttpLogsFileSystem"], result)
@@ -4087,8 +4087,8 @@ class AppServiceLogsHttpLogsAzureBlobStorage:
         sas_url: builtins.str,
     ) -> None:
         '''
-        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
-        :param sas_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#sas_url AppService#sas_url}.
+        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
+        :param sas_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#sas_url AppService#sas_url}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e516c07e48bbe6af8a44146442a91e44f8a8b11b6bcbf4ca85439d6e054aa9c3)
@@ -4101,14 +4101,14 @@ class AppServiceLogsHttpLogsAzureBlobStorage:
 
     @builtins.property
     def retention_in_days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_days AppService#retention_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_days AppService#retention_in_days}.'''
         result = self._values.get("retention_in_days")
         assert result is not None, "Required property 'retention_in_days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def sas_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#sas_url AppService#sas_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#sas_url AppService#sas_url}.'''
         result = self._values.get("sas_url")
         assert result is not None, "Required property 'sas_url' is missing"
         return typing.cast(builtins.str, result)
@@ -4211,8 +4211,8 @@ class AppServiceLogsHttpLogsFileSystem:
         retention_in_mb: jsii.Number,
     ) -> None:
         '''
-        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
-        :param retention_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_mb AppService#retention_in_mb}.
+        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
+        :param retention_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_mb AppService#retention_in_mb}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb8b26563ea606d74187b79e36b85afe691f71ac7677a69fbd3b98336233182d)
@@ -4225,14 +4225,14 @@ class AppServiceLogsHttpLogsFileSystem:
 
     @builtins.property
     def retention_in_days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_days AppService#retention_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_days AppService#retention_in_days}.'''
         result = self._values.get("retention_in_days")
         assert result is not None, "Required property 'retention_in_days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def retention_in_mb(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_mb AppService#retention_in_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_mb AppService#retention_in_mb}.'''
         result = self._values.get("retention_in_mb")
         assert result is not None, "Required property 'retention_in_mb' is missing"
         return typing.cast(jsii.Number, result)
@@ -4347,8 +4347,8 @@ class AppServiceLogsHttpLogsOutputReference(
         sas_url: builtins.str,
     ) -> None:
         '''
-        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
-        :param sas_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#sas_url AppService#sas_url}.
+        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
+        :param sas_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#sas_url AppService#sas_url}.
         '''
         value = AppServiceLogsHttpLogsAzureBlobStorage(
             retention_in_days=retention_in_days, sas_url=sas_url
@@ -4364,8 +4364,8 @@ class AppServiceLogsHttpLogsOutputReference(
         retention_in_mb: jsii.Number,
     ) -> None:
         '''
-        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
-        :param retention_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#retention_in_mb AppService#retention_in_mb}.
+        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_days AppService#retention_in_days}.
+        :param retention_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#retention_in_mb AppService#retention_in_mb}.
         '''
         value = AppServiceLogsHttpLogsFileSystem(
             retention_in_days=retention_in_days, retention_in_mb=retention_in_mb
@@ -4446,8 +4446,8 @@ class AppServiceLogsOutputReference(
         file_system_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param azure_blob_storage: azure_blob_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
-        :param file_system_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#file_system_level AppService#file_system_level}.
+        :param azure_blob_storage: azure_blob_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
+        :param file_system_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#file_system_level AppService#file_system_level}.
         '''
         value = AppServiceLogsApplicationLogs(
             azure_blob_storage=azure_blob_storage, file_system_level=file_system_level
@@ -4463,8 +4463,8 @@ class AppServiceLogsOutputReference(
         file_system: typing.Optional[typing.Union[AppServiceLogsHttpLogsFileSystem, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param azure_blob_storage: azure_blob_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
-        :param file_system: file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#file_system AppService#file_system}
+        :param azure_blob_storage: azure_blob_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#azure_blob_storage AppService#azure_blob_storage}
+        :param file_system: file_system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#file_system AppService#file_system}
         '''
         value = AppServiceLogsHttpLogs(
             azure_blob_storage=azure_blob_storage, file_system=file_system
@@ -4643,37 +4643,37 @@ class AppServiceSiteConfig:
         windows_fx_version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param acr_use_managed_identity_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#acr_use_managed_identity_credentials AppService#acr_use_managed_identity_credentials}.
-        :param acr_user_managed_identity_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#acr_user_managed_identity_client_id AppService#acr_user_managed_identity_client_id}.
-        :param always_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#always_on AppService#always_on}.
-        :param app_command_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_command_line AppService#app_command_line}.
-        :param auto_swap_slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#auto_swap_slot_name AppService#auto_swap_slot_name}.
-        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#cors AppService#cors}
-        :param default_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#default_documents AppService#default_documents}.
-        :param dotnet_framework_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#dotnet_framework_version AppService#dotnet_framework_version}.
-        :param ftps_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ftps_state AppService#ftps_state}.
-        :param health_check_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#health_check_path AppService#health_check_path}.
-        :param http2_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#http2_enabled AppService#http2_enabled}.
-        :param ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ip_restriction AppService#ip_restriction}.
-        :param java_container: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#java_container AppService#java_container}.
-        :param java_container_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#java_container_version AppService#java_container_version}.
-        :param java_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#java_version AppService#java_version}.
-        :param linux_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#linux_fx_version AppService#linux_fx_version}.
-        :param local_mysql_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#local_mysql_enabled AppService#local_mysql_enabled}.
-        :param managed_pipeline_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#managed_pipeline_mode AppService#managed_pipeline_mode}.
-        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#min_tls_version AppService#min_tls_version}.
-        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#number_of_workers AppService#number_of_workers}.
-        :param php_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#php_version AppService#php_version}.
-        :param python_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#python_version AppService#python_version}.
-        :param remote_debugging_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#remote_debugging_enabled AppService#remote_debugging_enabled}.
-        :param remote_debugging_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#remote_debugging_version AppService#remote_debugging_version}.
-        :param scm_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#scm_ip_restriction AppService#scm_ip_restriction}.
-        :param scm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#scm_type AppService#scm_type}.
-        :param scm_use_main_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#scm_use_main_ip_restriction AppService#scm_use_main_ip_restriction}.
-        :param use32_bit_worker_process: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#use_32_bit_worker_process AppService#use_32_bit_worker_process}.
-        :param vnet_route_all_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#vnet_route_all_enabled AppService#vnet_route_all_enabled}.
-        :param websockets_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#websockets_enabled AppService#websockets_enabled}.
-        :param windows_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#windows_fx_version AppService#windows_fx_version}.
+        :param acr_use_managed_identity_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#acr_use_managed_identity_credentials AppService#acr_use_managed_identity_credentials}.
+        :param acr_user_managed_identity_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#acr_user_managed_identity_client_id AppService#acr_user_managed_identity_client_id}.
+        :param always_on: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#always_on AppService#always_on}.
+        :param app_command_line: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_command_line AppService#app_command_line}.
+        :param auto_swap_slot_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#auto_swap_slot_name AppService#auto_swap_slot_name}.
+        :param cors: cors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#cors AppService#cors}
+        :param default_documents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#default_documents AppService#default_documents}.
+        :param dotnet_framework_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#dotnet_framework_version AppService#dotnet_framework_version}.
+        :param ftps_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ftps_state AppService#ftps_state}.
+        :param health_check_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#health_check_path AppService#health_check_path}.
+        :param http2_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#http2_enabled AppService#http2_enabled}.
+        :param ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ip_restriction AppService#ip_restriction}.
+        :param java_container: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#java_container AppService#java_container}.
+        :param java_container_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#java_container_version AppService#java_container_version}.
+        :param java_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#java_version AppService#java_version}.
+        :param linux_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#linux_fx_version AppService#linux_fx_version}.
+        :param local_mysql_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#local_mysql_enabled AppService#local_mysql_enabled}.
+        :param managed_pipeline_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#managed_pipeline_mode AppService#managed_pipeline_mode}.
+        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#min_tls_version AppService#min_tls_version}.
+        :param number_of_workers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#number_of_workers AppService#number_of_workers}.
+        :param php_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#php_version AppService#php_version}.
+        :param python_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#python_version AppService#python_version}.
+        :param remote_debugging_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#remote_debugging_enabled AppService#remote_debugging_enabled}.
+        :param remote_debugging_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#remote_debugging_version AppService#remote_debugging_version}.
+        :param scm_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#scm_ip_restriction AppService#scm_ip_restriction}.
+        :param scm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#scm_type AppService#scm_type}.
+        :param scm_use_main_ip_restriction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#scm_use_main_ip_restriction AppService#scm_use_main_ip_restriction}.
+        :param use32_bit_worker_process: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#use_32_bit_worker_process AppService#use_32_bit_worker_process}.
+        :param vnet_route_all_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#vnet_route_all_enabled AppService#vnet_route_all_enabled}.
+        :param websockets_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#websockets_enabled AppService#websockets_enabled}.
+        :param windows_fx_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#windows_fx_version AppService#windows_fx_version}.
         '''
         if isinstance(cors, dict):
             cors = AppServiceSiteConfigCors(**cors)
@@ -4778,13 +4778,13 @@ class AppServiceSiteConfig:
     def acr_use_managed_identity_credentials(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#acr_use_managed_identity_credentials AppService#acr_use_managed_identity_credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#acr_use_managed_identity_credentials AppService#acr_use_managed_identity_credentials}.'''
         result = self._values.get("acr_use_managed_identity_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def acr_user_managed_identity_client_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#acr_user_managed_identity_client_id AppService#acr_user_managed_identity_client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#acr_user_managed_identity_client_id AppService#acr_user_managed_identity_client_id}.'''
         result = self._values.get("acr_user_managed_identity_client_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4792,19 +4792,19 @@ class AppServiceSiteConfig:
     def always_on(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#always_on AppService#always_on}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#always_on AppService#always_on}.'''
         result = self._values.get("always_on")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def app_command_line(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#app_command_line AppService#app_command_line}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#app_command_line AppService#app_command_line}.'''
         result = self._values.get("app_command_line")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def auto_swap_slot_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#auto_swap_slot_name AppService#auto_swap_slot_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#auto_swap_slot_name AppService#auto_swap_slot_name}.'''
         result = self._values.get("auto_swap_slot_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4812,32 +4812,32 @@ class AppServiceSiteConfig:
     def cors(self) -> typing.Optional["AppServiceSiteConfigCors"]:
         '''cors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#cors AppService#cors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#cors AppService#cors}
         '''
         result = self._values.get("cors")
         return typing.cast(typing.Optional["AppServiceSiteConfigCors"], result)
 
     @builtins.property
     def default_documents(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#default_documents AppService#default_documents}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#default_documents AppService#default_documents}.'''
         result = self._values.get("default_documents")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def dotnet_framework_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#dotnet_framework_version AppService#dotnet_framework_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#dotnet_framework_version AppService#dotnet_framework_version}.'''
         result = self._values.get("dotnet_framework_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ftps_state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ftps_state AppService#ftps_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ftps_state AppService#ftps_state}.'''
         result = self._values.get("ftps_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def health_check_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#health_check_path AppService#health_check_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#health_check_path AppService#health_check_path}.'''
         result = self._values.get("health_check_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4845,7 +4845,7 @@ class AppServiceSiteConfig:
     def http2_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#http2_enabled AppService#http2_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#http2_enabled AppService#http2_enabled}.'''
         result = self._values.get("http2_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4853,31 +4853,31 @@ class AppServiceSiteConfig:
     def ip_restriction(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceSiteConfigIpRestriction"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ip_restriction AppService#ip_restriction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ip_restriction AppService#ip_restriction}.'''
         result = self._values.get("ip_restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceSiteConfigIpRestriction"]]], result)
 
     @builtins.property
     def java_container(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#java_container AppService#java_container}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#java_container AppService#java_container}.'''
         result = self._values.get("java_container")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def java_container_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#java_container_version AppService#java_container_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#java_container_version AppService#java_container_version}.'''
         result = self._values.get("java_container_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def java_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#java_version AppService#java_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#java_version AppService#java_version}.'''
         result = self._values.get("java_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def linux_fx_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#linux_fx_version AppService#linux_fx_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#linux_fx_version AppService#linux_fx_version}.'''
         result = self._values.get("linux_fx_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4885,37 +4885,37 @@ class AppServiceSiteConfig:
     def local_mysql_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#local_mysql_enabled AppService#local_mysql_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#local_mysql_enabled AppService#local_mysql_enabled}.'''
         result = self._values.get("local_mysql_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def managed_pipeline_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#managed_pipeline_mode AppService#managed_pipeline_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#managed_pipeline_mode AppService#managed_pipeline_mode}.'''
         result = self._values.get("managed_pipeline_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_tls_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#min_tls_version AppService#min_tls_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#min_tls_version AppService#min_tls_version}.'''
         result = self._values.get("min_tls_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#number_of_workers AppService#number_of_workers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#number_of_workers AppService#number_of_workers}.'''
         result = self._values.get("number_of_workers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def php_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#php_version AppService#php_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#php_version AppService#php_version}.'''
         result = self._values.get("php_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def python_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#python_version AppService#python_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#python_version AppService#python_version}.'''
         result = self._values.get("python_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4923,13 +4923,13 @@ class AppServiceSiteConfig:
     def remote_debugging_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#remote_debugging_enabled AppService#remote_debugging_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#remote_debugging_enabled AppService#remote_debugging_enabled}.'''
         result = self._values.get("remote_debugging_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def remote_debugging_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#remote_debugging_version AppService#remote_debugging_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#remote_debugging_version AppService#remote_debugging_version}.'''
         result = self._values.get("remote_debugging_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4937,13 +4937,13 @@ class AppServiceSiteConfig:
     def scm_ip_restriction(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceSiteConfigScmIpRestriction"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#scm_ip_restriction AppService#scm_ip_restriction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#scm_ip_restriction AppService#scm_ip_restriction}.'''
         result = self._values.get("scm_ip_restriction")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceSiteConfigScmIpRestriction"]]], result)
 
     @builtins.property
     def scm_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#scm_type AppService#scm_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#scm_type AppService#scm_type}.'''
         result = self._values.get("scm_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4951,7 +4951,7 @@ class AppServiceSiteConfig:
     def scm_use_main_ip_restriction(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#scm_use_main_ip_restriction AppService#scm_use_main_ip_restriction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#scm_use_main_ip_restriction AppService#scm_use_main_ip_restriction}.'''
         result = self._values.get("scm_use_main_ip_restriction")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4959,7 +4959,7 @@ class AppServiceSiteConfig:
     def use32_bit_worker_process(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#use_32_bit_worker_process AppService#use_32_bit_worker_process}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#use_32_bit_worker_process AppService#use_32_bit_worker_process}.'''
         result = self._values.get("use32_bit_worker_process")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4967,7 +4967,7 @@ class AppServiceSiteConfig:
     def vnet_route_all_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#vnet_route_all_enabled AppService#vnet_route_all_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#vnet_route_all_enabled AppService#vnet_route_all_enabled}.'''
         result = self._values.get("vnet_route_all_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4975,13 +4975,13 @@ class AppServiceSiteConfig:
     def websockets_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#websockets_enabled AppService#websockets_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#websockets_enabled AppService#websockets_enabled}.'''
         result = self._values.get("websockets_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def windows_fx_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#windows_fx_version AppService#windows_fx_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#windows_fx_version AppService#windows_fx_version}.'''
         result = self._values.get("windows_fx_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5013,8 +5013,8 @@ class AppServiceSiteConfigCors:
         support_credentials: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#allowed_origins AppService#allowed_origins}.
-        :param support_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#support_credentials AppService#support_credentials}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#allowed_origins AppService#allowed_origins}.
+        :param support_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#support_credentials AppService#support_credentials}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36a222023a9520a88d0a76e2818aee5e4e4442c2a5549c135d2859057e04d6f7)
@@ -5028,7 +5028,7 @@ class AppServiceSiteConfigCors:
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#allowed_origins AppService#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#allowed_origins AppService#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -5037,7 +5037,7 @@ class AppServiceSiteConfigCors:
     def support_credentials(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#support_credentials AppService#support_credentials}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#support_credentials AppService#support_credentials}.'''
         result = self._values.get("support_credentials")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5157,13 +5157,13 @@ class AppServiceSiteConfigIpRestriction:
         virtual_network_subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#action AppService#action}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#headers AppService#headers}.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ip_address AppService#ip_address}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#priority AppService#priority}.
-        :param service_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#service_tag AppService#service_tag}.
-        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#virtual_network_subnet_id AppService#virtual_network_subnet_id}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#action AppService#action}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#headers AppService#headers}.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ip_address AppService#ip_address}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#priority AppService#priority}.
+        :param service_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#service_tag AppService#service_tag}.
+        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#virtual_network_subnet_id AppService#virtual_network_subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc6276d7b2147546b9567221ac0af01a323d86885bfd737ce7af5f519471c639)
@@ -5192,7 +5192,7 @@ class AppServiceSiteConfigIpRestriction:
 
     @builtins.property
     def action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#action AppService#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#action AppService#action}.'''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5200,37 +5200,37 @@ class AppServiceSiteConfigIpRestriction:
     def headers(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceSiteConfigIpRestrictionHeaders"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#headers AppService#headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#headers AppService#headers}.'''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceSiteConfigIpRestrictionHeaders"]]], result)
 
     @builtins.property
     def ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ip_address AppService#ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ip_address AppService#ip_address}.'''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#priority AppService#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#priority AppService#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def service_tag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#service_tag AppService#service_tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#service_tag AppService#service_tag}.'''
         result = self._values.get("service_tag")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def virtual_network_subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#virtual_network_subnet_id AppService#virtual_network_subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#virtual_network_subnet_id AppService#virtual_network_subnet_id}.'''
         result = self._values.get("virtual_network_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5266,10 +5266,10 @@ class AppServiceSiteConfigIpRestrictionHeaders:
         x_forwarded_host: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_azure_fdid AppService#x_azure_fdid}.
-        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_fd_health_probe AppService#x_fd_health_probe}.
-        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_forwarded_for AppService#x_forwarded_for}.
-        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_forwarded_host AppService#x_forwarded_host}.
+        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_azure_fdid AppService#x_azure_fdid}.
+        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_fd_health_probe AppService#x_fd_health_probe}.
+        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_forwarded_for AppService#x_forwarded_for}.
+        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_forwarded_host AppService#x_forwarded_host}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb33b909f7a6cf827d617941f1c28263b8e511776b95966b7ff6c1790ec73320)
@@ -5289,25 +5289,25 @@ class AppServiceSiteConfigIpRestrictionHeaders:
 
     @builtins.property
     def x_azure_fdid(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_azure_fdid AppService#x_azure_fdid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_azure_fdid AppService#x_azure_fdid}.'''
         result = self._values.get("x_azure_fdid")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_fd_health_probe(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_fd_health_probe AppService#x_fd_health_probe}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_fd_health_probe AppService#x_fd_health_probe}.'''
         result = self._values.get("x_fd_health_probe")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_for(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_forwarded_for AppService#x_forwarded_for}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_forwarded_for AppService#x_forwarded_for}.'''
         result = self._values.get("x_forwarded_for")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_host(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_forwarded_host AppService#x_forwarded_host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_forwarded_host AppService#x_forwarded_host}.'''
         result = self._values.get("x_forwarded_host")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -5864,8 +5864,8 @@ class AppServiceSiteConfigOutputReference(
         support_credentials: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#allowed_origins AppService#allowed_origins}.
-        :param support_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#support_credentials AppService#support_credentials}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#allowed_origins AppService#allowed_origins}.
+        :param support_credentials: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#support_credentials AppService#support_credentials}.
         '''
         value = AppServiceSiteConfigCors(
             allowed_origins=allowed_origins, support_credentials=support_credentials
@@ -6633,13 +6633,13 @@ class AppServiceSiteConfigScmIpRestriction:
         virtual_network_subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#action AppService#action}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#headers AppService#headers}.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ip_address AppService#ip_address}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#priority AppService#priority}.
-        :param service_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#service_tag AppService#service_tag}.
-        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#virtual_network_subnet_id AppService#virtual_network_subnet_id}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#action AppService#action}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#headers AppService#headers}.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ip_address AppService#ip_address}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#priority AppService#priority}.
+        :param service_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#service_tag AppService#service_tag}.
+        :param virtual_network_subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#virtual_network_subnet_id AppService#virtual_network_subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03867e8082755cad58f9b91e45e380f65622c2379110a0f977b59d8b7af2009f)
@@ -6668,7 +6668,7 @@ class AppServiceSiteConfigScmIpRestriction:
 
     @builtins.property
     def action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#action AppService#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#action AppService#action}.'''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6676,37 +6676,37 @@ class AppServiceSiteConfigScmIpRestriction:
     def headers(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceSiteConfigScmIpRestrictionHeaders"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#headers AppService#headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#headers AppService#headers}.'''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppServiceSiteConfigScmIpRestrictionHeaders"]]], result)
 
     @builtins.property
     def ip_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#ip_address AppService#ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#ip_address AppService#ip_address}.'''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#priority AppService#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#priority AppService#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def service_tag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#service_tag AppService#service_tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#service_tag AppService#service_tag}.'''
         result = self._values.get("service_tag")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def virtual_network_subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#virtual_network_subnet_id AppService#virtual_network_subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#virtual_network_subnet_id AppService#virtual_network_subnet_id}.'''
         result = self._values.get("virtual_network_subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6742,10 +6742,10 @@ class AppServiceSiteConfigScmIpRestrictionHeaders:
         x_forwarded_host: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_azure_fdid AppService#x_azure_fdid}.
-        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_fd_health_probe AppService#x_fd_health_probe}.
-        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_forwarded_for AppService#x_forwarded_for}.
-        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_forwarded_host AppService#x_forwarded_host}.
+        :param x_azure_fdid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_azure_fdid AppService#x_azure_fdid}.
+        :param x_fd_health_probe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_fd_health_probe AppService#x_fd_health_probe}.
+        :param x_forwarded_for: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_forwarded_for AppService#x_forwarded_for}.
+        :param x_forwarded_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_forwarded_host AppService#x_forwarded_host}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e5374a11da7da65c1078b4753e13a74186f549e6774afcd9c2013b38d7c2eb8)
@@ -6765,25 +6765,25 @@ class AppServiceSiteConfigScmIpRestrictionHeaders:
 
     @builtins.property
     def x_azure_fdid(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_azure_fdid AppService#x_azure_fdid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_azure_fdid AppService#x_azure_fdid}.'''
         result = self._values.get("x_azure_fdid")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_fd_health_probe(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_fd_health_probe AppService#x_fd_health_probe}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_fd_health_probe AppService#x_fd_health_probe}.'''
         result = self._values.get("x_fd_health_probe")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_for(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_forwarded_for AppService#x_forwarded_for}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_forwarded_for AppService#x_forwarded_for}.'''
         result = self._values.get("x_forwarded_for")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def x_forwarded_host(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#x_forwarded_host AppService#x_forwarded_host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#x_forwarded_host AppService#x_forwarded_host}.'''
         result = self._values.get("x_forwarded_host")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7477,11 +7477,11 @@ class AppServiceSourceControl:
         use_mercurial: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#branch AppService#branch}.
-        :param manual_integration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#manual_integration AppService#manual_integration}.
-        :param repo_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#repo_url AppService#repo_url}.
-        :param rollback_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#rollback_enabled AppService#rollback_enabled}.
-        :param use_mercurial: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#use_mercurial AppService#use_mercurial}.
+        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#branch AppService#branch}.
+        :param manual_integration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#manual_integration AppService#manual_integration}.
+        :param repo_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#repo_url AppService#repo_url}.
+        :param rollback_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#rollback_enabled AppService#rollback_enabled}.
+        :param use_mercurial: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#use_mercurial AppService#use_mercurial}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3205e19e4341da9a96ec22e44ac65d55aa39838d62f58dcbfebfe4f3e556e7ca)
@@ -7504,7 +7504,7 @@ class AppServiceSourceControl:
 
     @builtins.property
     def branch(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#branch AppService#branch}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#branch AppService#branch}.'''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7512,13 +7512,13 @@ class AppServiceSourceControl:
     def manual_integration(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#manual_integration AppService#manual_integration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#manual_integration AppService#manual_integration}.'''
         result = self._values.get("manual_integration")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def repo_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#repo_url AppService#repo_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#repo_url AppService#repo_url}.'''
         result = self._values.get("repo_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7526,7 +7526,7 @@ class AppServiceSourceControl:
     def rollback_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#rollback_enabled AppService#rollback_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#rollback_enabled AppService#rollback_enabled}.'''
         result = self._values.get("rollback_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7534,7 +7534,7 @@ class AppServiceSourceControl:
     def use_mercurial(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#use_mercurial AppService#use_mercurial}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#use_mercurial AppService#use_mercurial}.'''
         result = self._values.get("use_mercurial")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7731,12 +7731,12 @@ class AppServiceStorageAccount:
         mount_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#access_key AppService#access_key}.
-        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#account_name AppService#account_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.
-        :param share_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#share_name AppService#share_name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#type AppService#type}.
-        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#mount_path AppService#mount_path}.
+        :param access_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#access_key AppService#access_key}.
+        :param account_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#account_name AppService#account_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.
+        :param share_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#share_name AppService#share_name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#type AppService#type}.
+        :param mount_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#mount_path AppService#mount_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1a90d6f0116f098a0499f8a6fd17f3857affb4991e0aaf55006325ff60a4fa9)
@@ -7758,42 +7758,42 @@ class AppServiceStorageAccount:
 
     @builtins.property
     def access_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#access_key AppService#access_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#access_key AppService#access_key}.'''
         result = self._values.get("access_key")
         assert result is not None, "Required property 'access_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#account_name AppService#account_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#account_name AppService#account_name}.'''
         result = self._values.get("account_name")
         assert result is not None, "Required property 'account_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#name AppService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#name AppService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def share_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#share_name AppService#share_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#share_name AppService#share_name}.'''
         result = self._values.get("share_name")
         assert result is not None, "Required property 'share_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#type AppService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#type AppService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mount_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#mount_path AppService#mount_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#mount_path AppService#mount_path}.'''
         result = self._values.get("mount_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8069,10 +8069,10 @@ class AppServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#create AppService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#delete AppService#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#read AppService#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#update AppService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#create AppService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#delete AppService#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#read AppService#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#update AppService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acc7ce31964484875ded018558527ff6904e83cf07459ecf5a09d67db4511d6d)
@@ -8092,25 +8092,25 @@ class AppServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#create AppService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#create AppService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#delete AppService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#delete AppService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#read AppService#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#read AppService#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/app_service#update AppService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/app_service#update AppService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

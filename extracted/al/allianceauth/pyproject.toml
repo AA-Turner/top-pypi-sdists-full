@@ -48,7 +48,7 @@ dependencies = [
     "django-bootstrap-form",
     "django-bootstrap5>=23.3",
     "django-celery-beat>=2.3",
-    "django-esi>=5",
+    "django-esi>=7.0.1",
     "django-redis>=5.2",
     "django-registration>=3.3,<3.4",
     "django-solo",

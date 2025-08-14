@@ -4,8 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-from datetime import timedelta
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from ibm_watsonx_ai.utils.auth.base_auth import RefreshableTokenAuth, TokenInfo
 from ibm_watsonx_ai.wml_client_error import WMLClientError

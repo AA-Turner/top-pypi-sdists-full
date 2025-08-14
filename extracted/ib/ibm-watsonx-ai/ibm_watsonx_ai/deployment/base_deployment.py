@@ -6,34 +6,33 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from contextlib import redirect_stdout
 from copy import copy
 from functools import wraps
-from typing import TYPE_CHECKING, Any, cast, Callable
+from typing import TYPE_CHECKING, Any, Callable, cast
 from warnings import warn
-from contextlib import redirect_stdout
 
 from pandas import DataFrame
-from ..credentials import Credentials
 
+from ..credentials import Credentials
 from ..experiment import AutoAI
+from ..helpers import DataConnection
 from ..utils import is_lale_pipeline
 from ..utils.autoai.utils import (
-    prepare_auto_ai_model_to_publish,
-    prepare_auto_ai_model_to_publish_normal_scenario,
-    remove_file,
-    prepare_auto_ai_model_to_publish_notebook_normal_scenario,
     check_if_ts_pipeline_is_winner,
     convert_dataframe_to_fields_values_payload,
     download_onnx_model,
+    prepare_auto_ai_model_to_publish,
+    prepare_auto_ai_model_to_publish_normal_scenario,
+    remove_file,
 )
 from ..utils.deployment.errors import (
-    WrongDeploymnetType,
+    MissingSpace,
     ModelTypeNotSupported,
     NotAutoAIExperiment,
-    MissingSpace,
     ServingNameNotAvailable,
+    WrongDeploymnetType,
 )
-from ..helpers import DataConnection
 from ..workspace import WorkSpace
 
 if TYPE_CHECKING:
@@ -58,7 +57,6 @@ class BaseDeployment(ABC):
         space_id: str | None = None,
         **kwargs: Any,
     ):
-
         if space_id is None and source_space_id is None and target_space_id is None:
             raise MissingSpace(
                 reason="Any of the [space_id, source_space_id, target_space_id] is not specified."
@@ -316,7 +314,7 @@ class BaseDeployment(ABC):
                         .get("nodes", [])[0]
                         .get("parameters")
                     )
-                except:
+                except Exception:
                     auto_pipelines_parameters = None
 
                 data_connection = cast(DataConnection, data_connection)
@@ -371,7 +369,9 @@ class BaseDeployment(ABC):
                     self._source_workspace is not None
                     and self._source_workspace.api_client.ICP_PLATFORM_SPACES
                 ):
-                    optimizer = AutoAI(self._source_workspace).runs.get_optimizer(metadata=kwargs["metadata"])  # type: ignore[attr-defined]
+                    optimizer = AutoAI(self._source_workspace).runs.get_optimizer(
+                        metadata=kwargs["metadata"]
+                    )  # type: ignore[attr-defined]
                 # note: CLOUD
                 else:
                     optimizer = AutoAI().runs.get_optimizer(  # type: ignore[attr-defined]
@@ -565,7 +565,7 @@ class BaseDeployment(ABC):
             else:
                 raise WrongDeploymnetType(
                     f"{kwargs['deployment_type']}",
-                    reason=f"Deployment with ID: {kwargs['deployment_id']} is not of \"{kwargs['deployment_type']}\" type!",
+                    reason=f'Deployment with ID: {kwargs["deployment_id"]} is not of "{kwargs["deployment_type"]}" type!',
                 )
 
     @abstractmethod
@@ -634,7 +634,7 @@ class BaseDeployment(ABC):
         else:
             raise WrongDeploymnetType(
                 f"{kwargs['deployment_type']}",
-                reason=f"Deployment with ID: {kwargs['deployment_id']} is not of \"{kwargs['deployment_type']}\" type!",
+                reason=f'Deployment with ID: {kwargs["deployment_id"]} is not of "{kwargs["deployment_type"]}" type!',
             )
 
     @abstractmethod

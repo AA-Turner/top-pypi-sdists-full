@@ -4,21 +4,22 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
+import json
 from typing import TYPE_CHECKING, Any
 from warnings import warn
-import json
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import HwSpecMetaNames
 from ibm_watsonx_ai.utils import HW_SPEC_DETAILS_TYPE
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
-from ibm_watsonx_ai.wml_client_error import WMLClientError, ResourceIdByNameNotFound
+from ibm_watsonx_ai.wml_client_error import ResourceIdByNameNotFound, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
-
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class HwSpec(WMLResource):
@@ -318,7 +319,6 @@ class HwSpec(WMLResource):
     def _get_required_element_from_response(
         self, response_data: dict[str, Any]
     ) -> dict:
-
         WMLResource._validate_type(response_data, "hw_spec_response", dict)
         try:
             new_el = {

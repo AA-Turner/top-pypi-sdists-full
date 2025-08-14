@@ -67,7 +67,6 @@ def start_sca_run(
             output_f = OutputFormat.text
         else:
             output_f = OutputFormat.json
-
     # Call the SCA start run API to get the S3 presigned URL to upload the SCA results
     response, success, _status_code = client.post_sca_start_run(
         PostScaStartRunRequest(
@@ -209,7 +208,6 @@ def upload_sca_results(
             )
         }
         data = presigned_url.fields
-
         # Upload to S3 with the complete form data as the body
         response = requests.post(presigned_url.url, files=files, data=data)
         response.raise_for_status()

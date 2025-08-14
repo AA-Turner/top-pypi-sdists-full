@@ -19,7 +19,7 @@ license-files = [
 ]
 dependencies = [
     "blinker",
-    "packaging>=20.9,!=22.0",
+    "packaging>22.0",
     "platformdirs",
     "rich>=12.3.0",
     "virtualenv>=20",
@@ -32,7 +32,7 @@ dependencies = [
     "python-dotenv>=0.15",
     "resolvelib>=1.1",
     "installer<0.8,>=0.7",
-    "truststore>=0.9; python_version >= \"3.10\"",
+    "truststore>=0.10.4; python_version >= \"3.10\"",
     "tomli>=1.1.0; python_version < \"3.11\"",
     "importlib-metadata>=3.6; python_version < \"3.10\"",
     "hishel>=0.0.32",
@@ -58,7 +58,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-version = "2.25.5"
+version = "2.25.6"
 
 [project.urls]
 Homepage = "https://pdm-project.org"
@@ -111,7 +111,7 @@ locked = [
     "markdown-it-py==3.0.0",
     "mdurl==0.1.2",
     "packaging==25.0",
-    "pbs-installer==2025.6.30",
+    "pbs-installer==2025.7.23",
     "platformdirs==4.3.8",
     "pygments==2.19.1",
     "pyproject-hooks==1.2.0",
@@ -124,7 +124,7 @@ locked = [
     "socksio==1.0.0",
     "tomli==2.2.1 ; python_version < \"3.11\"",
     "tomlkit==0.13.3",
-    "truststore==0.10.1 ; python_version >= \"3.10\"",
+    "truststore==0.10.4 ; python_version >= \"3.10\"",
     "typing-extensions==4.13.2",
     "unearth==0.17.5",
     "urllib3==2.4.0",
@@ -366,7 +366,7 @@ pre_release = "python tasks/max_versions.py"
 release = "python tasks/release.py"
 test = "pytest"
 tox = "tox"
-lint = "pre-commit run --all-files"
+lint = "prek run --all-files"
 
 [tool.pdm.scripts.coverage]
 shell = "python -m pytest --verbosity=3 --cov=src/pdm --cov-branch --cov-report term-missing tests/\n                    "

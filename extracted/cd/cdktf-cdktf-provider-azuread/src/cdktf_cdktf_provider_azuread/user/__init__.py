@@ -1,7 +1,7 @@
 r'''
 # `azuread_user`
 
-Refer to the Terraform Registry for docs: [`azuread_user`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user).
+Refer to the Terraform Registry for docs: [`azuread_user`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class User(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.user.User",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user azuread_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user azuread_user}.'''
 
     def __init__(
         self,
@@ -97,48 +97,48 @@ class User(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user azuread_user} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user azuread_user} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The name to display in the address book for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#display_name User#display_name}
-        :param user_principal_name: The user principal name (UPN) of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#user_principal_name User#user_principal_name}
-        :param account_enabled: Whether or not the account should be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#account_enabled User#account_enabled}
-        :param age_group: The age group of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#age_group User#age_group}
-        :param business_phones: The telephone numbers for the user. Only one number can be set for this property. Read-only for users synced with Azure AD Connect Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#business_phones User#business_phones}
-        :param city: The city in which the user is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#city User#city}
-        :param company_name: The company name which the user is associated. This property can be useful for describing the company that an external user comes from Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#company_name User#company_name}
-        :param consent_provided_for_minor: Whether consent has been obtained for minors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#consent_provided_for_minor User#consent_provided_for_minor}
-        :param cost_center: The cost center associated with the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#cost_center User#cost_center}
-        :param country: The country/region in which the user is located, e.g. ``US`` or ``UK``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#country User#country}
-        :param department: The name for the department in which the user works. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#department User#department}
-        :param disable_password_expiration: Whether the users password is exempt from expiring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#disable_password_expiration User#disable_password_expiration}
-        :param disable_strong_password: Whether the user is allowed weaker passwords than the default policy to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#disable_strong_password User#disable_strong_password}
-        :param division: The name of the division in which the user works. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#division User#division}
-        :param employee_hire_date: The hire date of the user, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#employee_hire_date User#employee_hire_date}
-        :param employee_id: The employee identifier assigned to the user by the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#employee_id User#employee_id}
-        :param employee_type: Captures enterprise worker type. For example, Employee, Contractor, Consultant, or Vendor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#employee_type User#employee_type}
-        :param fax_number: The fax number of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#fax_number User#fax_number}
-        :param force_password_change: Whether the user is forced to change the password during the next sign-in. Only takes effect when also changing the password Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#force_password_change User#force_password_change}
-        :param given_name: The given name (first name) of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#given_name User#given_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#id User#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_title: The user’s job title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#job_title User#job_title}
-        :param mail: The SMTP address for the user. Cannot be unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#mail User#mail}
-        :param mail_nickname: The mail alias for the user. Defaults to the user name part of the user principal name (UPN). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#mail_nickname User#mail_nickname}
-        :param manager_id: The object ID of the user's manager. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#manager_id User#manager_id}
-        :param mobile_phone: The primary cellular telephone number for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#mobile_phone User#mobile_phone}
-        :param office_location: The office location in the user's place of business. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#office_location User#office_location}
-        :param onpremises_immutable_id: The value used to associate an on-premise Active Directory user account with their Azure AD user object. This must be specified if you are using a federated domain for the user's ``user_principal_name`` property when creating a new user account Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#onpremises_immutable_id User#onpremises_immutable_id}
-        :param other_mails: Additional email addresses for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#other_mails User#other_mails}
-        :param password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#password User#password}
-        :param postal_code: The postal code for the user's postal address. The postal code is specific to the user's country/region. In the United States of America, this attribute contains the ZIP code Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#postal_code User#postal_code}
-        :param preferred_language: The user's preferred language, in ISO 639-1 notation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#preferred_language User#preferred_language}
-        :param show_in_address_list: Whether or not the Outlook global address list should include this user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#show_in_address_list User#show_in_address_list}
-        :param state: The state or province in the user's address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#state User#state}
-        :param street_address: The street address of the user's place of business. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#street_address User#street_address}
-        :param surname: The user's surname (family name or last name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#surname User#surname}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#timeouts User#timeouts}
-        :param usage_location: The usage location of the user. Required for users that will be assigned licenses due to legal requirement to check for availability of services in countries. The usage location is a two letter country code (ISO standard 3166). Examples include: ``NO``, ``JP``, and ``GB``. Cannot be reset to null once set Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#usage_location User#usage_location}
+        :param display_name: The name to display in the address book for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#display_name User#display_name}
+        :param user_principal_name: The user principal name (UPN) of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#user_principal_name User#user_principal_name}
+        :param account_enabled: Whether or not the account should be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#account_enabled User#account_enabled}
+        :param age_group: The age group of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#age_group User#age_group}
+        :param business_phones: The telephone numbers for the user. Only one number can be set for this property. Read-only for users synced with Azure AD Connect Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#business_phones User#business_phones}
+        :param city: The city in which the user is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#city User#city}
+        :param company_name: The company name which the user is associated. This property can be useful for describing the company that an external user comes from Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#company_name User#company_name}
+        :param consent_provided_for_minor: Whether consent has been obtained for minors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#consent_provided_for_minor User#consent_provided_for_minor}
+        :param cost_center: The cost center associated with the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#cost_center User#cost_center}
+        :param country: The country/region in which the user is located, e.g. ``US`` or ``UK``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#country User#country}
+        :param department: The name for the department in which the user works. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#department User#department}
+        :param disable_password_expiration: Whether the users password is exempt from expiring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#disable_password_expiration User#disable_password_expiration}
+        :param disable_strong_password: Whether the user is allowed weaker passwords than the default policy to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#disable_strong_password User#disable_strong_password}
+        :param division: The name of the division in which the user works. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#division User#division}
+        :param employee_hire_date: The hire date of the user, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#employee_hire_date User#employee_hire_date}
+        :param employee_id: The employee identifier assigned to the user by the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#employee_id User#employee_id}
+        :param employee_type: Captures enterprise worker type. For example, Employee, Contractor, Consultant, or Vendor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#employee_type User#employee_type}
+        :param fax_number: The fax number of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#fax_number User#fax_number}
+        :param force_password_change: Whether the user is forced to change the password during the next sign-in. Only takes effect when also changing the password Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#force_password_change User#force_password_change}
+        :param given_name: The given name (first name) of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#given_name User#given_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#id User#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_title: The user’s job title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#job_title User#job_title}
+        :param mail: The SMTP address for the user. Cannot be unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#mail User#mail}
+        :param mail_nickname: The mail alias for the user. Defaults to the user name part of the user principal name (UPN). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#mail_nickname User#mail_nickname}
+        :param manager_id: The object ID of the user's manager. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#manager_id User#manager_id}
+        :param mobile_phone: The primary cellular telephone number for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#mobile_phone User#mobile_phone}
+        :param office_location: The office location in the user's place of business. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#office_location User#office_location}
+        :param onpremises_immutable_id: The value used to associate an on-premise Active Directory user account with their Azure AD user object. This must be specified if you are using a federated domain for the user's ``user_principal_name`` property when creating a new user account Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#onpremises_immutable_id User#onpremises_immutable_id}
+        :param other_mails: Additional email addresses for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#other_mails User#other_mails}
+        :param password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#password User#password}
+        :param postal_code: The postal code for the user's postal address. The postal code is specific to the user's country/region. In the United States of America, this attribute contains the ZIP code Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#postal_code User#postal_code}
+        :param preferred_language: The user's preferred language, in ISO 639-1 notation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#preferred_language User#preferred_language}
+        :param show_in_address_list: Whether or not the Outlook global address list should include this user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#show_in_address_list User#show_in_address_list}
+        :param state: The state or province in the user's address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#state User#state}
+        :param street_address: The street address of the user's place of business. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#street_address User#street_address}
+        :param surname: The user's surname (family name or last name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#surname User#surname}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#timeouts User#timeouts}
+        :param usage_location: The usage location of the user. Required for users that will be assigned licenses due to legal requirement to check for availability of services in countries. The usage location is a two letter country code (ISO standard 3166). Examples include: ``NO``, ``JP``, and ``GB``. Cannot be reset to null once set Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#usage_location User#usage_location}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -214,7 +214,7 @@ class User(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the User to import.
-        :param import_from_id: The id of the existing User that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing User that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the User to import is found.
         '''
         if __debug__:
@@ -235,10 +235,10 @@ class User(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#create User#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#delete User#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#read User#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#update User#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#create User#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#delete User#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#read User#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#update User#update}.
         '''
         value = UserTimeouts(create=create, delete=delete, read=read, update=update)
 
@@ -1252,44 +1252,44 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The name to display in the address book for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#display_name User#display_name}
-        :param user_principal_name: The user principal name (UPN) of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#user_principal_name User#user_principal_name}
-        :param account_enabled: Whether or not the account should be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#account_enabled User#account_enabled}
-        :param age_group: The age group of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#age_group User#age_group}
-        :param business_phones: The telephone numbers for the user. Only one number can be set for this property. Read-only for users synced with Azure AD Connect Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#business_phones User#business_phones}
-        :param city: The city in which the user is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#city User#city}
-        :param company_name: The company name which the user is associated. This property can be useful for describing the company that an external user comes from Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#company_name User#company_name}
-        :param consent_provided_for_minor: Whether consent has been obtained for minors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#consent_provided_for_minor User#consent_provided_for_minor}
-        :param cost_center: The cost center associated with the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#cost_center User#cost_center}
-        :param country: The country/region in which the user is located, e.g. ``US`` or ``UK``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#country User#country}
-        :param department: The name for the department in which the user works. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#department User#department}
-        :param disable_password_expiration: Whether the users password is exempt from expiring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#disable_password_expiration User#disable_password_expiration}
-        :param disable_strong_password: Whether the user is allowed weaker passwords than the default policy to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#disable_strong_password User#disable_strong_password}
-        :param division: The name of the division in which the user works. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#division User#division}
-        :param employee_hire_date: The hire date of the user, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#employee_hire_date User#employee_hire_date}
-        :param employee_id: The employee identifier assigned to the user by the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#employee_id User#employee_id}
-        :param employee_type: Captures enterprise worker type. For example, Employee, Contractor, Consultant, or Vendor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#employee_type User#employee_type}
-        :param fax_number: The fax number of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#fax_number User#fax_number}
-        :param force_password_change: Whether the user is forced to change the password during the next sign-in. Only takes effect when also changing the password Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#force_password_change User#force_password_change}
-        :param given_name: The given name (first name) of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#given_name User#given_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#id User#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param job_title: The user’s job title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#job_title User#job_title}
-        :param mail: The SMTP address for the user. Cannot be unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#mail User#mail}
-        :param mail_nickname: The mail alias for the user. Defaults to the user name part of the user principal name (UPN). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#mail_nickname User#mail_nickname}
-        :param manager_id: The object ID of the user's manager. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#manager_id User#manager_id}
-        :param mobile_phone: The primary cellular telephone number for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#mobile_phone User#mobile_phone}
-        :param office_location: The office location in the user's place of business. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#office_location User#office_location}
-        :param onpremises_immutable_id: The value used to associate an on-premise Active Directory user account with their Azure AD user object. This must be specified if you are using a federated domain for the user's ``user_principal_name`` property when creating a new user account Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#onpremises_immutable_id User#onpremises_immutable_id}
-        :param other_mails: Additional email addresses for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#other_mails User#other_mails}
-        :param password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#password User#password}
-        :param postal_code: The postal code for the user's postal address. The postal code is specific to the user's country/region. In the United States of America, this attribute contains the ZIP code Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#postal_code User#postal_code}
-        :param preferred_language: The user's preferred language, in ISO 639-1 notation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#preferred_language User#preferred_language}
-        :param show_in_address_list: Whether or not the Outlook global address list should include this user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#show_in_address_list User#show_in_address_list}
-        :param state: The state or province in the user's address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#state User#state}
-        :param street_address: The street address of the user's place of business. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#street_address User#street_address}
-        :param surname: The user's surname (family name or last name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#surname User#surname}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#timeouts User#timeouts}
-        :param usage_location: The usage location of the user. Required for users that will be assigned licenses due to legal requirement to check for availability of services in countries. The usage location is a two letter country code (ISO standard 3166). Examples include: ``NO``, ``JP``, and ``GB``. Cannot be reset to null once set Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#usage_location User#usage_location}
+        :param display_name: The name to display in the address book for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#display_name User#display_name}
+        :param user_principal_name: The user principal name (UPN) of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#user_principal_name User#user_principal_name}
+        :param account_enabled: Whether or not the account should be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#account_enabled User#account_enabled}
+        :param age_group: The age group of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#age_group User#age_group}
+        :param business_phones: The telephone numbers for the user. Only one number can be set for this property. Read-only for users synced with Azure AD Connect Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#business_phones User#business_phones}
+        :param city: The city in which the user is located. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#city User#city}
+        :param company_name: The company name which the user is associated. This property can be useful for describing the company that an external user comes from Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#company_name User#company_name}
+        :param consent_provided_for_minor: Whether consent has been obtained for minors. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#consent_provided_for_minor User#consent_provided_for_minor}
+        :param cost_center: The cost center associated with the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#cost_center User#cost_center}
+        :param country: The country/region in which the user is located, e.g. ``US`` or ``UK``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#country User#country}
+        :param department: The name for the department in which the user works. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#department User#department}
+        :param disable_password_expiration: Whether the users password is exempt from expiring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#disable_password_expiration User#disable_password_expiration}
+        :param disable_strong_password: Whether the user is allowed weaker passwords than the default policy to be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#disable_strong_password User#disable_strong_password}
+        :param division: The name of the division in which the user works. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#division User#division}
+        :param employee_hire_date: The hire date of the user, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#employee_hire_date User#employee_hire_date}
+        :param employee_id: The employee identifier assigned to the user by the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#employee_id User#employee_id}
+        :param employee_type: Captures enterprise worker type. For example, Employee, Contractor, Consultant, or Vendor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#employee_type User#employee_type}
+        :param fax_number: The fax number of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#fax_number User#fax_number}
+        :param force_password_change: Whether the user is forced to change the password during the next sign-in. Only takes effect when also changing the password Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#force_password_change User#force_password_change}
+        :param given_name: The given name (first name) of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#given_name User#given_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#id User#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param job_title: The user’s job title. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#job_title User#job_title}
+        :param mail: The SMTP address for the user. Cannot be unset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#mail User#mail}
+        :param mail_nickname: The mail alias for the user. Defaults to the user name part of the user principal name (UPN). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#mail_nickname User#mail_nickname}
+        :param manager_id: The object ID of the user's manager. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#manager_id User#manager_id}
+        :param mobile_phone: The primary cellular telephone number for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#mobile_phone User#mobile_phone}
+        :param office_location: The office location in the user's place of business. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#office_location User#office_location}
+        :param onpremises_immutable_id: The value used to associate an on-premise Active Directory user account with their Azure AD user object. This must be specified if you are using a federated domain for the user's ``user_principal_name`` property when creating a new user account Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#onpremises_immutable_id User#onpremises_immutable_id}
+        :param other_mails: Additional email addresses for the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#other_mails User#other_mails}
+        :param password: The password for the user. The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#password User#password}
+        :param postal_code: The postal code for the user's postal address. The postal code is specific to the user's country/region. In the United States of America, this attribute contains the ZIP code Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#postal_code User#postal_code}
+        :param preferred_language: The user's preferred language, in ISO 639-1 notation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#preferred_language User#preferred_language}
+        :param show_in_address_list: Whether or not the Outlook global address list should include this user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#show_in_address_list User#show_in_address_list}
+        :param state: The state or province in the user's address. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#state User#state}
+        :param street_address: The street address of the user's place of business. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#street_address User#street_address}
+        :param surname: The user's surname (family name or last name). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#surname User#surname}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#timeouts User#timeouts}
+        :param usage_location: The usage location of the user. Required for users that will be assigned licenses due to legal requirement to check for availability of services in countries. The usage location is a two letter country code (ISO standard 3166). Examples include: ``NO``, ``JP``, and ``GB``. Cannot be reset to null once set Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#usage_location User#usage_location}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1501,7 +1501,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The name to display in the address book for the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#display_name User#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#display_name User#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1511,7 +1511,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_principal_name(self) -> builtins.str:
         '''The user principal name (UPN) of the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#user_principal_name User#user_principal_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#user_principal_name User#user_principal_name}
         '''
         result = self._values.get("user_principal_name")
         assert result is not None, "Required property 'user_principal_name' is missing"
@@ -1523,7 +1523,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the account should be enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#account_enabled User#account_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#account_enabled User#account_enabled}
         '''
         result = self._values.get("account_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1532,7 +1532,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def age_group(self) -> typing.Optional[builtins.str]:
         '''The age group of the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#age_group User#age_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#age_group User#age_group}
         '''
         result = self._values.get("age_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1543,7 +1543,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Only one number can be set for this property. Read-only for users synced with Azure AD Connect
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#business_phones User#business_phones}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#business_phones User#business_phones}
         '''
         result = self._values.get("business_phones")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1552,7 +1552,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def city(self) -> typing.Optional[builtins.str]:
         '''The city in which the user is located.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#city User#city}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#city User#city}
         '''
         result = self._values.get("city")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1563,7 +1563,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This property can be useful for describing the company that an external user comes from
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#company_name User#company_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#company_name User#company_name}
         '''
         result = self._values.get("company_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1572,7 +1572,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def consent_provided_for_minor(self) -> typing.Optional[builtins.str]:
         '''Whether consent has been obtained for minors.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#consent_provided_for_minor User#consent_provided_for_minor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#consent_provided_for_minor User#consent_provided_for_minor}
         '''
         result = self._values.get("consent_provided_for_minor")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1581,7 +1581,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cost_center(self) -> typing.Optional[builtins.str]:
         '''The cost center associated with the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#cost_center User#cost_center}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#cost_center User#cost_center}
         '''
         result = self._values.get("cost_center")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1590,7 +1590,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def country(self) -> typing.Optional[builtins.str]:
         '''The country/region in which the user is located, e.g. ``US`` or ``UK``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#country User#country}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#country User#country}
         '''
         result = self._values.get("country")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1599,7 +1599,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def department(self) -> typing.Optional[builtins.str]:
         '''The name for the department in which the user works.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#department User#department}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#department User#department}
         '''
         result = self._values.get("department")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1610,7 +1610,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the users password is exempt from expiring.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#disable_password_expiration User#disable_password_expiration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#disable_password_expiration User#disable_password_expiration}
         '''
         result = self._values.get("disable_password_expiration")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1621,7 +1621,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the user is allowed weaker passwords than the default policy to be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#disable_strong_password User#disable_strong_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#disable_strong_password User#disable_strong_password}
         '''
         result = self._values.get("disable_strong_password")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1630,7 +1630,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def division(self) -> typing.Optional[builtins.str]:
         '''The name of the division in which the user works.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#division User#division}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#division User#division}
         '''
         result = self._values.get("division")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1639,7 +1639,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def employee_hire_date(self) -> typing.Optional[builtins.str]:
         '''The hire date of the user, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#employee_hire_date User#employee_hire_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#employee_hire_date User#employee_hire_date}
         '''
         result = self._values.get("employee_hire_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1648,7 +1648,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def employee_id(self) -> typing.Optional[builtins.str]:
         '''The employee identifier assigned to the user by the organisation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#employee_id User#employee_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#employee_id User#employee_id}
         '''
         result = self._values.get("employee_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1657,7 +1657,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def employee_type(self) -> typing.Optional[builtins.str]:
         '''Captures enterprise worker type. For example, Employee, Contractor, Consultant, or Vendor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#employee_type User#employee_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#employee_type User#employee_type}
         '''
         result = self._values.get("employee_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1666,7 +1666,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fax_number(self) -> typing.Optional[builtins.str]:
         '''The fax number of the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#fax_number User#fax_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#fax_number User#fax_number}
         '''
         result = self._values.get("fax_number")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1679,7 +1679,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Only takes effect when also changing the password
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#force_password_change User#force_password_change}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#force_password_change User#force_password_change}
         '''
         result = self._values.get("force_password_change")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1688,14 +1688,14 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def given_name(self) -> typing.Optional[builtins.str]:
         '''The given name (first name) of the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#given_name User#given_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#given_name User#given_name}
         '''
         result = self._values.get("given_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#id User#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#id User#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1707,7 +1707,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def job_title(self) -> typing.Optional[builtins.str]:
         '''The user’s job title.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#job_title User#job_title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#job_title User#job_title}
         '''
         result = self._values.get("job_title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1716,7 +1716,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mail(self) -> typing.Optional[builtins.str]:
         '''The SMTP address for the user. Cannot be unset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#mail User#mail}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#mail User#mail}
         '''
         result = self._values.get("mail")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1725,7 +1725,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mail_nickname(self) -> typing.Optional[builtins.str]:
         '''The mail alias for the user. Defaults to the user name part of the user principal name (UPN).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#mail_nickname User#mail_nickname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#mail_nickname User#mail_nickname}
         '''
         result = self._values.get("mail_nickname")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1734,7 +1734,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def manager_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the user's manager.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#manager_id User#manager_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#manager_id User#manager_id}
         '''
         result = self._values.get("manager_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1743,7 +1743,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mobile_phone(self) -> typing.Optional[builtins.str]:
         '''The primary cellular telephone number for the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#mobile_phone User#mobile_phone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#mobile_phone User#mobile_phone}
         '''
         result = self._values.get("mobile_phone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1752,7 +1752,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def office_location(self) -> typing.Optional[builtins.str]:
         '''The office location in the user's place of business.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#office_location User#office_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#office_location User#office_location}
         '''
         result = self._values.get("office_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1763,7 +1763,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This must be specified if you are using a federated domain for the user's ``user_principal_name`` property when creating a new user account
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#onpremises_immutable_id User#onpremises_immutable_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#onpremises_immutable_id User#onpremises_immutable_id}
         '''
         result = self._values.get("onpremises_immutable_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1772,7 +1772,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def other_mails(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Additional email addresses for the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#other_mails User#other_mails}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#other_mails User#other_mails}
         '''
         result = self._values.get("other_mails")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1783,7 +1783,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The password must satisfy minimum requirements as specified by the password policy. The maximum length is 256 characters. This property is required when creating a new user
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#password User#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#password User#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1794,7 +1794,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The postal code is specific to the user's country/region. In the United States of America, this attribute contains the ZIP code
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#postal_code User#postal_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#postal_code User#postal_code}
         '''
         result = self._values.get("postal_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1803,7 +1803,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def preferred_language(self) -> typing.Optional[builtins.str]:
         '''The user's preferred language, in ISO 639-1 notation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#preferred_language User#preferred_language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#preferred_language User#preferred_language}
         '''
         result = self._values.get("preferred_language")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1814,7 +1814,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the Outlook global address list should include this user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#show_in_address_list User#show_in_address_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#show_in_address_list User#show_in_address_list}
         '''
         result = self._values.get("show_in_address_list")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1823,7 +1823,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def state(self) -> typing.Optional[builtins.str]:
         '''The state or province in the user's address.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#state User#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#state User#state}
         '''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1832,7 +1832,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def street_address(self) -> typing.Optional[builtins.str]:
         '''The street address of the user's place of business.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#street_address User#street_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#street_address User#street_address}
         '''
         result = self._values.get("street_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1841,7 +1841,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def surname(self) -> typing.Optional[builtins.str]:
         '''The user's surname (family name or last name).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#surname User#surname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#surname User#surname}
         '''
         result = self._values.get("surname")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1850,7 +1850,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["UserTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#timeouts User#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#timeouts User#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["UserTimeouts"], result)
@@ -1861,7 +1861,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Required for users that will be assigned licenses due to legal requirement to check for availability of services in countries. The usage location is a two letter country code (ISO standard 3166). Examples include: ``NO``, ``JP``, and ``GB``. Cannot be reset to null once set
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#usage_location User#usage_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#usage_location User#usage_location}
         '''
         result = self._values.get("usage_location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1898,10 +1898,10 @@ class UserTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#create User#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#delete User#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#read User#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#update User#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#create User#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#delete User#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#read User#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#update User#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__edb3e871e66b06960cf328cde7ac13dcd8879a4dc3dab43bc4163c67d31283cb)
@@ -1921,25 +1921,25 @@ class UserTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#create User#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#create User#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#delete User#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#delete User#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#read User#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#read User#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user#update User#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user#update User#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

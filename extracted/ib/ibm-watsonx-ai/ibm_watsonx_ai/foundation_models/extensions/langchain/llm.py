@@ -4,6 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 import logging
 from typing import Any, List, Mapping, Optional
+
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 try:

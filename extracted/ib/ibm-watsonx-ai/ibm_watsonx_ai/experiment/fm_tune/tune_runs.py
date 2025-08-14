@@ -5,21 +5,21 @@
 from __future__ import annotations
 
 from datetime import datetime
-from warnings import warn, catch_warnings, simplefilter
+from warnings import catch_warnings, simplefilter, warn
 
 from pandas import DataFrame
 
+from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models.fine_tuner import FineTuner
 from ibm_watsonx_ai.foundation_models.ilab_tuner import ILabTuner
 from ibm_watsonx_ai.foundation_models.prompt_tuner import PromptTuner
-from ibm_watsonx_ai.foundation_models.fine_tuner import FineTuner
-from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    ApiRequestFailure,
-)
 from ibm_watsonx_ai.foundation_models.utils.utils import (
     _is_fine_tuning_endpoint_available,
 )
-from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.wml_client_error import (
+    ApiRequestFailure,
+    WMLClientError,
+)
 
 __all__ = ["TuneRuns"]
 
@@ -40,7 +40,6 @@ class TuneRuns:
     def __init__(
         self, client: APIClient, filter: str | None = None, limit: int = 50
     ) -> None:
-
         self.client = client
         self.tuning_name = filter
         self.limit = limit
@@ -87,7 +86,6 @@ class TuneRuns:
                 break
 
             if {"entity", "metadata"}.issubset(run.keys()):
-
                 timestamp = run["metadata"].get("modified_at")
                 run_id = run["metadata"].get("id", run["metadata"].get("guid"))
                 state = run["entity"].get("status", {}).get("state")
@@ -101,7 +99,6 @@ class TuneRuns:
                     records.append(record)
 
         if self._is_fine_tuning_endpoint_available:
-
             ft_runs_details = self.client.training.get_details(
                 get_all=True if self.tuning_name else False,
                 limit=None if self.tuning_name else self.limit,
@@ -124,7 +121,6 @@ class TuneRuns:
                     break
 
                 if {"entity", "metadata"}.issubset(run.keys()):
-
                     timestamp = run["metadata"].get("modified_at")
                     run_id = run["metadata"].get("id", run["metadata"].get("guid"))
                     state = run["entity"].get("status", {}).get("state")
@@ -277,9 +273,7 @@ class TuneRuns:
                         limit=1,
                         _internal=True,
                         _is_fine_tuning=True,
-                    ).get(
-                        "resources"
-                    )
+                    ).get("resources")
                     resources.extend(
                         self.client.training.get_details(
                             limit=1,
@@ -291,9 +285,7 @@ class TuneRuns:
                 except ApiRequestFailure:
                     resources = self.client.training.get_details(  # type: ignore[assignment]
                         limit=1, training_type="prompt_tuning", _internal=True
-                    ).get(
-                        "resources"
-                    )
+                    ).get("resources")
                 else:
                     resources.extend(
                         self.client.training.get_details(  # type: ignore[arg-type]
@@ -303,9 +295,7 @@ class TuneRuns:
             else:
                 resources = self.client.training.get_details(  # type: ignore[assignment]
                     limit=1, training_type="prompt_tuning", _internal=True
-                ).get(
-                    "resources"
-                )
+                ).get("resources")
             if len(resources) == 1:
                 details = resources[0]
             elif len(resources) >= 2:

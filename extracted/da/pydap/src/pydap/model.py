@@ -10,7 +10,7 @@ Here's a simple example of a `BaseType` variable::
     >>> bar = BaseType('bar', np.arange(4, dtype='i'))
     >>> foobar = BaseType('foobar', np.arange(4, dtype='i'))
     >>> foo[-2:]
-    <BaseType with data array([2, 3], dtype=int32)>
+    <BaseType with data array(shape=(2,), dtype=int32)>
     >>> foo[-2:].data
     array([2, 3], dtype=int32)
     >>> foo.data[-2:]
@@ -87,7 +87,7 @@ dictionaries and they iterate over sliced values.
 Selecting only one child returns the child::
 
     >>> dataset.s['foo']
-    <BaseType with data array([0, 1, 2, 3], dtype=int32)>
+    <BaseType with data array(shape=(4,), dtype=int32)>
 
 A `GridType` is a special container where the first child should be an
 n-dimensional `BaseType`. This children should be followed by `n` additional
@@ -100,14 +100,13 @@ variable::
     >>> rain['x'] = BaseType('x', np.arange(3), units='degrees_east')
     >>> rain['y'] = BaseType('y', np.arange(2), units='degrees_north')
     >>> rain.array  #doctest: +ELLIPSIS
-    <BaseType with data array([[0, 1, 2],
-           [3, 4, 5]])>
+    <BaseType with data array(shape=(2, 3), dtype=int64)>
     >>> type(rain.maps)
     <class 'collections.OrderedDict'>
     >>> for item in rain.maps.items():
     ...     print(item)
-    ('x', <BaseType with data array([0, 1, 2])>)
-    ('y', <BaseType with data array([0, 1])>)
+    ('x', <BaseType with data array(shape=(3,), dtype=int64)>)
+    ('y', <BaseType with data array(shape=(2,), dtype=int64)>)
 
 There a last special container called `SequenceType`. This data structure is
 analogous to a series of records (or rows), with one column for each of its
@@ -170,6 +169,7 @@ therefore highly recommended.
 import copy
 import operator
 import re
+import threading
 import warnings
 from collections import OrderedDict
 from collections.abc import Mapping
@@ -180,7 +180,7 @@ import numpy as np
 import requests
 import requests_cache
 
-from .lib import _quote, decode_np_strings, tree, walk
+from pydap.lib import BatchPromise, _quote, decode_np_strings, tree, walk
 
 __all__ = [
     "BaseType",
@@ -201,11 +201,13 @@ class DapType(object):
     """
 
     def __init__(self, name="nameless", attributes=None, **kwargs):
-        self.name = _quote(name)
+        self._name = _quote(name)
         self.attributes = attributes or {}
         self.attributes.update(kwargs)
 
-        # Set the id to the name.
+        # Set parent and dataset to keep track of parent references
+        self.parent = None
+        self.dataset = None
         self._id = self.name
 
     def __repr__(self):
@@ -251,6 +253,119 @@ class DapType(object):
         """Return iterator over children."""
         return ()
 
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+
+    def assign_dataset_recursive(self, dataset=None, path=""):
+        if dataset is None:
+            dataset = self
+            path = ""
+
+        self.dataset = dataset
+        self.id = path or "/"  # <-- KEY LINE!
+
+        if isinstance(self, BaseType):
+            if not self.parent:
+                self.parent = self.dataset
+            if type(self._data).__name__ == "BaseProxyDap4" and not hasattr(
+                self, "_original_data_args"
+            ):
+                # Store the original data for later use
+                self._original_data_args = (
+                    self._data.baseurl,
+                    self._data.id,
+                    self._data.dtype,
+                    self._data.shape,
+                    self._data.application,
+                    self._data.session,
+                    self._data.timeout,
+                    self._data.verify,
+                    self._data.checksums,
+                    self._data.user_charset,
+                    self._data.get_kwargs,
+                )
+        for child in self.children():
+            child_path = f"{path}/{child.name}" if path else f"/{child.name}"
+            child.assign_dataset_recursive(dataset, child_path)
+
+
+class SelfClearingArray:
+    def __init__(self, array):
+        self._array = array
+
+    def _consume(self):
+        if self._array is None:
+            raise RuntimeError("This array has already been cleared.")
+        arr = self._array
+        self._array = None
+        return arr
+
+    def __array__(self, dtype=None):
+        arr = self._consume()
+        return arr.astype(dtype) if dtype else arr
+
+    def __getitem__(self, key):
+        arr = self._consume()
+        return arr[key]
+
+    def __len__(self):
+        arr = self._consume()
+        return len(arr)
+
+    # def __repr__(self):
+    #     return f"<SelfClearingArray: {type(self._array)}>"
+
+    def __iter__(self):
+        arr = self._consume()
+        return iter(arr)
+
+
+class DapDecodedArray:
+    def __init__(self, array: np.ndarray):
+        self.array = array
+
+    def __array__(self, dtype=None):
+        return np.asarray(self.array, dtype=dtype)
+
+    def __getitem__(self, key):
+        return self.array[key]  # Allows [:] to work
+
+    def __len__(self):
+        return len(self.array)
+
+    def __repr__(self):
+        # Render the actual data
+        return repr(np.asarray(self))
+
+
+class BatchFutureArray:
+    def __init__(self, basetype, batch_promise):
+        self.basetype = basetype
+        self.promise = batch_promise
+        self._pending_slice = None
+
+    def __getitem__(self, index):
+        self._pending_slice = index
+        if self.basetype.dataset and self.basetype.dataset.is_batch_mode():
+            self.basetype.dataset.register_for_batch(self.basetype)
+        return self
+
+    def _wait(self):
+        return self.promise.wait_for_result(self.basetype.id)
+
+    def __array__(self, dtype=None, copy=None):
+        result = np.asarray(self._wait())
+        if self._pending_slice is not None:
+            return np.asarray(result[self._pending_slice])
+        if dtype is not None:
+            result = result.astype(dtype, copy=False)
+        return result
+
 
 class BaseType(DapType):
     """A thin wrapper over Numpy arrays."""
@@ -260,35 +375,58 @@ class BaseType(DapType):
     ):
         super(BaseType, self).__init__(name, attributes, **kwargs)
         self.data = data
-        self.dims = dims or []
+        self.dims = [] if not dims else list(dims)
         # these are set when not data is present (eg, when parsing a DDS)
         self._dtype = None
         self._shape = ()
         self._itemsize = None
         self._nbytes = None
+        self._is_registered_for_batch = False
 
+    # def __repr__(self):
+    #     return "<%s with data %s>" % (type(self).__name__, repr(self.data))
     def __repr__(self):
-        return "<%s with data %s>" % (type(self).__name__, repr(self.data))
+        if isinstance(self._data, SelfClearingArray):
+            summary = "<SelfClearingArray (unread)>"
+        elif isinstance(self._data, np.ndarray):
+            summary = f"array(shape={self._data.shape}, dtype={self._data.dtype})"
+        else:
+            summary = repr(self._data)
+        return f"<{type(self).__name__} with data {summary}>"
+
+    def __hash__(self):
+        return hash(self._id)
 
     @property
     def path(self):
         try:
-            return self.data.path
+            return self._data.path
         except AttributeError:
             return None
 
     @property
     def dtype(self):
         """Property that returns the data dtype."""
-        return self.data.dtype
+        return self._data.dtype
 
     @property
     def shape(self):
         """Property that returns the data shape."""
         try:
-            return self.data.shape
+            return self._data.shape
         except AttributeError:
             return self._shape
+
+    @property
+    def dimensions(self):
+        """Return the name of the axes."""
+        warnings.warn(
+            "The use of `dimensions` on a `BaseType` array will get "
+            "deprecated on a future release. Use `dims` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return tuple(self.dims)
 
     def reshape(self, *args):
         """Method that reshapes the data:"""
@@ -305,11 +443,14 @@ class BaseType(DapType):
 
     @property
     def itemsize(self):
-        return np.asarray([], dtype=self.data.dtype).itemsize
+        return np.asarray([], dtype=self._data.dtype).itemsize
 
     @property
     def nbytes(self):
         return self.itemsize * self.size
+
+    def is_remote_dapdata(self):
+        return type(self._data).__name__ == "BaseProxyDap4"
 
     def __copy__(self):
         """A lightweight copy of the variable.
@@ -318,36 +459,71 @@ class BaseType(DapType):
         dimensions, same name, and a view of the data.
 
         """
-        out = type(self)(self.name, self.data, self.dims[:], self.attributes.copy())
+        out = type(self)(self.name, self._data, self.dims[:], self.attributes.copy())
         out.id = self.id
         return out
 
     # Comparisons are passed to the data.
     def __eq__(self, other):
-        return self.data == other
+        return self._data == other
 
     def __ne__(self, other):
-        return self.data != other
+        return self._data != other
 
     def __ge__(self, other):
-        return self.data >= other
+        return self._data >= other
 
     def __le__(self, other):
-        return self.data <= other
+        return self._data <= other
 
     def __gt__(self, other):
-        return self.data > other
+        return self._data > other
 
     def __lt__(self, other):
-        return self.data < other
+        return self._data < other
 
     # Implement the sequence and iter protocols.
     def __getitem__(self, index):
+
+        if (
+            self.dataset
+            and self.dataset.is_batch_mode()
+            and self.id
+            != "/" + str(self.dataset._session.headers.get("concat_dim", None))
+        ):
+            # Batch mode: just remember the slice
+            out = type(self).__new__(type(self))
+            out.__dict__ = self.__dict__.copy()
+            out._pending_batch_slice = index
+            out._is_registered_for_batch = True
+            if hasattr(self, "_original_data_args"):
+                from pydap.handlers.dap import BaseProxyDap4
+
+                out._data = BaseProxyDap4(*self._original_data_args)
+            else:
+                out._data = self._data
+            return out
+
         out = copy.copy(self)
-        out.data = self._get_data_index(index)
-        if type(self.data).__name__ == "BaseProxyDap4":
-            out.attributes["checksum"] = self.data.checksum
-            out.attributes["Maps"] = self.Maps
+        data = self._get_data_index(index)
+
+        # Check if index is a full slice (e.g., [:], ..., or tuple of all slice(None))
+        if (
+            index == slice(None)
+            or index == Ellipsis
+            or (isinstance(index, tuple) and all(i == slice(None) for i in index))
+        ):
+            try:
+                # Unwrap DapDecodedArray or SelfClearingArray
+                data = np.asarray(data)
+            except Exception:
+                pass  # Leave as-is for types that don't support __array__
+        out.data = data
+        if type(self._data).__name__ == "BaseProxyDap4":
+            if self._data.checksums:
+                # updates it if defined
+                out.attributes["_DAP4_Checksum_CRC32"] = self._data.checksums
+            out.attributes.update({"Maps": self.Maps})
         return out
 
     def __len__(self):
@@ -374,23 +550,79 @@ class BaseType(DapType):
 
     def _get_data_index(self, index=Ellipsis):
         if self._is_string_dtype and isinstance(self._data, np.ndarray):
-            return np.vectorize(decode_np_strings)(self._data[index])
+            return np.vectorize(decode_np_strings, otypes=self._data.dtype.char)(
+                self._data[index]
+            )
         else:
-            return self._data[index]
+            return self._get_data()[index]
+
+    def _is_data_loaded(self):
+        return isinstance(self._data, (np.ndarray, SelfClearingArray))
 
     def _get_data(self):
+        # Check if this is DAP4 remote data *and* batch mode is enabled
+        if (
+            self.dataset
+            and self.dataset.is_batch_mode()
+            and self.is_remote_dapdata()
+            and self._is_registered_for_batch
+            and not self._is_data_loaded()
+        ):
+            return self._get_data_batched()
         return self._data
 
     def _set_data(self, data):
-        self._data = data
-        if np.isscalar(data):
-            # Convert scalar data to
-            # numpy scalar, otherwise
-            # ``.dtype`` and ``.shape``
-            # methods will fail.
-            self._data = np.array(data)
+        if isinstance(data, DapDecodedArray):
+            self._data = SelfClearingArray(data.array)
+        else:
+            self._data = data
+            if np.isscalar(data):
+                # Convert scalar data to numpy scalar, otherwise `.dtype` and
+                # `.shape` methods will fail.
+                self._data = np.array(data)
 
     data = property(_get_data, _set_data)
+
+    def _get_data_batched(self):
+        """Get data in batch mode."""
+        if self.dataset and self._is_registered_for_batch:
+            self.dataset.register_for_batch(self)
+            self._is_registered_for_batch = True
+
+        future = BatchFutureArray(self, self._batch_promise)
+
+        return future
+
+    def build_ce(self):
+        if (
+            self.is_remote_dapdata()
+            and hasattr(self._data, "ce")
+            and self._data.ce
+            and not hasattr(self, "_pending_batch_slice")
+        ):
+            return self._data.ce
+
+        if (
+            self.dataset
+            and self.dataset.is_batch_mode()
+            and hasattr(self, "_pending_batch_slice")
+        ):
+            self._data = self._data.__getitem__(
+                self._pending_batch_slice, build_only=True
+            )
+            del self._pending_batch_slice
+            return self._data.ce
+        return None
+
+    def is_dimension_var(self):
+        if not self.dataset:
+            return False
+        parent_path = "/".join(self.id.split("/")[:-1])
+        parent = self.dataset
+        if parent_path:
+            for part in parent_path.split("/"):
+                parent = parent[part]
+        return self.name in getattr(parent, "dimensions", [])
 
 
 class StructureType(DapType, Mapping):
@@ -402,6 +634,9 @@ class StructureType(DapType, Mapping):
         # allow some keys to be hidden:
         self._visible_keys = []
         self._dict = OrderedDict()
+        self._children = OrderedDict()
+
+        self._current_batch_promise = None
 
     def __repr__(self):
         return "<%s with children %s>" % (
@@ -434,7 +669,19 @@ class StructureType(DapType, Mapping):
     def _getitem_string(self, key):
         """Assume that key is a string type"""
         try:
-            return self._dict[_quote(key)]
+            child = self._dict[_quote(key)]
+            if isinstance(child, BaseType):
+                if getattr(child, "dataset", None) and child.dataset.is_batch_mode():
+                    out = type(child).__new__(type(child))
+                    out.__dict__ = child.__dict__.copy()
+                    out._pending_batch_slice = None
+                    if hasattr(child, "_data") and child.is_remote_dapdata():
+                        out._data = child._data
+                    return out
+                else:
+                    return child
+            else:
+                return child
         except KeyError:
             splitted = key.split(".")
             if len(splitted) > 1:
@@ -475,6 +722,8 @@ class StructureType(DapType, Mapping):
         return tree(self)
 
     def __setitem__(self, key, item):
+        item.parent = self
+        self._children[key] = item
         key = _quote(key)
         if key != item.name:
             raise KeyError(
@@ -565,7 +814,7 @@ class StructureType(DapType, Mapping):
         out = {}
         Bcs = [key for key in self.children() if isinstance(key, BaseType)]
         for var in Bcs:
-            if "dims" in var.attributes:
+            if hasattr(var, "dims"):
                 dims = var.dims
             else:
                 dims = []
@@ -603,6 +852,12 @@ class DatasetType(StructureType):
                 "`requests_cache.CachedSession` instance"
             )
         self._session = session
+        self.dataset = self  # assign itself as the dataset
+        self.parent = self  # no parent
+        self._batch_mode = False
+        self._batch_timeout = 0.2
+        self._batch_registry = set()
+        self._batch_timer = None
 
     @property
     def session(self):
@@ -668,6 +923,8 @@ class DatasetType(StructureType):
         if len(key.split(".")) == 1:
             # The parent name does not go into the children ids.
             item.id = item.name
+            if isinstance(item, GroupType) and not item.parent:
+                item.parent = self
         else:
             parts = key.split("/")[-1]
             item.id = (".").join(parts.split("."))
@@ -817,6 +1074,144 @@ class DatasetType(StructureType):
         Also: https://docs.opendap.org/index.php/DAP4:_Specification_Volume_1
         """
         return self.createDapType(StructureType, name, **attrs)
+
+    def _start_batch_timer(self):
+        if self._current_batch_promise is None:
+            self._current_batch_promise = BatchPromise()
+            # print("[Batch] New promise created:", id(self._current_batch_promise))
+
+        if not self._batch_timer:
+            promise_for_this_batch = self._current_batch_promise
+            self._batch_timer = threading.Timer(
+                self._batch_timeout,
+                lambda: self._resolve_batch(promise_for_this_batch),
+            )
+            self._batch_timer.start()
+
+    def enable_batch_mode(self, timeout=0.2):
+        """Turn on batching with specified timeout window in seconds."""
+        self._batch_mode = True
+        self._batch_timeout = timeout
+        self._batch_registry = set()
+        self._batch_timer = None
+        self._batch_results = {}
+        self._dap_url = None
+        self._checksums = True
+
+    def register_for_batch(self, var, checksums=True):
+        """Register a key for batch processing."""
+        self._checksums = checksums
+        self._batch_registry = {v for v in self._batch_registry if v.id != var.id}
+        self._batch_registry.add(var)
+        var._is_registered_for_batch = True
+
+        if not self._batch_timer:
+            # Start the timer if not already running
+            self._batch_timer = self._start_batch_timer()
+
+        var._batch_promise = self._current_batch_promise
+
+    def _resolve_batch(self, batch_promise):
+        from pydap.handlers.dap import UNPACKDAP4DATA
+
+        # print(f"[Batch] Resolving promise: {id(batch_promise)}")
+        variables = [
+            var
+            for var in self._batch_registry
+            if getattr(var, "_pending_batch_slice", None) is not None
+            and not var._is_data_loaded()
+        ]
+
+        if not variables:
+            self._batch_timer = None
+            return
+
+        constraint_expressions = [
+            _quote(var.build_ce().split("=")[-1])
+            for var in variables
+            if var.build_ce() is not None
+        ]
+
+        base_url = variables[0]._data.baseurl if variables[0]._data else None
+
+        if not constraint_expressions or not base_url:
+            self._batch_registry.clear()
+            self._batch_timer = None
+            return
+
+        # Build the single dap4.ce query parameter
+        ce_string = "?dap4.ce=" + ";".join(sorted(constraint_expressions))
+        _dap_url = base_url + ".dap" + ce_string
+        if not self._checksums:
+            warnings.warn(
+                "Checksums are not optional in the current version, but will "
+                "be in the next version of pydap. Setting `checksums=True`",
+                stacklevel=2,
+            )
+        _dap_url += "&dap4.checksum=true"
+
+        if _dap_url.startswith("https://test.opendap.org"):
+            _dap_url = _dap_url.replace("https", "http")
+
+        # print("dap url:", _dap_url)
+
+        if (
+            isinstance(self._session, requests_cache.CachedSession)
+            and self._session.cache.cache_name != "debug"
+        ):
+            with self._session.cache_disabled():
+                r = self._session.get(
+                    _dap_url,
+                    timeout=512,
+                    verify=True,
+                    allow_redirects=True,
+                    stream=True,
+                )
+        else:
+            r = self._session.get(
+                _dap_url,
+                timeout=512,
+                verify=True,
+                allow_redirects=True,
+                stream=True,
+            )
+
+        parsed_dataset = UNPACKDAP4DATA(r, checksums=True, user_charset="ascii").dataset
+
+        # Collect results
+        results_dict = {}
+        for var in variables:
+            results_dict[var.id] = np.asarray(parsed_dataset[var.id].data[:])
+            var._pending_batch_slice = None
+            var._is_registered_for_batch = False
+            self._batch_registry.discard(var)
+            var._batch_promise = None
+
+        # Resolve the promise for all waiting arrays
+        batch_promise.set_results(results_dict)
+
+        # Clean up
+        self._batch_registry.clear()
+        self._batch_timer = None
+
+        return None
+
+    def disable_batch_mode(self):
+        """Turn off batching completely."""
+        self._batch_mode = False
+        self._batch_registry = set()
+        self._batch_timer = None
+        self._batch_results = {}
+
+    def is_batch_mode(self):
+        """Check if batching is currently enabled."""
+        return getattr(self, "_batch_mode", False)
+
+    def clear_batch_state(self):
+        """Clear any current batch registry and results without disabling mode."""
+        self._batch_registry = set()
+        self._batch_timer = None
+        self._batch_results = {}
 
 
 class SequenceType(StructureType):
@@ -1064,6 +1459,11 @@ class GridType(StructureType):
     def dimensions(self):
         """Return the name of the axes."""
         return tuple(list(self.keys())[1:])
+
+    @property
+    def dims(self):
+        """Return the name of the axes."""
+        return list(self.dimensions)
 
     @property
     def type(self):

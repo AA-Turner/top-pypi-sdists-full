@@ -1,7 +1,7 @@
 r'''
 # `azurerm_snapshot`
 
-Refer to the Terraform Registry for docs: [`azurerm_snapshot`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot).
+Refer to the Terraform Registry for docs: [`azurerm_snapshot`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Snapshot(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.snapshot.Snapshot",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot azurerm_snapshot}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot azurerm_snapshot}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class Snapshot(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot azurerm_snapshot} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot azurerm_snapshot} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param create_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#create_option Snapshot#create_option}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#location Snapshot#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#name Snapshot#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#resource_group_name Snapshot#resource_group_name}.
-        :param disk_access_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#disk_access_id Snapshot#disk_access_id}.
-        :param disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#disk_size_gb Snapshot#disk_size_gb}.
-        :param encryption_settings: encryption_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#encryption_settings Snapshot#encryption_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#id Snapshot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param incremental_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#incremental_enabled Snapshot#incremental_enabled}.
-        :param network_access_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#network_access_policy Snapshot#network_access_policy}.
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#public_network_access_enabled Snapshot#public_network_access_enabled}.
-        :param source_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_resource_id Snapshot#source_resource_id}.
-        :param source_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_uri Snapshot#source_uri}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#storage_account_id Snapshot#storage_account_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#tags Snapshot#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#timeouts Snapshot#timeouts}
+        :param create_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#create_option Snapshot#create_option}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#location Snapshot#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#name Snapshot#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#resource_group_name Snapshot#resource_group_name}.
+        :param disk_access_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#disk_access_id Snapshot#disk_access_id}.
+        :param disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#disk_size_gb Snapshot#disk_size_gb}.
+        :param encryption_settings: encryption_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#encryption_settings Snapshot#encryption_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#id Snapshot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param incremental_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#incremental_enabled Snapshot#incremental_enabled}.
+        :param network_access_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#network_access_policy Snapshot#network_access_policy}.
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#public_network_access_enabled Snapshot#public_network_access_enabled}.
+        :param source_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_resource_id Snapshot#source_resource_id}.
+        :param source_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_uri Snapshot#source_uri}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#storage_account_id Snapshot#storage_account_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#tags Snapshot#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#timeouts Snapshot#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class Snapshot(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Snapshot to import.
-        :param import_from_id: The id of the existing Snapshot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Snapshot that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Snapshot to import is found.
         '''
         if __debug__:
@@ -167,8 +167,8 @@ class Snapshot(
         key_encryption_key: typing.Optional[typing.Union["SnapshotEncryptionSettingsKeyEncryptionKey", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param disk_encryption_key: disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#disk_encryption_key Snapshot#disk_encryption_key}
-        :param key_encryption_key: key_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#key_encryption_key Snapshot#key_encryption_key}
+        :param disk_encryption_key: disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#disk_encryption_key Snapshot#disk_encryption_key}
+        :param key_encryption_key: key_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#key_encryption_key Snapshot#key_encryption_key}
         '''
         value = SnapshotEncryptionSettings(
             disk_encryption_key=disk_encryption_key,
@@ -187,10 +187,10 @@ class Snapshot(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#create Snapshot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#delete Snapshot#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#read Snapshot#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#update Snapshot#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#create Snapshot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#delete Snapshot#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#read Snapshot#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#update Snapshot#update}.
         '''
         value = SnapshotTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -606,22 +606,22 @@ class SnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param create_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#create_option Snapshot#create_option}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#location Snapshot#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#name Snapshot#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#resource_group_name Snapshot#resource_group_name}.
-        :param disk_access_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#disk_access_id Snapshot#disk_access_id}.
-        :param disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#disk_size_gb Snapshot#disk_size_gb}.
-        :param encryption_settings: encryption_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#encryption_settings Snapshot#encryption_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#id Snapshot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param incremental_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#incremental_enabled Snapshot#incremental_enabled}.
-        :param network_access_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#network_access_policy Snapshot#network_access_policy}.
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#public_network_access_enabled Snapshot#public_network_access_enabled}.
-        :param source_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_resource_id Snapshot#source_resource_id}.
-        :param source_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_uri Snapshot#source_uri}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#storage_account_id Snapshot#storage_account_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#tags Snapshot#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#timeouts Snapshot#timeouts}
+        :param create_option: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#create_option Snapshot#create_option}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#location Snapshot#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#name Snapshot#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#resource_group_name Snapshot#resource_group_name}.
+        :param disk_access_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#disk_access_id Snapshot#disk_access_id}.
+        :param disk_size_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#disk_size_gb Snapshot#disk_size_gb}.
+        :param encryption_settings: encryption_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#encryption_settings Snapshot#encryption_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#id Snapshot#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param incremental_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#incremental_enabled Snapshot#incremental_enabled}.
+        :param network_access_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#network_access_policy Snapshot#network_access_policy}.
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#public_network_access_enabled Snapshot#public_network_access_enabled}.
+        :param source_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_resource_id Snapshot#source_resource_id}.
+        :param source_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_uri Snapshot#source_uri}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#storage_account_id Snapshot#storage_account_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#tags Snapshot#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#timeouts Snapshot#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -765,41 +765,41 @@ class SnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def create_option(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#create_option Snapshot#create_option}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#create_option Snapshot#create_option}.'''
         result = self._values.get("create_option")
         assert result is not None, "Required property 'create_option' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#location Snapshot#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#location Snapshot#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#name Snapshot#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#name Snapshot#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#resource_group_name Snapshot#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#resource_group_name Snapshot#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def disk_access_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#disk_access_id Snapshot#disk_access_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#disk_access_id Snapshot#disk_access_id}.'''
         result = self._values.get("disk_access_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def disk_size_gb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#disk_size_gb Snapshot#disk_size_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#disk_size_gb Snapshot#disk_size_gb}.'''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -807,14 +807,14 @@ class SnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_settings(self) -> typing.Optional["SnapshotEncryptionSettings"]:
         '''encryption_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#encryption_settings Snapshot#encryption_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#encryption_settings Snapshot#encryption_settings}
         '''
         result = self._values.get("encryption_settings")
         return typing.cast(typing.Optional["SnapshotEncryptionSettings"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#id Snapshot#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#id Snapshot#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -826,13 +826,13 @@ class SnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def incremental_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#incremental_enabled Snapshot#incremental_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#incremental_enabled Snapshot#incremental_enabled}.'''
         result = self._values.get("incremental_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def network_access_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#network_access_policy Snapshot#network_access_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#network_access_policy Snapshot#network_access_policy}.'''
         result = self._values.get("network_access_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -840,31 +840,31 @@ class SnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_network_access_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#public_network_access_enabled Snapshot#public_network_access_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#public_network_access_enabled Snapshot#public_network_access_enabled}.'''
         result = self._values.get("public_network_access_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def source_resource_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_resource_id Snapshot#source_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_resource_id Snapshot#source_resource_id}.'''
         result = self._values.get("source_resource_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_uri Snapshot#source_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_uri Snapshot#source_uri}.'''
         result = self._values.get("source_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#storage_account_id Snapshot#storage_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#storage_account_id Snapshot#storage_account_id}.'''
         result = self._values.get("storage_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#tags Snapshot#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#tags Snapshot#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -872,7 +872,7 @@ class SnapshotConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SnapshotTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#timeouts Snapshot#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#timeouts Snapshot#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SnapshotTimeouts"], result)
@@ -905,8 +905,8 @@ class SnapshotEncryptionSettings:
         key_encryption_key: typing.Optional[typing.Union["SnapshotEncryptionSettingsKeyEncryptionKey", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param disk_encryption_key: disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#disk_encryption_key Snapshot#disk_encryption_key}
-        :param key_encryption_key: key_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#key_encryption_key Snapshot#key_encryption_key}
+        :param disk_encryption_key: disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#disk_encryption_key Snapshot#disk_encryption_key}
+        :param key_encryption_key: key_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#key_encryption_key Snapshot#key_encryption_key}
         '''
         if isinstance(disk_encryption_key, dict):
             disk_encryption_key = SnapshotEncryptionSettingsDiskEncryptionKey(**disk_encryption_key)
@@ -926,7 +926,7 @@ class SnapshotEncryptionSettings:
     def disk_encryption_key(self) -> "SnapshotEncryptionSettingsDiskEncryptionKey":
         '''disk_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#disk_encryption_key Snapshot#disk_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#disk_encryption_key Snapshot#disk_encryption_key}
         '''
         result = self._values.get("disk_encryption_key")
         assert result is not None, "Required property 'disk_encryption_key' is missing"
@@ -938,7 +938,7 @@ class SnapshotEncryptionSettings:
     ) -> typing.Optional["SnapshotEncryptionSettingsKeyEncryptionKey"]:
         '''key_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#key_encryption_key Snapshot#key_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#key_encryption_key Snapshot#key_encryption_key}
         '''
         result = self._values.get("key_encryption_key")
         return typing.cast(typing.Optional["SnapshotEncryptionSettingsKeyEncryptionKey"], result)
@@ -968,8 +968,8 @@ class SnapshotEncryptionSettingsDiskEncryptionKey:
         source_vault_id: builtins.str,
     ) -> None:
         '''
-        :param secret_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#secret_url Snapshot#secret_url}.
-        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.
+        :param secret_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#secret_url Snapshot#secret_url}.
+        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86b89c03e6e055a694555d2a7adbb6f6b3938140d196c87e4f95d8f3603cc4ae)
@@ -982,14 +982,14 @@ class SnapshotEncryptionSettingsDiskEncryptionKey:
 
     @builtins.property
     def secret_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#secret_url Snapshot#secret_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#secret_url Snapshot#secret_url}.'''
         result = self._values.get("secret_url")
         assert result is not None, "Required property 'secret_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_vault_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.'''
         result = self._values.get("source_vault_id")
         assert result is not None, "Required property 'source_vault_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1086,8 +1086,8 @@ class SnapshotEncryptionSettingsDiskEncryptionKeyOutputReference(
 class SnapshotEncryptionSettingsKeyEncryptionKey:
     def __init__(self, *, key_url: builtins.str, source_vault_id: builtins.str) -> None:
         '''
-        :param key_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#key_url Snapshot#key_url}.
-        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.
+        :param key_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#key_url Snapshot#key_url}.
+        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5b0d74918a74d40cbbb651bff9fee131227b99461f447e2be1869600b5c0193)
@@ -1100,14 +1100,14 @@ class SnapshotEncryptionSettingsKeyEncryptionKey:
 
     @builtins.property
     def key_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#key_url Snapshot#key_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#key_url Snapshot#key_url}.'''
         result = self._values.get("key_url")
         assert result is not None, "Required property 'key_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_vault_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.'''
         result = self._values.get("source_vault_id")
         assert result is not None, "Required property 'source_vault_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1224,8 +1224,8 @@ class SnapshotEncryptionSettingsOutputReference(
         source_vault_id: builtins.str,
     ) -> None:
         '''
-        :param secret_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#secret_url Snapshot#secret_url}.
-        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.
+        :param secret_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#secret_url Snapshot#secret_url}.
+        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.
         '''
         value = SnapshotEncryptionSettingsDiskEncryptionKey(
             secret_url=secret_url, source_vault_id=source_vault_id
@@ -1241,8 +1241,8 @@ class SnapshotEncryptionSettingsOutputReference(
         source_vault_id: builtins.str,
     ) -> None:
         '''
-        :param key_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#key_url Snapshot#key_url}.
-        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.
+        :param key_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#key_url Snapshot#key_url}.
+        :param source_vault_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#source_vault_id Snapshot#source_vault_id}.
         '''
         value = SnapshotEncryptionSettingsKeyEncryptionKey(
             key_url=key_url, source_vault_id=source_vault_id
@@ -1318,10 +1318,10 @@ class SnapshotTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#create Snapshot#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#delete Snapshot#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#read Snapshot#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#update Snapshot#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#create Snapshot#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#delete Snapshot#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#read Snapshot#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#update Snapshot#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e586b35c479d58745b055178f4b6aa9e0a5dfdb2006f6c7bbe8dc72bdcb1423d)
@@ -1341,25 +1341,25 @@ class SnapshotTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#create Snapshot#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#create Snapshot#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#delete Snapshot#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#delete Snapshot#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#read Snapshot#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#read Snapshot#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/snapshot#update Snapshot#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/snapshot#update Snapshot#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

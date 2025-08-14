@@ -37,7 +37,8 @@ class TestBasicIssue(unittest.TestCase):
             return BasicIssue(
                 issue_type = 'Misconfiguration',
                 severity = 'Low',
-                id = ''
+                id = '',
+                score = 1.337
             )
         else:
             return BasicIssue(

@@ -1,7 +1,7 @@
 r'''
 # `azuread_application_fallback_public_client`
 
-Refer to the Terraform Registry for docs: [`azuread_application_fallback_public_client`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client).
+Refer to the Terraform Registry for docs: [`azuread_application_fallback_public_client`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationFallbackPublicClient(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.applicationFallbackPublicClient.ApplicationFallbackPublicClient",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client azuread_application_fallback_public_client}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client azuread_application_fallback_public_client}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ApplicationFallbackPublicClient(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client azuread_application_fallback_public_client} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client azuread_application_fallback_public_client} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: The resource ID of the application to which the fallback public client setting should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#application_id ApplicationFallbackPublicClient#application_id}
-        :param enabled: Specifies explicitly whether the application is a public client. Appropriate for apps using token grant flows that don't use a redirect URI Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#enabled ApplicationFallbackPublicClient#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#id ApplicationFallbackPublicClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#timeouts ApplicationFallbackPublicClient#timeouts}
+        :param application_id: The resource ID of the application to which the fallback public client setting should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#application_id ApplicationFallbackPublicClient#application_id}
+        :param enabled: Specifies explicitly whether the application is a public client. Appropriate for apps using token grant flows that don't use a redirect URI Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#enabled ApplicationFallbackPublicClient#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#id ApplicationFallbackPublicClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#timeouts ApplicationFallbackPublicClient#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ApplicationFallbackPublicClient(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationFallbackPublicClient to import.
-        :param import_from_id: The id of the existing ApplicationFallbackPublicClient that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationFallbackPublicClient that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationFallbackPublicClient to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class ApplicationFallbackPublicClient(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#create ApplicationFallbackPublicClient#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#delete ApplicationFallbackPublicClient#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#read ApplicationFallbackPublicClient#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#create ApplicationFallbackPublicClient#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#delete ApplicationFallbackPublicClient#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#read ApplicationFallbackPublicClient#read}.
         '''
         value = ApplicationFallbackPublicClientTimeouts(
             create=create, delete=delete, read=read
@@ -277,10 +277,10 @@ class ApplicationFallbackPublicClientConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: The resource ID of the application to which the fallback public client setting should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#application_id ApplicationFallbackPublicClient#application_id}
-        :param enabled: Specifies explicitly whether the application is a public client. Appropriate for apps using token grant flows that don't use a redirect URI Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#enabled ApplicationFallbackPublicClient#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#id ApplicationFallbackPublicClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#timeouts ApplicationFallbackPublicClient#timeouts}
+        :param application_id: The resource ID of the application to which the fallback public client setting should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#application_id ApplicationFallbackPublicClient#application_id}
+        :param enabled: Specifies explicitly whether the application is a public client. Appropriate for apps using token grant flows that don't use a redirect URI Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#enabled ApplicationFallbackPublicClient#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#id ApplicationFallbackPublicClient#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#timeouts ApplicationFallbackPublicClient#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -391,7 +391,7 @@ class ApplicationFallbackPublicClientConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def application_id(self) -> builtins.str:
         '''The resource ID of the application to which the fallback public client setting should be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#application_id ApplicationFallbackPublicClient#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#application_id ApplicationFallbackPublicClient#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -405,14 +405,14 @@ class ApplicationFallbackPublicClientConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
         Appropriate for apps using token grant flows that don't use a redirect URI
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#enabled ApplicationFallbackPublicClient#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#enabled ApplicationFallbackPublicClient#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#id ApplicationFallbackPublicClient#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#id ApplicationFallbackPublicClient#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -424,7 +424,7 @@ class ApplicationFallbackPublicClientConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["ApplicationFallbackPublicClientTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#timeouts ApplicationFallbackPublicClient#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#timeouts ApplicationFallbackPublicClient#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationFallbackPublicClientTimeouts"], result)
@@ -455,9 +455,9 @@ class ApplicationFallbackPublicClientTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#create ApplicationFallbackPublicClient#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#delete ApplicationFallbackPublicClient#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#read ApplicationFallbackPublicClient#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#create ApplicationFallbackPublicClient#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#delete ApplicationFallbackPublicClient#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#read ApplicationFallbackPublicClient#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fac3fd07bbc7cb545b6c525b2ebdc75d9e16934de72c18516816b0ac6544a2ca)
@@ -474,19 +474,19 @@ class ApplicationFallbackPublicClientTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#create ApplicationFallbackPublicClient#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#create ApplicationFallbackPublicClient#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#delete ApplicationFallbackPublicClient#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#delete ApplicationFallbackPublicClient#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_fallback_public_client#read ApplicationFallbackPublicClient#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_fallback_public_client#read ApplicationFallbackPublicClient#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

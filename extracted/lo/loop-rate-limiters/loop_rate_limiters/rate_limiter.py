@@ -5,10 +5,11 @@
 # Copyright 2022 Stéphane Caron
 # Copyright 2023 Inria
 
-"""Basic rate limiter."""
+"""Synchronous rate limiter."""
 
-import logging
 from time import perf_counter, sleep
+
+from .logging import logger
 
 
 class RateLimiter:
@@ -92,8 +93,8 @@ class RateLimiter:
         if self.__slack > 0.0:
             sleep(self.__slack)
         elif self.__slack < -0.1 * self.period and self.warn:
-            logging.warning(
-                "%s is late by %f [ms]",
+            logger.warning(
+                "%s is late by %.1f [ms]",
                 self.name,
                 round(-1e3 * self.__slack, 1),
             )

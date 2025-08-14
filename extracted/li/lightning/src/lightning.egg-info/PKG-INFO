@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: lightning
-Version: 2.5.2
+Version: 2.5.3
 Summary: The Deep Learning framework to train, deploy, and ship AI products Lightning fast.
 Home-page: https://github.com/Lightning-AI/lightning
 Download-URL: https://github.com/Lightning-AI/lightning
 Author: Lightning AI et al.
-Author-email: pytorch@lightning.ai
+Author-email: developer@lightning.ai
 License: Apache-2.0
 Project-URL: Bug Tracker, https://github.com/Lightning-AI/pytorch-lightning/issues
 Project-URL: Documentation, https://lightning.ai/lightning-docs
@@ -27,34 +27,15 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: PyYAML<8.0,>=5.4
+Requires-Dist: PyYAML<8.0,>5.4
 Requires-Dist: fsspec[http]<2027.0,>=2022.5.0
 Requires-Dist: lightning-utilities<2.0,>=0.10.0
 Requires-Dist: packaging<27.0,>=20.0
 Requires-Dist: torch<4.0,>=2.1.0
-Requires-Dist: torchmetrics<3.0,>=0.7.0
+Requires-Dist: torchmetrics<3.0,>0.7.0
 Requires-Dist: tqdm<6.0,>=4.57.0
-Requires-Dist: typing-extensions<6.0,>=4.4.0
+Requires-Dist: typing-extensions<6.0,>4.5.0
 Requires-Dist: pytorch-lightning
-Provides-Extra: pytorch-strategies
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "pytorch-strategies"
-Provides-Extra: pytorch-test
-Requires-Dist: cloudpickle<4.0,>=1.3; extra == "pytorch-test"
-Requires-Dist: coverage==7.9.1; extra == "pytorch-test"
-Requires-Dist: fastapi; extra == "pytorch-test"
-Requires-Dist: numpy<2.0,>=1.17.2; extra == "pytorch-test"
-Requires-Dist: onnx<2.0,>=1.12.0; extra == "pytorch-test"
-Requires-Dist: onnxruntime<2.0,>=1.12.0; extra == "pytorch-test"
-Requires-Dist: pandas<3.0,>2.0; extra == "pytorch-test"
-Requires-Dist: psutil<8.0; extra == "pytorch-test"
-Requires-Dist: pytest-cov==6.2.1; extra == "pytorch-test"
-Requires-Dist: pytest-random-order==1.1.1; extra == "pytorch-test"
-Requires-Dist: pytest-rerunfailures==15.1; extra == "pytorch-test"
-Requires-Dist: pytest-timeout==2.4.0; extra == "pytorch-test"
-Requires-Dist: pytest==8.4.0; extra == "pytorch-test"
-Requires-Dist: scikit-learn<2.0,>0.22.1; extra == "pytorch-test"
-Requires-Dist: tensorboard<3.0,>=2.9.1; extra == "pytorch-test"
-Requires-Dist: uvicorn; extra == "pytorch-test"
 Provides-Extra: pytorch-extra
 Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "pytorch-extra"
 Requires-Dist: hydra-core<2.0,>=1.2.0; extra == "pytorch-extra"
@@ -63,57 +44,72 @@ Requires-Dist: matplotlib<4.0,>3.1; extra == "pytorch-extra"
 Requires-Dist: omegaconf<3.0,>=2.2.3; extra == "pytorch-extra"
 Requires-Dist: rich<15.0,>=12.3.0; extra == "pytorch-extra"
 Requires-Dist: tensorboardX<3.0,>=2.2; extra == "pytorch-extra"
+Provides-Extra: pytorch-strategies
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "pytorch-strategies"
+Provides-Extra: pytorch-test
+Requires-Dist: cloudpickle<4.0,>=1.3; extra == "pytorch-test"
+Requires-Dist: coverage==7.10.3; extra == "pytorch-test"
+Requires-Dist: fastapi; extra == "pytorch-test"
+Requires-Dist: numpy<2.0,>=1.17.2; extra == "pytorch-test"
+Requires-Dist: onnx<2.0,>=1.12.0; extra == "pytorch-test"
+Requires-Dist: onnxruntime<2.0,>=1.12.0; extra == "pytorch-test"
+Requires-Dist: onnxscript<1.0,>=0.2.2; extra == "pytorch-test"
+Requires-Dist: pandas<3.0,>2.0; extra == "pytorch-test"
+Requires-Dist: psutil<8.0; extra == "pytorch-test"
+Requires-Dist: pytest-cov==6.2.1; extra == "pytorch-test"
+Requires-Dist: pytest-random-order==1.2.0; extra == "pytorch-test"
+Requires-Dist: pytest-rerunfailures==15.1; extra == "pytorch-test"
+Requires-Dist: pytest-timeout==2.4.0; extra == "pytorch-test"
+Requires-Dist: pytest==8.4.1; extra == "pytorch-test"
+Requires-Dist: scikit-learn<2.0,>0.22.1; extra == "pytorch-test"
+Requires-Dist: tensorboard<3.0,>=2.9.1; extra == "pytorch-test"
+Requires-Dist: uvicorn; extra == "pytorch-test"
 Provides-Extra: pytorch-examples
 Requires-Dist: ipython[all]<9.0; extra == "pytorch-examples"
-Requires-Dist: lightning-utilities<1.0,>=0.8.0; extra == "pytorch-examples"
 Requires-Dist: requests<3.0; extra == "pytorch-examples"
 Requires-Dist: torchmetrics<2.0,>=0.10.0; extra == "pytorch-examples"
 Requires-Dist: torchvision<1.0,>=0.16.0; extra == "pytorch-examples"
 Provides-Extra: fabric-strategies
 Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "fabric-strategies"
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "fabric-strategies"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "fabric-strategies"
 Provides-Extra: fabric-test
 Requires-Dist: click==8.1.8; extra == "fabric-test"
-Requires-Dist: coverage==7.9.1; extra == "fabric-test"
+Requires-Dist: coverage==7.10.3; extra == "fabric-test"
 Requires-Dist: numpy<2.0,>=1.17.2; extra == "fabric-test"
 Requires-Dist: pytest-cov==6.2.1; extra == "fabric-test"
-Requires-Dist: pytest-random-order==1.1.1; extra == "fabric-test"
+Requires-Dist: pytest-random-order==1.2.0; extra == "fabric-test"
 Requires-Dist: pytest-rerunfailures==15.1; extra == "fabric-test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "fabric-test"
-Requires-Dist: pytest==8.4.0; extra == "fabric-test"
+Requires-Dist: pytest==8.4.1; extra == "fabric-test"
 Requires-Dist: tensorboardX<3.0,>=2.2; extra == "fabric-test"
 Provides-Extra: fabric-examples
-Requires-Dist: lightning-utilities<1.0,>=0.8.0; extra == "fabric-examples"
 Requires-Dist: torchmetrics<2.0,>=0.10.0; extra == "fabric-examples"
 Requires-Dist: torchvision<1.0,>=0.16.0; extra == "fabric-examples"
 Provides-Extra: fabric-all
 Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "fabric-all"
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "fabric-all"
-Requires-Dist: lightning-utilities<1.0,>=0.8.0; extra == "fabric-all"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "fabric-all"
 Requires-Dist: torchmetrics<2.0,>=0.10.0; extra == "fabric-all"
 Requires-Dist: torchvision<1.0,>=0.16.0; extra == "fabric-all"
 Provides-Extra: fabric-dev
 Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "fabric-dev"
 Requires-Dist: click==8.1.8; extra == "fabric-dev"
-Requires-Dist: coverage==7.9.1; extra == "fabric-dev"
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "fabric-dev"
-Requires-Dist: lightning-utilities<1.0,>=0.8.0; extra == "fabric-dev"
+Requires-Dist: coverage==7.10.3; extra == "fabric-dev"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "fabric-dev"
 Requires-Dist: numpy<2.0,>=1.17.2; extra == "fabric-dev"
 Requires-Dist: pytest-cov==6.2.1; extra == "fabric-dev"
-Requires-Dist: pytest-random-order==1.1.1; extra == "fabric-dev"
+Requires-Dist: pytest-random-order==1.2.0; extra == "fabric-dev"
 Requires-Dist: pytest-rerunfailures==15.1; extra == "fabric-dev"
 Requires-Dist: pytest-timeout==2.4.0; extra == "fabric-dev"
-Requires-Dist: pytest==8.4.0; extra == "fabric-dev"
+Requires-Dist: pytest==8.4.1; extra == "fabric-dev"
 Requires-Dist: tensorboardX<3.0,>=2.2; extra == "fabric-dev"
 Requires-Dist: torchmetrics<2.0,>=0.10.0; extra == "fabric-dev"
 Requires-Dist: torchvision<1.0,>=0.16.0; extra == "fabric-dev"
 Provides-Extra: pytorch-all
 Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "pytorch-all"
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "pytorch-all"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "pytorch-all"
 Requires-Dist: hydra-core<2.0,>=1.2.0; extra == "pytorch-all"
 Requires-Dist: ipython[all]<9.0; extra == "pytorch-all"
 Requires-Dist: jsonargparse[jsonnet,signatures]<5.0,>=4.39.0; extra == "pytorch-all"
-Requires-Dist: lightning-utilities<1.0,>=0.8.0; extra == "pytorch-all"
 Requires-Dist: matplotlib<4.0,>3.1; extra == "pytorch-all"
 Requires-Dist: omegaconf<3.0,>=2.2.3; extra == "pytorch-all"
 Requires-Dist: requests<3.0; extra == "pytorch-all"
@@ -124,25 +120,25 @@ Requires-Dist: torchvision<1.0,>=0.16.0; extra == "pytorch-all"
 Provides-Extra: pytorch-dev
 Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "pytorch-dev"
 Requires-Dist: cloudpickle<4.0,>=1.3; extra == "pytorch-dev"
-Requires-Dist: coverage==7.9.1; extra == "pytorch-dev"
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "pytorch-dev"
+Requires-Dist: coverage==7.10.3; extra == "pytorch-dev"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "pytorch-dev"
 Requires-Dist: fastapi; extra == "pytorch-dev"
 Requires-Dist: hydra-core<2.0,>=1.2.0; extra == "pytorch-dev"
 Requires-Dist: ipython[all]<9.0; extra == "pytorch-dev"
 Requires-Dist: jsonargparse[jsonnet,signatures]<5.0,>=4.39.0; extra == "pytorch-dev"
-Requires-Dist: lightning-utilities<1.0,>=0.8.0; extra == "pytorch-dev"
 Requires-Dist: matplotlib<4.0,>3.1; extra == "pytorch-dev"
 Requires-Dist: numpy<2.0,>=1.17.2; extra == "pytorch-dev"
 Requires-Dist: omegaconf<3.0,>=2.2.3; extra == "pytorch-dev"
 Requires-Dist: onnx<2.0,>=1.12.0; extra == "pytorch-dev"
 Requires-Dist: onnxruntime<2.0,>=1.12.0; extra == "pytorch-dev"
+Requires-Dist: onnxscript<1.0,>=0.2.2; extra == "pytorch-dev"
 Requires-Dist: pandas<3.0,>2.0; extra == "pytorch-dev"
 Requires-Dist: psutil<8.0; extra == "pytorch-dev"
 Requires-Dist: pytest-cov==6.2.1; extra == "pytorch-dev"
-Requires-Dist: pytest-random-order==1.1.1; extra == "pytorch-dev"
+Requires-Dist: pytest-random-order==1.2.0; extra == "pytorch-dev"
 Requires-Dist: pytest-rerunfailures==15.1; extra == "pytorch-dev"
 Requires-Dist: pytest-timeout==2.4.0; extra == "pytorch-dev"
-Requires-Dist: pytest==8.4.0; extra == "pytorch-dev"
+Requires-Dist: pytest==8.4.1; extra == "pytorch-dev"
 Requires-Dist: requests<3.0; extra == "pytorch-dev"
 Requires-Dist: rich<15.0,>=12.3.0; extra == "pytorch-dev"
 Requires-Dist: scikit-learn<2.0,>0.22.1; extra == "pytorch-dev"
@@ -151,28 +147,6 @@ Requires-Dist: tensorboardX<3.0,>=2.2; extra == "pytorch-dev"
 Requires-Dist: torchmetrics<2.0,>=0.10.0; extra == "pytorch-dev"
 Requires-Dist: torchvision<1.0,>=0.16.0; extra == "pytorch-dev"
 Requires-Dist: uvicorn; extra == "pytorch-dev"
-Provides-Extra: strategies
-Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "strategies"
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "strategies"
-Provides-Extra: test
-Requires-Dist: click==8.1.8; extra == "test"
-Requires-Dist: cloudpickle<4.0,>=1.3; extra == "test"
-Requires-Dist: coverage==7.9.1; extra == "test"
-Requires-Dist: fastapi; extra == "test"
-Requires-Dist: numpy<2.0,>=1.17.2; extra == "test"
-Requires-Dist: onnx<2.0,>=1.12.0; extra == "test"
-Requires-Dist: onnxruntime<2.0,>=1.12.0; extra == "test"
-Requires-Dist: pandas<3.0,>2.0; extra == "test"
-Requires-Dist: psutil<8.0; extra == "test"
-Requires-Dist: pytest-cov==6.2.1; extra == "test"
-Requires-Dist: pytest-random-order==1.1.1; extra == "test"
-Requires-Dist: pytest-rerunfailures==15.1; extra == "test"
-Requires-Dist: pytest-timeout==2.4.0; extra == "test"
-Requires-Dist: pytest==8.4.0; extra == "test"
-Requires-Dist: scikit-learn<2.0,>0.22.1; extra == "test"
-Requires-Dist: tensorboard<3.0,>=2.9.1; extra == "test"
-Requires-Dist: tensorboardX<3.0,>=2.2; extra == "test"
-Requires-Dist: uvicorn; extra == "test"
 Provides-Extra: extra
 Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "extra"
 Requires-Dist: hydra-core<2.0,>=1.2.0; extra == "extra"
@@ -181,9 +155,31 @@ Requires-Dist: matplotlib<4.0,>3.1; extra == "extra"
 Requires-Dist: omegaconf<3.0,>=2.2.3; extra == "extra"
 Requires-Dist: rich<15.0,>=12.3.0; extra == "extra"
 Requires-Dist: tensorboardX<3.0,>=2.2; extra == "extra"
+Provides-Extra: strategies
+Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "strategies"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "strategies"
+Provides-Extra: test
+Requires-Dist: click==8.1.8; extra == "test"
+Requires-Dist: cloudpickle<4.0,>=1.3; extra == "test"
+Requires-Dist: coverage==7.10.3; extra == "test"
+Requires-Dist: fastapi; extra == "test"
+Requires-Dist: numpy<2.0,>=1.17.2; extra == "test"
+Requires-Dist: onnx<2.0,>=1.12.0; extra == "test"
+Requires-Dist: onnxruntime<2.0,>=1.12.0; extra == "test"
+Requires-Dist: onnxscript<1.0,>=0.2.2; extra == "test"
+Requires-Dist: pandas<3.0,>2.0; extra == "test"
+Requires-Dist: psutil<8.0; extra == "test"
+Requires-Dist: pytest-cov==6.2.1; extra == "test"
+Requires-Dist: pytest-random-order==1.2.0; extra == "test"
+Requires-Dist: pytest-rerunfailures==15.1; extra == "test"
+Requires-Dist: pytest-timeout==2.4.0; extra == "test"
+Requires-Dist: pytest==8.4.1; extra == "test"
+Requires-Dist: scikit-learn<2.0,>0.22.1; extra == "test"
+Requires-Dist: tensorboard<3.0,>=2.9.1; extra == "test"
+Requires-Dist: tensorboardX<3.0,>=2.2; extra == "test"
+Requires-Dist: uvicorn; extra == "test"
 Provides-Extra: examples
 Requires-Dist: ipython[all]<9.0; extra == "examples"
-Requires-Dist: lightning-utilities<1.0,>=0.8.0; extra == "examples"
 Requires-Dist: requests<3.0; extra == "examples"
 Requires-Dist: torchmetrics<2.0,>=0.10.0; extra == "examples"
 Requires-Dist: torchvision<1.0,>=0.16.0; extra == "examples"
@@ -191,11 +187,10 @@ Provides-Extra: data
 Requires-Dist: litdata<1.0,>=0.2.0rc; extra == "data"
 Provides-Extra: all
 Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "all"
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "all"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "all"
 Requires-Dist: hydra-core<2.0,>=1.2.0; extra == "all"
 Requires-Dist: ipython[all]<9.0; extra == "all"
 Requires-Dist: jsonargparse[jsonnet,signatures]<5.0,>=4.39.0; extra == "all"
-Requires-Dist: lightning-utilities<1.0,>=0.8.0; extra == "all"
 Requires-Dist: matplotlib<4.0,>3.1; extra == "all"
 Requires-Dist: omegaconf<3.0,>=2.2.3; extra == "all"
 Requires-Dist: requests<3.0; extra == "all"
@@ -207,25 +202,25 @@ Provides-Extra: dev
 Requires-Dist: bitsandbytes<1.0,>=0.45.2; platform_system != "Darwin" and extra == "dev"
 Requires-Dist: click==8.1.8; extra == "dev"
 Requires-Dist: cloudpickle<4.0,>=1.3; extra == "dev"
-Requires-Dist: coverage==7.9.1; extra == "dev"
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "dev"
+Requires-Dist: coverage==7.10.3; extra == "dev"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: hydra-core<2.0,>=1.2.0; extra == "dev"
 Requires-Dist: ipython[all]<9.0; extra == "dev"
 Requires-Dist: jsonargparse[jsonnet,signatures]<5.0,>=4.39.0; extra == "dev"
-Requires-Dist: lightning-utilities<1.0,>=0.8.0; extra == "dev"
 Requires-Dist: matplotlib<4.0,>3.1; extra == "dev"
 Requires-Dist: numpy<2.0,>=1.17.2; extra == "dev"
 Requires-Dist: omegaconf<3.0,>=2.2.3; extra == "dev"
 Requires-Dist: onnx<2.0,>=1.12.0; extra == "dev"
 Requires-Dist: onnxruntime<2.0,>=1.12.0; extra == "dev"
+Requires-Dist: onnxscript<1.0,>=0.2.2; extra == "dev"
 Requires-Dist: pandas<3.0,>2.0; extra == "dev"
 Requires-Dist: psutil<8.0; extra == "dev"
 Requires-Dist: pytest-cov==6.2.1; extra == "dev"
-Requires-Dist: pytest-random-order==1.1.1; extra == "dev"
+Requires-Dist: pytest-random-order==1.2.0; extra == "dev"
 Requires-Dist: pytest-rerunfailures==15.1; extra == "dev"
 Requires-Dist: pytest-timeout==2.4.0; extra == "dev"
-Requires-Dist: pytest==8.4.0; extra == "dev"
+Requires-Dist: pytest==8.4.1; extra == "dev"
 Requires-Dist: requests<3.0; extra == "dev"
 Requires-Dist: rich<15.0,>=12.3.0; extra == "dev"
 Requires-Dist: scikit-learn<2.0,>0.22.1; extra == "dev"
@@ -270,7 +265,7 @@ ______________________________________________________________________
   <a href="#lightning-fabric-expert-control">Fabric</a> •
   <a href="https://lightning.ai/">Lightning AI</a> •   
   <a href="#community">Community</a> •
-  <a href="https://pytorch-lightning.readthedocs.io/en/2.5.2">Docs</a>
+  <a href="https://pytorch-lightning.readthedocs.io/en/2.5.3">Docs</a>
 </p>
 
 <!-- DO NOT ADD CONDA DOWNLOADS... README CHANGES MUST BE APPROVED BY EDEN OR WILL -->
@@ -306,6 +301,12 @@ ______________________________________________________________________
 </div>
 
 &nbsp;
+
+# Why PyTorch Lightning?   
+
+Training models in plain PyTorch is tedious and error-prone - you have to manually handle things like backprop, mixed precision, multi-GPU, and distributed training, often rewriting code for every new project. PyTorch Lightning organizes PyTorch code to automate those complexities so you can focus on your model and data, while keeping full control and scaling from CPU to multi-node without changing your core code. But if you want control of those things, you can still opt into more DIY.   
+
+Fun analogy: If PyTorch is Javascript, PyTorch Lightning is ReactJS or NextJS.
 
 # Lightning has 2 core packages
 
@@ -795,7 +796,7 @@ Lightning is rigorously tested across multiple CPUs, GPUs and TPUs and against m
 
 |       System / PyTorch ver.        | 1.13                                                                                                                                                                                                                            | 2.0                                                                                                                                                                                                                             |                                                                                                               2.1                                                                                                               |
 | :--------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-|        Linux py3.9 \[GPUs\]        |  |  | [![Build Status](https://dev.azure.com/Lightning-AI/lightning/_apis/build/status%2Fpytorch-lightning%20%28GPUs%29?branchName=refs%2Ftags%2F2.5.2)](https://dev.azure.com/Lightning-AI/lightning/_build/latest?definitionId=24&branchName=master) |
+|        Linux py3.9 \[GPUs\]        |  |  | [![Build Status](https://dev.azure.com/Lightning-AI/lightning/_apis/build/status%2Fpytorch-lightning%20%28GPUs%29?branchName=refs%2Ftags%2F2.5.3)](https://dev.azure.com/Lightning-AI/lightning/_build/latest?definitionId=24&branchName=master) |
 |  Linux (multiple Python versions)  | [![Test PyTorch](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml/badge.svg)](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml)                                 | [![Test PyTorch](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml/badge.svg)](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml)                                 |                 [![Test PyTorch](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml/badge.svg)](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml)                 |
 |   OSX (multiple Python versions)   | [![Test PyTorch](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml/badge.svg)](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml)                                 | [![Test PyTorch](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml/badge.svg)](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml)                                 |                 [![Test PyTorch](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml/badge.svg)](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml)                 |
 | Windows (multiple Python versions) | [![Test PyTorch](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml/badge.svg)](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml)                                 | [![Test PyTorch](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml/badge.svg)](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml)                                 |                 [![Test PyTorch](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml/badge.svg)](https://github.com/Lightning-AI/lightning/actions/workflows/ci-tests-pytorch.yml)                 |

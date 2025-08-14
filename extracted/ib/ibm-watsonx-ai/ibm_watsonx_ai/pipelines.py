@@ -4,10 +4,10 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any, Literal
 
 from ibm_watsonx_ai._wrappers import requests
-
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import PipelineMetanames
 from ibm_watsonx_ai.utils import PIPELINE_DETAILS_TYPE
@@ -16,8 +16,9 @@ from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Pipelines(WMLResource):
@@ -199,7 +200,7 @@ class Pipelines(WMLResource):
                     params = n["parameters"]["optimization"]
                     params.update(kwargs)
                     n["parameters"]["optimization"] = params
-        except:
+        except Exception:
             pass
 
         creation_response = requests.post(

@@ -29,6 +29,7 @@ class RepositoryCreationTemplateArgs:
                  description: Optional[pulumi.Input[builtins.str]] = None,
                  encryption_configuration: Optional[pulumi.Input['RepositoryCreationTemplateEncryptionConfigurationArgs']] = None,
                  image_tag_mutability: Optional[pulumi.Input['RepositoryCreationTemplateImageTagMutability']] = None,
+                 image_tag_mutability_exclusion_filters: Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgs']]]] = None,
                  lifecycle_policy: Optional[pulumi.Input[builtins.str]] = None,
                  repository_policy: Optional[pulumi.Input[builtins.str]] = None,
                  resource_tags: Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryCreationTemplateTagArgs']]]] = None):
@@ -39,7 +40,8 @@ class RepositoryCreationTemplateArgs:
         :param pulumi.Input[builtins.str] custom_role_arn: The ARN of the role to be assumed by Amazon ECR. Amazon ECR will assume your supplied role when the customRoleArn is specified. When this field isn't specified, Amazon ECR will use the service-linked role for the repository creation template.
         :param pulumi.Input[builtins.str] description: The description associated with the repository creation template.
         :param pulumi.Input['RepositoryCreationTemplateEncryptionConfigurationArgs'] encryption_configuration: The encryption configuration associated with the repository creation template.
-        :param pulumi.Input['RepositoryCreationTemplateImageTagMutability'] image_tag_mutability: The tag mutability setting for the repository. If this parameter is omitted, the default setting of MUTABLE will be used which will allow image tags to be overwritten. If IMMUTABLE is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        :param pulumi.Input['RepositoryCreationTemplateImageTagMutability'] image_tag_mutability: The tag mutability setting for the repository. If this parameter is omitted, the default setting of ``MUTABLE`` will be used which will allow image tags to be overwritten. If ``IMMUTABLE`` is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        :param pulumi.Input[Sequence[pulumi.Input['RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgs']]] image_tag_mutability_exclusion_filters: Defines the image tag mutability exclusion filters to apply when creating repositories from this template. These filters specify which image tags can override the repository's default image tag mutability setting.
         :param pulumi.Input[builtins.str] lifecycle_policy: The lifecycle policy to use for repositories created using the template.
         :param pulumi.Input[builtins.str] repository_policy: The repository policy to apply to repositories created using the template. A repository policy is a permissions policy associated with a repository to control access permissions.
         :param pulumi.Input[Sequence[pulumi.Input['RepositoryCreationTemplateTagArgs']]] resource_tags: The metadata to apply to the repository to help you categorize and organize. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
@@ -54,6 +56,8 @@ class RepositoryCreationTemplateArgs:
             pulumi.set(__self__, "encryption_configuration", encryption_configuration)
         if image_tag_mutability is not None:
             pulumi.set(__self__, "image_tag_mutability", image_tag_mutability)
+        if image_tag_mutability_exclusion_filters is not None:
+            pulumi.set(__self__, "image_tag_mutability_exclusion_filters", image_tag_mutability_exclusion_filters)
         if lifecycle_policy is not None:
             pulumi.set(__self__, "lifecycle_policy", lifecycle_policy)
         if repository_policy is not None:
@@ -125,13 +129,25 @@ class RepositoryCreationTemplateArgs:
     @pulumi.getter(name="imageTagMutability")
     def image_tag_mutability(self) -> Optional[pulumi.Input['RepositoryCreationTemplateImageTagMutability']]:
         """
-        The tag mutability setting for the repository. If this parameter is omitted, the default setting of MUTABLE will be used which will allow image tags to be overwritten. If IMMUTABLE is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        The tag mutability setting for the repository. If this parameter is omitted, the default setting of ``MUTABLE`` will be used which will allow image tags to be overwritten. If ``IMMUTABLE`` is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
         """
         return pulumi.get(self, "image_tag_mutability")
 
     @image_tag_mutability.setter
     def image_tag_mutability(self, value: Optional[pulumi.Input['RepositoryCreationTemplateImageTagMutability']]):
         pulumi.set(self, "image_tag_mutability", value)
+
+    @property
+    @pulumi.getter(name="imageTagMutabilityExclusionFilters")
+    def image_tag_mutability_exclusion_filters(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgs']]]]:
+        """
+        Defines the image tag mutability exclusion filters to apply when creating repositories from this template. These filters specify which image tags can override the repository's default image tag mutability setting.
+        """
+        return pulumi.get(self, "image_tag_mutability_exclusion_filters")
+
+    @image_tag_mutability_exclusion_filters.setter
+    def image_tag_mutability_exclusion_filters(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgs']]]]):
+        pulumi.set(self, "image_tag_mutability_exclusion_filters", value)
 
     @property
     @pulumi.getter(name="lifecyclePolicy")
@@ -181,6 +197,7 @@ class RepositoryCreationTemplate(pulumi.CustomResource):
                  description: Optional[pulumi.Input[builtins.str]] = None,
                  encryption_configuration: Optional[pulumi.Input[Union['RepositoryCreationTemplateEncryptionConfigurationArgs', 'RepositoryCreationTemplateEncryptionConfigurationArgsDict']]] = None,
                  image_tag_mutability: Optional[pulumi.Input['RepositoryCreationTemplateImageTagMutability']] = None,
+                 image_tag_mutability_exclusion_filters: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgs', 'RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgsDict']]]]] = None,
                  lifecycle_policy: Optional[pulumi.Input[builtins.str]] = None,
                  prefix: Optional[pulumi.Input[builtins.str]] = None,
                  repository_policy: Optional[pulumi.Input[builtins.str]] = None,
@@ -195,7 +212,8 @@ class RepositoryCreationTemplate(pulumi.CustomResource):
         :param pulumi.Input[builtins.str] custom_role_arn: The ARN of the role to be assumed by Amazon ECR. Amazon ECR will assume your supplied role when the customRoleArn is specified. When this field isn't specified, Amazon ECR will use the service-linked role for the repository creation template.
         :param pulumi.Input[builtins.str] description: The description associated with the repository creation template.
         :param pulumi.Input[Union['RepositoryCreationTemplateEncryptionConfigurationArgs', 'RepositoryCreationTemplateEncryptionConfigurationArgsDict']] encryption_configuration: The encryption configuration associated with the repository creation template.
-        :param pulumi.Input['RepositoryCreationTemplateImageTagMutability'] image_tag_mutability: The tag mutability setting for the repository. If this parameter is omitted, the default setting of MUTABLE will be used which will allow image tags to be overwritten. If IMMUTABLE is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        :param pulumi.Input['RepositoryCreationTemplateImageTagMutability'] image_tag_mutability: The tag mutability setting for the repository. If this parameter is omitted, the default setting of ``MUTABLE`` will be used which will allow image tags to be overwritten. If ``IMMUTABLE`` is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgs', 'RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgsDict']]]] image_tag_mutability_exclusion_filters: Defines the image tag mutability exclusion filters to apply when creating repositories from this template. These filters specify which image tags can override the repository's default image tag mutability setting.
         :param pulumi.Input[builtins.str] lifecycle_policy: The lifecycle policy to use for repositories created using the template.
         :param pulumi.Input[builtins.str] prefix: The repository namespace prefix associated with the repository creation template.
         :param pulumi.Input[builtins.str] repository_policy: The repository policy to apply to repositories created using the template. A repository policy is a permissions policy associated with a repository to control access permissions.
@@ -230,6 +248,7 @@ class RepositoryCreationTemplate(pulumi.CustomResource):
                  description: Optional[pulumi.Input[builtins.str]] = None,
                  encryption_configuration: Optional[pulumi.Input[Union['RepositoryCreationTemplateEncryptionConfigurationArgs', 'RepositoryCreationTemplateEncryptionConfigurationArgsDict']]] = None,
                  image_tag_mutability: Optional[pulumi.Input['RepositoryCreationTemplateImageTagMutability']] = None,
+                 image_tag_mutability_exclusion_filters: Optional[pulumi.Input[Sequence[pulumi.Input[Union['RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgs', 'RepositoryCreationTemplateImageTagMutabilityExclusionFilterArgsDict']]]]] = None,
                  lifecycle_policy: Optional[pulumi.Input[builtins.str]] = None,
                  prefix: Optional[pulumi.Input[builtins.str]] = None,
                  repository_policy: Optional[pulumi.Input[builtins.str]] = None,
@@ -250,6 +269,7 @@ class RepositoryCreationTemplate(pulumi.CustomResource):
             __props__.__dict__["description"] = description
             __props__.__dict__["encryption_configuration"] = encryption_configuration
             __props__.__dict__["image_tag_mutability"] = image_tag_mutability
+            __props__.__dict__["image_tag_mutability_exclusion_filters"] = image_tag_mutability_exclusion_filters
             __props__.__dict__["lifecycle_policy"] = lifecycle_policy
             if prefix is None and not opts.urn:
                 raise TypeError("Missing required property 'prefix'")
@@ -288,6 +308,7 @@ class RepositoryCreationTemplate(pulumi.CustomResource):
         __props__.__dict__["description"] = None
         __props__.__dict__["encryption_configuration"] = None
         __props__.__dict__["image_tag_mutability"] = None
+        __props__.__dict__["image_tag_mutability_exclusion_filters"] = None
         __props__.__dict__["lifecycle_policy"] = None
         __props__.__dict__["prefix"] = None
         __props__.__dict__["repository_policy"] = None
@@ -339,9 +360,17 @@ class RepositoryCreationTemplate(pulumi.CustomResource):
     @pulumi.getter(name="imageTagMutability")
     def image_tag_mutability(self) -> pulumi.Output[Optional['RepositoryCreationTemplateImageTagMutability']]:
         """
-        The tag mutability setting for the repository. If this parameter is omitted, the default setting of MUTABLE will be used which will allow image tags to be overwritten. If IMMUTABLE is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        The tag mutability setting for the repository. If this parameter is omitted, the default setting of ``MUTABLE`` will be used which will allow image tags to be overwritten. If ``IMMUTABLE`` is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
         """
         return pulumi.get(self, "image_tag_mutability")
+
+    @property
+    @pulumi.getter(name="imageTagMutabilityExclusionFilters")
+    def image_tag_mutability_exclusion_filters(self) -> pulumi.Output[Optional[Sequence['outputs.RepositoryCreationTemplateImageTagMutabilityExclusionFilter']]]:
+        """
+        Defines the image tag mutability exclusion filters to apply when creating repositories from this template. These filters specify which image tags can override the repository's default image tag mutability setting.
+        """
+        return pulumi.get(self, "image_tag_mutability_exclusion_filters")
 
     @property
     @pulumi.getter(name="lifecyclePolicy")

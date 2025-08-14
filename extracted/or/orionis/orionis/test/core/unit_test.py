@@ -11,7 +11,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from orionis.app import Orionis
-from orionis.container.resolver.resolver import Resolver
 from orionis.foundation.config.testing.enums.drivers import PersistentDrivers
 from orionis.foundation.config.testing.enums.mode import ExecutionMode
 from orionis.foundation.config.testing.enums.verbosity import VerbosityMode
@@ -620,6 +619,114 @@ class UnitTest(IUnitTest):
         # Return the result, output, and error buffers
         return result, output_buffer, error_buffer
 
+    def __isFailedImport(
+        self,
+        test_case: unittest.TestCase
+    ) -> bool:
+        """
+        Check if the given test case is a failed import.
+
+        Parameters
+        ----------
+        test_case : unittest.TestCase
+            The test case to check.
+
+        Returns
+        -------
+        bool
+            True if the test case is a failed import, False otherwise.
+        """
+
+        return test_case.__class__.__name__ == "_FailedTest"
+
+    def __notFoundTestMethod(
+        self,
+        test_case: unittest.TestCase
+    ) -> bool:
+        """
+        Check if the test case does not have a valid test method.
+
+        Parameters
+        ----------
+        test_case : unittest.TestCase
+            The test case to check.
+
+        Returns
+        -------
+        bool
+            True if the test case does not have a valid test method, False otherwise.
+        """
+
+        # Use reflection to get the test method name
+        rf_instance = ReflectionInstance(test_case)
+        method_name = rf_instance.getAttribute("_testMethodName")
+
+        # If no method name is found, return True indicating no valid test method
+        return not method_name or not hasattr(test_case.__class__, method_name)
+
+    def __isDecoratedMethod(
+        self,
+        test_case: unittest.TestCase
+    ) -> bool:
+        """
+        Determine if the test case's test method is decorated (wrapped by decorators).
+
+        This method examines the test method of a given test case to determine if it has been
+        decorated with one or more Python decorators. It traverses the decorator chain by
+        following the `__wrapped__` attribute to identify the presence of any decorators.
+        Decorated methods typically have a `__wrapped__` attribute that points to the
+        original unwrapped function.
+
+        Parameters
+        ----------
+        test_case : unittest.TestCase
+            The test case instance whose test method will be examined for decorators.
+
+        Returns
+        -------
+        bool
+            True if the test method has one or more decorators applied to it, False if
+            the test method is not decorated or if no test method is found.
+
+        Notes
+        -----
+        This method checks for decorators by examining the `__wrapped__` attribute chain.
+        The method collects decorator names from `__qualname__` or `__name__` attributes
+        as it traverses the wrapper chain. If any decorators are found in the chain,
+        the method returns True.
+        """
+
+        # Retrieve the test method from the test case's class using the test method name
+        test_method = getattr(test_case.__class__, getattr(test_case, "_testMethodName"), None)
+
+        # Initialize a list to store decorator information found during traversal
+        decorators = []
+
+        # Check if the method has the __wrapped__ attribute, indicating it's decorated
+        if hasattr(test_method, '__wrapped__'):
+            # Start with the outermost decorated method
+            original = test_method
+
+            # Traverse the decorator chain by following __wrapped__ attributes
+            while hasattr(original, '__wrapped__'):
+                # Collect decorator name information for tracking purposes
+                if hasattr(original, '__qualname__'):
+                    # Prefer __qualname__ as it provides more detailed naming information
+                    decorators.append(original.__qualname__)
+                elif hasattr(original, '__name__'):
+                    # Fall back to __name__ if __qualname__ is not available
+                    decorators.append(original.__name__)
+
+                # Move to the next level in the decorator chain
+                original = original.__wrapped__
+
+        # Return True if any decorators were found during the traversal
+        if decorators:
+            return True
+
+        # Return False if no decorators are found or if the method is not decorated
+        return False
+
     def __resolveFlattenedTestSuite(
         self
     ) -> unittest.TestSuite:
@@ -649,71 +756,66 @@ class UnitTest(IUnitTest):
         for test_case in self.__flattenTestSuite(self.__suite):
 
             # If the test case is a failed import, add it directly
-            if test_case.__class__.__name__ == "_FailedTest":
+            if self.__isFailedImport(test_case):
                 flattened_suite.addTest(test_case)
                 continue
-
-            # Use reflection to get the test method name
-            rf_instance = ReflectionInstance(test_case)
-            method_name = rf_instance.getAttribute("_testMethodName")
 
             # If no method name is found, add the test case as-is
-            if not method_name:
+            if self.__notFoundTestMethod(test_case):
                 flattened_suite.addTest(test_case)
                 continue
-
-            # Retrieve the test method from the class
-            test_method = getattr(test_case.__class__, method_name, None)
-
-            # Check if the method is decorated (wrapped)
-            decorators = []
-            if hasattr(test_method, '__wrapped__'):
-                original = test_method
-                while hasattr(original, '__wrapped__'):
-                    if hasattr(original, '__qualname__'):
-                        decorators.append(original.__qualname__)
-                    elif hasattr(original, '__name__'):
-                        decorators.append(original.__name__)
-                    original = original.__wrapped__
 
             # If decorators are present, add the test case as-is
-            if decorators:
+            if self.__isDecoratedMethod(test_case):
                 flattened_suite.addTest(test_case)
                 continue
 
-            # Get the method's dependency signature
-            signature = rf_instance.getMethodDependencies(method_name)
+            try:
 
-            # If no dependencies are required or unresolved, add the test case as-is
-            if ((not signature.resolved and not signature.unresolved) or (not signature.resolved and len(signature.unresolved) > 0)):
-                flattened_suite.addTest(test_case)
-                continue
-
-            # If there are unresolved dependencies, raise an error
-            if (len(signature.unresolved) > 0):
-                raise OrionisTestValueError(
-                    f"Test method '{method_name}' in class '{test_case.__class__.__name__}' has unresolved dependencies: {signature.unresolved}. "
-                    "Please ensure all dependencies are correctly defined and available."
+                # Get the method's dependency signature
+                rf_instance = ReflectionInstance(test_case)
+                dependencies = rf_instance.getMethodDependencies(
+                    method_name=getattr(test_case, "_testMethodName")
                 )
 
-            # Get the original test class and method
-            test_class = ReflectionInstance(test_case).getClass()
-            original_method = getattr(test_class, method_name)
+                # If no dependencies are required or unresolved, add the test case as-is
+                if ((not dependencies.resolved and not dependencies.unresolved) or (not dependencies.resolved and len(dependencies.unresolved) > 0)):
+                    flattened_suite.addTest(test_case)
+                    continue
 
-            # Resolve dependencies using the application's resolver
-            params = Resolver(self.__app).resolveSignature(signature)
+                # If there are unresolved dependencies, raise an error
+                if (len(dependencies.unresolved) > 0):
+                    raise OrionisTestValueError(
+                        f"Test method '{getattr(test_case, "_testMethodName")}' in class '{test_case.__class__.__name__}' has unresolved dependencies: {dependencies.unresolved}. "
+                        "Please ensure all dependencies are correctly defined and available."
+                    )
 
-            # Create a wrapper to inject resolved dependencies into the test method
-            def create_test_wrapper(original_test, resolved_args: dict):
-                def wrapper(self_instance):
-                    return original_test(self_instance, **resolved_args)
-                return wrapper
+                # Get the original test class and method
+                test_class = rf_instance.getClass()
+                original_method = getattr(test_class, getattr(test_case, "_testMethodName"))
 
-            # Bind the wrapped method to the test case instance
-            wrapped_method = create_test_wrapper(original_method, params)
-            bound_method = wrapped_method.__get__(test_case, test_case.__class__)
-            setattr(test_case, method_name, bound_method)
-            flattened_suite.addTest(test_case)
+                # Resolve the dependencies using the application's resolver
+                params = self.__app.resolveDependencyArguments(
+                    rf_instance.getClassName(),
+                    dependencies
+                )
+
+                # Create a wrapper to inject resolved dependencies into the test method
+                def create_test_wrapper(original_test, resolved_args: dict):
+                    def wrapper(self_instance):
+                        return original_test(self_instance, **resolved_args)
+                    return wrapper
+
+                # Bind the wrapped method to the test case instance
+                wrapped_method = create_test_wrapper(original_method, params)
+                bound_method = wrapped_method.__get__(test_case, test_case.__class__)
+                setattr(test_case, getattr(test_case, "_testMethodName"), bound_method)
+                flattened_suite.addTest(test_case)
+
+            except Exception as e:
+
+                # If dependency resolution fails, add the original test case
+                flattened_suite.addTest(test_case)
 
         return flattened_suite
 

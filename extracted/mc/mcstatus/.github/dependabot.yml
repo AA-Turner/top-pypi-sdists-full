@@ -10,11 +10,12 @@ updates:
     schedule:
       interval: "daily"
     labels:
-      - "area: dependencies"
+      - "a: dependencies"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
     labels:
-      - "area: dependencies"
+      - "a: dependencies"
+      - "a: devops"

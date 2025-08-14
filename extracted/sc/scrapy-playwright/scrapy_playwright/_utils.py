@@ -10,6 +10,7 @@ from scrapy.http.headers import Headers
 from scrapy.settings import Settings
 from scrapy.utils.python import to_unicode
 from twisted.internet.defer import Deferred
+from twisted.python import failure
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 
 
@@ -115,24 +116,28 @@ class _ThreadedLoopAdapter:
     _stop_events: Dict[int, asyncio.Event] = {}
 
     @classmethod
-    async def _handle_coro(cls, coro, future) -> None:
+    async def _handle_coro(cls, coro: Awaitable, dfd: Deferred) -> None:
+        from twisted.internet import reactor
+
         try:
-            future.set_result(await coro)
+            result = await coro
         except Exception as exc:
-            future.set_exception(exc)
+            reactor.callFromThread(dfd.errback, failure.Failure(exc))
+        else:
+            reactor.callFromThread(dfd.callback, result)
 
     @classmethod
     async def _process_queue(cls) -> None:
         while any(not ev.is_set() for ev in cls._stop_events.values()):
-            coro, future = await cls._coro_queue.get()
-            asyncio.create_task(cls._handle_coro(coro, future))
+            coro, dfd = await cls._coro_queue.get()
+            asyncio.create_task(cls._handle_coro(coro, dfd))
             cls._coro_queue.task_done()
 
     @classmethod
     def _deferred_from_coro(cls, coro) -> Deferred:
-        future: asyncio.Future = asyncio.Future()
-        asyncio.run_coroutine_threadsafe(cls._coro_queue.put((coro, future)), cls._loop)
-        return scrapy.utils.defer.deferred_from_coro(future)
+        dfd: Deferred = Deferred()
+        asyncio.run_coroutine_threadsafe(cls._coro_queue.put((coro, dfd)), cls._loop)
+        return dfd
 
     @classmethod
     def start(cls, caller_id: int) -> None:
@@ -142,7 +147,6 @@ class _ThreadedLoopAdapter:
             if platform.system() == "Windows":
                 policy = asyncio.WindowsProactorEventLoopPolicy()  # type: ignore[attr-defined]
             cls._loop = policy.new_event_loop()
-            asyncio.set_event_loop(cls._loop)
 
         if not getattr(cls, "_thread", None):
             cls._thread = threading.Thread(target=cls._loop.run_forever, daemon=True)

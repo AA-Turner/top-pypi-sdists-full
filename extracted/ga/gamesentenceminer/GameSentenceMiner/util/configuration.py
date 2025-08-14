@@ -17,7 +17,6 @@ from dataclasses_json import dataclass_json
 
 from importlib import metadata
 
-import requests
 
 
 OFF = 'OFF'
@@ -361,6 +360,7 @@ def get_current_version():
 
 def get_latest_version():
     try:
+        import requests
         response = requests.get(f"https://pypi.org/pypi/{PACKAGE_NAME}/json")
         latest_version = response.json()["info"]["version"]
         return latest_version
@@ -502,7 +502,7 @@ class Audio:
     beginning_offset: float = -0.5
     end_offset: float = 0.5
     pre_vad_end_offset: float = 0.0
-    ffmpeg_reencode_options: str = '-c:a libopus -f opus -af \"afade=t=in:d=0.10\"' if is_windows() else ''
+    ffmpeg_reencode_options: str = '-c:a {encoder} -f {format} -af \"afade=t=in:d=0.10\"' if is_windows() else ''
     ffmpeg_reencode_options_to_use: str = ''
     external_tool: str = ""
     anki_media_collection: str = ""
@@ -531,6 +531,7 @@ class OBS:
     password: str = "your_password"
     get_game_from_scene: bool = True
     minimum_replay_size: int = 0
+    turn_off_output_check: bool = False
 
 
 @dataclass_json

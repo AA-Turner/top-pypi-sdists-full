@@ -6,11 +6,11 @@ from copy import copy
 from warnings import warn
 
 from ibm_watsonx_ai import APIClient
-from ibm_watsonx_ai.wml_client_error import MissingArgument
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_client_error import MissingArgument, WMLClientError
+
 from ..credentials import Credentials
 from ..utils.autoai.enums import TShirtSize
-from ..utils.autoai.errors import TShirtSizeNotSupported, SetIDFailed
+from ..utils.autoai.errors import SetIDFailed, TShirtSizeNotSupported
 from ..utils.autoai.utils import is_ipython
 
 
@@ -78,8 +78,8 @@ class WorkSpace:
 
             else:
                 raise SetIDFailed(
-                    f"project_id and space_id",
-                    reason=f"project_id and space_id cannot be None at the same time.",
+                    "project_id and space_id",
+                    reason="project_id and space_id cannot be None at the same time.",
                 )
 
         elif credentials.instance_id and credentials.instance_id.lower() in (
@@ -101,8 +101,8 @@ class WorkSpace:
 
                 if outcome == "FAILURE":
                     raise SetIDFailed(
-                        f'{"project_id" if self.project_id is not None else "space_id"}',
-                        reason=f'This {"project_id" if self.project_id is not None else "space_id"}: '
+                        f"{'project_id' if self.project_id is not None else 'space_id'}",
+                        reason=f"This {'project_id' if self.project_id is not None else 'space_id'}: "
                         f"{self.project_id if self.project_id is not None else self.space_id} "
                         f"cannot be found in current environment.",
                     )
@@ -165,10 +165,8 @@ class WorkSpace:
 
         default_cloud = TShirtSize.L
         default_cp4d = TShirtSize.M
-        default_server = TShirtSize.M
 
         supported_cp4d = (TShirtSize.S, TShirtSize.M, TShirtSize.L, TShirtSize.XL)
-        supported_server = (TShirtSize.S, TShirtSize.M, TShirtSize.L)
 
         # note: check CP4D and Server pod sizes
         if self.api_client.ICP_PLATFORM_SPACES:

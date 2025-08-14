@@ -5,26 +5,29 @@
 
 
 from __future__ import annotations
-import os
-from typing import TypeAlias, TYPE_CHECKING, Any
-from concurrent.futures import ThreadPoolExecutor
-from functools import reduce, partial
-from enum import Enum
-from warnings import warn
-import requests as _requests
-import httpx
 
-from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    InvalidMultipleArguments,
-    ParamOutOfRange,
-)
-from .base_embeddings import BaseEmbeddings
-from ibm_watsonx_ai.wml_resource import WMLResource
+import os
+from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
+from functools import partial, reduce
+from typing import TYPE_CHECKING, Any, TypeAlias
+from warnings import warn
+
+import httpx
+import requests as _requests
+
+import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai._wrappers.requests import (
     _get_httpx_client,
 )
-import ibm_watsonx_ai._wrappers.requests as requests
+from ibm_watsonx_ai.wml_client_error import (
+    InvalidMultipleArguments,
+    ParamOutOfRange,
+    WMLClientError,
+)
+from ibm_watsonx_ai.wml_resource import WMLResource
+
+from .base_embeddings import BaseEmbeddings
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient, Credentials

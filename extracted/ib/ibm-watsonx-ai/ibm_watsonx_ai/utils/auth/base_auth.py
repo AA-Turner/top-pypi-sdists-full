@@ -4,14 +4,13 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
+import base64
+import json
 import threading
 from abc import ABC
 from dataclasses import dataclass
-from datetime import timedelta, datetime
-from typing import TYPE_CHECKING, Callable, Any
-
-import json
-import base64
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any, Callable
 
 from ibm_watsonx_ai.utils.autoai.errors import TokenRemovedDuringClientCopy
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -182,18 +181,20 @@ class RefreshableTokenAuth(BaseAuth, ABC):
 
 
 class TokenAuth(BaseAuth):
-    """Basic authetication method, the object is keeping existing token and return it when asked.
+    """Basic authentication method, the object is keeping existing token and return it when asked.
     Token cannot be refreshed.
-
-    :param on_token_set: callback which allows to notify about token set
-    :type on_token_set: function which takes no params and returns nothing
 
     :param token: token to be used with service
     :type token: str
+
+    :param on_token_set: callback which allows to notify about token set
+    :type on_token_set: function which takes no params and returns nothing, optional
     """
 
     def __init__(
-        self, token: str, on_token_set: Callable[[], None] | None = None
+        self,
+        token: str,
+        on_token_set: Callable[[], None] | None = None,
     ) -> None:
         BaseAuth.__init__(self)
         WMLResource._validate_type(token, "token", str, mandatory=True)
@@ -242,7 +243,7 @@ def get_auth_method(
     """
     Return authentication method using values from API client.
 
-    :param api_client: initialized APIClient object with set project or space ID
+    :param api_client: APIClient object
     :type api_client: APIClient
 
     :param on_token_set: callback which allows to notify about token set
@@ -263,7 +264,10 @@ def get_auth_method(
         # situation one of these:
         # - there is token passed by user (and may be password or apikey)
         # - there is token from env and no additional password or api_key in the credentials
-        return TokenAuth(creds.token, on_token_set=on_token_set)
+        return TokenAuth(
+            token=creds.token,
+            on_token_set=on_token_set,
+        )
     elif getattr(creds, "token_function", False):  # token function passed
         from ibm_watsonx_ai.utils.auth.jwt_token_function_auth import (
             JWTTokenFunctionAuth,
@@ -282,7 +286,7 @@ def get_auth_method(
             on_token_creation=on_token_creation,
             on_token_refresh=on_token_refresh,
         )
-    elif "aws" in api_client.credentials.url:  # Cloud AWS
+    elif "aws" in api_client.credentials.url or "ibmforusgov" in api_client.credentials.url:  # Cloud AWS or GovCloud
         from ibm_watsonx_ai.utils.auth.aws_auth import AWSTokenAuth
 
         return AWSTokenAuth(

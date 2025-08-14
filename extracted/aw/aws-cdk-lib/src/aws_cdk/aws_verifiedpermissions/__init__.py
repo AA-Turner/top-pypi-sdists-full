@@ -1929,6 +1929,7 @@ class CfnPolicyStore(
             ),
             description="description",
             schema=verifiedpermissions.CfnPolicyStore.SchemaDefinitionProperty(
+                cedar_format="cedarFormat",
                 cedar_json="cedarJson"
             ),
             tags=[CfnTag(
@@ -2173,14 +2174,20 @@ class CfnPolicyStore(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicyStore.SchemaDefinitionProperty",
         jsii_struct_bases=[],
-        name_mapping={"cedar_json": "cedarJson"},
+        name_mapping={"cedar_format": "cedarFormat", "cedar_json": "cedarJson"},
     )
     class SchemaDefinitionProperty:
-        def __init__(self, *, cedar_json: typing.Optional[builtins.str] = None) -> None:
+        def __init__(
+            self,
+            *,
+            cedar_format: typing.Optional[builtins.str] = None,
+            cedar_json: typing.Optional[builtins.str] = None,
+        ) -> None:
             '''Contains a list of principal types, resource types, and actions that can be specified in policies stored in the same policy store.
 
             If the validation mode for the policy store is set to ``STRICT`` , then policies that can't be validated by this schema are rejected by Verified Permissions and can't be stored in the policy store.
 
+            :param cedar_format: 
             :param cedar_json: A JSON string representation of the schema supported by applications that use this policy store. For more information, see `Policy store schema <https://docs.aws.amazon.com/verifiedpermissions/latest/userguide/schema.html>`_ in the AVP User Guide.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-schemadefinition.html
@@ -2193,15 +2200,27 @@ class CfnPolicyStore(
                 from aws_cdk import aws_verifiedpermissions as verifiedpermissions
                 
                 schema_definition_property = verifiedpermissions.CfnPolicyStore.SchemaDefinitionProperty(
+                    cedar_format="cedarFormat",
                     cedar_json="cedarJson"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__40c95b318ee977eff43d9078495fc0215bd302506cf821187fe6998b1a04ee9f)
+                check_type(argname="argument cedar_format", value=cedar_format, expected_type=type_hints["cedar_format"])
                 check_type(argname="argument cedar_json", value=cedar_json, expected_type=type_hints["cedar_json"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cedar_format is not None:
+                self._values["cedar_format"] = cedar_format
             if cedar_json is not None:
                 self._values["cedar_json"] = cedar_json
+
+        @builtins.property
+        def cedar_format(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-schemadefinition.html#cfn-verifiedpermissions-policystore-schemadefinition-cedarformat
+            '''
+            result = self._values.get("cedar_format")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def cedar_json(self) -> typing.Optional[builtins.str]:
@@ -2338,6 +2357,7 @@ class CfnPolicyStoreProps:
                 ),
                 description="description",
                 schema=verifiedpermissions.CfnPolicyStore.SchemaDefinitionProperty(
+                    cedar_format="cedarFormat",
                     cedar_json="cedarJson"
                 ),
                 tags=[CfnTag(
@@ -2950,6 +2970,7 @@ def _typecheckingstub__c70b9477a0dc9dad5a293d5f268b74672d7816a3722f79105d3236fca
 
 def _typecheckingstub__40c95b318ee977eff43d9078495fc0215bd302506cf821187fe6998b1a04ee9f(
     *,
+    cedar_format: typing.Optional[builtins.str] = None,
     cedar_json: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

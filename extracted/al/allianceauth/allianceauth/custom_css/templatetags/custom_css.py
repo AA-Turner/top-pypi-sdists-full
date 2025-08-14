@@ -8,7 +8,6 @@ from allianceauth.custom_css.models import CustomCSS
 # Django
 from django.conf import settings
 from django.template.defaulttags import register
-from django.templatetags.static import static
 from django.utils.safestring import mark_safe
 
 from pathlib import Path
@@ -20,7 +19,7 @@ def custom_css_static(path: str) -> str:
     Versioned static URL
     This is to make sure to break the browser cache on CSS updates.
 
-    Example: /static/allianceauth/custom-styles.css?v=1234567890
+    Example: /static/allianceauth/custom-styles.css?v=1752004819.555084
 
     :param path:
     :type path:
@@ -42,7 +41,6 @@ def custom_css_static(path: str) -> str:
             custom_css_version = (
                 str(custom_css_changed).replace(" ", "").replace(":", "").replace("-", "")
             )  # remove spaces, colons, and dashes
-            static_url = static(path)
-            versioned_url = static_url + "?v=" + custom_css_version
+            versioned_url = f"{settings.STATIC_URL}{path}?v={custom_css_version}"
 
             return mark_safe(f'<link rel="stylesheet" href="{versioned_url}">')

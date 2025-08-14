@@ -3387,16 +3387,6 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """
         ...
 
-    def send_user_email(self, algorithm_id: str, subject: str, body: str) -> None:
-        """
-        Send an email to the user associated with the specified algorithm id
-        
-        :param algorithm_id: The algorithm id
-        :param subject: The email subject
-        :param body: The email message body
-        """
-        ...
-
     def set_algorithm_status(self, algorithm_id: str, status: QuantConnect.AlgorithmStatus, message: str = ...) -> None:
         """
         Algorithm passes back its current status to the UX.

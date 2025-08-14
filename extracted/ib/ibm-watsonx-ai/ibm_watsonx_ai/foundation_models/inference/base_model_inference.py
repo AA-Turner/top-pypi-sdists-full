@@ -4,41 +4,40 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-import json
 import copy
-from contextlib import contextmanager, asynccontextmanager
-from functools import partial
-from warnings import warn
-
+import json
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import asynccontextmanager, contextmanager
+from dataclasses import fields
+from functools import partial
 from typing import (
     TYPE_CHECKING,
-    Generator,
     Any,
-    Literal,
     AsyncGenerator,
     Callable,
+    Generator,
+    Literal,
 )
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import fields
+from warnings import warn
 
 import httpx
 import requests as _requests
 
-from ibm_watsonx_ai.foundation_models.utils.utils import (
-    HAPDetectionWarning,
-    PIIDetectionWarning,
-    GraniteGuardianDetectionWarning,
-)
+import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.foundation_models.schema import (
+    BaseSchema,
     TextChatParameters,
     TextGenParameters,
-    BaseSchema,
 )
-import ibm_watsonx_ai._wrappers.requests as requests
-from ibm_watsonx_ai.wml_resource import WMLResource
+from ibm_watsonx_ai.foundation_models.utils.utils import (
+    GraniteGuardianDetectionWarning,
+    HAPDetectionWarning,
+    PIIDetectionWarning,
+)
 from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.wml_client_error import WMLClientError, UnsupportedOperation
+from ibm_watsonx_ai.wml_client_error import UnsupportedOperation, WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -322,7 +321,6 @@ class BaseModelInference(WMLResource, ABC):
         guardrails_granite_guardian_params: dict | None = None,
         _http_client: requests.HTTPXClient | httpx.Client | None = None,
     ) -> dict:
-
         response_scoring = self._send_inference_payload_raw(
             prompt=prompt,
             params=params,
@@ -574,7 +572,6 @@ class BaseModelInference(WMLResource, ABC):
         tool_choice: dict | None = None,
         tool_choice_option: str | None = None,
     ) -> Generator:
-
         payload = self._prepare_chat_payload(
             messages,
             params=params,
@@ -611,6 +608,14 @@ class BaseModelInference(WMLResource, ABC):
                 for chunk in resp_iter:
                     if isinstance(resp, _requests.Response):
                         chunk = chunk.decode("utf-8")  # type: ignore[union-attr]
+                    if chunk.strip() == "event: error":
+                        chunk = next(resp_iter)
+                        field_name, _, response = chunk.partition(":")
+                        raise WMLClientError(
+                            error_msg="Error event occurred during chat stream.",
+                            reason=response,
+                        )
+
                     field_name, _, response = chunk.partition(":")
                     if field_name == "data" and response:
                         try:
@@ -776,7 +781,6 @@ class BaseModelInference(WMLResource, ABC):
         tool_choice: dict | None = None,
         tool_choice_option: str | None = None,
     ) -> AsyncGenerator:
-
         payload = self._prepare_chat_payload(
             messages,
             params=params,
@@ -803,6 +807,14 @@ class BaseModelInference(WMLResource, ABC):
                 resp_iter = resp.aiter_lines()
 
                 async for chunk in resp_iter:
+                    if chunk.strip() == "event: error":
+                        chunk = await anext(resp_iter)
+                        field_name, _, response = chunk.partition(":")
+                        raise WMLClientError(
+                            error_msg="Error event occurred during achat stream.",
+                            reason=response,
+                        )
+
                     field_name, _, response = chunk.partition(":")
                     if field_name == "data" and response:
                         try:

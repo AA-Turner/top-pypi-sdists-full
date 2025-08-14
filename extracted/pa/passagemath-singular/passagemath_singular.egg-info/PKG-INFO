@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-singular
-Version: 10.6.3
+Version: 10.6.4
 Summary: passagemath: Computer algebra, algebraic geometry, singularity theory with Singular
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -28,18 +28,27 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-pari~=10.6.3.0
+Requires-Dist: passagemath-pari~=10.6.4.0
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator
 Requires-Dist: pexpect>=4.8.0
-Requires-Dist: passagemath-environment~=10.6.3.0
-Requires-Dist: passagemath-categories~=10.6.3.0
-Requires-Dist: passagemath-modules~=10.6.3.0
-Requires-Dist: passagemath-flint~=10.6.3.0
-Requires-Dist: passagemath-linbox~=10.6.3.0
+Requires-Dist: passagemath-environment~=10.6.4.0
+Requires-Dist: passagemath-categories~=10.6.4.0
+Requires-Dist: passagemath-modules~=10.6.4.0
+Requires-Dist: passagemath-flint~=10.6.4.0
+Requires-Dist: passagemath-linbox~=10.6.4.0
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"
+Provides-Extra: jupyterkernel
+Requires-Dist: jupyter-client; extra == "jupyterkernel"
+Requires-Dist: jupyter-kernel-singular; extra == "jupyterkernel"
+Provides-Extra: jupyterlab
+Requires-Dist: passagemath-singular[jupyterkernel]; extra == "jupyterlab"
+Requires-Dist: jupyterlab; extra == "jupyterlab"
+Provides-Extra: notebook
+Requires-Dist: passagemath-singular[jupyterkernel]; extra == "notebook"
+Requires-Dist: notebook>=6.1.1; extra == "notebook"
 
 ================================================================================================================
  passagemath: Computer algebra, algebraic geometry, singularity theory with Singular
@@ -114,6 +123,8 @@ What is included
 
 - various other modules, see https://github.com/passagemath/passagemath/blob/main/pkgs/sagemath-singular/MANIFEST.in
 
+- the `PySingular <https://pypi.org/project/PySingular/>`__ API
+
 - The binary wheels published on PyPI include a prebuilt copy of Singular.
 
 
@@ -157,3 +168,19 @@ Using the Cython interface to Singular::
     Out[6]: [a + b + c + d, b^2 + 2*b*d + d^2, b*c^2 + c^2*d - b*d^2 - d^3,
              b*c*d^2 + c^2*d^2 - b*d^3 + c*d^3 - d^4 - 1, b*d^4 + d^5 - b - d,
              c^3*d^2 + c^2*d^3 - c - d, c^2*d^4 + b*c - b*d + c*d - 2*d^2]
+
+
+Available as extras, from other distributions
+---------------------------------------------
+
+Jupyter kernel
+~~~~~~~~~~~~~~
+
+``pip install "passagemath-singular[jupyterkernel]"``
+ installs the kernel for use in the Jupyter notebook and JupyterLab
+
+``pip install "passagemath-singular[notebook]"``
+ installs the kernel and the Jupyter notebook
+
+``pip install "passagemath-singular[jupyterlab]"``
+ installs the kernel and JupyterLab

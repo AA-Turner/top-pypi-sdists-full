@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdm
-Version: 2.25.5
+Version: 2.25.6
 Summary: A modern Python package and dependency manager supporting the latest PEP standards
 Keywords: packaging,dependency,workflow
 Author-Email: Frost Ming <mianghong@gmail.com>
@@ -19,7 +19,7 @@ Project-URL: Documentation, https://pdm-project.org
 Project-URL: Changelog, https://pdm-project.org/latest/dev/changelog/
 Requires-Python: >=3.9
 Requires-Dist: blinker
-Requires-Dist: packaging!=22.0,>=20.9
+Requires-Dist: packaging>22.0
 Requires-Dist: platformdirs
 Requires-Dist: rich>=12.3.0
 Requires-Dist: virtualenv>=20
@@ -32,7 +32,7 @@ Requires-Dist: shellingham>=1.3.2
 Requires-Dist: python-dotenv>=0.15
 Requires-Dist: resolvelib>=1.1
 Requires-Dist: installer<0.8,>=0.7
-Requires-Dist: truststore>=0.9; python_version >= "3.10"
+Requires-Dist: truststore>=0.10.4; python_version >= "3.10"
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
 Requires-Dist: importlib-metadata>=3.6; python_version < "3.10"
 Requires-Dist: hishel>=0.0.32
@@ -79,7 +79,7 @@ Requires-Dist: installer==0.7.0; extra == "locked"
 Requires-Dist: markdown-it-py==3.0.0; extra == "locked"
 Requires-Dist: mdurl==0.1.2; extra == "locked"
 Requires-Dist: packaging==25.0; extra == "locked"
-Requires-Dist: pbs-installer==2025.6.30; extra == "locked"
+Requires-Dist: pbs-installer==2025.7.23; extra == "locked"
 Requires-Dist: platformdirs==4.3.8; extra == "locked"
 Requires-Dist: pygments==2.19.1; extra == "locked"
 Requires-Dist: pyproject-hooks==1.2.0; extra == "locked"
@@ -92,7 +92,7 @@ Requires-Dist: sniffio==1.3.1; extra == "locked"
 Requires-Dist: socksio==1.0.0; extra == "locked"
 Requires-Dist: tomli==2.2.1; python_version < "3.11" and extra == "locked"
 Requires-Dist: tomlkit==0.13.3; extra == "locked"
-Requires-Dist: truststore==0.10.1; python_version >= "3.10" and extra == "locked"
+Requires-Dist: truststore==0.10.4; python_version >= "3.10" and extra == "locked"
 Requires-Dist: typing-extensions==4.13.2; extra == "locked"
 Requires-Dist: unearth==0.17.5; extra == "locked"
 Requires-Dist: urllib3==2.4.0; extra == "locked"

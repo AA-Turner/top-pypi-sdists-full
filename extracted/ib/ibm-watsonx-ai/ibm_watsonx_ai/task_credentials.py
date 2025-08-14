@@ -5,17 +5,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, Any
+from typing import TYPE_CHECKING, Any, Literal
 from warnings import warn
 
 from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
-
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from pandas import DataFrame
+
     from ibm_watsonx_ai import APIClient
 
 

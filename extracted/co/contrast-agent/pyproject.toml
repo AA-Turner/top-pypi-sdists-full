@@ -13,7 +13,7 @@ dynamic = ["version"]
 dependencies = [
     "requests>=2.4.2,<3",
     "contrast-agent-lib~=0.10.0",
-    "contrast-fireball==0.1.12"
+    "contrast-fireball==0.1.13"
 ]
 description = "Contrast Security's agent for Python web frameworks"
 keywords = ["security development"]

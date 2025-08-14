@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 from warnings import warn
 
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
     ApiRequestFailure,
     NoWMLCredentialsProvided,
+    WMLClientError,
 )
 
 if TYPE_CHECKING:
@@ -186,7 +186,6 @@ class ServiceInstance:
 
         if self._client.CLOUD_PLATFORM_SPACES:
             if self._credentials is not None:
-
                 if self._instance_id is None:
                     raise WMLClientError(
                         "instance_id for this plan is picked up from the space or project with which "

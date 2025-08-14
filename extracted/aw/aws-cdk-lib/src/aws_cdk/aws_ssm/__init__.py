@@ -5299,7 +5299,7 @@ class CfnPatchBaseline(
         :param approved_patches: A list of explicitly approved patches for the baseline. For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
         :param approved_patches_compliance_level: Defines the compliance level for approved patches. When an approved patch is reported as missing, this value describes the severity of the compliance violation. The default value is ``UNSPECIFIED`` . Default: - "UNSPECIFIED"
         :param approved_patches_enable_non_security: Indicates whether the list of approved patches includes non-security updates that should be applied to the managed nodes. The default value is ``false`` . Applies to Linux managed nodes only. Default: - false
-        :param available_security_updates_compliance_status: The compliance status for vendor recommended security updates that are not approved by this patch baseline.
+        :param available_security_updates_compliance_status: Indicates the status you want to assign to security patches that are available but not approved because they don't meet the installation criteria specified in the patch baseline. Example scenario: Security patches that you might want installed can be skipped if you have specified a long period to wait after a patch is released before installation. If an update to the patch is released during your specified waiting period, the waiting period for installing the patch starts over. If the waiting period is too long, multiple versions of the patch could be released but never installed. Supported for Windows Server managed nodes only.
         :param default_baseline: Indicates whether this is the default baseline. AWS Systems Manager supports creating multiple default patch baselines. For example, you can create a default patch baseline for each operating system. Default: - false
         :param description: A description of the patch baseline.
         :param global_filters: A set of global filters used to include patches in the baseline. .. epigraph:: The ``GlobalFilters`` parameter can be configured only by using the AWS CLI or an AWS SDK. It can't be configured from the Patch Manager console, and its value isn't displayed in the console.
@@ -5470,7 +5470,7 @@ class CfnPatchBaseline(
     def available_security_updates_compliance_status(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''The compliance status for vendor recommended security updates that are not approved by this patch baseline.'''
+        '''Indicates the status you want to assign to security patches that are available but not approved because they don't meet the installation criteria specified in the patch baseline.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availableSecurityUpdatesComplianceStatus"))
 
     @available_security_updates_compliance_status.setter
@@ -6146,7 +6146,7 @@ class CfnPatchBaselineProps:
         :param approved_patches: A list of explicitly approved patches for the baseline. For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
         :param approved_patches_compliance_level: Defines the compliance level for approved patches. When an approved patch is reported as missing, this value describes the severity of the compliance violation. The default value is ``UNSPECIFIED`` . Default: - "UNSPECIFIED"
         :param approved_patches_enable_non_security: Indicates whether the list of approved patches includes non-security updates that should be applied to the managed nodes. The default value is ``false`` . Applies to Linux managed nodes only. Default: - false
-        :param available_security_updates_compliance_status: The compliance status for vendor recommended security updates that are not approved by this patch baseline.
+        :param available_security_updates_compliance_status: Indicates the status you want to assign to security patches that are available but not approved because they don't meet the installation criteria specified in the patch baseline. Example scenario: Security patches that you might want installed can be skipped if you have specified a long period to wait after a patch is released before installation. If an update to the patch is released during your specified waiting period, the waiting period for installing the patch starts over. If the waiting period is too long, multiple versions of the patch could be released but never installed. Supported for Windows Server managed nodes only.
         :param default_baseline: Indicates whether this is the default baseline. AWS Systems Manager supports creating multiple default patch baselines. For example, you can create a default patch baseline for each operating system. Default: - false
         :param description: A description of the patch baseline.
         :param global_filters: A set of global filters used to include patches in the baseline. .. epigraph:: The ``GlobalFilters`` parameter can be configured only by using the AWS CLI or an AWS SDK. It can't be configured from the Patch Manager console, and its value isn't displayed in the console.
@@ -6324,7 +6324,11 @@ class CfnPatchBaselineProps:
     def available_security_updates_compliance_status(
         self,
     ) -> typing.Optional[builtins.str]:
-        '''The compliance status for vendor recommended security updates that are not approved by this patch baseline.
+        '''Indicates the status you want to assign to security patches that are available but not approved because they don't meet the installation criteria specified in the patch baseline.
+
+        Example scenario: Security patches that you might want installed can be skipped if you have specified a long period to wait after a patch is released before installation. If an update to the patch is released during your specified waiting period, the waiting period for installing the patch starts over. If the waiting period is too long, multiple versions of the patch could be released but never installed.
+
+        Supported for Windows Server managed nodes only.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-availablesecurityupdatescompliancestatus
         '''

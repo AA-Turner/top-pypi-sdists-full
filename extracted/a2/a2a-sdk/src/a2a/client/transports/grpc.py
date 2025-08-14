@@ -87,7 +87,7 @@ class GrpcTransport(ClientTransport):
                 metadata=proto_utils.ToProto.metadata(request.metadata),
             )
         )
-        if response.task:
+        if response.HasField('task'):
             return proto_utils.FromProto.task(response.task)
         return proto_utils.FromProto.message(response.msg)
 
@@ -138,7 +138,10 @@ class GrpcTransport(ClientTransport):
     ) -> Task:
         """Retrieves the current state and history of a specific task."""
         task = await self.stub.GetTask(
-            a2a_pb2.GetTaskRequest(name=f'tasks/{request.id}')
+            a2a_pb2.GetTaskRequest(
+                name=f'tasks/{request.id}',
+                history_length=request.history_length,
+            )
         )
         return proto_utils.FromProto.task(task)
 

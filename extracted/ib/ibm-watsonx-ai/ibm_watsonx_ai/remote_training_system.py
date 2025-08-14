@@ -6,10 +6,8 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from warnings import warn
 
 from ibm_watsonx_ai._wrappers import requests
-
 from ibm_watsonx_ai.metanames import RemoteTrainingSystemMetaNames
 from ibm_watsonx_ai.party_wrapper import Party
 from ibm_watsonx_ai.utils.utils import _handle_fl_removal
@@ -17,8 +15,9 @@ from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class RemoteTrainingSystem(WMLResource):
@@ -444,7 +443,6 @@ class RemoteTrainingSystem(WMLResource):
         return self._list(values, ["ID", "REV", "NAME", "CREATED"], limit)
 
     def _validate_party_input(self, party_metadata: dict) -> None:
-
         if "data_handler" not in party_metadata:
             raise WMLClientError(
                 "Its mandatory to provide 'DATA_HANDLER' in meta_props. Example: "

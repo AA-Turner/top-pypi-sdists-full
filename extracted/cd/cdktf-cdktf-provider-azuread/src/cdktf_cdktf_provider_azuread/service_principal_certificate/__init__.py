@@ -1,7 +1,7 @@
 r'''
 # `azuread_service_principal_certificate`
 
-Refer to the Terraform Registry for docs: [`azuread_service_principal_certificate`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate).
+Refer to the Terraform Registry for docs: [`azuread_service_principal_certificate`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServicePrincipalCertificate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.servicePrincipalCertificate.ServicePrincipalCertificate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate azuread_service_principal_certificate}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate azuread_service_principal_certificate}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ServicePrincipalCertificate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate azuread_service_principal_certificate} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate azuread_service_principal_certificate} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_principal_id: The object ID of the service principal for which this certificate should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#service_principal_id ServicePrincipalCertificate#service_principal_id}
-        :param value: The certificate data, which can be PEM encoded, base64 encoded DER or hexadecimal encoded DER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#value ServicePrincipalCertificate#value}
-        :param encoding: Specifies the encoding used for the supplied certificate data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#encoding ServicePrincipalCertificate#encoding}
-        :param end_date: The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#end_date ServicePrincipalCertificate#end_date}
-        :param end_date_relative: A relative duration for which the certificate is valid until, for example ``240h`` (10 days) or ``2400h30m``. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#end_date_relative ServicePrincipalCertificate#end_date_relative}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#id ServicePrincipalCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_id: A UUID used to uniquely identify this certificate. If not specified a UUID will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#key_id ServicePrincipalCertificate#key_id}
-        :param start_date: The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#start_date ServicePrincipalCertificate#start_date}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#timeouts ServicePrincipalCertificate#timeouts}
-        :param type: The type of key/certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#type ServicePrincipalCertificate#type}
+        :param service_principal_id: The object ID of the service principal for which this certificate should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#service_principal_id ServicePrincipalCertificate#service_principal_id}
+        :param value: The certificate data, which can be PEM encoded, base64 encoded DER or hexadecimal encoded DER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#value ServicePrincipalCertificate#value}
+        :param encoding: Specifies the encoding used for the supplied certificate data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#encoding ServicePrincipalCertificate#encoding}
+        :param end_date: The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#end_date ServicePrincipalCertificate#end_date}
+        :param end_date_relative: A relative duration for which the certificate is valid until, for example ``240h`` (10 days) or ``2400h30m``. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#end_date_relative ServicePrincipalCertificate#end_date_relative}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#id ServicePrincipalCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_id: A UUID used to uniquely identify this certificate. If not specified a UUID will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#key_id ServicePrincipalCertificate#key_id}
+        :param start_date: The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#start_date ServicePrincipalCertificate#start_date}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#timeouts ServicePrincipalCertificate#timeouts}
+        :param type: The type of key/certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#type ServicePrincipalCertificate#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ServicePrincipalCertificate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServicePrincipalCertificate to import.
-        :param import_from_id: The id of the existing ServicePrincipalCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServicePrincipalCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServicePrincipalCertificate to import is found.
         '''
         if __debug__:
@@ -150,9 +150,9 @@ class ServicePrincipalCertificate(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#create ServicePrincipalCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#delete ServicePrincipalCertificate#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#read ServicePrincipalCertificate#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#create ServicePrincipalCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#delete ServicePrincipalCertificate#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#read ServicePrincipalCertificate#read}.
         '''
         value = ServicePrincipalCertificateTimeouts(
             create=create, delete=delete, read=read
@@ -424,16 +424,16 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_principal_id: The object ID of the service principal for which this certificate should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#service_principal_id ServicePrincipalCertificate#service_principal_id}
-        :param value: The certificate data, which can be PEM encoded, base64 encoded DER or hexadecimal encoded DER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#value ServicePrincipalCertificate#value}
-        :param encoding: Specifies the encoding used for the supplied certificate data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#encoding ServicePrincipalCertificate#encoding}
-        :param end_date: The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#end_date ServicePrincipalCertificate#end_date}
-        :param end_date_relative: A relative duration for which the certificate is valid until, for example ``240h`` (10 days) or ``2400h30m``. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#end_date_relative ServicePrincipalCertificate#end_date_relative}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#id ServicePrincipalCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_id: A UUID used to uniquely identify this certificate. If not specified a UUID will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#key_id ServicePrincipalCertificate#key_id}
-        :param start_date: The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#start_date ServicePrincipalCertificate#start_date}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#timeouts ServicePrincipalCertificate#timeouts}
-        :param type: The type of key/certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#type ServicePrincipalCertificate#type}
+        :param service_principal_id: The object ID of the service principal for which this certificate should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#service_principal_id ServicePrincipalCertificate#service_principal_id}
+        :param value: The certificate data, which can be PEM encoded, base64 encoded DER or hexadecimal encoded DER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#value ServicePrincipalCertificate#value}
+        :param encoding: Specifies the encoding used for the supplied certificate data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#encoding ServicePrincipalCertificate#encoding}
+        :param end_date: The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#end_date ServicePrincipalCertificate#end_date}
+        :param end_date_relative: A relative duration for which the certificate is valid until, for example ``240h`` (10 days) or ``2400h30m``. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#end_date_relative ServicePrincipalCertificate#end_date_relative}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#id ServicePrincipalCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_id: A UUID used to uniquely identify this certificate. If not specified a UUID will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#key_id ServicePrincipalCertificate#key_id}
+        :param start_date: The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#start_date ServicePrincipalCertificate#start_date}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#timeouts ServicePrincipalCertificate#timeouts}
+        :param type: The type of key/certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#type ServicePrincipalCertificate#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -561,7 +561,7 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_principal_id(self) -> builtins.str:
         '''The object ID of the service principal for which this certificate should be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#service_principal_id ServicePrincipalCertificate#service_principal_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#service_principal_id ServicePrincipalCertificate#service_principal_id}
         '''
         result = self._values.get("service_principal_id")
         assert result is not None, "Required property 'service_principal_id' is missing"
@@ -571,7 +571,7 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> builtins.str:
         '''The certificate data, which can be PEM encoded, base64 encoded DER or hexadecimal encoded DER.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#value ServicePrincipalCertificate#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#value ServicePrincipalCertificate#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -581,7 +581,7 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encoding(self) -> typing.Optional[builtins.str]:
         '''Specifies the encoding used for the supplied certificate data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#encoding ServicePrincipalCertificate#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#encoding ServicePrincipalCertificate#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -590,7 +590,7 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def end_date(self) -> typing.Optional[builtins.str]:
         '''The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#end_date ServicePrincipalCertificate#end_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#end_date ServicePrincipalCertificate#end_date}
         '''
         result = self._values.get("end_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -601,14 +601,14 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#end_date_relative ServicePrincipalCertificate#end_date_relative}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#end_date_relative ServicePrincipalCertificate#end_date_relative}
         '''
         result = self._values.get("end_date_relative")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#id ServicePrincipalCertificate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#id ServicePrincipalCertificate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -620,7 +620,7 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key_id(self) -> typing.Optional[builtins.str]:
         '''A UUID used to uniquely identify this certificate. If not specified a UUID will be automatically generated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#key_id ServicePrincipalCertificate#key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#key_id ServicePrincipalCertificate#key_id}
         '''
         result = self._values.get("key_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -629,7 +629,7 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def start_date(self) -> typing.Optional[builtins.str]:
         '''The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#start_date ServicePrincipalCertificate#start_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#start_date ServicePrincipalCertificate#start_date}
         '''
         result = self._values.get("start_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -638,7 +638,7 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ServicePrincipalCertificateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#timeouts ServicePrincipalCertificate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#timeouts ServicePrincipalCertificate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ServicePrincipalCertificateTimeouts"], result)
@@ -647,7 +647,7 @@ class ServicePrincipalCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of key/certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#type ServicePrincipalCertificate#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#type ServicePrincipalCertificate#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -678,9 +678,9 @@ class ServicePrincipalCertificateTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#create ServicePrincipalCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#delete ServicePrincipalCertificate#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#read ServicePrincipalCertificate#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#create ServicePrincipalCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#delete ServicePrincipalCertificate#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#read ServicePrincipalCertificate#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__debc94ee42234da065e07faf8f311b9f2875bd279269094ae11a4fce45b89c93)
@@ -697,19 +697,19 @@ class ServicePrincipalCertificateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#create ServicePrincipalCertificate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#create ServicePrincipalCertificate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#delete ServicePrincipalCertificate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#delete ServicePrincipalCertificate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal_certificate#read ServicePrincipalCertificate#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal_certificate#read ServicePrincipalCertificate#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

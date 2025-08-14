@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import Any, Dict, List
+
 import duckdb
 import pyarrow as pa
-from typing import Any, Dict, List
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -45,26 +46,30 @@ def _process_duck_type(duck_type: Any, col_name: str) -> Dict[str, Any]:
     if isinstance(recap_type, dict):
         if recap_type.get("type") == "struct":
             # DuckDB: struct children is a list of (name, type) tuples
-            if hasattr(duck_type, 'children') and duck_type.children:
+            if hasattr(duck_type, "children") and duck_type.children:
                 nested_fields = []
                 for child_name, child_type in duck_type.children:
                     nested_field_dict = _process_duck_type(child_type, child_name)
                     nested_fields.append(nested_field_dict)
-                field_dict.update({
-                    "type": "struct",
-                    "fields": nested_fields,
-                })
+                field_dict.update(
+                    {
+                        "type": "struct",
+                        "fields": nested_fields,
+                    }
+                )
             else:
                 field_dict["type"] = "struct"
         elif recap_type.get("type") == "array":
             # DuckDB: list children is a list with one (name, type) tuple
-            if hasattr(duck_type, 'children') and duck_type.children:
+            if hasattr(duck_type, "children") and duck_type.children:
                 child_name, child_type = duck_type.children[0]
                 item_type = _process_duck_type(child_type, "item")
-                field_dict.update({
-                    "type": "array",
-                    "items": item_type,
-                })
+                field_dict.update(
+                    {
+                        "type": "array",
+                        "items": item_type,
+                    }
+                )
             else:
                 field_dict["type"] = "array"
     else:
@@ -189,10 +194,12 @@ class NativeS3Converter:
                         nested_field_dict = self._process_arrow_field(nested_field)
                         nested_fields.append(nested_field_dict)
 
-                    field_dict.update({
-                        "type": "struct",
-                        "fields": nested_fields,
-                    })
+                    field_dict.update(
+                        {
+                            "type": "struct",
+                            "fields": nested_fields,
+                        }
+                    )
                 else:
                     # Fallback for unexpected struct type
                     field_dict["type"] = "struct"
@@ -200,13 +207,19 @@ class NativeS3Converter:
                 # Handle list type - recursively process its item type
                 if pa.types.is_list(field.type):
                     # Create a temporary field for the list item type
-                    item_field = pa.field("item", field.type.value_type, nullable=field.type.value_field.nullable)
+                    item_field = pa.field(
+                        "item",
+                        field.type.value_type,
+                        nullable=field.type.value_field.nullable,
+                    )
                     item_type = self._process_arrow_field(item_field)
 
-                    field_dict.update({
-                        "type": "array",
-                        "items": item_type,
-                    })
+                    field_dict.update(
+                        {
+                            "type": "array",
+                            "items": item_type,
+                        }
+                    )
                 else:
                     # Fallback for unexpected list type
                     field_dict["type"] = "array"
@@ -215,6 +228,7 @@ class NativeS3Converter:
             field_dict["type"] = recap_type
 
         return field_dict
+
 
 def merge_schemas(schemas: list[dict]) -> dict:
     """
@@ -235,10 +249,7 @@ def merge_schemas(schemas: list[dict]) -> dict:
                 continue
 
             # if both sides are structs, recurse on their fields
-            if (
-                field["type"] == "struct"
-                and result[name]["type"] == "struct"
-            ):
+            if field["type"] == "struct" and result[name]["type"] == "struct":
                 # Merge the nested structs by combining their field schemas
                 left_fields = result[name].get("fields", [])
                 right_fields = field.get("fields", [])
@@ -252,15 +263,14 @@ def merge_schemas(schemas: list[dict]) -> dict:
                     "type": "struct",
                     "name": name,
                     "fields": merged_inner["fields"],
-                    "nullable": field.get("nullable", result[name].get("nullable", True)),
+                    "nullable": field.get(
+                        "nullable", result[name].get("nullable", True)
+                    ),
                 }
                 continue
 
             # if both sides are arrays, recurse on their items
-            if (
-                field["type"] == "array"
-                and result[name]["type"] == "array"
-            ):
+            if field["type"] == "array" and result[name]["type"] == "array":
                 left_item = result[name].get("items", {})
                 right_item = field.get("items", {})
 
@@ -271,13 +281,17 @@ def merge_schemas(schemas: list[dict]) -> dict:
                     right_schema = {"type": "struct", "fields": [right_item]}
 
                     merged_items = merge_schemas([left_schema, right_schema])
-                    merged_item = merged_items["fields"][0] if merged_items["fields"] else {}
+                    merged_item = (
+                        merged_items["fields"][0] if merged_items["fields"] else {}
+                    )
 
                     result[name] = {
                         "type": "array",
                         "name": name,
                         "items": merged_item,
-                        "nullable": field.get("nullable", result[name].get("nullable", True)),
+                        "nullable": field.get(
+                            "nullable", result[name].get("nullable", True)
+                        ),
                     }
                 else:
                     # If one or both don't have items, keep the one that does
@@ -291,17 +305,17 @@ def merge_schemas(schemas: list[dict]) -> dict:
                 continue
 
             # otherwise form / extend a union
-            left  = result[name]
+            left = result[name]
             right = field
 
-            left_types  = left["types"]  if left ["type"] == "union" else [left]
+            left_types = left["types"] if left["type"] == "union" else [left]
             right_types = right["types"] if right["type"] == "union" else [right]
 
             union_types = _get_distinct_dicts(_remove_names(left_types + right_types))
 
             if len(union_types) == 1:
                 result[name] = {"name": name, **union_types[0]}
-                continue # ✅ no union needed
+                continue  # ✅ no union needed
 
             result[name] = {"type": "union", "name": name, "types": union_types}
 

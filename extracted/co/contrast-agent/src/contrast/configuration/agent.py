@@ -120,6 +120,12 @@ class Agent(ConfigBuilder):
                 type_cast=str,
             ),
             ConfigOption(
+                canonical_name="agent.python.observe_preview",
+                default_value=False,
+                type_cast=str_to_bool,
+                log_effective_config=False,
+            ),
+            ConfigOption(
                 canonical_name="agent.python.pytest_rewrite",
                 default_value=False,
                 type_cast=str_to_bool,

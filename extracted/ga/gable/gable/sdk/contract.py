@@ -2,6 +2,7 @@ import json
 from typing import Any, List, Optional, Tuple, Union, overload
 
 import pydantic
+
 from gable.api.client import GableAPIClient
 from gable.openapi import (
     ContractOutput,
@@ -68,23 +69,23 @@ class GableContract:
     def get_contract(self, **kwargs) -> Optional[ContractOutput]:
         """
         Get a contract by ID or by domain and name.
-        
+
         Args:
             **kwargs: Either contract_id or (domain + contract_name) must be provided.
                      Optionally, status can be provided to filter contracts by status
                      when searching by domain and name.
-        
+
         Examples:
             # Get by contract ID
             contract = client.contracts.get_contract(contract_id="123")
-            
+
             # Get by domain and name
             contract = client.contracts.get_contract(domain="my_domain", contract_name="my_contract")
-            
+
             # Get by domain and name with specific status filter
             contract = client.contracts.get_contract(
-                domain="my_domain", 
-                contract_name="my_contract", 
+                domain="my_domain",
+                contract_name="my_contract",
                 status="ACTIVE,DRAFT"
             )
         """

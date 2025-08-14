@@ -12,7 +12,6 @@ try:
     from elasticsearch.helpers.vectorstore import (
         RetrievalStrategy,
     )
-
     from elasticsearch.helpers.vectorstore._sync._utils import model_must_be_deployed
 except ImportError:
     raise MissingExtension("langchain_elasticsearch")
@@ -242,7 +241,6 @@ class HybridStrategyElasticsearch(RetrievalStrategy):
         num_candidates: int,
         filter: list[dict[str, Any]] = [],
     ) -> dict[str, Any]:
-
         standard_query = {}
 
         if RetrievalOptions.DENSE in self._retrieval_strategies:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: gable
-Version: 0.37.7
+Version: 0.37.8
 Summary: Command line interface (CLI) and software development kit (SDK) to interact with Gable API
 Author: Gable.ai
 Author-email: engineers@gable.ai

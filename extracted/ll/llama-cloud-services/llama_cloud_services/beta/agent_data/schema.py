@@ -37,11 +37,10 @@ Example Usage:
 """
 
 from datetime import datetime
-import numbers
 from llama_cloud import ExtractRun
 from llama_cloud.types.agent_data import AgentData
 from llama_cloud.types.aggregate_group import AggregateGroup
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict
 from typing import (
     Generic,
     List,
@@ -176,6 +175,16 @@ class TypedAgentDataItems(BaseModel, Generic[AgentDataT]):
     )
 
 
+class FieldCitation(BaseModel):
+    page: Optional[int] = Field(
+        None, description="The page number that the field occurred on"
+    )
+    matching_text: Optional[str] = Field(
+        None,
+        description="The original text this field's value was derived from",
+    )
+
+
 class ExtractedFieldMetadata(BaseModel):
     """
     Metadata for an extracted data field, such as confidence, and citation information.
@@ -193,13 +202,13 @@ class ExtractedFieldMetadata(BaseModel):
         None,
         description="The confidence score for the field based on the extracted text only",
     )
-    page_number: Optional[int] = Field(
-        None, description="The page number that the field occurred on"
-    )
-    matching_text: Optional[str] = Field(
+    citation: Optional[List[FieldCitation]] = Field(
         None,
-        description="The original text this field's value was derived from",
+        description="The citation for the field, including page number and matching text",
     )
+
+    # Forbid unknown keys to avoid swallowing nested dicts
+    model_config = ConfigDict(extra="forbid")
 
 
 ExtractedFieldMetaDataDict = Dict[
@@ -238,19 +247,10 @@ def _parse_extracted_field_metadata_recursive(
         if len(indicator_fields.intersection(field_value.keys())) > 0:
             try:
                 merged = {**field_value, **additional_fields}
+                allowed_fields = ExtractedFieldMetadata.model_fields.keys()
+                merged = {k: v for k, v in merged.items() if k in allowed_fields}
                 validated = ExtractedFieldMetadata.model_validate(merged)
 
-                # grab the citation from the array. This is just an array for backwards compatibility.
-                if "citation" in field_value and len(field_value["citation"]) > 0:
-                    first_citation = field_value["citation"][0]
-                    if "page" in first_citation and isinstance(
-                        first_citation["page"], numbers.Number
-                    ):
-                        validated.page_number = int(first_citation["page"])  # type: ignore
-                    if "matching_text" in first_citation and isinstance(
-                        first_citation["matching_text"], str
-                    ):
-                        validated.matching_text = first_citation["matching_text"]
                 return validated
             except ValidationError:
                 pass
@@ -339,6 +339,28 @@ class ExtractedData(BaseModel, Generic[ExtractedT]):
         default_factory=dict,
         description="Additional metadata about the extracted data, such as errors, tokens, etc.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_field_metadata_on_input(cls, value: Any) -> Any:
+        # Ensure any inbound representation (including JSON round-trips)
+        # gets normalized so nested dicts become ExtractedFieldMetadata where appropriate.
+        if (
+            isinstance(value, dict)
+            and "field_metadata" in value
+            and isinstance(value["field_metadata"], dict)
+        ):
+            try:
+                value = {
+                    **value,
+                    "field_metadata": parse_extracted_field_metadata(
+                        value["field_metadata"]
+                    ),
+                }
+            except Exception:
+                # Let pydantic surface detailed errors later rather than swallowing completely
+                pass
+        return value
 
     @classmethod
     def create(

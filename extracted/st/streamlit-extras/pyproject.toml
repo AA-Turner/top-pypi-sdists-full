@@ -1,6 +1,6 @@
 [project]
 name = "streamlit-extras"
-version = "0.7.5"
+version = "0.7.6"
 license = "Apache-2.0"
 description = "A library to discover, try, install and share Streamlit extras"
 authors = [
@@ -34,6 +34,7 @@ dependencies = [
   "streamlit-toggle-switch >= 1.0.2",
   "streamlit-vertical-slider >= 2.5.5",
   "validators >= 0.33.0",
+  "streamlit-notify >= 0.3.1",
 ]
 
 [project.packages]

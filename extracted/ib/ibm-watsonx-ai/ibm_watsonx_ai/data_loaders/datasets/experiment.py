@@ -8,8 +8,8 @@ __all__ = ["ExperimentIterableDataset"]
 
 from ibm_watsonx_ai.data_loaders.datasets.tabular import TabularIterableDataset
 from ibm_watsonx_ai.utils.autoai.enums import (
-    SamplingTypes,
     DocumentsSamplingTypes,
+    SamplingTypes,
 )
 
 DEFAULT_SAMPLE_SIZE_LIMIT = (

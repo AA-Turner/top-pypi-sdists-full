@@ -26894,6 +26894,10 @@ components:
       allOf:
       - $ref: '#/components/schemas/DnaAlignmentBase'
       - properties:
+          shouldDisableCircularSequenceRotation:
+            default: false
+            description: Whether to disable circular sequence rotation.
+            type: boolean
           templateSequenceId:
             example: seq_rXqq0IHU
             type: string

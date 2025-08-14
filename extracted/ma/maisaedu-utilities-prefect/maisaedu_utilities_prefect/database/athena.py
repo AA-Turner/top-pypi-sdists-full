@@ -41,7 +41,7 @@ def aws_client_factory(
         return session.client('s3')
 
 
-def execute_query(athena_client, s3_client, query, database, output_location, max_retries=30):
+def execute_query(athena_client, s3_client, query, database, output_location, workgroup = None, return_output_path=False, max_retries=30):
     """
     Execute a query in Athena and return the result as a DataFrame.
     
@@ -67,11 +67,19 @@ def execute_query(athena_client, s3_client, query, database, output_location, ma
     """
 
     try:
-        response = athena_client.start_query_execution(
-            QueryString=query,
-            QueryExecutionContext={'Database': database},
-            ResultConfiguration={'OutputLocation': output_location}
-        )
+        if workgroup is None:
+            response = athena_client.start_query_execution(
+                QueryString=query,
+                QueryExecutionContext={'Database': database},
+                ResultConfiguration={'OutputLocation': output_location},
+            )
+        else:
+            response = athena_client.start_query_execution(
+                QueryString=query,
+                QueryExecutionContext={'Database': database},
+                ResultConfiguration={'OutputLocation': output_location},
+                WorkGroup=workgroup
+            )
         execution_id = response['QueryExecutionId']
     except ClientError as e:
         raise RuntimeError(f"Error executing Athena query: {e}")
@@ -94,6 +102,8 @@ def execute_query(athena_client, s3_client, query, database, output_location, ma
 
     try:
         s3_path = status['QueryExecution']['ResultConfiguration']['OutputLocation']
+        if return_output_path:
+            return s3_path
         s3_path = s3_path.replace('s3://', '')
         bucket_name = s3_path.split('/', 1)[0]
         key = s3_path.split('/', 1)[1]

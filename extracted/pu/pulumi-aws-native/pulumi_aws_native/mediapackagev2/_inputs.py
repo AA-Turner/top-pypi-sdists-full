@@ -53,6 +53,8 @@ __all__ = [
     'OriginEndpointHlsManifestConfigurationArgsDict',
     'OriginEndpointLowLatencyHlsManifestConfigurationArgs',
     'OriginEndpointLowLatencyHlsManifestConfigurationArgsDict',
+    'OriginEndpointPolicyCdnAuthConfigurationArgs',
+    'OriginEndpointPolicyCdnAuthConfigurationArgsDict',
     'OriginEndpointScteDashArgs',
     'OriginEndpointScteDashArgsDict',
     'OriginEndpointScteHlsArgs',
@@ -78,19 +80,27 @@ if not MYPY:
         """
         <p>When true, AWS Elemental MediaPackage performs input switching based on the MQCS. Default is true. This setting is valid only when <code>InputType</code> is <code>CMAF</code>.</p>
         """
+        preferred_input: NotRequired[pulumi.Input[builtins.int]]
+        """
+        For CMAF inputs, indicates which input MediaPackage should prefer when both inputs have equal MQCS scores. Select `1` to prefer the first ingest endpoint, or `2` to prefer the second ingest endpoint. If you don't specify a preferred input, MediaPackage uses its default switching behavior when MQCS scores are equal.
+        """
 elif False:
     ChannelInputSwitchConfigurationArgsDict: TypeAlias = Mapping[str, Any]
 
 @pulumi.input_type
 class ChannelInputSwitchConfigurationArgs:
     def __init__(__self__, *,
-                 mqcs_input_switching: Optional[pulumi.Input[builtins.bool]] = None):
+                 mqcs_input_switching: Optional[pulumi.Input[builtins.bool]] = None,
+                 preferred_input: Optional[pulumi.Input[builtins.int]] = None):
         """
         <p>The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.</p>
         :param pulumi.Input[builtins.bool] mqcs_input_switching: <p>When true, AWS Elemental MediaPackage performs input switching based on the MQCS. Default is true. This setting is valid only when <code>InputType</code> is <code>CMAF</code>.</p>
+        :param pulumi.Input[builtins.int] preferred_input: For CMAF inputs, indicates which input MediaPackage should prefer when both inputs have equal MQCS scores. Select `1` to prefer the first ingest endpoint, or `2` to prefer the second ingest endpoint. If you don't specify a preferred input, MediaPackage uses its default switching behavior when MQCS scores are equal.
         """
         if mqcs_input_switching is not None:
             pulumi.set(__self__, "mqcs_input_switching", mqcs_input_switching)
+        if preferred_input is not None:
+            pulumi.set(__self__, "preferred_input", preferred_input)
 
     @property
     @pulumi.getter(name="mqcsInputSwitching")
@@ -103,6 +113,18 @@ class ChannelInputSwitchConfigurationArgs:
     @mqcs_input_switching.setter
     def mqcs_input_switching(self, value: Optional[pulumi.Input[builtins.bool]]):
         pulumi.set(self, "mqcs_input_switching", value)
+
+    @property
+    @pulumi.getter(name="preferredInput")
+    def preferred_input(self) -> Optional[pulumi.Input[builtins.int]]:
+        """
+        For CMAF inputs, indicates which input MediaPackage should prefer when both inputs have equal MQCS scores. Select `1` to prefer the first ingest endpoint, or `2` to prefer the second ingest endpoint. If you don't specify a preferred input, MediaPackage uses its default switching behavior when MQCS scores are equal.
+        """
+        return pulumi.get(self, "preferred_input")
+
+    @preferred_input.setter
+    def preferred_input(self, value: Optional[pulumi.Input[builtins.int]]):
+        pulumi.set(self, "preferred_input", value)
 
 
 if not MYPY:
@@ -377,6 +399,9 @@ if not MYPY:
         <p>Playback device error reporting settings.</p>
         """
         font_download: NotRequired[pulumi.Input['OriginEndpointDashDvbFontDownloadArgsDict']]
+        """
+        Subtitle font settings.
+        """
 elif False:
     OriginEndpointDashDvbSettingsArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -388,6 +413,7 @@ class OriginEndpointDashDvbSettingsArgs:
         """
         <p>For endpoints that use the DVB-DASH profile only. The font download and error reporting information that you want MediaPackage to pass through to the manifest.</p>
         :param pulumi.Input[Sequence[pulumi.Input['OriginEndpointDashDvbMetricsReportingArgs']]] error_metrics: <p>Playback device error reporting settings.</p>
+        :param pulumi.Input['OriginEndpointDashDvbFontDownloadArgs'] font_download: Subtitle font settings.
         """
         if error_metrics is not None:
             pulumi.set(__self__, "error_metrics", error_metrics)
@@ -409,6 +435,9 @@ class OriginEndpointDashDvbSettingsArgs:
     @property
     @pulumi.getter(name="fontDownload")
     def font_download(self) -> Optional[pulumi.Input['OriginEndpointDashDvbFontDownloadArgs']]:
+        """
+        Subtitle font settings.
+        """
         return pulumi.get(self, "font_download")
 
     @font_download.setter
@@ -430,11 +459,19 @@ if not MYPY:
         <p>The base URL to use for retrieving segments.</p>
         """
         compactness: NotRequired[pulumi.Input['OriginEndpointDashCompactness']]
+        """
+        The layout of the DASH manifest that MediaPackage produces. `STANDARD` indicates a default manifest, which is compacted. `NONE` indicates a full manifest.
+
+        For information about compactness, see [DASH manifest compactness](https://docs.aws.amazon.com/mediapackage/latest/userguide/compacted.html) in the *AWS Elemental MediaPackage v2 User Guide* .
+        """
         drm_signaling: NotRequired[pulumi.Input['OriginEndpointDashDrmSignaling']]
         """
         Determines how the DASH manifest signals the DRM content.
         """
         dvb_settings: NotRequired[pulumi.Input['OriginEndpointDashDvbSettingsArgsDict']]
+        """
+        For endpoints that use the DVB-DASH profile only. The font download and error reporting information that you want MediaPackage to pass through to the manifest.
+        """
         filter_configuration: NotRequired[pulumi.Input['OriginEndpointFilterConfigurationArgsDict']]
         """
         Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
@@ -460,6 +497,9 @@ if not MYPY:
         <p>The profile that the output is compliant with.</p>
         """
         program_information: NotRequired[pulumi.Input['OriginEndpointDashProgramInformationArgsDict']]
+        """
+        Details about the content that you want MediaPackage to pass through in the manifest to the playback device.
+        """
         scte_dash: NotRequired[pulumi.Input['OriginEndpointScteDashArgsDict']]
         """
         The SCTE configuration.
@@ -473,6 +513,9 @@ if not MYPY:
         - `NUMBER_WITH_TIMELINE` - The `$Number$` variable is used in the `media` URL. The value of this variable is the sequential number of the segment. A full `SegmentTimeline` object is presented in each `SegmentTemplate` .
         """
         subtitle_configuration: NotRequired[pulumi.Input['OriginEndpointDashSubtitleConfigurationArgsDict']]
+        """
+        The configuration for DASH subtitles.
+        """
         suggested_presentation_delay_seconds: NotRequired[pulumi.Input[builtins.int]]
         """
         <p>The amount of time (in seconds) that the player should be from the end of the manifest.</p>
@@ -508,19 +551,25 @@ class OriginEndpointDashManifestConfigurationArgs:
         <p>Retrieve the DASH manifest configuration.</p>
         :param pulumi.Input[builtins.str] manifest_name: <p>A short string that's appended to the endpoint URL. The manifest name creates a unique path to this endpoint. If you don't enter a value, MediaPackage uses the default manifest name, index. </p>
         :param pulumi.Input[Sequence[pulumi.Input['OriginEndpointDashBaseUrlArgs']]] base_urls: <p>The base URL to use for retrieving segments.</p>
+        :param pulumi.Input['OriginEndpointDashCompactness'] compactness: The layout of the DASH manifest that MediaPackage produces. `STANDARD` indicates a default manifest, which is compacted. `NONE` indicates a full manifest.
+               
+               For information about compactness, see [DASH manifest compactness](https://docs.aws.amazon.com/mediapackage/latest/userguide/compacted.html) in the *AWS Elemental MediaPackage v2 User Guide* .
         :param pulumi.Input['OriginEndpointDashDrmSignaling'] drm_signaling: Determines how the DASH manifest signals the DRM content.
+        :param pulumi.Input['OriginEndpointDashDvbSettingsArgs'] dvb_settings: For endpoints that use the DVB-DASH profile only. The font download and error reporting information that you want MediaPackage to pass through to the manifest.
         :param pulumi.Input['OriginEndpointFilterConfigurationArgs'] filter_configuration: Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
         :param pulumi.Input[builtins.int] manifest_window_seconds: <p>The total duration (in seconds) of the manifest's content.</p>
         :param pulumi.Input[builtins.int] min_buffer_time_seconds: <p>Minimum amount of content (in seconds) that a player must keep available in the buffer.</p>
         :param pulumi.Input[builtins.int] min_update_period_seconds: <p>Minimum amount of time (in seconds) that the player should wait before requesting updates to the manifest.</p>
         :param pulumi.Input[Sequence[pulumi.Input['OriginEndpointDashPeriodTrigger']]] period_triggers: <p>A list of triggers that controls when AWS Elemental MediaPackage separates the MPEG-DASH manifest into multiple periods. Leave this value empty to indicate that the manifest is contained all in one period. For more information about periods in the DASH manifest, see <a href="https://docs.aws.amazon.com/mediapackage/latest/userguide/multi-period.html">Multi-period DASH in AWS Elemental MediaPackage</a>.</p>
         :param pulumi.Input[Sequence[pulumi.Input['OriginEndpointDashProfile']]] profiles: <p>The profile that the output is compliant with.</p>
+        :param pulumi.Input['OriginEndpointDashProgramInformationArgs'] program_information: Details about the content that you want MediaPackage to pass through in the manifest to the playback device.
         :param pulumi.Input['OriginEndpointScteDashArgs'] scte_dash: The SCTE configuration.
         :param pulumi.Input['OriginEndpointDashSegmentTemplateFormat'] segment_template_format: Determines the type of variable used in the `media` URL of the `SegmentTemplate` tag in the manifest. Also specifies if segment timeline information is included in `SegmentTimeline` or `SegmentTemplate` .
                
                Value description:
                
                - `NUMBER_WITH_TIMELINE` - The `$Number$` variable is used in the `media` URL. The value of this variable is the sequential number of the segment. A full `SegmentTimeline` object is presented in each `SegmentTemplate` .
+        :param pulumi.Input['OriginEndpointDashSubtitleConfigurationArgs'] subtitle_configuration: The configuration for DASH subtitles.
         :param pulumi.Input[builtins.int] suggested_presentation_delay_seconds: <p>The amount of time (in seconds) that the player should be from the end of the manifest.</p>
         :param pulumi.Input['OriginEndpointDashUtcTimingArgs'] utc_timing: Determines the type of UTC timing included in the DASH Media Presentation Description (MPD).
         """
@@ -585,6 +634,11 @@ class OriginEndpointDashManifestConfigurationArgs:
     @property
     @pulumi.getter
     def compactness(self) -> Optional[pulumi.Input['OriginEndpointDashCompactness']]:
+        """
+        The layout of the DASH manifest that MediaPackage produces. `STANDARD` indicates a default manifest, which is compacted. `NONE` indicates a full manifest.
+
+        For information about compactness, see [DASH manifest compactness](https://docs.aws.amazon.com/mediapackage/latest/userguide/compacted.html) in the *AWS Elemental MediaPackage v2 User Guide* .
+        """
         return pulumi.get(self, "compactness")
 
     @compactness.setter
@@ -606,6 +660,9 @@ class OriginEndpointDashManifestConfigurationArgs:
     @property
     @pulumi.getter(name="dvbSettings")
     def dvb_settings(self) -> Optional[pulumi.Input['OriginEndpointDashDvbSettingsArgs']]:
+        """
+        For endpoints that use the DVB-DASH profile only. The font download and error reporting information that you want MediaPackage to pass through to the manifest.
+        """
         return pulumi.get(self, "dvb_settings")
 
     @dvb_settings.setter
@@ -687,6 +744,9 @@ class OriginEndpointDashManifestConfigurationArgs:
     @property
     @pulumi.getter(name="programInformation")
     def program_information(self) -> Optional[pulumi.Input['OriginEndpointDashProgramInformationArgs']]:
+        """
+        Details about the content that you want MediaPackage to pass through in the manifest to the playback device.
+        """
         return pulumi.get(self, "program_information")
 
     @program_information.setter
@@ -724,6 +784,9 @@ class OriginEndpointDashManifestConfigurationArgs:
     @property
     @pulumi.getter(name="subtitleConfiguration")
     def subtitle_configuration(self) -> Optional[pulumi.Input['OriginEndpointDashSubtitleConfigurationArgs']]:
+        """
+        The configuration for DASH subtitles.
+        """
         return pulumi.get(self, "subtitle_configuration")
 
     @subtitle_configuration.setter
@@ -877,6 +940,9 @@ if not MYPY:
         <p>The configuration for DASH subtitles.</p>
         """
         ttml_configuration: NotRequired[pulumi.Input['OriginEndpointDashTtmlConfigurationArgsDict']]
+        """
+        Settings for TTML subtitles.
+        """
 elif False:
     OriginEndpointDashSubtitleConfigurationArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -886,6 +952,7 @@ class OriginEndpointDashSubtitleConfigurationArgs:
                  ttml_configuration: Optional[pulumi.Input['OriginEndpointDashTtmlConfigurationArgs']] = None):
         """
         <p>The configuration for DASH subtitles.</p>
+        :param pulumi.Input['OriginEndpointDashTtmlConfigurationArgs'] ttml_configuration: Settings for TTML subtitles.
         """
         if ttml_configuration is not None:
             pulumi.set(__self__, "ttml_configuration", ttml_configuration)
@@ -893,6 +960,9 @@ class OriginEndpointDashSubtitleConfigurationArgs:
     @property
     @pulumi.getter(name="ttmlConfiguration")
     def ttml_configuration(self) -> Optional[pulumi.Input['OriginEndpointDashTtmlConfigurationArgs']]:
+        """
+        Settings for TTML subtitles.
+        """
         return pulumi.get(self, "ttml_configuration")
 
     @ttml_configuration.setter
@@ -906,6 +976,9 @@ if not MYPY:
         <p>The settings for TTML subtitles.</p>
         """
         ttml_profile: pulumi.Input['OriginEndpointDashTtmlProfile']
+        """
+        The profile that MediaPackage uses when signaling subtitles in the manifest. `IMSC` is the default profile. `EBU-TT-D` produces subtitles that are compliant with the EBU-TT-D TTML profile. MediaPackage passes through subtitle styles to the manifest. For more information about EBU-TT-D subtitles, see [EBU-TT-D Subtitling Distribution Format](https://docs.aws.amazon.com/https://tech.ebu.ch/publications/tech3380) .
+        """
 elif False:
     OriginEndpointDashTtmlConfigurationArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -915,12 +988,16 @@ class OriginEndpointDashTtmlConfigurationArgs:
                  ttml_profile: pulumi.Input['OriginEndpointDashTtmlProfile']):
         """
         <p>The settings for TTML subtitles.</p>
+        :param pulumi.Input['OriginEndpointDashTtmlProfile'] ttml_profile: The profile that MediaPackage uses when signaling subtitles in the manifest. `IMSC` is the default profile. `EBU-TT-D` produces subtitles that are compliant with the EBU-TT-D TTML profile. MediaPackage passes through subtitle styles to the manifest. For more information about EBU-TT-D subtitles, see [EBU-TT-D Subtitling Distribution Format](https://docs.aws.amazon.com/https://tech.ebu.ch/publications/tech3380) .
         """
         pulumi.set(__self__, "ttml_profile", ttml_profile)
 
     @property
     @pulumi.getter(name="ttmlProfile")
     def ttml_profile(self) -> pulumi.Input['OriginEndpointDashTtmlProfile']:
+        """
+        The profile that MediaPackage uses when signaling subtitles in the manifest. `IMSC` is the default profile. `EBU-TT-D` produces subtitles that are compliant with the EBU-TT-D TTML profile. MediaPackage passes through subtitle styles to the manifest. For more information about EBU-TT-D subtitles, see [EBU-TT-D Subtitling Distribution Format](https://docs.aws.amazon.com/https://tech.ebu.ch/publications/tech3380) .
+        """
         return pulumi.get(self, "ttml_profile")
 
     @ttml_profile.setter
@@ -1176,6 +1253,10 @@ if not MYPY:
         """
         The SPEKE key provider to use for encryption.
         """
+        cmaf_exclude_segment_drm_metadata: NotRequired[pulumi.Input[builtins.bool]]
+        """
+        <p>Excludes SEIG and SGPD boxes from segment metadata in CMAF containers.</p> <p>When set to <code>true</code>, MediaPackage omits these DRM metadata boxes from CMAF segments, which can improve compatibility with certain devices and players that don't support these boxes.</p> <p>Important considerations:</p> <ul> <li> <p>This setting only affects CMAF container formats</p> </li> <li> <p>Key rotation can still be handled through media playlist signaling</p> </li> <li> <p>PSSH and TENC boxes remain unaffected</p> </li> <li> <p>Default behavior is preserved when this setting is disabled</p> </li> </ul> <p>Valid values: <code>true</code> | <code>false</code> </p> <p>Default: <code>false</code> </p>
+        """
         constant_initialization_vector: NotRequired[pulumi.Input[builtins.str]]
         """
         <p>A 128-bit, 16-byte hex value represented by a 32-character string, used in conjunction with the key for encrypting content. If you don't specify a value, then MediaPackage creates the constant initialization vector (IV).</p>
@@ -1192,17 +1273,21 @@ class OriginEndpointEncryptionArgs:
     def __init__(__self__, *,
                  encryption_method: pulumi.Input['OriginEndpointEncryptionMethodArgs'],
                  speke_key_provider: pulumi.Input['OriginEndpointSpekeKeyProviderArgs'],
+                 cmaf_exclude_segment_drm_metadata: Optional[pulumi.Input[builtins.bool]] = None,
                  constant_initialization_vector: Optional[pulumi.Input[builtins.str]] = None,
                  key_rotation_interval_seconds: Optional[pulumi.Input[builtins.int]] = None):
         """
         <p>The parameters for encrypting content.</p>
         :param pulumi.Input['OriginEndpointEncryptionMethodArgs'] encryption_method: The encryption method to use.
         :param pulumi.Input['OriginEndpointSpekeKeyProviderArgs'] speke_key_provider: The SPEKE key provider to use for encryption.
+        :param pulumi.Input[builtins.bool] cmaf_exclude_segment_drm_metadata: <p>Excludes SEIG and SGPD boxes from segment metadata in CMAF containers.</p> <p>When set to <code>true</code>, MediaPackage omits these DRM metadata boxes from CMAF segments, which can improve compatibility with certain devices and players that don't support these boxes.</p> <p>Important considerations:</p> <ul> <li> <p>This setting only affects CMAF container formats</p> </li> <li> <p>Key rotation can still be handled through media playlist signaling</p> </li> <li> <p>PSSH and TENC boxes remain unaffected</p> </li> <li> <p>Default behavior is preserved when this setting is disabled</p> </li> </ul> <p>Valid values: <code>true</code> | <code>false</code> </p> <p>Default: <code>false</code> </p>
         :param pulumi.Input[builtins.str] constant_initialization_vector: <p>A 128-bit, 16-byte hex value represented by a 32-character string, used in conjunction with the key for encrypting content. If you don't specify a value, then MediaPackage creates the constant initialization vector (IV).</p>
         :param pulumi.Input[builtins.int] key_rotation_interval_seconds: <p>The frequency (in seconds) of key changes for live workflows, in which content is streamed real time. The service retrieves content keys before the live content begins streaming, and then retrieves them as needed over the lifetime of the workflow. By default, key rotation is set to 300 seconds (5 minutes), the minimum rotation interval, which is equivalent to setting it to 300. If you don't enter an interval, content keys aren't rotated.</p> <p>The following example setting causes the service to rotate keys every thirty minutes: <code>1800</code> </p>
         """
         pulumi.set(__self__, "encryption_method", encryption_method)
         pulumi.set(__self__, "speke_key_provider", speke_key_provider)
+        if cmaf_exclude_segment_drm_metadata is not None:
+            pulumi.set(__self__, "cmaf_exclude_segment_drm_metadata", cmaf_exclude_segment_drm_metadata)
         if constant_initialization_vector is not None:
             pulumi.set(__self__, "constant_initialization_vector", constant_initialization_vector)
         if key_rotation_interval_seconds is not None:
@@ -1231,6 +1316,18 @@ class OriginEndpointEncryptionArgs:
     @speke_key_provider.setter
     def speke_key_provider(self, value: pulumi.Input['OriginEndpointSpekeKeyProviderArgs']):
         pulumi.set(self, "speke_key_provider", value)
+
+    @property
+    @pulumi.getter(name="cmafExcludeSegmentDrmMetadata")
+    def cmaf_exclude_segment_drm_metadata(self) -> Optional[pulumi.Input[builtins.bool]]:
+        """
+        <p>Excludes SEIG and SGPD boxes from segment metadata in CMAF containers.</p> <p>When set to <code>true</code>, MediaPackage omits these DRM metadata boxes from CMAF segments, which can improve compatibility with certain devices and players that don't support these boxes.</p> <p>Important considerations:</p> <ul> <li> <p>This setting only affects CMAF container formats</p> </li> <li> <p>Key rotation can still be handled through media playlist signaling</p> </li> <li> <p>PSSH and TENC boxes remain unaffected</p> </li> <li> <p>Default behavior is preserved when this setting is disabled</p> </li> </ul> <p>Valid values: <code>true</code> | <code>false</code> </p> <p>Default: <code>false</code> </p>
+        """
+        return pulumi.get(self, "cmaf_exclude_segment_drm_metadata")
+
+    @cmaf_exclude_segment_drm_metadata.setter
+    def cmaf_exclude_segment_drm_metadata(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "cmaf_exclude_segment_drm_metadata", value)
 
     @property
     @pulumi.getter(name="constantInitializationVector")
@@ -1797,6 +1894,56 @@ class OriginEndpointLowLatencyHlsManifestConfigurationArgs:
     @url_encode_child_manifest.setter
     def url_encode_child_manifest(self, value: Optional[pulumi.Input[builtins.bool]]):
         pulumi.set(self, "url_encode_child_manifest", value)
+
+
+if not MYPY:
+    class OriginEndpointPolicyCdnAuthConfigurationArgsDict(TypedDict):
+        cdn_identifier_secret_arns: pulumi.Input[Sequence[pulumi.Input[builtins.str]]]
+        """
+        The ARN for the secret in Secrets Manager that your CDN uses for authorization to access the endpoint.
+        """
+        secrets_role_arn: pulumi.Input[builtins.str]
+        """
+        The ARN for the IAM role that gives MediaPackage read access to Secrets Manager and AWS KMS for CDN authorization.
+        """
+elif False:
+    OriginEndpointPolicyCdnAuthConfigurationArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class OriginEndpointPolicyCdnAuthConfigurationArgs:
+    def __init__(__self__, *,
+                 cdn_identifier_secret_arns: pulumi.Input[Sequence[pulumi.Input[builtins.str]]],
+                 secrets_role_arn: pulumi.Input[builtins.str]):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[builtins.str]]] cdn_identifier_secret_arns: The ARN for the secret in Secrets Manager that your CDN uses for authorization to access the endpoint.
+        :param pulumi.Input[builtins.str] secrets_role_arn: The ARN for the IAM role that gives MediaPackage read access to Secrets Manager and AWS KMS for CDN authorization.
+        """
+        pulumi.set(__self__, "cdn_identifier_secret_arns", cdn_identifier_secret_arns)
+        pulumi.set(__self__, "secrets_role_arn", secrets_role_arn)
+
+    @property
+    @pulumi.getter(name="cdnIdentifierSecretArns")
+    def cdn_identifier_secret_arns(self) -> pulumi.Input[Sequence[pulumi.Input[builtins.str]]]:
+        """
+        The ARN for the secret in Secrets Manager that your CDN uses for authorization to access the endpoint.
+        """
+        return pulumi.get(self, "cdn_identifier_secret_arns")
+
+    @cdn_identifier_secret_arns.setter
+    def cdn_identifier_secret_arns(self, value: pulumi.Input[Sequence[pulumi.Input[builtins.str]]]):
+        pulumi.set(self, "cdn_identifier_secret_arns", value)
+
+    @property
+    @pulumi.getter(name="secretsRoleArn")
+    def secrets_role_arn(self) -> pulumi.Input[builtins.str]:
+        """
+        The ARN for the IAM role that gives MediaPackage read access to Secrets Manager and AWS KMS for CDN authorization.
+        """
+        return pulumi.get(self, "secrets_role_arn")
+
+    @secrets_role_arn.setter
+    def secrets_role_arn(self, value: pulumi.Input[builtins.str]):
+        pulumi.set(self, "secrets_role_arn", value)
 
 
 if not MYPY:

@@ -4,37 +4,39 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast, Any, overload, Literal, TypeAlias, Mapping
+from typing import TYPE_CHECKING, Any, Literal, Mapping, TypeAlias, cast, overload
 
 if TYPE_CHECKING:
     import langchain
-    from langchain.prompts import PromptTemplate as LcPromptTemplate
     from langchain.prompts import ChatPromptTemplate
+    from langchain.prompts import PromptTemplate as LcPromptTemplate
 
-import inspect
 import copy
+import inspect
+
 import pandas
 
-from ibm_watsonx_ai.foundation_models.prompts.base_prompt_template import (
-    BasePromptTemplate,
-)
+from ibm_watsonx_ai import APIClient, Credentials
 from ibm_watsonx_ai.foundation_models.prompts.base_prompt import (
     BasePrompt,
 )
-from ibm_watsonx_ai import APIClient, Credentials
-from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    InvalidValue,
-    InvalidMultipleArguments,
-    PromptVariablesError,
+from ibm_watsonx_ai.foundation_models.prompts.base_prompt_template import (
+    BasePromptTemplate,
 )
-from ibm_watsonx_ai.wml_resource import WMLResource
+from ibm_watsonx_ai.foundation_models.prompts.chat_prompt import ChatPrompt
 from ibm_watsonx_ai.foundation_models.utils.enums import (
     ModelTypes,
     PromptTemplateFormats,
 )
-from ibm_watsonx_ai.foundation_models.prompts.chat_prompt import ChatPrompt
+from ibm_watsonx_ai.wml_client_error import (
+    InvalidMultipleArguments,
+    InvalidValue,
+    PromptVariablesError,
+    WMLClientError,
+)
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 ListType: TypeAlias = list
 
@@ -690,7 +692,6 @@ class PromptTemplateManager(WMLResource):
             isinstance(prompt_template, BasePromptTemplate)
             and prompt_template.input_variables is not None
         ):
-
             PromptTemplateManager._validate_type(
                 prompt_template.input_variables, "input_variables", [dict, list], False
             )
@@ -756,7 +757,6 @@ class PromptTemplateManager(WMLResource):
 
         data: dict = dict()
         if isinstance(prompt_template, PromptTemplate | DetachedPromptTemplate):
-
             if prompt_template.instruction is not None:
                 data.update({"instruction": prompt_template.instruction})
 
@@ -838,7 +838,6 @@ class PromptTemplateManager(WMLResource):
                 )
 
         elif isinstance(prompt_template, ChatPrompt):
-
             if prompt_template.chat_items is not None:
                 PromptTemplateManager._validate_type(
                     prompt_template.chat_items, "chat_items", list, True
@@ -924,9 +923,7 @@ class PromptTemplateManager(WMLResource):
                     ).get("url"),
                     detached_prompt_additional_information=external_information_field.get(
                         "external_prompt", {}
-                    ).get(
-                        "additional_information"
-                    ),
+                    ).get("additional_information"),
                     detached_model_name=external_information_field.get(
                         "external_model", {}
                     ).get("name"),

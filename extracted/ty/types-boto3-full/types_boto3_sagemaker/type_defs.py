@@ -2677,6 +2677,9 @@ class CompilationJobSummaryTypeDef(TypedDict):
 class ComputeQuotaResourceConfigTypeDef(TypedDict):
     InstanceType: ClusterInstanceTypeType
     Count: NotRequired[int]
+    Accelerators: NotRequired[int]
+    VCpu: NotRequired[float]
+    MemoryInGiB: NotRequired[float]
 
 
 class ResourceSharingConfigTypeDef(TypedDict):

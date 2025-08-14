@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python_minifier
-Version: 2.11.3
+Version: 3.0.0
 Summary: Transform Python source code into it's most compact representation
 Home-page: https://github.com/dflook/python-minifier
 Author: Daniel Flook
@@ -34,6 +34,18 @@ Classifier: Topic :: Software Development
 Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, <3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
 
 # Python Minifier
 
@@ -130,7 +142,7 @@ def handler(event,context):
 
 ## Why?
 
-AWS Cloudformation templates may have AWS lambda function source code embedded in them, but only if the function is less 
+AWS Cloudformation templates may have AWS lambda function source code embedded in them, but only if the function is less
 than 4KiB. I wrote this package so I could write python normally and still embed the module in a template.
 
 ## Installation

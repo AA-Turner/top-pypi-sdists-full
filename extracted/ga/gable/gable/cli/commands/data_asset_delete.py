@@ -1,8 +1,9 @@
 import click
 from click.core import Context as ClickContext
+from loguru import logger
+
 from gable.cli.client import GableAPIClient
 from gable.openapi import ErrorResponse
-from loguru import logger
 
 
 @click.command(

@@ -7,10 +7,12 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from pandas import DataFrame
-    from ibm_watsonx_ai.utils.autoai.enums import PipelineTypes
-    from sklearn.pipeline import Pipeline
+    from lale.operators import TrainablePipeline
     from numpy import ndarray
+    from pandas import DataFrame
+    from sklearn.pipeline import Pipeline
+
+    from ibm_watsonx_ai.utils.autoai.enums import PipelineTypes
 
 __all__ = ["BaseAutoPipelines"]
 

@@ -6711,6 +6711,9 @@ class event_HistogramFilterQuery(ConjureUnionType):
     _or_: Optional[List["event_HistogramFilterQuery"]] = None
     _not_: Optional["event_HistogramFilterQuery"] = None
     _workspace: Optional[str] = None
+    _procedure: Optional[str] = None
+    _procedure_execution: Optional[str] = None
+    _step_id: Optional[str] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -6732,7 +6735,10 @@ class event_HistogramFilterQuery(ConjureUnionType):
             'and_': ConjureFieldDefinition('and', List[event_HistogramFilterQuery]),
             'or_': ConjureFieldDefinition('or', List[event_HistogramFilterQuery]),
             'not_': ConjureFieldDefinition('not', event_HistogramFilterQuery),
-            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid)
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
+            'procedure': ConjureFieldDefinition('procedure', api_rids_ProcedureRid),
+            'procedure_execution': ConjureFieldDefinition('procedureExecution', api_rids_ProcedureExecutionRid),
+            'step_id': ConjureFieldDefinition('stepId', str)
         }
 
     def __init__(
@@ -6755,10 +6761,13 @@ class event_HistogramFilterQuery(ConjureUnionType):
             or_: Optional[List["event_HistogramFilterQuery"]] = None,
             not_: Optional["event_HistogramFilterQuery"] = None,
             workspace: Optional[str] = None,
+            procedure: Optional[str] = None,
+            procedure_execution: Optional[str] = None,
+            step_id: Optional[str] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (search_text is not None) + (asset is not None) + (template is not None) + (workbook is not None) + (data_review is not None) + (origin_type is not None) + (data_review_check is not None) + (disposition_status is not None) + (priority is not None) + (assignee is not None) + (event_type is not None) + (created_by is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
+            if (search_text is not None) + (asset is not None) + (template is not None) + (workbook is not None) + (data_review is not None) + (origin_type is not None) + (data_review_check is not None) + (disposition_status is not None) + (priority is not None) + (assignee is not None) + (event_type is not None) + (created_by is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (procedure is not None) + (procedure_execution is not None) + (step_id is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if search_text is not None:
@@ -6815,6 +6824,15 @@ class event_HistogramFilterQuery(ConjureUnionType):
             if workspace is not None:
                 self._workspace = workspace
                 self._type = 'workspace'
+            if procedure is not None:
+                self._procedure = procedure
+                self._type = 'procedure'
+            if procedure_execution is not None:
+                self._procedure_execution = procedure_execution
+                self._type = 'procedureExecution'
+            if step_id is not None:
+                self._step_id = step_id
+                self._type = 'stepId'
 
         elif type_of_union == 'searchText':
             if search_text is None:
@@ -6906,6 +6924,21 @@ class event_HistogramFilterQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._workspace = workspace
             self._type = 'workspace'
+        elif type_of_union == 'procedure':
+            if procedure is None:
+                raise ValueError('a union value must not be None')
+            self._procedure = procedure
+            self._type = 'procedure'
+        elif type_of_union == 'procedureExecution':
+            if procedure_execution is None:
+                raise ValueError('a union value must not be None')
+            self._procedure_execution = procedure_execution
+            self._type = 'procedureExecution'
+        elif type_of_union == 'stepId':
+            if step_id is None:
+                raise ValueError('a union value must not be None')
+            self._step_id = step_id
+            self._type = 'stepId'
 
     @builtins.property
     def search_text(self) -> Optional[str]:
@@ -6979,6 +7012,18 @@ class event_HistogramFilterQuery(ConjureUnionType):
     def workspace(self) -> Optional[str]:
         return self._workspace
 
+    @builtins.property
+    def procedure(self) -> Optional[str]:
+        return self._procedure
+
+    @builtins.property
+    def procedure_execution(self) -> Optional[str]:
+        return self._procedure_execution
+
+    @builtins.property
+    def step_id(self) -> Optional[str]:
+        return self._step_id
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, event_HistogramFilterQueryVisitor):
             raise ValueError('{} is not an instance of event_HistogramFilterQueryVisitor'.format(visitor.__class__.__name__))
@@ -7018,6 +7063,12 @@ class event_HistogramFilterQuery(ConjureUnionType):
             return visitor._not(self.not_)
         if self._type == 'workspace' and self.workspace is not None:
             return visitor._workspace(self.workspace)
+        if self._type == 'procedure' and self.procedure is not None:
+            return visitor._procedure(self.procedure)
+        if self._type == 'procedureExecution' and self.procedure_execution is not None:
+            return visitor._procedure_execution(self.procedure_execution)
+        if self._type == 'stepId' and self.step_id is not None:
+            return visitor._step_id(self.step_id)
 
 
 event_HistogramFilterQuery.__name__ = "HistogramFilterQuery"
@@ -7099,6 +7150,18 @@ class event_HistogramFilterQueryVisitor:
     def _workspace(self, workspace: str) -> Any:
         pass
 
+    @abstractmethod
+    def _procedure(self, procedure: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _procedure_execution(self, procedure_execution: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _step_id(self, step_id: str) -> Any:
+        pass
+
 
 event_HistogramFilterQueryVisitor.__name__ = "HistogramFilterQueryVisitor"
 event_HistogramFilterQueryVisitor.__qualname__ = "HistogramFilterQueryVisitor"
@@ -7136,22 +7199,28 @@ class event_ProcedureEventOrigin(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'procedure_execution_rid': ConjureFieldDefinition('procedureExecutionRid', api_rids_ProcedureExecutionRid),
-            'step_node_id': ConjureFieldDefinition('stepNodeId', str)
+            'procedure_rid': ConjureFieldDefinition('procedureRid', api_rids_ProcedureRid),
+            'step_id': ConjureFieldDefinition('stepId', str)
         }
 
-    __slots__: List[str] = ['_procedure_execution_rid', '_step_node_id']
+    __slots__: List[str] = ['_procedure_execution_rid', '_procedure_rid', '_step_id']
 
-    def __init__(self, procedure_execution_rid: str, step_node_id: str) -> None:
+    def __init__(self, procedure_execution_rid: str, procedure_rid: str, step_id: str) -> None:
         self._procedure_execution_rid = procedure_execution_rid
-        self._step_node_id = step_node_id
+        self._procedure_rid = procedure_rid
+        self._step_id = step_id
 
     @builtins.property
     def procedure_execution_rid(self) -> str:
         return self._procedure_execution_rid
 
     @builtins.property
-    def step_node_id(self) -> str:
-        return self._step_node_id
+    def procedure_rid(self) -> str:
+        return self._procedure_rid
+
+    @builtins.property
+    def step_id(self) -> str:
+        return self._step_id
 
 
 event_ProcedureEventOrigin.__name__ = "ProcedureEventOrigin"
@@ -7285,6 +7354,9 @@ class event_SearchQuery(ConjureUnionType):
     _or_: Optional[List["event_SearchQuery"]] = None
     _not_: Optional["event_SearchQuery"] = None
     _workspace: Optional[str] = None
+    _procedure: Optional[str] = None
+    _procedure_execution: Optional[str] = None
+    _step_id: Optional[str] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -7309,7 +7381,10 @@ class event_SearchQuery(ConjureUnionType):
             'and_': ConjureFieldDefinition('and', List[event_SearchQuery]),
             'or_': ConjureFieldDefinition('or', List[event_SearchQuery]),
             'not_': ConjureFieldDefinition('not', event_SearchQuery),
-            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid)
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
+            'procedure': ConjureFieldDefinition('procedure', api_rids_ProcedureRid),
+            'procedure_execution': ConjureFieldDefinition('procedureExecution', api_rids_ProcedureExecutionRid),
+            'step_id': ConjureFieldDefinition('stepId', str)
         }
 
     def __init__(
@@ -7335,10 +7410,13 @@ class event_SearchQuery(ConjureUnionType):
             or_: Optional[List["event_SearchQuery"]] = None,
             not_: Optional["event_SearchQuery"] = None,
             workspace: Optional[str] = None,
+            procedure: Optional[str] = None,
+            procedure_execution: Optional[str] = None,
+            step_id: Optional[str] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (search_text is not None) + (after is not None) + (before is not None) + (advanced_time_filter is not None) + (asset is not None) + (template is not None) + (workbook is not None) + (data_review is not None) + (origin_type is not None) + (data_review_check is not None) + (disposition_status is not None) + (priority is not None) + (assignee is not None) + (event_type is not None) + (created_by is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
+            if (search_text is not None) + (after is not None) + (before is not None) + (advanced_time_filter is not None) + (asset is not None) + (template is not None) + (workbook is not None) + (data_review is not None) + (origin_type is not None) + (data_review_check is not None) + (disposition_status is not None) + (priority is not None) + (assignee is not None) + (event_type is not None) + (created_by is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (procedure is not None) + (procedure_execution is not None) + (step_id is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if search_text is not None:
@@ -7404,6 +7482,15 @@ class event_SearchQuery(ConjureUnionType):
             if workspace is not None:
                 self._workspace = workspace
                 self._type = 'workspace'
+            if procedure is not None:
+                self._procedure = procedure
+                self._type = 'procedure'
+            if procedure_execution is not None:
+                self._procedure_execution = procedure_execution
+                self._type = 'procedureExecution'
+            if step_id is not None:
+                self._step_id = step_id
+                self._type = 'stepId'
 
         elif type_of_union == 'searchText':
             if search_text is None:
@@ -7510,6 +7597,21 @@ class event_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._workspace = workspace
             self._type = 'workspace'
+        elif type_of_union == 'procedure':
+            if procedure is None:
+                raise ValueError('a union value must not be None')
+            self._procedure = procedure
+            self._type = 'procedure'
+        elif type_of_union == 'procedureExecution':
+            if procedure_execution is None:
+                raise ValueError('a union value must not be None')
+            self._procedure_execution = procedure_execution
+            self._type = 'procedureExecution'
+        elif type_of_union == 'stepId':
+            if step_id is None:
+                raise ValueError('a union value must not be None')
+            self._step_id = step_id
+            self._type = 'stepId'
 
     @builtins.property
     def search_text(self) -> Optional[str]:
@@ -7601,6 +7703,18 @@ This includes events that start before, but end after this time.
     def workspace(self) -> Optional[str]:
         return self._workspace
 
+    @builtins.property
+    def procedure(self) -> Optional[str]:
+        return self._procedure
+
+    @builtins.property
+    def procedure_execution(self) -> Optional[str]:
+        return self._procedure_execution
+
+    @builtins.property
+    def step_id(self) -> Optional[str]:
+        return self._step_id
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, event_SearchQueryVisitor):
             raise ValueError('{} is not an instance of event_SearchQueryVisitor'.format(visitor.__class__.__name__))
@@ -7646,6 +7760,12 @@ This includes events that start before, but end after this time.
             return visitor._not(self.not_)
         if self._type == 'workspace' and self.workspace is not None:
             return visitor._workspace(self.workspace)
+        if self._type == 'procedure' and self.procedure is not None:
+            return visitor._procedure(self.procedure)
+        if self._type == 'procedureExecution' and self.procedure_execution is not None:
+            return visitor._procedure_execution(self.procedure_execution)
+        if self._type == 'stepId' and self.step_id is not None:
+            return visitor._step_id(self.step_id)
 
 
 event_SearchQuery.__name__ = "SearchQuery"
@@ -7737,6 +7857,18 @@ class event_SearchQueryVisitor:
 
     @abstractmethod
     def _workspace(self, workspace: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _procedure(self, procedure: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _procedure_execution(self, procedure_execution: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _step_id(self, step_id: str) -> Any:
         pass
 
 
@@ -22709,6 +22841,38 @@ Throws if the asset already has data scopes with data scope names matching those
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), Dict[scout_rids_api_AssetRid, scout_asset_api_Asset], self._return_none_for_unknown_union_types)
+
+    def get_assets_by_data_source(self, auth_header: str, data_source_rid: str) -> List["scout_asset_api_Asset"]:
+        """Returns all assets with given data source as a data scope.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'dataSourceRid': quote(str(_conjure_encoder.default(data_source_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/scout/v1/asset/by-data-source/{dataSourceRid}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), List[scout_asset_api_Asset], self._return_none_for_unknown_union_types)
 
     def archive(self, auth_header: str, rid: str, include_linked_workbooks: Optional[bool] = None) -> None:
         _conjure_encoder = ConjureEncoder()
@@ -49415,16 +49579,18 @@ class scout_compute_api_RangeAggregation(ConjureBeanType):
             'average': ConjureFieldDefinition('average', float),
             'min': ConjureFieldDefinition('min', float),
             'max': ConjureFieldDefinition('max', float),
-            'standard_deviation': ConjureFieldDefinition('standardDeviation', float)
+            'standard_deviation': ConjureFieldDefinition('standardDeviation', float),
+            'count': ConjureFieldDefinition('count', float)
         }
 
-    __slots__: List[str] = ['_average', '_min', '_max', '_standard_deviation']
+    __slots__: List[str] = ['_average', '_min', '_max', '_standard_deviation', '_count']
 
-    def __init__(self, average: float, max: float, min: float, standard_deviation: float) -> None:
+    def __init__(self, average: float, count: float, max: float, min: float, standard_deviation: float) -> None:
         self._average = average
         self._min = min
         self._max = max
         self._standard_deviation = standard_deviation
+        self._count = count
 
     @builtins.property
     def average(self) -> float:
@@ -49442,6 +49608,10 @@ class scout_compute_api_RangeAggregation(ConjureBeanType):
     def standard_deviation(self) -> float:
         return self._standard_deviation
 
+    @builtins.property
+    def count(self) -> float:
+        return self._count
+
 
 scout_compute_api_RangeAggregation.__name__ = "RangeAggregation"
 scout_compute_api_RangeAggregation.__qualname__ = "RangeAggregation"
@@ -49453,6 +49623,7 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
     _min: Optional["scout_compute_api_Minimum"] = None
     _max: Optional["scout_compute_api_Maximum"] = None
     _standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None
+    _count: Optional["scout_compute_api_Count"] = None
     _all: Optional["api_Empty"] = None
 
     @builtins.classmethod
@@ -49462,6 +49633,7 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
             'min': ConjureFieldDefinition('min', scout_compute_api_Minimum),
             'max': ConjureFieldDefinition('max', scout_compute_api_Maximum),
             'standard_deviation': ConjureFieldDefinition('standardDeviation', scout_compute_api_StandardDeviation),
+            'count': ConjureFieldDefinition('count', scout_compute_api_Count),
             'all': ConjureFieldDefinition('all', api_Empty)
         }
 
@@ -49471,11 +49643,12 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
             min: Optional["scout_compute_api_Minimum"] = None,
             max: Optional["scout_compute_api_Maximum"] = None,
             standard_deviation: Optional["scout_compute_api_StandardDeviation"] = None,
+            count: Optional["scout_compute_api_Count"] = None,
             all: Optional["api_Empty"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (average is not None) + (min is not None) + (max is not None) + (standard_deviation is not None) + (all is not None) != 1:
+            if (average is not None) + (min is not None) + (max is not None) + (standard_deviation is not None) + (count is not None) + (all is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if average is not None:
@@ -49490,6 +49663,9 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
             if standard_deviation is not None:
                 self._standard_deviation = standard_deviation
                 self._type = 'standardDeviation'
+            if count is not None:
+                self._count = count
+                self._type = 'count'
             if all is not None:
                 self._all = all
                 self._type = 'all'
@@ -49514,6 +49690,11 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._standard_deviation = standard_deviation
             self._type = 'standardDeviation'
+        elif type_of_union == 'count':
+            if count is None:
+                raise ValueError('a union value must not be None')
+            self._count = count
+            self._type = 'count'
         elif type_of_union == 'all':
             if all is None:
                 raise ValueError('a union value must not be None')
@@ -49537,6 +49718,10 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
         return self._standard_deviation
 
     @builtins.property
+    def count(self) -> Optional["scout_compute_api_Count"]:
+        return self._count
+
+    @builtins.property
     def all(self) -> Optional["api_Empty"]:
         return self._all
 
@@ -49551,6 +49736,8 @@ class scout_compute_api_RangeAggregationOperation(ConjureUnionType):
             return visitor._max(self.max)
         if self._type == 'standardDeviation' and self.standard_deviation is not None:
             return visitor._standard_deviation(self.standard_deviation)
+        if self._type == 'count' and self.count is not None:
+            return visitor._count(self.count)
         if self._type == 'all' and self.all is not None:
             return visitor._all(self.all)
 
@@ -49576,6 +49763,10 @@ class scout_compute_api_RangeAggregationOperationVisitor:
 
     @abstractmethod
     def _standard_deviation(self, standard_deviation: "scout_compute_api_StandardDeviation") -> Any:
+        pass
+
+    @abstractmethod
+    def _count(self, count: "scout_compute_api_Count") -> Any:
         pass
 
     @abstractmethod

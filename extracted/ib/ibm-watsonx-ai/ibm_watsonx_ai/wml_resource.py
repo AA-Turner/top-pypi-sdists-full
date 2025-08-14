@@ -4,43 +4,44 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
+import json
 import logging
 from typing import (
     TYPE_CHECKING,
-    Callable,
     Any,
-    TypeAlias,
-    cast,
+    Callable,
+    Generator,
     Iterable,
     Literal,
+    TypeAlias,
+    cast,
     overload,
-    Generator,
 )
 
-import json
-
 import ibm_watsonx_ai._wrappers.requests as requests
-from ibm_watsonx_ai import Credentials
+from ibm_watsonx_ai.credentials import Credentials
 from ibm_watsonx_ai.utils import (
     get_type_of_details,
     next_resource_generator,
 )
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
 from ibm_watsonx_ai.wml_client_error import (
-    MissingValue,
-    WMLClientError,
-    NoWMLCredentialsProvided,
     ApiRequestFailure,
-    UnexpectedType,
     MissingMetaProp,
+    MissingValue,
+    NoWMLCredentialsProvided,
+    UnexpectedType,
+    WMLClientError,
 )
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
-    from ibm_watsonx_ai.sw_spec import SpecStates
+    import httpx
     import pandas as pd
     import requests as _requests
-    import httpx
+
+    from ibm_watsonx_ai import APIClient
+    from ibm_watsonx_ai.sw_spec import SpecStates
 
     ArtifactDetailsType: TypeAlias = Generator | dict[str, Any]
     ResponseLike: TypeAlias = _requests.Response | httpx.Response
@@ -121,7 +122,6 @@ class WMLResource:
                 raise WMLClientError(msg)
 
         if response.status_code == expected_status_code:
-
             self._logger.info(
                 "Successfully finished {} for url: '{}'".format(
                     operationName, response.url
@@ -239,11 +239,14 @@ class WMLResource:
                 ], response.json().get("next")
 
             data = {"query": "*:*"}
+            if asset_type == "data_asset":
+                data["include"] = (
+                    "entity,attachments"  # "Attachments can only be included if entity is also requested."
+                )
 
             result, data = get_chunk(data)
 
             if get_all:
-
                 while data is not None and (limit is None or len(result) < limit):
                     res, data = get_chunk(data)
                     result.extend(res)
@@ -623,7 +626,6 @@ class WMLResource:
                 }
 
     def _if_deployment_exist_for_asset(self, asset_id: str) -> bool:
-
         deployment_href = (
             self._client._href_definitions.get_deployments_href()
             + "?asset_id="
@@ -723,7 +725,6 @@ class WMLResource:
         "error_in_deleting_existing_attachment",
         "success",
     ]:
-
         if current_attachment_id is not None:
             # Delete existing attachment to upload new attachment
             attachments_id_url = (
@@ -851,7 +852,7 @@ class WMLResource:
                         sw_spec_id := spec["metadata"]["asset_id"]
                     ) not in self._client._spec_ids_per_state[state]:
                         self._client._spec_ids_per_state[state].append(sw_spec_id)
-                except:
+                except Exception:
                     # The values are requested by SpecStates, so even if new state will appear
                     # user will not request that new state. If user will wish to request new state, they will open issue.
                     pass

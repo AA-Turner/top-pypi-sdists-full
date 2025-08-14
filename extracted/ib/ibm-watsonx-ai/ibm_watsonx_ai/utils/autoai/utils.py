@@ -53,75 +53,77 @@ __all__ = [
 ]
 
 
-import io
-import json
-import os
 import enum
 import gzip
 import inspect
+import io
+import json
+import os
 import re
 import sys
-from contextlib import redirect_stdout
+from contextlib import contextmanager, redirect_stdout
 from functools import wraps
+from importlib.metadata import PackageNotFoundError
 from subprocess import check_call
 from sys import executable
 from tarfile import open as open_tar
-from typing import Dict, Union, Tuple, List, TYPE_CHECKING, Optional, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 from warnings import warn
 from zipfile import ZipFile
-from contextlib import contextmanager
+
 import pandas as pd
-
-
-from importlib.metadata import PackageNotFoundError
-import ibm_watsonx_ai._wrappers.requests as requests
 from packaging import version
 
+import ibm_watsonx_ai._wrappers.requests as requests
+from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.utils import get_module_version
+from ibm_watsonx_ai.wml_client_error import WMLClientError
+
 from .enums import (
-    RegressionAlgorithms,
-    RegressionAlgorithmsCP4D,
+    BatchedClassificationAlgorithms,
+    BatchedRegressionAlgorithms,
     ClassificationAlgorithms,
     ClassificationAlgorithmsCP4D,
     ForecastingAlgorithms,
     ForecastingAlgorithmsCP4D,
-    Transformers,
-    Metrics,
-    TShirtSize,
-    PredictionType,
     ImputationStrategy,
-    BatchedRegressionAlgorithms,
-    BatchedClassificationAlgorithms,
+    Metrics,
+    PredictionType,
+    RegressionAlgorithms,
+    RegressionAlgorithmsCP4D,
+    Transformers,
+    TShirtSize,
 )
 from .errors import (
-    MissingPipeline,
-    DataFormatNotSupported,
-    LibraryNotCompatible,
-    CannotInstallLibrary,
+    AdditionalParameterIsUnexpected,
     CannotDownloadTrainingDetails,
     CannotDownloadWMLPipelineDetails,
-    VisualizationFailed,
-    AdditionalParameterIsUnexpected,
-    InvalidSequenceValue,
-    NoAvailableMetrics,
+    CannotInstallLibrary,
+    DataFormatNotSupported,
     DiscardedModel,
-    WrongModelName,
-    StrategyIsNotApplicable,
-    InconsistentImputationListElements,
-    NoAvailableNotebookLocation,
     FitNotCompleted,
+    InconsistentImputationListElements,
+    InvalidSequenceValue,
+    LibraryNotCompatible,
+    MissingPipeline,
+    NoAvailableMetrics,
+    NoAvailableNotebookLocation,
+    StrategyIsNotApplicable,
+    VisualizationFailed,
+    WrongModelName,
 )
-from ibm_watsonx_ai.utils import get_module_version
-from ibm_watsonx_ai.wml_client_error import WMLClientError
-from ibm_watsonx_ai.messages.messages import Messages
 
 if TYPE_CHECKING:
-    from io import BytesIO, BufferedIOBase
-    from pandas import DataFrame
     from collections import OrderedDict
+    from io import BufferedIOBase, BytesIO
+
+    from ibm_boto3 import resource
+    from lale.operators import TrainablePipeline
+    from pandas import DataFrame
     from sklearn.pipeline import Pipeline
+
     from ibm_watsonx_ai import APIClient
     from ibm_watsonx_ai.helpers import DataConnection, S3Connection
-    from ibm_boto3 import resource, client
 
 import logging
 
@@ -136,6 +138,7 @@ def create_model_download_link(file_path: str):
     """
     if is_ipython():
         from IPython.display import display
+
         from ibm_watsonx_ai.utils import create_download_link
 
         display(create_download_link(file_path))
@@ -255,7 +258,6 @@ def fetch_pipelines(
 
             # note: populate available pipeline names
             if pipeline["context"]["phase"] == model_phase:
-
                 model_type = "onnx_model" if onnx_model else "model"
                 # note: fetch and create model paths from file system
                 model_path = (
@@ -472,12 +474,10 @@ def fetch_pipelines(
                     break
 
         for filename, key, name in zip(filenames, keys, pipelines_names):
-
             results_reference.location.path = key
             results_reference.download(filename=filename)
 
             if load_pipelines:
-
                 # Disable printing to suppress warning from ai4ml
                 with redirect_stdout(open(os.devnull, "w")):
                     if onnx_model:
@@ -487,7 +487,7 @@ def fetch_pipelines(
                         ):
                             from autoai_ts_libs import version
                         else:
-                            from autoai_libs import version
+                            from autoai_libs import version  # noqa: F401
                         ort = try_import_onnxruntime()
                         extensions = try_import_onnxruntime_extensions()
 
@@ -611,11 +611,10 @@ def _download_notebook(
 
                 # note: populate available pipeline names
                 if pipeline["context"]["phase"] == model_phase:
-
                     # note: fetch and create model paths from file system
                     try:
                         notebook_path = f"{pipeline['context']['intermediate_model']['notebook_location']}"
-                    except:
+                    except Exception:
                         raise NoAvailableNotebookLocation(pipeline_name)
                     # --- end note
 
@@ -660,7 +659,7 @@ def _download_notebook(
                 if pipeline["context"]["phase"] == model_phase:
                     try:
                         notebook_path = f"{pipeline['context']['intermediate_model']['notebook_location']}"
-                    except:
+                    except Exception:
                         raise NoAvailableNotebookLocation(pipeline_name)
 
                     if not filename:
@@ -1053,7 +1052,7 @@ def prepare_auto_ai_model_to_publish_normal_scenario(
             result_reference,
             auto_pipelines_parameters=auto_pipelines_parameters,
         )
-    except:
+    except Exception:
         raise MissingPipeline(
             pipeline_model,
             reason="The name of the pipeline is incorrect or there are no pipelines computed.",
@@ -1220,9 +1219,9 @@ def modify_pipeline_model_json(data_location: str, model_path: str) -> None:
     with open(data_location, "r") as f:
         data = json.load(f)
 
-    data["pipelines"][0]["nodes"][-1]["parameters"]["output_model"][
-        "location"
-    ] = f"{model_path}model.pickle"
+    data["pipelines"][0]["nodes"][-1]["parameters"]["output_model"]["location"] = (
+        f"{model_path}model.pickle"
+    )
 
     with open(data_location, "w") as f:
         f.write(json.dumps(data))
@@ -1230,8 +1229,8 @@ def modify_pipeline_model_json(data_location: str, model_path: str) -> None:
 
 def init_cos_client(connection: dict) -> "resource":
     """Initiate COS client for further usage."""
-    from ibm_botocore.client import Config
     from ibm_boto3 import resource
+    from ibm_botocore.client import Config
 
     # note: In case of connection_asset we need too get COS credentials from connection details.
     if connection.get("properties") is not None:
@@ -1331,7 +1330,7 @@ class ProgressGenerator:
 def is_ipython():
     """Check if code is running in the notebook."""
     try:
-        name = get_ipython().__class__.__name__
+        name = get_ipython().__class__.__name__  # type: ignore[name-defined]  # noqa: F821
         if name != "ZMQInteractiveShell":
             return False
         else:
@@ -1365,7 +1364,7 @@ def try_import_lale():
                     reason="lale failed to install. Please install it manually.",
                 )
 
-    except PackageNotFoundError as e:
+    except PackageNotFoundError:
         lale_not_installed_warning = (
             f"`lale` is not installed. Installing version {lale_version}"
         )
@@ -1403,7 +1402,7 @@ def try_import_autoai_libs(minimum_version: str = None):
             )
 
     try:
-        import autoai_libs
+        import autoai_libs  # noqa: F401
 
         if minimum_version is not None:
             installed_module_version = get_module_version("autoai-libs")
@@ -1423,7 +1422,7 @@ def try_import_autoai_libs(minimum_version: str = None):
 def try_import_autoai_ts_libs():
     """Check if autoai_ts_libs package is installed in local environment, if not, just download and install it."""
     try:
-        import autoai_ts_libs
+        import autoai_ts_libs  # noqa: F401
 
     except ImportError:
         autoai_ts_libs_not_installed_warning = (
@@ -1445,7 +1444,7 @@ def try_import_autoai_ts_libs():
 def try_import_tqdm():
     """Check if tqdm package is installed in local environment, if not, just download and install it."""
     try:
-        import tqdm
+        import tqdm  # noqa: F401
 
     except ImportError:
         tqdm_not_installed_warning = (
@@ -1467,7 +1466,7 @@ def try_import_tqdm():
 def try_import_xlrd():
     """Check if xlrd package is installed in local environment, if not, just download and install it."""
     try:
-        import xlrd
+        import xlrd  # noqa: F401
 
     except ImportError:
         xlrd_not_installed_warning = (
@@ -1489,7 +1488,7 @@ def try_import_xlrd():
 def try_import_graphviz():
     """Check if graphviz package is installed in local environment, if not, just download and install it."""
     try:
-        import graphviz
+        import graphviz  # noqa: F401
 
     except ImportError:
         graphviz_not_installed_warning = (
@@ -1709,7 +1708,7 @@ def try_load_dataset(
 def try_import_openpyxl():
     """Check if openpyxl package is installed in local environment, if not, just download and install it."""
     try:
-        import openpyxl
+        import openpyxl  # noqa: F401
 
     except ImportError:
         openpyxl_not_installed_warning = (
@@ -1783,9 +1782,10 @@ def try_load_tar_gz(
     :return: loaded dataset
     :rtype: DataFrame or OrderedDict
     """
-    from pandas import read_csv
-    import uuid
     import tarfile
+    import uuid
+
+    from pandas import read_csv
 
     tmp_file = f"tmp_file_{uuid.uuid4()}.tar.gz"
 
@@ -1929,7 +1929,7 @@ def check_dependencies_versions(
                     elif installed_version.minor != sw_spec_version.minor:
                         errored_packages.append(package)
 
-            except PackageNotFoundError as e:
+            except PackageNotFoundError:
                 errored_packages.append(package)
 
         else:
@@ -1964,12 +1964,13 @@ def prepare_cos_client(
     :return: list of COS clients for training data, client for results
     :rtype: tuple[list[tuple[DataConnection, resource]], tuple[DataConnection, resource]]
     """
+    from ibm_boto3 import resource
+    from ibm_botocore.client import Config
+
     from ibm_watsonx_ai.helpers.connections.connections import (
         S3Connection,
         _AmazonS3Connection,
     )
-    from ibm_boto3 import resource
-    from ibm_botocore.client import Config
 
     def differentiate_between_credentials(
         connection: S3Connection | _AmazonS3Connection,
@@ -2241,14 +2242,15 @@ def create_summary(
                                 == pipeline_name
                                 and metric_name in x["ts_metrics"]
                             ][0]
-                        except Exception as e:
+                        except Exception:
                             return []
 
                         if metric_name == "backtest":
                             return list(
                                 {
-                                    prefix
-                                    + x: chosen_obj["ts_metrics"][metric_name]["avg"][x]
+                                    prefix + x: chosen_obj["ts_metrics"][metric_name][
+                                        "avg"
+                                    ][x]
                                     for x in chosen_obj["ts_metrics"][metric_name][
                                         "avg"
                                     ]
@@ -2308,7 +2310,7 @@ def create_summary(
                                     else:
                                         items[x[0]] = x[1]
                                 return list(items.items())
-                        except Exception as e:
+                        except Exception:
                             return []
 
                     pipeline_name = pipeline["context"]["intermediate_model"]["name"]
@@ -2545,10 +2547,10 @@ def check_graphviz_binaries(f):
         try:
             output = f(*method_args, **method_kwargs)
 
-        except ExecutableNotFound as e:
+        except ExecutableNotFound:
             raise VisualizationFailed(
-                reason=f"Cannot perform visualization with graphviz. Please make sure that you have Graphviz binaries "
-                f"installed in your system. Please follow this guide: https://www.graphviz.org/download/"
+                reason="Cannot perform visualization with graphviz. Please make sure that you have Graphviz binaries "
+                "installed in your system. Please follow this guide: https://www.graphviz.org/download/"
             )
 
         return output
@@ -2738,7 +2740,6 @@ def download_request_json(
     auto_pipelines_parameters=None,
     **kwargs,
 ) -> dict:
-
     # note: backward compatibility
     if (wml_client := kwargs.get("wml_client")) is not None:
         api_client = wml_client
@@ -3122,22 +3123,26 @@ def get_values_for_imputation_strategy(
 
     if prediction_type == PredictionType.FORECASTING:
         if "ts" not in v:
-            l = [
+            applicable_strategies = [
                 "ImputationStrategy." + s.name
                 for s in ImputationStrategy
                 if values[s].get("ts")
             ]
-            raise StrategyIsNotApplicable(strategy, prediction_type, l)
+            raise StrategyIsNotApplicable(
+                strategy, prediction_type, applicable_strategies
+            )
 
         return v["ts"]
     else:
         if "kb" not in v:
-            l = [
+            applicable_strategies = [
                 "ImputationStrategy." + s.name
                 for s in ImputationStrategy
                 if values[s].get("kb")
             ]
-            raise StrategyIsNotApplicable(strategy, prediction_type, l)
+            raise StrategyIsNotApplicable(
+                strategy, prediction_type, applicable_strategies
+            )
 
         return v["kb"]
 
@@ -3196,7 +3201,6 @@ def convert_dataframe_to_fields_values_payload(
     df: "DataFrame", return_values_only: bool = False, onnx_mode: bool = False
 ) -> dict[str, Any] | list:
     if isinstance(df, pd.DataFrame):
-
         data = df.where(pd.notnull(df), None)
         data.fillna(json.dumps(float("nan")), inplace=True)
         values = data.values
@@ -3232,7 +3236,7 @@ def get_autoai_run_id_from_experiment_metadata(experiment_metadata: dict) -> str
     if experiment_metadata:
         training_result_reference = experiment_metadata.get("training_result_reference")
 
-        from ibm_watsonx_ai.helpers import S3Location, AssetLocation
+        from ibm_watsonx_ai.helpers import AssetLocation, S3Location
 
         if isinstance(
             training_result_reference.location, (S3Location, AssetLocation)

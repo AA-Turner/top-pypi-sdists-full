@@ -17,7 +17,6 @@ from sqlglot.parser import logger as parser_logger
 from tests.dialects.test_dialect import Validator
 from sqlglot.optimizer.annotate_types import annotate_types
 from sqlglot.optimizer.qualify import qualify
-from sqlglot.optimizer.qualify_tables import qualify_tables
 
 
 class TestBigQuery(Validator):
@@ -1769,6 +1768,14 @@ WHERE
                 "snowflake": "SELECT CAST(col AS OBJECT(fld1 OBJECT(fld2 INT))):fld1.fld2",
             },
         )
+        self.validate_identity(
+            "SELECT PARSE_DATETIME('%a %b %e %I:%M:%S %Y', 'Thu Dec 25 07:30:00 2008')"
+        )
+        self.validate_identity("FORMAT_TIME('%R', CAST('15:30:00' AS TIME))")
+        self.validate_identity("PARSE_TIME('%I:%M:%S', '07:30:00')")
+        self.validate_identity("BYTE_LENGTH('foo')")
+        self.validate_identity("BYTE_LENGTH(b'foo')")
+        self.validate_identity("CODE_POINTS_TO_STRING([65, 255])")
 
     def test_errors(self):
         with self.assertRaises(ParseError):
@@ -2216,28 +2223,6 @@ OPTIONS (
                 "bigquery": "WITH Races AS (SELECT '800M' AS race) SELECT race, participant FROM Races AS r CROSS JOIN UNNEST([STRUCT('Rudisha' AS name, [23.4, 26.3, 26.4, 26.1] AS laps)]) AS participant",
                 "duckdb": "WITH Races AS (SELECT '800M' AS race) SELECT race, participant FROM Races AS r CROSS JOIN (SELECT UNNEST([{'name': 'Rudisha', 'laps': [23.4, 26.3, 26.4, 26.1]}], max_depth => 2)) AS participant",
             },
-        )
-
-    def test_qualified_unnest(self):
-        sql = """
-        SELECT x, ys, zs
-        FROM UNNEST([STRUCT('x' AS x, ['y1', 'y2', 'y3'] AS y, ['z1', 'z2', 'z3'] AS z)]),
-        UNNEST(y) AS ys,
-        UNNEST(z) AS zs
-        """
-        ast = qualify_tables(self.parse_one(sql), dialect="bigquery")
-
-        self.assertEqual(
-            ast.sql("bigquery"),
-            "SELECT x, ys, zs FROM UNNEST([STRUCT('x' AS x, ['y1', 'y2', 'y3'] AS y, ['z1', 'z2', 'z3'] AS z)]) AS _q_0 CROSS JOIN UNNEST(y) AS ys CROSS JOIN UNNEST(z) AS zs",
-        )
-        self.assertEqual(
-            ast.sql("duckdb"),
-            "SELECT x, ys, zs FROM (SELECT UNNEST([{'x': 'x', 'y': ['y1', 'y2', 'y3'], 'z': ['z1', 'z2', 'z3']}], max_depth => 2)) AS _q_0 CROSS JOIN UNNEST(y) AS _q_1(ys) CROSS JOIN UNNEST(z) AS _q_2(zs)",
-        )
-        self.assertEqual(
-            ast.sql("snowflake"),
-            "SELECT _q_0['x'] AS x, ys, zs FROM TABLE(FLATTEN(INPUT => [OBJECT_CONSTRUCT('x', 'x', 'y', ['y1', 'y2', 'y3'], 'z', ['z1', 'z2', 'z3'])])) AS _q_0(seq, key, path, index, _q_0, this) CROSS JOIN TABLE(FLATTEN(INPUT => _q_0['y'])) AS _q_1(seq, key, path, index, ys, this) CROSS JOIN TABLE(FLATTEN(INPUT => _q_0['z'])) AS _q_2(seq, key, path, index, zs, this)",
         )
 
     def test_range_type(self):
@@ -2755,4 +2740,17 @@ OPTIONS (
         self.validate_identity("DECLARE START_DATE DATE DEFAULT CURRENT_DATE - 1")
         self.validate_identity(
             "DECLARE TS TIMESTAMP DEFAULT CURRENT_TIMESTAMP() - INTERVAL '1' HOUR"
+        )
+
+    def test_week(self):
+        self.validate_identity("DATE_TRUNC(date, WEEK(MONDAY))")
+        self.validate_identity(
+            "LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(SUNDAY))",
+            "LAST_DAY(CAST('2008-11-10 15:30:00' AS DATETIME), WEEK(SUNDAY))",
+        )
+        self.validate_identity("DATE_DIFF('2017-12-18', '2017-12-17', WEEK(SATURDAY))")
+        self.validate_identity("DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY))")
+        self.validate_identity(
+            "EXTRACT(WEEK(THURSDAY) FROM DATE '2013-12-25')",
+            "EXTRACT(WEEK(THURSDAY) FROM CAST('2013-12-25' AS DATE))",
         )

@@ -8,7 +8,9 @@ license.workspace = true
 readme = "README.md"
 
 [dependencies]
+addr.workspace = true
 ahash.workspace = true
+email_address.workspace = true
 itertools.workspace = true
 regex.workspace = true
 thiserror.workspace = true
@@ -17,4 +19,7 @@ tombi-document-tree.workspace = true
 tombi-future.workspace = true
 tombi-schema-store.workspace = true
 tombi-text.workspace = true
+tombi-x-keyword.workspace = true
 tracing.workspace = true
+url.workspace = true
+uuid.workspace = true

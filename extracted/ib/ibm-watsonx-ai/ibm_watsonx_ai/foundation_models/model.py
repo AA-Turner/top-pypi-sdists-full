@@ -4,18 +4,19 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generator, overload, Literal, Any
-from warnings import warn, catch_warnings, simplefilter
+from typing import TYPE_CHECKING, Generator, Literal, overload
+from warnings import catch_warnings, simplefilter, warn
 
 from ibm_watsonx_ai.foundation_models.inference import ModelInference
-from ibm_watsonx_ai.wml_client_error import MissingExtension
 from ibm_watsonx_ai.foundation_models.schema import (
     TextChatParameters,
     TextGenParameters,
 )
+from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 if TYPE_CHECKING:
     from langchain_ibm import WatsonxLLM
+
     from ibm_watsonx_ai import Credentials
 
 

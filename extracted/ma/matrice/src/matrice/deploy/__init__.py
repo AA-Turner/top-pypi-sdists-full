@@ -16,7 +16,8 @@ dependencies_check(
         "matplotlib",
         "scikit-image",
         "python-snappy",
-        "pyyaml"
+        "pyyaml",
+        "easyocr",
     ]
 )
 

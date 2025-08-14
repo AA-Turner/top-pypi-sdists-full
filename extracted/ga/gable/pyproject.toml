@@ -1,13 +1,12 @@
 [tool.poetry]
 name = "gable"
-version = "0.37.7"
+version = "0.37.8"
 description = "Command line interface (CLI) and software development kit (SDK) to interact with Gable API"
 authors = ["Gable.ai <engineers@gable.ai>"]
 readme = "README.md"
 packages = [{ include = "gable" }]
-# By default Poetry excludes all files and directories listed in .gitignore,
-# so we need to override this for the generated openapi file
-include = ["gable/openapi.py"]
+# Force include the openapi.py file even though it's in .gitignore
+include = [{ path = "gable/openapi.py", format = ["sdist", "wheel"] }]
 # Exclude things we don't want shipping in our published package
 exclude = ["tests", "scripts"]
 
@@ -66,7 +65,7 @@ flask = "^3.0.3"
 flask_cors = "^4.0.1"
 isort = "^5.12.0"
 moto = "^5.0.5"
-poethepoet = "^0.20.0"
+poethepoet = "^0.37.0"
 pytest = "^7.3.1"
 pyright = "^1.1.374"
 requests-mock = "^1.12.1"
@@ -121,6 +120,9 @@ all = [
     'duckdb',
 ]
 
+[tool.poe.tasks.pull_openapi_schema]
+shell = "zsh scripts/pull_openapi_schema.sh"
+
 [tool.poe.tasks.generate_types]
 shell = "bash scripts/generate_types.sh"
 
@@ -130,8 +132,11 @@ script = "scripts.publish_pypi:main"
 [tool.poe.tasks.lint]
 shell = "pylint gable scripts tests --disable=C,R,W,E1101,E0611"
 
-[tool.poe.tasks.lint2]
-shell = "black . && isort . --quiet && autoflake --recursive . --quiet --in-place"
+[tool.poe.tasks.format]
+shell = "echo 'Beginning formatting...'; black . && isort . --quiet && autoflake --recursive . --quiet --in-place; echo 'Formatting complete.'"
+
+[tool.poe.tasks.format-check]
+shell = "black . --check && isort . --check-only && autoflake --recursive . --check-diff --quiet"
 
 [tool.poe.tasks.typecheck]
 shell = "pyright ."

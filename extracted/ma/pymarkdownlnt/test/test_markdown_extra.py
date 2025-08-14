@@ -15259,7 +15259,6 @@ another list</li>
 
 
 @pytest.mark.gfm
-# @pytest.mark.skip
 def test_extra_052r0() -> None:
     """
     TBD
@@ -16447,7 +16446,6 @@ block 2</p>
     act_and_assert(source_markdown, expected_gfm, expected_tokens, show_debug=False)
 
 
-@pytest.mark.skip
 @pytest.mark.gfm
 def test_extra_054x() -> None:
     """
@@ -16459,24 +16457,57 @@ def test_extra_054x() -> None:
     # Arrange
     source_markdown = """> [abc]: /url 'abc
 >
-> some text
+> some text [abc]
 """
     expected_tokens = [
-        "[ulist(1,1):-::2::\n]",
+        "[block-quote(1,1)::> \n>\n> \n]",
         "[para(1,3):]",
-        "[text(1,3):| foo | bar |:]",
+        "[text(1,3):[abc]: /url 'abc:]",
         "[end-para:::True]",
-        "[li(2,1):2::]",
-        "[para(2,3):\n]",
-        "[text(2,3):some text\nsome other text::\n]",
+        "[BLANK(2,2):]",
+        "[para(3,3):]",
+        "[text(3,3):some text [abc]:]",
         "[end-para:::True]",
+        "[end-block-quote:::True]",
         "[BLANK(4,1):]",
+    ]
+    expected_gfm = """<blockquote>
+<p>[abc]: /url 'abc</p>
+<p>some text [abc]</p>
+</blockquote>"""
+
+    # Act & Assert
+    act_and_assert(source_markdown, expected_gfm, expected_tokens)
+
+
+@pytest.mark.gfm
+def test_extra_055x() -> None:
+    """
+    TBD
+    """
+
+    # Arrange
+    source_markdown = """This is text and a blank line.
+
++ a list
+[blah]: /url
+"""
+    expected_tokens = [
+        "[para(1,1):]",
+        "[text(1,1):This is text and a blank line.:]",
+        "[end-para:::True]",
+        "[BLANK(2,1):]",
+        "[ulist(3,1):+::2::\n]",
+        "[para(3,3):\n]",
+        "[text(3,3):a list\n[blah]: /url::\n]",
+        "[end-para:::True]",
+        "[BLANK(5,1):]",
         "[end-ulist:::True]",
     ]
-    expected_gfm = """<ul>
-<li>| foo | bar |</li>
-<li>some text
-some other text</li>
+    expected_gfm = """<p>This is text and a blank line.</p>
+<ul>
+<li>a list
+[blah]: /url</li>
 </ul>"""
 
     # Act & Assert

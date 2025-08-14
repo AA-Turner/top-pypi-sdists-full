@@ -1,4 +1,4 @@
-from orionis.services.introspection.dependencies.entities.class_dependencies import ClassDependency
+from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
 from tests.services.introspection.reflection.mock.fake_reflect_instance import FakeClass
 from orionis.services.introspection.instances.reflection import ReflectionInstance
 from orionis.test.cases.asynchronous import AsyncTestCase
@@ -1201,16 +1201,16 @@ class TestServiceReflectionInstance(AsyncTestCase):
         Test ReflectionInstance.getConstructorDependencies() method functionality.
 
         Verifies that the getConstructorDependencies method returns an instance
-        of ClassDependency containing the constructor dependencies of the wrapped
+        of ResolveArguments containing the constructor dependencies of the wrapped
         instance's class. Tests dependency analysis for class constructors.
 
         Assertions
         ----------
-        - Returned value is an instance of ClassDependency
+        - Returned value is an instance of ResolveArguments
         """
         reflect = ReflectionInstance(FakeClass())
         dependencies = reflect.getConstructorDependencies()
-        self.assertIsInstance(dependencies, ClassDependency)
+        self.assertIsInstance(dependencies, ResolveArguments)
 
     async def testGetMethodDependencies(self):
         """
@@ -1228,7 +1228,7 @@ class TestServiceReflectionInstance(AsyncTestCase):
         - No unresolved dependencies exist
         """
         reflect = ReflectionInstance(FakeClass())
-        method_deps = reflect.getMethodDependencies('instanceSyncMethod')
+        method_deps: ResolveArguments = reflect.getMethodDependencies('instanceSyncMethod')
         self.assertIn('x', method_deps.resolved)
         self.assertIn('y', method_deps.resolved)
         self.assertEqual(method_deps.resolved['x'].class_name, 'int')

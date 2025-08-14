@@ -4,30 +4,32 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
 import os
-from typing import Any, TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 from warnings import warn
 
 import ibm_watsonx_ai._wrappers.requests as requests
+from ibm_watsonx_ai.lifecycle import SpecStates
+from ibm_watsonx_ai.metanames import ScriptMetaNames
 from ibm_watsonx_ai.utils import (
     DATA_ASSETS_DETAILS_TYPE,
     modify_details_for_script_and_shiny,
 )
-from ibm_watsonx_ai.lifecycle import SpecStates
-from ibm_watsonx_ai.metanames import ScriptMetaNames
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
-from ibm_watsonx_ai.wml_resource import WMLResource
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
     ApiRequestFailure,
     ForbiddenActionForGitBasedProject,
+    WMLClientError,
 )
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 ListType: TypeAlias = list
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Script(WMLResource):
@@ -147,7 +149,6 @@ class Script(WMLResource):
     def _create_asset(
         self, script_meta: dict[str, Any], file_path: str, extension: str = ".py"
     ) -> dict[str, Any]:
-
         # Step1: Create a data asset
         name = script_meta["metadata"]["name"]
 
@@ -180,20 +181,12 @@ class Script(WMLResource):
         )
 
         if lang == "R":
-
             rscript_sw_specs = []  # names of supported r script software specifications
-            retired_rscript_sw_specs = (
-                []
-            )  # names of retired r script software specifications
-            constricted_rscript_sw_specs = (
-                []
-            )  # names of constricted r script software specifications
-            deprecated_rscript_sw_specs = (
-                []
-            )  # names of deprecated r script software specifications
+            retired_rscript_sw_specs = []  # names of retired r script software specifications
+            constricted_rscript_sw_specs = []  # names of constricted r script software specifications
+            deprecated_rscript_sw_specs = []  # names of deprecated r script software specifications
 
             if self._client.CPD_version >= 4.7:
-
                 for sw_spec in self._client.software_specifications.get_details()[
                     "resources"
                 ]:
@@ -400,7 +393,6 @@ class Script(WMLResource):
                     raise WMLClientError("Failed while reading a file.", e)
 
                 if put_response.status_code == 201 or put_response.status_code == 200:
-
                     # Step4: Complete attachment
                     complete_response = requests.post(
                         self._client._href_definitions.get_attachment_complete_href(
@@ -416,7 +408,7 @@ class Script(WMLResource):
                     else:
                         try:
                             self.delete(asset_id)
-                        except:
+                        except Exception:
                             pass
                         raise WMLClientError(
                             "Failed while creating a script asset. Try again."
@@ -424,7 +416,7 @@ class Script(WMLResource):
                 else:
                     try:
                         self.delete(asset_id)
-                    except:
+                    except Exception:
                         pass
                     raise WMLClientError(
                         "Failed while creating a script asset. Try again."
@@ -528,8 +520,6 @@ class Script(WMLResource):
 
         if rev_id is not None:
             params.update({"revision_id": rev_id})
-
-        import urllib
 
         if not self._client.ICP_PLATFORM_SPACES:
             asset_response = requests.get(
@@ -1047,7 +1037,6 @@ class Script(WMLResource):
         return final_responses
 
     def _get_required_element_from_response(self, response_data: dict) -> dict:
-
         WMLResource._validate_type(response_data, "scripts", dict)
 
         revision_id = None

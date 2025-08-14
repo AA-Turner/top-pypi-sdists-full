@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 import logging
+from typing import TYPE_CHECKING
 
-from ibm_watsonx_ai.foundation_models.ilab.helper import wait_for_run_finish, BaseRuns
+from ibm_watsonx_ai.foundation_models.ilab.helper import BaseRuns, wait_for_run_finish
 from ibm_watsonx_ai.helpers.connections import (
     DataConnection,
 )

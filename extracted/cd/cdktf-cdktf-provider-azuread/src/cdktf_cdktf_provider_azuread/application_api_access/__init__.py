@@ -1,7 +1,7 @@
 r'''
 # `azuread_application_api_access`
 
-Refer to the Terraform Registry for docs: [`azuread_application_api_access`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access).
+Refer to the Terraform Registry for docs: [`azuread_application_api_access`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationApiAccess(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.applicationApiAccess.ApplicationApiAccess",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access azuread_application_api_access}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access azuread_application_api_access}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ApplicationApiAccess(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access azuread_application_api_access} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access azuread_application_api_access} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_client_id: The client ID of the API to which access is being granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#api_client_id ApplicationApiAccess#api_client_id}
-        :param application_id: The resource ID of the application to which this API access is granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#application_id ApplicationApiAccess#application_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#id ApplicationApiAccess#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param role_ids: A set of role IDs to be granted to the application, as published by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#role_ids ApplicationApiAccess#role_ids}
-        :param scope_ids: A set of scope IDs to be granted to the application, as published by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#scope_ids ApplicationApiAccess#scope_ids}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#timeouts ApplicationApiAccess#timeouts}
+        :param api_client_id: The client ID of the API to which access is being granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#api_client_id ApplicationApiAccess#api_client_id}
+        :param application_id: The resource ID of the application to which this API access is granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#application_id ApplicationApiAccess#application_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#id ApplicationApiAccess#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param role_ids: A set of role IDs to be granted to the application, as published by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#role_ids ApplicationApiAccess#role_ids}
+        :param scope_ids: A set of scope IDs to be granted to the application, as published by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#scope_ids ApplicationApiAccess#scope_ids}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#timeouts ApplicationApiAccess#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ApplicationApiAccess(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationApiAccess to import.
-        :param import_from_id: The id of the existing ApplicationApiAccess that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationApiAccess that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationApiAccess to import is found.
         '''
         if __debug__:
@@ -139,10 +139,10 @@ class ApplicationApiAccess(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#create ApplicationApiAccess#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#delete ApplicationApiAccess#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#read ApplicationApiAccess#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#update ApplicationApiAccess#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#create ApplicationApiAccess#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#delete ApplicationApiAccess#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#read ApplicationApiAccess#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#update ApplicationApiAccess#update}.
         '''
         value = ApplicationApiAccessTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -322,12 +322,12 @@ class ApplicationApiAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_client_id: The client ID of the API to which access is being granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#api_client_id ApplicationApiAccess#api_client_id}
-        :param application_id: The resource ID of the application to which this API access is granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#application_id ApplicationApiAccess#application_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#id ApplicationApiAccess#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param role_ids: A set of role IDs to be granted to the application, as published by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#role_ids ApplicationApiAccess#role_ids}
-        :param scope_ids: A set of scope IDs to be granted to the application, as published by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#scope_ids ApplicationApiAccess#scope_ids}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#timeouts ApplicationApiAccess#timeouts}
+        :param api_client_id: The client ID of the API to which access is being granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#api_client_id ApplicationApiAccess#api_client_id}
+        :param application_id: The resource ID of the application to which this API access is granted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#application_id ApplicationApiAccess#application_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#id ApplicationApiAccess#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param role_ids: A set of role IDs to be granted to the application, as published by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#role_ids ApplicationApiAccess#role_ids}
+        :param scope_ids: A set of scope IDs to be granted to the application, as published by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#scope_ids ApplicationApiAccess#scope_ids}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#timeouts ApplicationApiAccess#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -443,7 +443,7 @@ class ApplicationApiAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_client_id(self) -> builtins.str:
         '''The client ID of the API to which access is being granted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#api_client_id ApplicationApiAccess#api_client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#api_client_id ApplicationApiAccess#api_client_id}
         '''
         result = self._values.get("api_client_id")
         assert result is not None, "Required property 'api_client_id' is missing"
@@ -453,7 +453,7 @@ class ApplicationApiAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''The resource ID of the application to which this API access is granted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#application_id ApplicationApiAccess#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#application_id ApplicationApiAccess#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -461,7 +461,7 @@ class ApplicationApiAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#id ApplicationApiAccess#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#id ApplicationApiAccess#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -473,7 +473,7 @@ class ApplicationApiAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A set of role IDs to be granted to the application, as published by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#role_ids ApplicationApiAccess#role_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#role_ids ApplicationApiAccess#role_ids}
         '''
         result = self._values.get("role_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -482,7 +482,7 @@ class ApplicationApiAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A set of scope IDs to be granted to the application, as published by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#scope_ids ApplicationApiAccess#scope_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#scope_ids ApplicationApiAccess#scope_ids}
         '''
         result = self._values.get("scope_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -491,7 +491,7 @@ class ApplicationApiAccessConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationApiAccessTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#timeouts ApplicationApiAccess#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#timeouts ApplicationApiAccess#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationApiAccessTimeouts"], result)
@@ -528,10 +528,10 @@ class ApplicationApiAccessTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#create ApplicationApiAccess#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#delete ApplicationApiAccess#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#read ApplicationApiAccess#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#update ApplicationApiAccess#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#create ApplicationApiAccess#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#delete ApplicationApiAccess#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#read ApplicationApiAccess#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#update ApplicationApiAccess#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1cc4aea4a1fc2d555b4e4b46e78742ba3641143f9967624e0a469fbfa01b5db)
@@ -551,25 +551,25 @@ class ApplicationApiAccessTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#create ApplicationApiAccess#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#create ApplicationApiAccess#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#delete ApplicationApiAccess#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#delete ApplicationApiAccess#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#read ApplicationApiAccess#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#read ApplicationApiAccess#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_api_access#update ApplicationApiAccess#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_api_access#update ApplicationApiAccess#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

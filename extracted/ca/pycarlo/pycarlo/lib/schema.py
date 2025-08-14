@@ -7782,6 +7782,7 @@ class NotificationExtra(sgqlc.types.Input):
         "password",
         "dc_proxy",
         "turn_off_normalized_messages",
+        "receive_normalized",
         "disable_ssl_verification",
         "include_incident_fields",
         "jira_project_id",
@@ -7829,7 +7830,12 @@ class NotificationExtra(sgqlc.types.Input):
     turn_off_normalized_messages = sgqlc.types.Field(
         Boolean, graphql_name="turnOffNormalizedMessages"
     )
-    """True if normalized messages need to be turned off"""
+    """True if normalized messages need to be turned off. DEPRECATED: Use
+    receiveNormalized instead.
+    """
+
+    receive_normalized = sgqlc.types.Field(Boolean, graphql_name="receiveNormalized")
+    """True if normalized messages should be received"""
 
     disable_ssl_verification = sgqlc.types.Field(Boolean, graphql_name="disableSslVerification")
     """True if HTTP requests proxied through the Data Collector should

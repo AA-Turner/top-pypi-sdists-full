@@ -3,15 +3,16 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
+
 import copy
 import logging
 from typing import Any, Literal
 from warnings import warn
 
 from langchain_core.documents import Document
+from langchain_core.vectorstores import VectorStore as LangChainVectorStore
 
 from ibm_watsonx_ai.client import APIClient
-from ibm_watsonx_ai.wml_client_error import VectorStoreSerializationError
 from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_store import (
     BaseVectorStore,
@@ -23,8 +24,7 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.vector_store_
     VectorStoreConnector,
     VectorStoreDataSourceType,
 )
-
-from langchain_core.vectorstores import VectorStore as LangChainVectorStore
+from ibm_watsonx_ai.wml_client_error import VectorStoreSerializationError
 
 logger = logging.getLogger(__name__)
 

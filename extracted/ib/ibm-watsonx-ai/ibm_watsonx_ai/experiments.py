@@ -4,11 +4,12 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import Any, TYPE_CHECKING, TypeAlias
+
+from typing import TYPE_CHECKING, Any, TypeAlias
 from warnings import warn
 
 import ibm_watsonx_ai._wrappers.requests as requests
-from ibm_watsonx_ai.hpo import HPOParameter, HPOMethodParam
+from ibm_watsonx_ai.hpo import HPOMethodParam, HPOParameter
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import ExperimentMetaNames
 from ibm_watsonx_ai.utils import EXPERIMENT_DETAILS_TYPE
@@ -19,8 +20,9 @@ from ibm_watsonx_ai.wml_resource import WMLResource
 ListType: TypeAlias = list
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Experiments(WMLResource):

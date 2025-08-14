@@ -8,18 +8,19 @@ from __future__ import annotations
 import shlex
 import subprocess
 import time
-from typing import Any, TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from warnings import warn
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import VolumeMetaNames
-from ibm_watsonx_ai.wml_client_error import WMLClientError, UnsupportedOperation
-from ibm_watsonx_ai.wml_resource import WMLResource
 from ibm_watsonx_ai.utils.utils import raise_exception_about_unsupported_on_cloud
+from ibm_watsonx_ai.wml_client_error import UnsupportedOperation, WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     import pandas
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Volume(WMLResource):
@@ -170,7 +171,7 @@ class Volume(WMLResource):
             }
 
         if self._client.CLOUD_PLATFORM_SPACES:  # CLOUD
-            raise UnsupportedOperation(f"NFS Volume creation not supported for CLOUD!")
+            raise UnsupportedOperation("NFS Volume creation not supported for CLOUD!")
 
         else:  # CPD
             creation_response = requests.post(

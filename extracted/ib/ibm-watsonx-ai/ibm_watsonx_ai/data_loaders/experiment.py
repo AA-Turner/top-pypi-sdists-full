@@ -6,7 +6,7 @@ from __future__ import annotations
 
 __all__ = ["ExperimentDataLoader"]
 
-from typing import Iterator, Callable
+from typing import Callable, Iterator
 
 import pandas as pd
 

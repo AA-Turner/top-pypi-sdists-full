@@ -1,7 +1,7 @@
 r'''
 # `azurerm_billing_account_cost_management_export`
 
-Refer to the Terraform Registry for docs: [`azurerm_billing_account_cost_management_export`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export).
+Refer to the Terraform Registry for docs: [`azurerm_billing_account_cost_management_export`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BillingAccountCostManagementExport(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.billingAccountCostManagementExport.BillingAccountCostManagementExport",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export azurerm_billing_account_cost_management_export}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export azurerm_billing_account_cost_management_export}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class BillingAccountCostManagementExport(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export azurerm_billing_account_cost_management_export} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export azurerm_billing_account_cost_management_export} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param billing_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#billing_account_id BillingAccountCostManagementExport#billing_account_id}.
-        :param export_data_options: export_data_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#export_data_options BillingAccountCostManagementExport#export_data_options}
-        :param export_data_storage_location: export_data_storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#export_data_storage_location BillingAccountCostManagementExport#export_data_storage_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#name BillingAccountCostManagementExport#name}.
-        :param recurrence_period_end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#recurrence_period_end_date BillingAccountCostManagementExport#recurrence_period_end_date}.
-        :param recurrence_period_start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#recurrence_period_start_date BillingAccountCostManagementExport#recurrence_period_start_date}.
-        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#recurrence_type BillingAccountCostManagementExport#recurrence_type}.
-        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#active BillingAccountCostManagementExport#active}.
-        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#file_format BillingAccountCostManagementExport#file_format}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#id BillingAccountCostManagementExport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#timeouts BillingAccountCostManagementExport#timeouts}
+        :param billing_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#billing_account_id BillingAccountCostManagementExport#billing_account_id}.
+        :param export_data_options: export_data_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#export_data_options BillingAccountCostManagementExport#export_data_options}
+        :param export_data_storage_location: export_data_storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#export_data_storage_location BillingAccountCostManagementExport#export_data_storage_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#name BillingAccountCostManagementExport#name}.
+        :param recurrence_period_end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#recurrence_period_end_date BillingAccountCostManagementExport#recurrence_period_end_date}.
+        :param recurrence_period_start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#recurrence_period_start_date BillingAccountCostManagementExport#recurrence_period_start_date}.
+        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#recurrence_type BillingAccountCostManagementExport#recurrence_type}.
+        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#active BillingAccountCostManagementExport#active}.
+        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#file_format BillingAccountCostManagementExport#file_format}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#id BillingAccountCostManagementExport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#timeouts BillingAccountCostManagementExport#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class BillingAccountCostManagementExport(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BillingAccountCostManagementExport to import.
-        :param import_from_id: The id of the existing BillingAccountCostManagementExport that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BillingAccountCostManagementExport that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BillingAccountCostManagementExport to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class BillingAccountCostManagementExport(
         type: builtins.str,
     ) -> None:
         '''
-        :param time_frame: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#time_frame BillingAccountCostManagementExport#time_frame}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#type BillingAccountCostManagementExport#type}.
+        :param time_frame: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#time_frame BillingAccountCostManagementExport#time_frame}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#type BillingAccountCostManagementExport#type}.
         '''
         value = BillingAccountCostManagementExportExportDataOptions(
             time_frame=time_frame, type=type
@@ -169,8 +169,8 @@ class BillingAccountCostManagementExport(
         root_folder_path: builtins.str,
     ) -> None:
         '''
-        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#container_id BillingAccountCostManagementExport#container_id}.
-        :param root_folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#root_folder_path BillingAccountCostManagementExport#root_folder_path}.
+        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#container_id BillingAccountCostManagementExport#container_id}.
+        :param root_folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#root_folder_path BillingAccountCostManagementExport#root_folder_path}.
         '''
         value = BillingAccountCostManagementExportExportDataStorageLocation(
             container_id=container_id, root_folder_path=root_folder_path
@@ -188,10 +188,10 @@ class BillingAccountCostManagementExport(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#create BillingAccountCostManagementExport#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#delete BillingAccountCostManagementExport#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#read BillingAccountCostManagementExport#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#update BillingAccountCostManagementExport#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#create BillingAccountCostManagementExport#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#delete BillingAccountCostManagementExport#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#read BillingAccountCostManagementExport#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#update BillingAccountCostManagementExport#update}.
         '''
         value = BillingAccountCostManagementExportTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -465,17 +465,17 @@ class BillingAccountCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgu
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param billing_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#billing_account_id BillingAccountCostManagementExport#billing_account_id}.
-        :param export_data_options: export_data_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#export_data_options BillingAccountCostManagementExport#export_data_options}
-        :param export_data_storage_location: export_data_storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#export_data_storage_location BillingAccountCostManagementExport#export_data_storage_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#name BillingAccountCostManagementExport#name}.
-        :param recurrence_period_end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#recurrence_period_end_date BillingAccountCostManagementExport#recurrence_period_end_date}.
-        :param recurrence_period_start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#recurrence_period_start_date BillingAccountCostManagementExport#recurrence_period_start_date}.
-        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#recurrence_type BillingAccountCostManagementExport#recurrence_type}.
-        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#active BillingAccountCostManagementExport#active}.
-        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#file_format BillingAccountCostManagementExport#file_format}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#id BillingAccountCostManagementExport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#timeouts BillingAccountCostManagementExport#timeouts}
+        :param billing_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#billing_account_id BillingAccountCostManagementExport#billing_account_id}.
+        :param export_data_options: export_data_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#export_data_options BillingAccountCostManagementExport#export_data_options}
+        :param export_data_storage_location: export_data_storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#export_data_storage_location BillingAccountCostManagementExport#export_data_storage_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#name BillingAccountCostManagementExport#name}.
+        :param recurrence_period_end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#recurrence_period_end_date BillingAccountCostManagementExport#recurrence_period_end_date}.
+        :param recurrence_period_start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#recurrence_period_start_date BillingAccountCostManagementExport#recurrence_period_start_date}.
+        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#recurrence_type BillingAccountCostManagementExport#recurrence_type}.
+        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#active BillingAccountCostManagementExport#active}.
+        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#file_format BillingAccountCostManagementExport#file_format}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#id BillingAccountCostManagementExport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#timeouts BillingAccountCostManagementExport#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -603,7 +603,7 @@ class BillingAccountCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgu
 
     @builtins.property
     def billing_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#billing_account_id BillingAccountCostManagementExport#billing_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#billing_account_id BillingAccountCostManagementExport#billing_account_id}.'''
         result = self._values.get("billing_account_id")
         assert result is not None, "Required property 'billing_account_id' is missing"
         return typing.cast(builtins.str, result)
@@ -614,7 +614,7 @@ class BillingAccountCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgu
     ) -> "BillingAccountCostManagementExportExportDataOptions":
         '''export_data_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#export_data_options BillingAccountCostManagementExport#export_data_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#export_data_options BillingAccountCostManagementExport#export_data_options}
         '''
         result = self._values.get("export_data_options")
         assert result is not None, "Required property 'export_data_options' is missing"
@@ -626,7 +626,7 @@ class BillingAccountCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgu
     ) -> "BillingAccountCostManagementExportExportDataStorageLocation":
         '''export_data_storage_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#export_data_storage_location BillingAccountCostManagementExport#export_data_storage_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#export_data_storage_location BillingAccountCostManagementExport#export_data_storage_location}
         '''
         result = self._values.get("export_data_storage_location")
         assert result is not None, "Required property 'export_data_storage_location' is missing"
@@ -634,28 +634,28 @@ class BillingAccountCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgu
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#name BillingAccountCostManagementExport#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#name BillingAccountCostManagementExport#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def recurrence_period_end_date(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#recurrence_period_end_date BillingAccountCostManagementExport#recurrence_period_end_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#recurrence_period_end_date BillingAccountCostManagementExport#recurrence_period_end_date}.'''
         result = self._values.get("recurrence_period_end_date")
         assert result is not None, "Required property 'recurrence_period_end_date' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def recurrence_period_start_date(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#recurrence_period_start_date BillingAccountCostManagementExport#recurrence_period_start_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#recurrence_period_start_date BillingAccountCostManagementExport#recurrence_period_start_date}.'''
         result = self._values.get("recurrence_period_start_date")
         assert result is not None, "Required property 'recurrence_period_start_date' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def recurrence_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#recurrence_type BillingAccountCostManagementExport#recurrence_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#recurrence_type BillingAccountCostManagementExport#recurrence_type}.'''
         result = self._values.get("recurrence_type")
         assert result is not None, "Required property 'recurrence_type' is missing"
         return typing.cast(builtins.str, result)
@@ -664,19 +664,19 @@ class BillingAccountCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def active(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#active BillingAccountCostManagementExport#active}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#active BillingAccountCostManagementExport#active}.'''
         result = self._values.get("active")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def file_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#file_format BillingAccountCostManagementExport#file_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#file_format BillingAccountCostManagementExport#file_format}.'''
         result = self._values.get("file_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#id BillingAccountCostManagementExport#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#id BillingAccountCostManagementExport#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -688,7 +688,7 @@ class BillingAccountCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgu
     def timeouts(self) -> typing.Optional["BillingAccountCostManagementExportTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#timeouts BillingAccountCostManagementExport#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#timeouts BillingAccountCostManagementExport#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BillingAccountCostManagementExportTimeouts"], result)
@@ -713,8 +713,8 @@ class BillingAccountCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgu
 class BillingAccountCostManagementExportExportDataOptions:
     def __init__(self, *, time_frame: builtins.str, type: builtins.str) -> None:
         '''
-        :param time_frame: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#time_frame BillingAccountCostManagementExport#time_frame}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#type BillingAccountCostManagementExport#type}.
+        :param time_frame: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#time_frame BillingAccountCostManagementExport#time_frame}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#type BillingAccountCostManagementExport#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90ef77146454894ce7b8b8eabb41cd8d4e64fc2de3017d6349fcf5c173b5170b)
@@ -727,14 +727,14 @@ class BillingAccountCostManagementExportExportDataOptions:
 
     @builtins.property
     def time_frame(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#time_frame BillingAccountCostManagementExport#time_frame}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#time_frame BillingAccountCostManagementExport#time_frame}.'''
         result = self._values.get("time_frame")
         assert result is not None, "Required property 'time_frame' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#type BillingAccountCostManagementExport#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#type BillingAccountCostManagementExport#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -836,8 +836,8 @@ class BillingAccountCostManagementExportExportDataStorageLocation:
         root_folder_path: builtins.str,
     ) -> None:
         '''
-        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#container_id BillingAccountCostManagementExport#container_id}.
-        :param root_folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#root_folder_path BillingAccountCostManagementExport#root_folder_path}.
+        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#container_id BillingAccountCostManagementExport#container_id}.
+        :param root_folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#root_folder_path BillingAccountCostManagementExport#root_folder_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__efe414bf794ee0b5cb640ef04ef76b7cd2731438a7f7207e0187cdde229983a3)
@@ -850,14 +850,14 @@ class BillingAccountCostManagementExportExportDataStorageLocation:
 
     @builtins.property
     def container_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#container_id BillingAccountCostManagementExport#container_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#container_id BillingAccountCostManagementExport#container_id}.'''
         result = self._values.get("container_id")
         assert result is not None, "Required property 'container_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def root_folder_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#root_folder_path BillingAccountCostManagementExport#root_folder_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#root_folder_path BillingAccountCostManagementExport#root_folder_path}.'''
         result = self._values.get("root_folder_path")
         assert result is not None, "Required property 'root_folder_path' is missing"
         return typing.cast(builtins.str, result)
@@ -966,10 +966,10 @@ class BillingAccountCostManagementExportTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#create BillingAccountCostManagementExport#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#delete BillingAccountCostManagementExport#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#read BillingAccountCostManagementExport#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#update BillingAccountCostManagementExport#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#create BillingAccountCostManagementExport#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#delete BillingAccountCostManagementExport#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#read BillingAccountCostManagementExport#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#update BillingAccountCostManagementExport#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f3bbfcac004d19b65e9fbdd85d74fd1737148ef16b32d07d9c771521406735c)
@@ -989,25 +989,25 @@ class BillingAccountCostManagementExportTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#create BillingAccountCostManagementExport#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#create BillingAccountCostManagementExport#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#delete BillingAccountCostManagementExport#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#delete BillingAccountCostManagementExport#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#read BillingAccountCostManagementExport#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#read BillingAccountCostManagementExport#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/billing_account_cost_management_export#update BillingAccountCostManagementExport#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/billing_account_cost_management_export#update BillingAccountCostManagementExport#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

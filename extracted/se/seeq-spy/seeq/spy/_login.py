@@ -22,6 +22,7 @@ from urllib3.connectionpool import MaxRetryError, SSLError
 
 from seeq import spy, sdk
 from seeq.base import util
+from seeq.base.seeq_names import SeeqNames
 from seeq.sdk import *
 from seeq.spy import _common, _datalab, _compatibility
 from seeq.spy._config import Setting
@@ -331,13 +332,13 @@ def _client_login(
 
     _client = ApiClient(api_client_url, configuration=session.client_configuration)
     if _datalab.is_datalab_api():
-        _client.set_default_header('x-sq-origin', 'Add-on')
+        _client.set_default_header('x-sq-origin', SeeqNames.Origins.add_on)
     elif _datalab.is_executor():
-        _client.set_default_header('x-sq-origin', 'Data Lab (Job)')
+        _client.set_default_header('x-sq-origin', SeeqNames.Origins.data_lab_job)
     elif _datalab.is_datalab():
-        _client.set_default_header('x-sq-origin', 'Data Lab (Interactive)')
+        _client.set_default_header('x-sq-origin', SeeqNames.Origins.data_lab_interactive)
     else:
-        _client.set_default_header('x-sq-origin', 'SPy (Standalone)')
+        _client.set_default_header('x-sq-origin', SeeqNames.Origins.spy_standalone)
 
     auth_api = AuthApi(_client)
     directories = dict()

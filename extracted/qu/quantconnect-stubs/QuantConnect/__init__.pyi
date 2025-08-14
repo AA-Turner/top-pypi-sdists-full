@@ -4408,6 +4408,8 @@ class DateFormat(System.Object):
 
     UI: str = "yyyy-MM-dd HH:mm:ss"
 
+    ISO_SHORT: str = "yyyy-MM-ddTHH:mm:ssZ"
+
     US_SHORT: str = "M/d/yy h:mm tt"
 
     US_SHORT_DATE_ONLY: str = "M/d/yy"

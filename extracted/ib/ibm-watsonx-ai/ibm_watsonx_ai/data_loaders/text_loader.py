@@ -9,20 +9,20 @@ __all__ = ["TextLoader"]
 import io
 import json
 import logging
-
-from typing import TYPE_CHECKING, Any, Iterator
 from queue import Empty
+from typing import TYPE_CHECKING, Any, Iterator
 
+from ibm_watsonx_ai.helpers.remote_document import RemoteDocument
 from ibm_watsonx_ai.utils import DisableWarningsLogger
 from ibm_watsonx_ai.wml_client_error import (
+    LoadingDocumentError,
     MissingExtension,
     WMLClientError,
-    LoadingDocumentError,
 )
-from ibm_watsonx_ai.helpers.remote_document import RemoteDocument
 
 if TYPE_CHECKING:
     from langchain_core.documents import Document
+    from pandas import DataFrame
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,6 @@ def _asynch_download(load_doc):
     """Helper function for parallel downloading documents (full asynchronous version)."""
 
     def asynch_download(args):
-
         (q_input, qs_output) = args
 
         while True:
@@ -58,7 +57,12 @@ def _asynch_download(load_doc):
                 except Exception as e:
                     if "cryptography>=3.1 is required for AES algorithm" in str(e):
                         e = "Encrypted files are not supported. Please decrypt your file and try again."
-
+                    elif "cipher" in str(e) and "not supported" in str(e):
+                        e = (
+                            "Legacy cryptographic algorithm usage detected. To proceed with their use, "
+                            "clear the CRYPTOGRAPHY_OPENSSL_NO_LEGACY environment variable before importing "
+                            "ibm_watsonx_ai. Support for these algorithms is being phased out, use at your own risk."
+                        )
                     qs_output[i].put(LoadingDocumentError(doc.document_id, e))
             except Empty:
                 return
@@ -152,7 +156,7 @@ class TextLoader:
         elif filename.endswith(".xls"):
             return "application/vnd.ms-excel"
         else:
-            raise WMLClientError(f"Cannot identify file type.")
+            raise WMLClientError("Cannot identify file type.")
 
     @staticmethod
     def _txt_to_string(binary_data: bytes) -> str:
@@ -256,8 +260,13 @@ class TextLoader:
     def _yaml_to_string(cls, binary_data: bytes) -> str:
         import yaml
 
-        loaded_yaml = yaml.load(binary_data, Loader=yaml.Loader)
-        return "\n\n".join(cls._extract_content_from_py_structure(loaded_yaml))
+        docs = yaml.load_all(binary_data, Loader=yaml.Loader)
+        return "\n\n\n".join(
+            [
+                "\n\n".join(cls._extract_content_from_py_structure(loaded_yaml))
+                for loaded_yaml in docs
+            ]
+        )
 
     @classmethod
     def _xml_to_string(cls, binary_data: bytes) -> str:

@@ -22,5 +22,5 @@ setup(**{
         'tobikodata.helpers',
     ),
     'python_requires': '<3.13,>=3.9',
-    'version': '202533.3.0',
+    'version': '202533.10.0',
 })

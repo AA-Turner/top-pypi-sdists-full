@@ -4,17 +4,18 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any
 
 import os
+from typing import TYPE_CHECKING
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     import pandas as pd
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Import(WMLResource):

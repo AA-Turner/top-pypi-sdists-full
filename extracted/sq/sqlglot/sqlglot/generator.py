@@ -219,6 +219,7 @@ class Generator(metaclass=_Generator):
         exp.VarMap: lambda self, e: self.func("MAP", e.args["keys"], e.args["values"]),
         exp.ViewAttributeProperty: lambda self, e: f"WITH {self.sql(e, 'this')}",
         exp.VolatileProperty: lambda *_: "VOLATILE",
+        exp.WeekStart: lambda self, e: f"WEEK({self.sql(e, 'this')})",
         exp.WithJournalTableProperty: lambda self, e: f"WITH JOURNAL TABLE={self.sql(e, 'this')}",
         exp.WithProcedureOptions: lambda self, e: f"WITH {self.expressions(e, flat=True)}",
         exp.WithSchemaBindingProperty: lambda self, e: f"WITH SCHEMA {self.sql(e, 'this')}",
@@ -2405,6 +2406,14 @@ class Generator(metaclass=_Generator):
         tag = " TAG" if expression.args.get("tag") else ""
         return f"{'UNSET' if expression.args.get('unset') else 'SET'}{tag}{expressions}"
 
+    def queryband_sql(self, expression: exp.QueryBand) -> str:
+        this = self.sql(expression, "this")
+        update = " UPDATE" if expression.args.get("update") else ""
+        scope = self.sql(expression, "scope")
+        scope = f" FOR {scope}" if scope else ""
+
+        return f"QUERY_BAND = {this}{update}{scope}"
+
     def pragma_sql(self, expression: exp.Pragma) -> str:
         return f"PRAGMA {self.sql(expression, 'this')}"
 
@@ -3479,14 +3488,15 @@ class Generator(metaclass=_Generator):
         expressions = f"({expressions})" if expressions else ""
         return f"ALTER{compound} SORTKEY {this or expressions}"
 
-    def alterrename_sql(self, expression: exp.AlterRename) -> str:
+    def alterrename_sql(self, expression: exp.AlterRename, include_to: bool = True) -> str:
         if not self.RENAME_TABLE_WITH_DB:
             # Remove db from tables
             expression = expression.transform(
                 lambda n: exp.table_(n.this) if isinstance(n, exp.Table) else n
             ).assert_is(exp.AlterRename)
         this = self.sql(expression, "this")
-        return f"RENAME TO {this}"
+        to_kw = " TO" if include_to else ""
+        return f"RENAME{to_kw} {this}"
 
     def renamecolumn_sql(self, expression: exp.RenameColumn) -> str:
         exists = " IF EXISTS" if expression.args.get("exists") else ""
@@ -5127,3 +5137,12 @@ class Generator(metaclass=_Generator):
             return self.sql(exp.Bracket(this=this, expressions=[expr]))
 
         return self.sql(exp.JSONExtract(this=this, expression=self.dialect.to_json_path(expr)))
+
+    def datefromunixdate_sql(self, expression: exp.DateFromUnixDate) -> str:
+        return self.sql(
+            exp.DateAdd(
+                this=exp.cast(exp.Literal.string("1970-01-01"), exp.DataType.Type.DATE),
+                expression=expression.this,
+                unit=exp.var("DAY"),
+            )
+        )

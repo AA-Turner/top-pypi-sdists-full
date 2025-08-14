@@ -1,7 +1,7 @@
 r'''
 # `azuread_service_principal`
 
-Refer to the Terraform Registry for docs: [`azuread_service_principal`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal).
+Refer to the Terraform Registry for docs: [`azuread_service_principal`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServicePrincipal(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.servicePrincipal.ServicePrincipal",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal azuread_service_principal}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal azuread_service_principal}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class ServicePrincipal(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal azuread_service_principal} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal azuread_service_principal} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param client_id: The client ID of the application for which to create a service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#client_id ServicePrincipal#client_id}
-        :param account_enabled: Whether or not the service principal account is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#account_enabled ServicePrincipal#account_enabled}
-        :param alternative_names: A list of alternative names, used to retrieve service principals by subscription, identify resource group and full resource ids for managed identities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#alternative_names ServicePrincipal#alternative_names}
-        :param app_role_assignment_required: Whether this service principal requires an app role assignment to a user or group before Azure AD will issue a user or access token to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#app_role_assignment_required ServicePrincipal#app_role_assignment_required}
-        :param description: Description of the service principal provided for internal end-users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#description ServicePrincipal#description}
-        :param features: features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#features ServicePrincipal#features}
-        :param feature_tags: feature_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#feature_tags ServicePrincipal#feature_tags}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#id ServicePrincipal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param login_url: The URL where the service provider redirects the user to Azure AD to authenticate. Azure AD uses the URL to launch the application from Microsoft 365 or the Azure AD My Apps. When blank, Azure AD performs IdP-initiated sign-on for applications configured with SAML-based single sign-on Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#login_url ServicePrincipal#login_url}
-        :param notes: Free text field to capture information about the service principal, typically used for operational purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#notes ServicePrincipal#notes}
-        :param notification_email_addresses: List of email addresses where Azure AD sends a notification when the active certificate is near the expiration date. This is only for the certificates used to sign the SAML token issued for Azure AD Gallery applications Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#notification_email_addresses ServicePrincipal#notification_email_addresses}
-        :param owners: A list of object IDs of principals that will be granted ownership of the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#owners ServicePrincipal#owners}
-        :param preferred_single_sign_on_mode: The single sign-on mode configured for this application. Azure AD uses the preferred single sign-on mode to launch the application from Microsoft 365 or the Azure AD My Apps Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#preferred_single_sign_on_mode ServicePrincipal#preferred_single_sign_on_mode}
-        :param saml_single_sign_on: saml_single_sign_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#saml_single_sign_on ServicePrincipal#saml_single_sign_on}
-        :param tags: A set of tags to apply to the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#tags ServicePrincipal#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#timeouts ServicePrincipal#timeouts}
-        :param use_existing: When true, the resource will return an existing service principal instead of failing with an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#use_existing ServicePrincipal#use_existing}
+        :param client_id: The client ID of the application for which to create a service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#client_id ServicePrincipal#client_id}
+        :param account_enabled: Whether or not the service principal account is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#account_enabled ServicePrincipal#account_enabled}
+        :param alternative_names: A list of alternative names, used to retrieve service principals by subscription, identify resource group and full resource ids for managed identities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#alternative_names ServicePrincipal#alternative_names}
+        :param app_role_assignment_required: Whether this service principal requires an app role assignment to a user or group before Azure AD will issue a user or access token to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#app_role_assignment_required ServicePrincipal#app_role_assignment_required}
+        :param description: Description of the service principal provided for internal end-users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#description ServicePrincipal#description}
+        :param features: features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#features ServicePrincipal#features}
+        :param feature_tags: feature_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#feature_tags ServicePrincipal#feature_tags}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#id ServicePrincipal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param login_url: The URL where the service provider redirects the user to Azure AD to authenticate. Azure AD uses the URL to launch the application from Microsoft 365 or the Azure AD My Apps. When blank, Azure AD performs IdP-initiated sign-on for applications configured with SAML-based single sign-on Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#login_url ServicePrincipal#login_url}
+        :param notes: Free text field to capture information about the service principal, typically used for operational purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#notes ServicePrincipal#notes}
+        :param notification_email_addresses: List of email addresses where Azure AD sends a notification when the active certificate is near the expiration date. This is only for the certificates used to sign the SAML token issued for Azure AD Gallery applications Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#notification_email_addresses ServicePrincipal#notification_email_addresses}
+        :param owners: A list of object IDs of principals that will be granted ownership of the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#owners ServicePrincipal#owners}
+        :param preferred_single_sign_on_mode: The single sign-on mode configured for this application. Azure AD uses the preferred single sign-on mode to launch the application from Microsoft 365 or the Azure AD My Apps Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#preferred_single_sign_on_mode ServicePrincipal#preferred_single_sign_on_mode}
+        :param saml_single_sign_on: saml_single_sign_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#saml_single_sign_on ServicePrincipal#saml_single_sign_on}
+        :param tags: A set of tags to apply to the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#tags ServicePrincipal#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#timeouts ServicePrincipal#timeouts}
+        :param use_existing: When true, the resource will return an existing service principal instead of failing with an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#use_existing ServicePrincipal#use_existing}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class ServicePrincipal(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServicePrincipal to import.
-        :param import_from_id: The id of the existing ServicePrincipal that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServicePrincipal that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServicePrincipal to import is found.
         '''
         if __debug__:
@@ -195,7 +195,7 @@ class ServicePrincipal(
         relay_state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param relay_state: The relative URI the service provider would redirect to after completion of the single sign-on flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#relay_state ServicePrincipal#relay_state}
+        :param relay_state: The relative URI the service provider would redirect to after completion of the single sign-on flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#relay_state ServicePrincipal#relay_state}
         '''
         value = ServicePrincipalSamlSingleSignOn(relay_state=relay_state)
 
@@ -211,10 +211,10 @@ class ServicePrincipal(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#create ServicePrincipal#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#delete ServicePrincipal#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#read ServicePrincipal#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#update ServicePrincipal#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#create ServicePrincipal#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#delete ServicePrincipal#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#read ServicePrincipal#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#update ServicePrincipal#update}.
         '''
         value = ServicePrincipalTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -890,23 +890,23 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param client_id: The client ID of the application for which to create a service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#client_id ServicePrincipal#client_id}
-        :param account_enabled: Whether or not the service principal account is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#account_enabled ServicePrincipal#account_enabled}
-        :param alternative_names: A list of alternative names, used to retrieve service principals by subscription, identify resource group and full resource ids for managed identities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#alternative_names ServicePrincipal#alternative_names}
-        :param app_role_assignment_required: Whether this service principal requires an app role assignment to a user or group before Azure AD will issue a user or access token to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#app_role_assignment_required ServicePrincipal#app_role_assignment_required}
-        :param description: Description of the service principal provided for internal end-users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#description ServicePrincipal#description}
-        :param features: features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#features ServicePrincipal#features}
-        :param feature_tags: feature_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#feature_tags ServicePrincipal#feature_tags}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#id ServicePrincipal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param login_url: The URL where the service provider redirects the user to Azure AD to authenticate. Azure AD uses the URL to launch the application from Microsoft 365 or the Azure AD My Apps. When blank, Azure AD performs IdP-initiated sign-on for applications configured with SAML-based single sign-on Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#login_url ServicePrincipal#login_url}
-        :param notes: Free text field to capture information about the service principal, typically used for operational purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#notes ServicePrincipal#notes}
-        :param notification_email_addresses: List of email addresses where Azure AD sends a notification when the active certificate is near the expiration date. This is only for the certificates used to sign the SAML token issued for Azure AD Gallery applications Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#notification_email_addresses ServicePrincipal#notification_email_addresses}
-        :param owners: A list of object IDs of principals that will be granted ownership of the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#owners ServicePrincipal#owners}
-        :param preferred_single_sign_on_mode: The single sign-on mode configured for this application. Azure AD uses the preferred single sign-on mode to launch the application from Microsoft 365 or the Azure AD My Apps Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#preferred_single_sign_on_mode ServicePrincipal#preferred_single_sign_on_mode}
-        :param saml_single_sign_on: saml_single_sign_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#saml_single_sign_on ServicePrincipal#saml_single_sign_on}
-        :param tags: A set of tags to apply to the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#tags ServicePrincipal#tags}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#timeouts ServicePrincipal#timeouts}
-        :param use_existing: When true, the resource will return an existing service principal instead of failing with an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#use_existing ServicePrincipal#use_existing}
+        :param client_id: The client ID of the application for which to create a service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#client_id ServicePrincipal#client_id}
+        :param account_enabled: Whether or not the service principal account is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#account_enabled ServicePrincipal#account_enabled}
+        :param alternative_names: A list of alternative names, used to retrieve service principals by subscription, identify resource group and full resource ids for managed identities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#alternative_names ServicePrincipal#alternative_names}
+        :param app_role_assignment_required: Whether this service principal requires an app role assignment to a user or group before Azure AD will issue a user or access token to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#app_role_assignment_required ServicePrincipal#app_role_assignment_required}
+        :param description: Description of the service principal provided for internal end-users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#description ServicePrincipal#description}
+        :param features: features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#features ServicePrincipal#features}
+        :param feature_tags: feature_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#feature_tags ServicePrincipal#feature_tags}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#id ServicePrincipal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param login_url: The URL where the service provider redirects the user to Azure AD to authenticate. Azure AD uses the URL to launch the application from Microsoft 365 or the Azure AD My Apps. When blank, Azure AD performs IdP-initiated sign-on for applications configured with SAML-based single sign-on Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#login_url ServicePrincipal#login_url}
+        :param notes: Free text field to capture information about the service principal, typically used for operational purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#notes ServicePrincipal#notes}
+        :param notification_email_addresses: List of email addresses where Azure AD sends a notification when the active certificate is near the expiration date. This is only for the certificates used to sign the SAML token issued for Azure AD Gallery applications Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#notification_email_addresses ServicePrincipal#notification_email_addresses}
+        :param owners: A list of object IDs of principals that will be granted ownership of the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#owners ServicePrincipal#owners}
+        :param preferred_single_sign_on_mode: The single sign-on mode configured for this application. Azure AD uses the preferred single sign-on mode to launch the application from Microsoft 365 or the Azure AD My Apps Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#preferred_single_sign_on_mode ServicePrincipal#preferred_single_sign_on_mode}
+        :param saml_single_sign_on: saml_single_sign_on block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#saml_single_sign_on ServicePrincipal#saml_single_sign_on}
+        :param tags: A set of tags to apply to the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#tags ServicePrincipal#tags}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#timeouts ServicePrincipal#timeouts}
+        :param use_existing: When true, the resource will return an existing service principal instead of failing with an error. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#use_existing ServicePrincipal#use_existing}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1058,7 +1058,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_id(self) -> builtins.str:
         '''The client ID of the application for which to create a service principal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#client_id ServicePrincipal#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#client_id ServicePrincipal#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -1070,7 +1070,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the service principal account is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#account_enabled ServicePrincipal#account_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#account_enabled ServicePrincipal#account_enabled}
         '''
         result = self._values.get("account_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1079,7 +1079,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alternative_names(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of alternative names, used to retrieve service principals by subscription, identify resource group and full resource ids for managed identities.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#alternative_names ServicePrincipal#alternative_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#alternative_names ServicePrincipal#alternative_names}
         '''
         result = self._values.get("alternative_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1090,7 +1090,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this service principal requires an app role assignment to a user or group before Azure AD will issue a user or access token to the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#app_role_assignment_required ServicePrincipal#app_role_assignment_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#app_role_assignment_required ServicePrincipal#app_role_assignment_required}
         '''
         result = self._values.get("app_role_assignment_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1099,7 +1099,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the service principal provided for internal end-users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#description ServicePrincipal#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#description ServicePrincipal#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1110,7 +1110,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServicePrincipalFeatures"]]]:
         '''features block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#features ServicePrincipal#features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#features ServicePrincipal#features}
         '''
         result = self._values.get("features")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServicePrincipalFeatures"]]], result)
@@ -1121,14 +1121,14 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServicePrincipalFeatureTags"]]]:
         '''feature_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#feature_tags ServicePrincipal#feature_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#feature_tags ServicePrincipal#feature_tags}
         '''
         result = self._values.get("feature_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServicePrincipalFeatureTags"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#id ServicePrincipal#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#id ServicePrincipal#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1142,7 +1142,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Azure AD uses the URL to launch the application from Microsoft 365 or the Azure AD My Apps. When blank, Azure AD performs IdP-initiated sign-on for applications configured with SAML-based single sign-on
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#login_url ServicePrincipal#login_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#login_url ServicePrincipal#login_url}
         '''
         result = self._values.get("login_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1151,7 +1151,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notes(self) -> typing.Optional[builtins.str]:
         '''Free text field to capture information about the service principal, typically used for operational purposes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#notes ServicePrincipal#notes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#notes ServicePrincipal#notes}
         '''
         result = self._values.get("notes")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1164,7 +1164,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This is only for the certificates used to sign the SAML token issued for Azure AD Gallery applications
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#notification_email_addresses ServicePrincipal#notification_email_addresses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#notification_email_addresses ServicePrincipal#notification_email_addresses}
         '''
         result = self._values.get("notification_email_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1173,7 +1173,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def owners(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of object IDs of principals that will be granted ownership of the service principal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#owners ServicePrincipal#owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#owners ServicePrincipal#owners}
         '''
         result = self._values.get("owners")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1184,7 +1184,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Azure AD uses the preferred single sign-on mode to launch the application from Microsoft 365 or the Azure AD My Apps
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#preferred_single_sign_on_mode ServicePrincipal#preferred_single_sign_on_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#preferred_single_sign_on_mode ServicePrincipal#preferred_single_sign_on_mode}
         '''
         result = self._values.get("preferred_single_sign_on_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1195,7 +1195,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ServicePrincipalSamlSingleSignOn"]:
         '''saml_single_sign_on block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#saml_single_sign_on ServicePrincipal#saml_single_sign_on}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#saml_single_sign_on ServicePrincipal#saml_single_sign_on}
         '''
         result = self._values.get("saml_single_sign_on")
         return typing.cast(typing.Optional["ServicePrincipalSamlSingleSignOn"], result)
@@ -1204,7 +1204,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A set of tags to apply to the service principal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#tags ServicePrincipal#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#tags ServicePrincipal#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1213,7 +1213,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ServicePrincipalTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#timeouts ServicePrincipal#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#timeouts ServicePrincipal#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ServicePrincipalTimeouts"], result)
@@ -1224,7 +1224,7 @@ class ServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, the resource will return an existing service principal instead of failing with an error.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#use_existing ServicePrincipal#use_existing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#use_existing ServicePrincipal#use_existing}
         '''
         result = self._values.get("use_existing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1261,10 +1261,10 @@ class ServicePrincipalFeatureTags:
         hide: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param custom_single_sign_on: Whether this service principal represents a custom SAML application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#custom_single_sign_on ServicePrincipal#custom_single_sign_on}
-        :param enterprise: Whether this service principal represents an Enterprise Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#enterprise ServicePrincipal#enterprise}
-        :param gallery: Whether this service principal represents a gallery application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#gallery ServicePrincipal#gallery}
-        :param hide: Whether this app is invisible to users in My Apps and Office 365 Launcher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#hide ServicePrincipal#hide}
+        :param custom_single_sign_on: Whether this service principal represents a custom SAML application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#custom_single_sign_on ServicePrincipal#custom_single_sign_on}
+        :param enterprise: Whether this service principal represents an Enterprise Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#enterprise ServicePrincipal#enterprise}
+        :param gallery: Whether this service principal represents a gallery application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#gallery ServicePrincipal#gallery}
+        :param hide: Whether this app is invisible to users in My Apps and Office 365 Launcher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#hide ServicePrincipal#hide}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ecbc5be6055b5c5bfad7c31be3d527324351e88934b8ca3192f5b542b183c8b6)
@@ -1288,7 +1288,7 @@ class ServicePrincipalFeatureTags:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this service principal represents a custom SAML application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#custom_single_sign_on ServicePrincipal#custom_single_sign_on}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#custom_single_sign_on ServicePrincipal#custom_single_sign_on}
         '''
         result = self._values.get("custom_single_sign_on")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1299,7 +1299,7 @@ class ServicePrincipalFeatureTags:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this service principal represents an Enterprise Application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#enterprise ServicePrincipal#enterprise}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#enterprise ServicePrincipal#enterprise}
         '''
         result = self._values.get("enterprise")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1310,7 +1310,7 @@ class ServicePrincipalFeatureTags:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this service principal represents a gallery application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#gallery ServicePrincipal#gallery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#gallery ServicePrincipal#gallery}
         '''
         result = self._values.get("gallery")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1321,7 +1321,7 @@ class ServicePrincipalFeatureTags:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this app is invisible to users in My Apps and Office 365 Launcher.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#hide ServicePrincipal#hide}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#hide ServicePrincipal#hide}
         '''
         result = self._values.get("hide")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1598,10 +1598,10 @@ class ServicePrincipalFeatures:
         visible_to_users: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param custom_single_sign_on_app: Whether this service principal represents a custom SAML application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#custom_single_sign_on_app ServicePrincipal#custom_single_sign_on_app}
-        :param enterprise_application: Whether this service principal represents an Enterprise Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#enterprise_application ServicePrincipal#enterprise_application}
-        :param gallery_application: Whether this service principal represents a gallery application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#gallery_application ServicePrincipal#gallery_application}
-        :param visible_to_users: Whether this app is visible to users in My Apps and Office 365 Launcher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#visible_to_users ServicePrincipal#visible_to_users}
+        :param custom_single_sign_on_app: Whether this service principal represents a custom SAML application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#custom_single_sign_on_app ServicePrincipal#custom_single_sign_on_app}
+        :param enterprise_application: Whether this service principal represents an Enterprise Application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#enterprise_application ServicePrincipal#enterprise_application}
+        :param gallery_application: Whether this service principal represents a gallery application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#gallery_application ServicePrincipal#gallery_application}
+        :param visible_to_users: Whether this app is visible to users in My Apps and Office 365 Launcher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#visible_to_users ServicePrincipal#visible_to_users}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23a93b37cf3d7e63d449701af5c680069d45e62d0df07f681496556660f3aff0)
@@ -1625,7 +1625,7 @@ class ServicePrincipalFeatures:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this service principal represents a custom SAML application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#custom_single_sign_on_app ServicePrincipal#custom_single_sign_on_app}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#custom_single_sign_on_app ServicePrincipal#custom_single_sign_on_app}
         '''
         result = self._values.get("custom_single_sign_on_app")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1636,7 +1636,7 @@ class ServicePrincipalFeatures:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this service principal represents an Enterprise Application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#enterprise_application ServicePrincipal#enterprise_application}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#enterprise_application ServicePrincipal#enterprise_application}
         '''
         result = self._values.get("enterprise_application")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1647,7 +1647,7 @@ class ServicePrincipalFeatures:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this service principal represents a gallery application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#gallery_application ServicePrincipal#gallery_application}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#gallery_application ServicePrincipal#gallery_application}
         '''
         result = self._values.get("gallery_application")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1658,7 +1658,7 @@ class ServicePrincipalFeatures:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this app is visible to users in My Apps and Office 365 Launcher.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#visible_to_users ServicePrincipal#visible_to_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#visible_to_users ServicePrincipal#visible_to_users}
         '''
         result = self._values.get("visible_to_users")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2108,7 +2108,7 @@ class ServicePrincipalOauth2PermissionScopesOutputReference(
 class ServicePrincipalSamlSingleSignOn:
     def __init__(self, *, relay_state: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param relay_state: The relative URI the service provider would redirect to after completion of the single sign-on flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#relay_state ServicePrincipal#relay_state}
+        :param relay_state: The relative URI the service provider would redirect to after completion of the single sign-on flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#relay_state ServicePrincipal#relay_state}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd71a55a7b8d5aede6b5712fbd5840983319f7e0d184edb651260aacd7797b20)
@@ -2121,7 +2121,7 @@ class ServicePrincipalSamlSingleSignOn:
     def relay_state(self) -> typing.Optional[builtins.str]:
         '''The relative URI the service provider would redirect to after completion of the single sign-on flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#relay_state ServicePrincipal#relay_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#relay_state ServicePrincipal#relay_state}
         '''
         result = self._values.get("relay_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2215,10 +2215,10 @@ class ServicePrincipalTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#create ServicePrincipal#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#delete ServicePrincipal#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#read ServicePrincipal#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#update ServicePrincipal#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#create ServicePrincipal#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#delete ServicePrincipal#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#read ServicePrincipal#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#update ServicePrincipal#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__54852d59e37982061c864b849bc369b03ea714cf65135c6d6d6c2ba629dbe949)
@@ -2238,25 +2238,25 @@ class ServicePrincipalTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#create ServicePrincipal#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#create ServicePrincipal#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#delete ServicePrincipal#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#delete ServicePrincipal#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#read ServicePrincipal#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#read ServicePrincipal#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/service_principal#update ServicePrincipal#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/service_principal#update ServicePrincipal#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

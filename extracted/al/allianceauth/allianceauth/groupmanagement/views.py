@@ -420,3 +420,42 @@ def group_request_leave(request, group_id):
     grouprequest.notify_leaders()
     messages.success(request, _('Applied to leave group %(group)s.') % {"group": group})
     return redirect("groupmanagement:groups")
+
+@login_required
+def group_request_retract(request, group_id):
+    logger.debug(
+        f"group_request_retract called by user {request.user} for group id {group_id}"
+    )
+    group = get_object_or_404(Group, id=group_id)
+
+    if not GroupManager.check_internal_group(group):
+        logger.warning(
+            f"User {request.user} attempted to retract group request for "
+            f"group id {group_id} but it is not a joinable group"
+        )
+        messages.warning(
+            request,
+            _("You cannot retract that request"),
+        )
+        return redirect('groupmanagement:groups')
+
+    try:
+        group_request = GroupRequest.objects.get(
+            user=request.user, group=group, leave_request=False
+        )
+        group_request.delete()
+
+        logger.info(f"Deleted group request for user {request.user} to group {group}")
+        messages.success(
+            request, _('Retracted application to group %(group)s.') % {"group": group}
+        )
+    except GroupRequest.DoesNotExist:
+        logger.info(
+            f"{request.user} attempted to retract group request for "
+            f"group id {group_id} but has no open request"
+        )
+        messages.warning(
+            request, _("You have no open request for that group.")
+        )
+
+    return redirect("groupmanagement:groups")

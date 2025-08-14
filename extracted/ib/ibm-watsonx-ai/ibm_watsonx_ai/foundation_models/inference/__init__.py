@@ -4,5 +4,8 @@
 #  -----------------------------------------------------------------------------------------
 
 
+from .audio_model_inference import AudioModelInference
 from .model_inference import ModelInference
 from .ts_model_inference import TSModelInference
+
+__all__ = ["AudioModelInference", "ModelInference", "TSModelInference"]

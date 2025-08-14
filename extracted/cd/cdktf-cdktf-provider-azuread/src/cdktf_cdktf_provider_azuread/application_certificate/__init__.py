@@ -1,7 +1,7 @@
 r'''
 # `azuread_application_certificate`
 
-Refer to the Terraform Registry for docs: [`azuread_application_certificate`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate).
+Refer to the Terraform Registry for docs: [`azuread_application_certificate`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationCertificate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.applicationCertificate.ApplicationCertificate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate azuread_application_certificate}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate azuread_application_certificate}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class ApplicationCertificate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate azuread_application_certificate} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate azuread_application_certificate} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: The resource ID of the application for which this certificate should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#application_id ApplicationCertificate#application_id}
-        :param value: The certificate data, which can be PEM encoded, base64 encoded DER or hexadecimal encoded DER. See also the ``encoding`` argument Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#value ApplicationCertificate#value}
-        :param encoding: Specifies the encoding used for the supplied certificate data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#encoding ApplicationCertificate#encoding}
-        :param end_date: The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If omitted, the API will decide a suitable expiry date, which is typically around 2 years from the start date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#end_date ApplicationCertificate#end_date}
-        :param end_date_relative: A relative duration for which the certificate is valid until, for example ``240h`` (10 days) or ``2400h30m``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#end_date_relative ApplicationCertificate#end_date_relative}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#id ApplicationCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_id: A UUID used to uniquely identify this certificate. If omitted, a random UUID will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#key_id ApplicationCertificate#key_id}
-        :param start_date: The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date and time are use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#start_date ApplicationCertificate#start_date}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#timeouts ApplicationCertificate#timeouts}
-        :param type: The type of key/certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#type ApplicationCertificate#type}
+        :param application_id: The resource ID of the application for which this certificate should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#application_id ApplicationCertificate#application_id}
+        :param value: The certificate data, which can be PEM encoded, base64 encoded DER or hexadecimal encoded DER. See also the ``encoding`` argument Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#value ApplicationCertificate#value}
+        :param encoding: Specifies the encoding used for the supplied certificate data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#encoding ApplicationCertificate#encoding}
+        :param end_date: The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If omitted, the API will decide a suitable expiry date, which is typically around 2 years from the start date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#end_date ApplicationCertificate#end_date}
+        :param end_date_relative: A relative duration for which the certificate is valid until, for example ``240h`` (10 days) or ``2400h30m``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#end_date_relative ApplicationCertificate#end_date_relative}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#id ApplicationCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_id: A UUID used to uniquely identify this certificate. If omitted, a random UUID will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#key_id ApplicationCertificate#key_id}
+        :param start_date: The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date and time are use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#start_date ApplicationCertificate#start_date}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#timeouts ApplicationCertificate#timeouts}
+        :param type: The type of key/certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#type ApplicationCertificate#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class ApplicationCertificate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationCertificate to import.
-        :param import_from_id: The id of the existing ApplicationCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationCertificate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationCertificate to import is found.
         '''
         if __debug__:
@@ -151,10 +151,10 @@ class ApplicationCertificate(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#create ApplicationCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#delete ApplicationCertificate#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#read ApplicationCertificate#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#update ApplicationCertificate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#create ApplicationCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#delete ApplicationCertificate#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#read ApplicationCertificate#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#update ApplicationCertificate#update}.
         '''
         value = ApplicationCertificateTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -426,16 +426,16 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: The resource ID of the application for which this certificate should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#application_id ApplicationCertificate#application_id}
-        :param value: The certificate data, which can be PEM encoded, base64 encoded DER or hexadecimal encoded DER. See also the ``encoding`` argument Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#value ApplicationCertificate#value}
-        :param encoding: Specifies the encoding used for the supplied certificate data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#encoding ApplicationCertificate#encoding}
-        :param end_date: The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If omitted, the API will decide a suitable expiry date, which is typically around 2 years from the start date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#end_date ApplicationCertificate#end_date}
-        :param end_date_relative: A relative duration for which the certificate is valid until, for example ``240h`` (10 days) or ``2400h30m``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#end_date_relative ApplicationCertificate#end_date_relative}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#id ApplicationCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_id: A UUID used to uniquely identify this certificate. If omitted, a random UUID will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#key_id ApplicationCertificate#key_id}
-        :param start_date: The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date and time are use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#start_date ApplicationCertificate#start_date}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#timeouts ApplicationCertificate#timeouts}
-        :param type: The type of key/certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#type ApplicationCertificate#type}
+        :param application_id: The resource ID of the application for which this certificate should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#application_id ApplicationCertificate#application_id}
+        :param value: The certificate data, which can be PEM encoded, base64 encoded DER or hexadecimal encoded DER. See also the ``encoding`` argument Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#value ApplicationCertificate#value}
+        :param encoding: Specifies the encoding used for the supplied certificate data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#encoding ApplicationCertificate#encoding}
+        :param end_date: The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If omitted, the API will decide a suitable expiry date, which is typically around 2 years from the start date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#end_date ApplicationCertificate#end_date}
+        :param end_date_relative: A relative duration for which the certificate is valid until, for example ``240h`` (10 days) or ``2400h30m``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#end_date_relative ApplicationCertificate#end_date_relative}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#id ApplicationCertificate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_id: A UUID used to uniquely identify this certificate. If omitted, a random UUID will be automatically generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#key_id ApplicationCertificate#key_id}
+        :param start_date: The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date and time are use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#start_date ApplicationCertificate#start_date}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#timeouts ApplicationCertificate#timeouts}
+        :param type: The type of key/certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#type ApplicationCertificate#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -563,7 +563,7 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''The resource ID of the application for which this certificate should be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#application_id ApplicationCertificate#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#application_id ApplicationCertificate#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -575,7 +575,7 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         See also the ``encoding`` argument
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#value ApplicationCertificate#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#value ApplicationCertificate#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -585,7 +585,7 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encoding(self) -> typing.Optional[builtins.str]:
         '''Specifies the encoding used for the supplied certificate data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#encoding ApplicationCertificate#encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#encoding ApplicationCertificate#encoding}
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -594,7 +594,7 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def end_date(self) -> typing.Optional[builtins.str]:
         '''The end date until which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If omitted, the API will decide a suitable expiry date, which is typically around 2 years from the start date.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#end_date ApplicationCertificate#end_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#end_date ApplicationCertificate#end_date}
         '''
         result = self._values.get("end_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -603,14 +603,14 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def end_date_relative(self) -> typing.Optional[builtins.str]:
         '''A relative duration for which the certificate is valid until, for example ``240h`` (10 days) or ``2400h30m``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#end_date_relative ApplicationCertificate#end_date_relative}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#end_date_relative ApplicationCertificate#end_date_relative}
         '''
         result = self._values.get("end_date_relative")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#id ApplicationCertificate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#id ApplicationCertificate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -622,7 +622,7 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key_id(self) -> typing.Optional[builtins.str]:
         '''A UUID used to uniquely identify this certificate. If omitted, a random UUID will be automatically generated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#key_id ApplicationCertificate#key_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#key_id ApplicationCertificate#key_id}
         '''
         result = self._values.get("key_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -631,7 +631,7 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def start_date(self) -> typing.Optional[builtins.str]:
         '''The start date from which the certificate is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date and time are use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#start_date ApplicationCertificate#start_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#start_date ApplicationCertificate#start_date}
         '''
         result = self._values.get("start_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -640,7 +640,7 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationCertificateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#timeouts ApplicationCertificate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#timeouts ApplicationCertificate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationCertificateTimeouts"], result)
@@ -649,7 +649,7 @@ class ApplicationCertificateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of key/certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#type ApplicationCertificate#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#type ApplicationCertificate#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -686,10 +686,10 @@ class ApplicationCertificateTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#create ApplicationCertificate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#delete ApplicationCertificate#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#read ApplicationCertificate#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#update ApplicationCertificate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#create ApplicationCertificate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#delete ApplicationCertificate#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#read ApplicationCertificate#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#update ApplicationCertificate#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__493694dafef0801769b0df9f2e92184422f5b06653f81ce304027472c4d5279a)
@@ -709,25 +709,25 @@ class ApplicationCertificateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#create ApplicationCertificate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#create ApplicationCertificate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#delete ApplicationCertificate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#delete ApplicationCertificate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#read ApplicationCertificate#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#read ApplicationCertificate#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_certificate#update ApplicationCertificate#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_certificate#update ApplicationCertificate#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

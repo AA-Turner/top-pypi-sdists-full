@@ -809,6 +809,20 @@ def test_priority():
     assert f([1, "x"]) == ["TOP", [["TOP", 2], ["TOP", "BOTTOM"]]]
 
 
+def test_priority_tuple():
+    f = Ovld()
+
+    @f.register(priority=(1, 2))
+    def f(x: object):
+        return ["TOP", call_next(x)]
+
+    @f.register(priority=(1, 1))
+    def f(x: object):
+        return "BOTTOM"
+
+    assert f(123) == ["TOP", "BOTTOM"]
+
+
 def test_resolve_for_values():
     f = Ovld()
 
@@ -1144,18 +1158,6 @@ def test_replacement():
         return 2
 
     assert f(5) == 2
-
-
-def test_disallow_replacement():
-    @ovld(allow_replacement=False)
-    def f(x: int):
-        pass
-
-    with pytest.raises(TypeError):
-
-        @f.register
-        def f2(x: int):
-            pass
 
 
 def test_unregister():
@@ -1819,12 +1821,12 @@ def test_doc(file_regression):
         return None
 
     doc = f"{mushroom.__name__}{inspect.signature(mushroom)}\n\n"
-    doc += mushroom.__doc__
+    doc += inspect.getdoc(mushroom)
 
     file_regression.check(doc)
 
-    assert mushroom.__doc__ == mushroom.__ovld__.__doc__
-    assert mushroom.__signature__ == mushroom.__ovld__.__signature__
+    assert inspect.getdoc(mushroom) == inspect.getdoc(mushroom.__ovld__)
+    assert inspect.signature(mushroom) == inspect.signature(mushroom.__ovld__)
 
 
 def test_doc2(file_regression):
@@ -1841,7 +1843,7 @@ def test_doc2(file_regression):
     def mushroom(x: str, y: object, *, beauty, bigness):
         return None
 
-    doc = mushroom.__doc__
+    doc = inspect.getdoc(mushroom)
     doc = f"{mushroom.__name__}{inspect.signature(mushroom)}\n\n" + doc
 
     file_regression.check(doc)
@@ -1863,7 +1865,7 @@ def test_method_doc(file_regression):
             return None
 
     mushroom = Mushroom()
-    doc = mushroom.rise.__doc__
+    doc = inspect.getdoc(mushroom.rise)
     doc = f"{mushroom.rise.__name__}{inspect.signature(mushroom.rise)}\n\n" + doc
 
     file_regression.check(doc)

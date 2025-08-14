@@ -69,6 +69,7 @@ class TestSailUiForm(unittest.TestCase):
     actions_feed = read_mock_file("actions_feed.json")
     duplicate_date_field = read_mock_file("duplicate_date_field.json")
     gridfield_async = read_mock_file("gridfield_async.json")
+    textfield_async = read_mock_file("textfield_async.json")
 
     def setUp(self) -> None:
         self.custom_locust = CustomLocust(User(ENV))
@@ -1583,6 +1584,23 @@ class TestSailUiForm(unittest.TestCase):
         self.custom_locust.client.set_response("/suite/rest/a/sites/latest/api-dashboard/pages/api-dashboard/interface", 204, None)
         async_timer_response = gridfield_async_form.click_link("async_timer")
         self.assertEqual(original_state, async_timer_response.get_latest_state(), "Unexpected state change")
+
+    def test_reeval_async_variables_without_async(self) -> None:
+        non_async_form = SailUiForm(self.task_set.appian._interactor, json.loads(self.date_response))
+        original_state = non_async_form.get_latest_state()
+        non_async_form.reeval_pending_async_variables()
+        self.assertEqual(original_state, non_async_form.get_latest_state(), "Unexpected state change")
+
+    def test_reeval_async_variables(self) -> None:
+        non_async_form = SailUiForm(self.task_set.appian._interactor, json.loads(self.textfield_async))
+
+        new_json = json.loads(self.textfield_async)
+
+        del new_json["asyncVariableCounter"]
+        self.custom_locust.client.set_response(non_async_form.form_url, 200, json.dumps(new_json))
+        self.custom_locust.client.set_response("/suite/sail/async-variables/events", 200, "id: 1\nevent: asyncVariableCompleted\ndata: asdf")
+        non_async_form.reeval_pending_async_variables()
+        self.assertEqual(new_json, non_async_form.get_latest_state(), "Unexpected state change")
 
     @patch('appian_locust._interactor._Interactor.send_grouped_dropdown_update')
     def test_select_grouped_dropdown_item_by_index(self, mock_send_grouped_dropdown_update: MagicMock) -> None:

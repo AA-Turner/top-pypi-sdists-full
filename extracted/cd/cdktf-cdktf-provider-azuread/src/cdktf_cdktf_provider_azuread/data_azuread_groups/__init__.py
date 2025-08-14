@@ -1,7 +1,7 @@
 r'''
 # `data_azuread_groups`
 
-Refer to the Terraform Registry for docs: [`data_azuread_groups`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups).
+Refer to the Terraform Registry for docs: [`data_azuread_groups`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzureadGroups(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.dataAzureadGroups.DataAzureadGroups",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups azuread_groups}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups azuread_groups}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class DataAzureadGroups(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups azuread_groups} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups azuread_groups} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name_prefix: Common display name prefix of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#display_name_prefix DataAzureadGroups#display_name_prefix}
-        :param display_names: The display names of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#display_names DataAzureadGroups#display_names}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#id DataAzureadGroups#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_missing: Ignore missing groups and return groups that were found. The data source will still fail if no groups are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#ignore_missing DataAzureadGroups#ignore_missing}
-        :param mail_enabled: Whether the groups are mail-enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#mail_enabled DataAzureadGroups#mail_enabled}
-        :param object_ids: The object IDs of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#object_ids DataAzureadGroups#object_ids}
-        :param return_all: Retrieve all groups with no filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#return_all DataAzureadGroups#return_all}
-        :param security_enabled: Whether the groups are security-enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#security_enabled DataAzureadGroups#security_enabled}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#timeouts DataAzureadGroups#timeouts}
+        :param display_name_prefix: Common display name prefix of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#display_name_prefix DataAzureadGroups#display_name_prefix}
+        :param display_names: The display names of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#display_names DataAzureadGroups#display_names}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#id DataAzureadGroups#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_missing: Ignore missing groups and return groups that were found. The data source will still fail if no groups are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#ignore_missing DataAzureadGroups#ignore_missing}
+        :param mail_enabled: Whether the groups are mail-enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#mail_enabled DataAzureadGroups#mail_enabled}
+        :param object_ids: The object IDs of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#object_ids DataAzureadGroups#object_ids}
+        :param return_all: Retrieve all groups with no filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#return_all DataAzureadGroups#return_all}
+        :param security_enabled: Whether the groups are security-enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#security_enabled DataAzureadGroups#security_enabled}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#timeouts DataAzureadGroups#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class DataAzureadGroups(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzureadGroups to import.
-        :param import_from_id: The id of the existing DataAzureadGroups that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzureadGroups that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzureadGroups to import is found.
         '''
         if __debug__:
@@ -141,7 +141,7 @@ class DataAzureadGroups(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#read DataAzureadGroups#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#read DataAzureadGroups#read}.
         '''
         value = DataAzureadGroupsTimeouts(read=read)
 
@@ -420,15 +420,15 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name_prefix: Common display name prefix of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#display_name_prefix DataAzureadGroups#display_name_prefix}
-        :param display_names: The display names of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#display_names DataAzureadGroups#display_names}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#id DataAzureadGroups#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_missing: Ignore missing groups and return groups that were found. The data source will still fail if no groups are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#ignore_missing DataAzureadGroups#ignore_missing}
-        :param mail_enabled: Whether the groups are mail-enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#mail_enabled DataAzureadGroups#mail_enabled}
-        :param object_ids: The object IDs of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#object_ids DataAzureadGroups#object_ids}
-        :param return_all: Retrieve all groups with no filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#return_all DataAzureadGroups#return_all}
-        :param security_enabled: Whether the groups are security-enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#security_enabled DataAzureadGroups#security_enabled}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#timeouts DataAzureadGroups#timeouts}
+        :param display_name_prefix: Common display name prefix of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#display_name_prefix DataAzureadGroups#display_name_prefix}
+        :param display_names: The display names of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#display_names DataAzureadGroups#display_names}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#id DataAzureadGroups#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_missing: Ignore missing groups and return groups that were found. The data source will still fail if no groups are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#ignore_missing DataAzureadGroups#ignore_missing}
+        :param mail_enabled: Whether the groups are mail-enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#mail_enabled DataAzureadGroups#mail_enabled}
+        :param object_ids: The object IDs of the groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#object_ids DataAzureadGroups#object_ids}
+        :param return_all: Retrieve all groups with no filter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#return_all DataAzureadGroups#return_all}
+        :param security_enabled: Whether the groups are security-enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#security_enabled DataAzureadGroups#security_enabled}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#timeouts DataAzureadGroups#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -554,7 +554,7 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name_prefix(self) -> typing.Optional[builtins.str]:
         '''Common display name prefix of the groups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#display_name_prefix DataAzureadGroups#display_name_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#display_name_prefix DataAzureadGroups#display_name_prefix}
         '''
         result = self._values.get("display_name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -563,14 +563,14 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_names(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The display names of the groups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#display_names DataAzureadGroups#display_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#display_names DataAzureadGroups#display_names}
         '''
         result = self._values.get("display_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#id DataAzureadGroups#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#id DataAzureadGroups#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -586,7 +586,7 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The data source will still fail if no groups are found
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#ignore_missing DataAzureadGroups#ignore_missing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#ignore_missing DataAzureadGroups#ignore_missing}
         '''
         result = self._values.get("ignore_missing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -597,7 +597,7 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the groups are mail-enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#mail_enabled DataAzureadGroups#mail_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#mail_enabled DataAzureadGroups#mail_enabled}
         '''
         result = self._values.get("mail_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -606,7 +606,7 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def object_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The object IDs of the groups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#object_ids DataAzureadGroups#object_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#object_ids DataAzureadGroups#object_ids}
         '''
         result = self._values.get("object_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -617,7 +617,7 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Retrieve all groups with no filter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#return_all DataAzureadGroups#return_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#return_all DataAzureadGroups#return_all}
         '''
         result = self._values.get("return_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -628,7 +628,7 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the groups are security-enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#security_enabled DataAzureadGroups#security_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#security_enabled DataAzureadGroups#security_enabled}
         '''
         result = self._values.get("security_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -637,7 +637,7 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataAzureadGroupsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#timeouts DataAzureadGroups#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#timeouts DataAzureadGroups#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzureadGroupsTimeouts"], result)
@@ -662,7 +662,7 @@ class DataAzureadGroupsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataAzureadGroupsTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#read DataAzureadGroups#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#read DataAzureadGroups#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45cb74b0a5d17eecd0ee1bdcb7d5643dcbb9035da3bd3199f30b6b4dd9a3fedb)
@@ -673,7 +673,7 @@ class DataAzureadGroupsTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/groups#read DataAzureadGroups#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/groups#read DataAzureadGroups#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

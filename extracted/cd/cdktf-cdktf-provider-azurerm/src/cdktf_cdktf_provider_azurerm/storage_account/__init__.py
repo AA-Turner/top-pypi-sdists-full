@@ -1,7 +1,7 @@
 r'''
 # `azurerm_storage_account`
 
-Refer to the Terraform Registry for docs: [`azurerm_storage_account`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account).
+Refer to the Terraform Registry for docs: [`azurerm_storage_account`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StorageAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.storageAccount.StorageAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account azurerm_storage_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account azurerm_storage_account}.'''
 
     def __init__(
         self,
@@ -100,51 +100,51 @@ class StorageAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account azurerm_storage_account} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account azurerm_storage_account} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_replication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#account_replication_type StorageAccount#account_replication_type}.
-        :param account_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#account_tier StorageAccount#account_tier}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#location StorageAccount#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#name StorageAccount#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#resource_group_name StorageAccount#resource_group_name}.
-        :param access_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#access_tier StorageAccount#access_tier}.
-        :param account_kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#account_kind StorageAccount#account_kind}.
-        :param allowed_copy_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_copy_scope StorageAccount#allowed_copy_scope}.
-        :param allow_nested_items_to_be_public: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allow_nested_items_to_be_public StorageAccount#allow_nested_items_to_be_public}.
-        :param azure_files_authentication: azure_files_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#azure_files_authentication StorageAccount#azure_files_authentication}
-        :param blob_properties: blob_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#blob_properties StorageAccount#blob_properties}
-        :param cross_tenant_replication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cross_tenant_replication_enabled StorageAccount#cross_tenant_replication_enabled}.
-        :param custom_domain: custom_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#custom_domain StorageAccount#custom_domain}
-        :param customer_managed_key: customer_managed_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#customer_managed_key StorageAccount#customer_managed_key}
-        :param default_to_oauth_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_to_oauth_authentication StorageAccount#default_to_oauth_authentication}.
-        :param dns_endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#dns_endpoint_type StorageAccount#dns_endpoint_type}.
-        :param edge_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#edge_zone StorageAccount#edge_zone}.
-        :param https_traffic_only_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#https_traffic_only_enabled StorageAccount#https_traffic_only_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#id StorageAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#identity StorageAccount#identity}
-        :param immutability_policy: immutability_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#immutability_policy StorageAccount#immutability_policy}
-        :param infrastructure_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#infrastructure_encryption_enabled StorageAccount#infrastructure_encryption_enabled}.
-        :param is_hns_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#is_hns_enabled StorageAccount#is_hns_enabled}.
-        :param large_file_share_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#large_file_share_enabled StorageAccount#large_file_share_enabled}.
-        :param local_user_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#local_user_enabled StorageAccount#local_user_enabled}.
-        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#min_tls_version StorageAccount#min_tls_version}.
-        :param network_rules: network_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#network_rules StorageAccount#network_rules}
-        :param nfsv3_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#nfsv3_enabled StorageAccount#nfsv3_enabled}.
-        :param provisioned_billing_model_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#provisioned_billing_model_version StorageAccount#provisioned_billing_model_version}.
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#public_network_access_enabled StorageAccount#public_network_access_enabled}.
-        :param queue_encryption_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#queue_encryption_key_type StorageAccount#queue_encryption_key_type}.
-        :param queue_properties: queue_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#queue_properties StorageAccount#queue_properties}
-        :param routing: routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#routing StorageAccount#routing}
-        :param sas_policy: sas_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#sas_policy StorageAccount#sas_policy}
-        :param sftp_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#sftp_enabled StorageAccount#sftp_enabled}.
-        :param shared_access_key_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#shared_access_key_enabled StorageAccount#shared_access_key_enabled}.
-        :param share_properties: share_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#share_properties StorageAccount#share_properties}
-        :param static_website: static_website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#static_website StorageAccount#static_website}
-        :param table_encryption_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#table_encryption_key_type StorageAccount#table_encryption_key_type}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#tags StorageAccount#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#timeouts StorageAccount#timeouts}
+        :param account_replication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#account_replication_type StorageAccount#account_replication_type}.
+        :param account_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#account_tier StorageAccount#account_tier}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#location StorageAccount#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#name StorageAccount#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#resource_group_name StorageAccount#resource_group_name}.
+        :param access_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#access_tier StorageAccount#access_tier}.
+        :param account_kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#account_kind StorageAccount#account_kind}.
+        :param allowed_copy_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_copy_scope StorageAccount#allowed_copy_scope}.
+        :param allow_nested_items_to_be_public: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allow_nested_items_to_be_public StorageAccount#allow_nested_items_to_be_public}.
+        :param azure_files_authentication: azure_files_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#azure_files_authentication StorageAccount#azure_files_authentication}
+        :param blob_properties: blob_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#blob_properties StorageAccount#blob_properties}
+        :param cross_tenant_replication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cross_tenant_replication_enabled StorageAccount#cross_tenant_replication_enabled}.
+        :param custom_domain: custom_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#custom_domain StorageAccount#custom_domain}
+        :param customer_managed_key: customer_managed_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#customer_managed_key StorageAccount#customer_managed_key}
+        :param default_to_oauth_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_to_oauth_authentication StorageAccount#default_to_oauth_authentication}.
+        :param dns_endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#dns_endpoint_type StorageAccount#dns_endpoint_type}.
+        :param edge_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#edge_zone StorageAccount#edge_zone}.
+        :param https_traffic_only_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#https_traffic_only_enabled StorageAccount#https_traffic_only_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#id StorageAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#identity StorageAccount#identity}
+        :param immutability_policy: immutability_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#immutability_policy StorageAccount#immutability_policy}
+        :param infrastructure_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#infrastructure_encryption_enabled StorageAccount#infrastructure_encryption_enabled}.
+        :param is_hns_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#is_hns_enabled StorageAccount#is_hns_enabled}.
+        :param large_file_share_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#large_file_share_enabled StorageAccount#large_file_share_enabled}.
+        :param local_user_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#local_user_enabled StorageAccount#local_user_enabled}.
+        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#min_tls_version StorageAccount#min_tls_version}.
+        :param network_rules: network_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#network_rules StorageAccount#network_rules}
+        :param nfsv3_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#nfsv3_enabled StorageAccount#nfsv3_enabled}.
+        :param provisioned_billing_model_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#provisioned_billing_model_version StorageAccount#provisioned_billing_model_version}.
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#public_network_access_enabled StorageAccount#public_network_access_enabled}.
+        :param queue_encryption_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#queue_encryption_key_type StorageAccount#queue_encryption_key_type}.
+        :param queue_properties: queue_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#queue_properties StorageAccount#queue_properties}
+        :param routing: routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#routing StorageAccount#routing}
+        :param sas_policy: sas_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#sas_policy StorageAccount#sas_policy}
+        :param sftp_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#sftp_enabled StorageAccount#sftp_enabled}.
+        :param shared_access_key_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#shared_access_key_enabled StorageAccount#shared_access_key_enabled}.
+        :param share_properties: share_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#share_properties StorageAccount#share_properties}
+        :param static_website: static_website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#static_website StorageAccount#static_website}
+        :param table_encryption_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#table_encryption_key_type StorageAccount#table_encryption_key_type}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#tags StorageAccount#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#timeouts StorageAccount#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -223,7 +223,7 @@ class StorageAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StorageAccount to import.
-        :param import_from_id: The id of the existing StorageAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StorageAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StorageAccount to import is found.
         '''
         if __debug__:
@@ -243,9 +243,9 @@ class StorageAccount(
         default_share_level_permission: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#directory_type StorageAccount#directory_type}.
-        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#active_directory StorageAccount#active_directory}
-        :param default_share_level_permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_share_level_permission StorageAccount#default_share_level_permission}.
+        :param directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#directory_type StorageAccount#directory_type}.
+        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#active_directory StorageAccount#active_directory}
+        :param default_share_level_permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_share_level_permission StorageAccount#default_share_level_permission}.
         '''
         value = StorageAccountAzureFilesAuthentication(
             directory_type=directory_type,
@@ -270,15 +270,15 @@ class StorageAccount(
         versioning_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param change_feed_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#change_feed_enabled StorageAccount#change_feed_enabled}.
-        :param change_feed_retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#change_feed_retention_in_days StorageAccount#change_feed_retention_in_days}.
-        :param container_delete_retention_policy: container_delete_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#container_delete_retention_policy StorageAccount#container_delete_retention_policy}
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
-        :param default_service_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_service_version StorageAccount#default_service_version}.
-        :param delete_retention_policy: delete_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#delete_retention_policy StorageAccount#delete_retention_policy}
-        :param last_access_time_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#last_access_time_enabled StorageAccount#last_access_time_enabled}.
-        :param restore_policy: restore_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#restore_policy StorageAccount#restore_policy}
-        :param versioning_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#versioning_enabled StorageAccount#versioning_enabled}.
+        :param change_feed_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#change_feed_enabled StorageAccount#change_feed_enabled}.
+        :param change_feed_retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#change_feed_retention_in_days StorageAccount#change_feed_retention_in_days}.
+        :param container_delete_retention_policy: container_delete_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#container_delete_retention_policy StorageAccount#container_delete_retention_policy}
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
+        :param default_service_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_service_version StorageAccount#default_service_version}.
+        :param delete_retention_policy: delete_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#delete_retention_policy StorageAccount#delete_retention_policy}
+        :param last_access_time_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#last_access_time_enabled StorageAccount#last_access_time_enabled}.
+        :param restore_policy: restore_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#restore_policy StorageAccount#restore_policy}
+        :param versioning_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#versioning_enabled StorageAccount#versioning_enabled}.
         '''
         value = StorageAccountBlobProperties(
             change_feed_enabled=change_feed_enabled,
@@ -302,8 +302,8 @@ class StorageAccount(
         use_subdomain: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#name StorageAccount#name}.
-        :param use_subdomain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#use_subdomain StorageAccount#use_subdomain}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#name StorageAccount#name}.
+        :param use_subdomain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#use_subdomain StorageAccount#use_subdomain}.
         '''
         value = StorageAccountCustomDomain(name=name, use_subdomain=use_subdomain)
 
@@ -318,9 +318,9 @@ class StorageAccount(
         managed_hsm_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#user_assigned_identity_id StorageAccount#user_assigned_identity_id}.
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#key_vault_key_id StorageAccount#key_vault_key_id}.
-        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#managed_hsm_key_id StorageAccount#managed_hsm_key_id}.
+        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#user_assigned_identity_id StorageAccount#user_assigned_identity_id}.
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#key_vault_key_id StorageAccount#key_vault_key_id}.
+        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#managed_hsm_key_id StorageAccount#managed_hsm_key_id}.
         '''
         value = StorageAccountCustomerManagedKey(
             user_assigned_identity_id=user_assigned_identity_id,
@@ -338,8 +338,8 @@ class StorageAccount(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#type StorageAccount#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#identity_ids StorageAccount#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#type StorageAccount#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#identity_ids StorageAccount#identity_ids}.
         '''
         value = StorageAccountIdentity(type=type, identity_ids=identity_ids)
 
@@ -354,9 +354,9 @@ class StorageAccount(
         state: builtins.str,
     ) -> None:
         '''
-        :param allow_protected_append_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allow_protected_append_writes StorageAccount#allow_protected_append_writes}.
-        :param period_since_creation_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#period_since_creation_in_days StorageAccount#period_since_creation_in_days}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#state StorageAccount#state}.
+        :param allow_protected_append_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allow_protected_append_writes StorageAccount#allow_protected_append_writes}.
+        :param period_since_creation_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#period_since_creation_in_days StorageAccount#period_since_creation_in_days}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#state StorageAccount#state}.
         '''
         value = StorageAccountImmutabilityPolicy(
             allow_protected_append_writes=allow_protected_append_writes,
@@ -377,11 +377,11 @@ class StorageAccount(
         virtual_network_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_action StorageAccount#default_action}.
-        :param bypass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#bypass StorageAccount#bypass}.
-        :param ip_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#ip_rules StorageAccount#ip_rules}.
-        :param private_link_access: private_link_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#private_link_access StorageAccount#private_link_access}
-        :param virtual_network_subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#virtual_network_subnet_ids StorageAccount#virtual_network_subnet_ids}.
+        :param default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_action StorageAccount#default_action}.
+        :param bypass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#bypass StorageAccount#bypass}.
+        :param ip_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#ip_rules StorageAccount#ip_rules}.
+        :param private_link_access: private_link_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#private_link_access StorageAccount#private_link_access}
+        :param virtual_network_subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#virtual_network_subnet_ids StorageAccount#virtual_network_subnet_ids}.
         '''
         value = StorageAccountNetworkRules(
             default_action=default_action,
@@ -403,10 +403,10 @@ class StorageAccount(
         minute_metrics: typing.Optional[typing.Union["StorageAccountQueuePropertiesMinuteMetrics", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
-        :param hour_metrics: hour_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#hour_metrics StorageAccount#hour_metrics}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#logging StorageAccount#logging}
-        :param minute_metrics: minute_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#minute_metrics StorageAccount#minute_metrics}
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
+        :param hour_metrics: hour_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#hour_metrics StorageAccount#hour_metrics}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#logging StorageAccount#logging}
+        :param minute_metrics: minute_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#minute_metrics StorageAccount#minute_metrics}
         '''
         value = StorageAccountQueueProperties(
             cors_rule=cors_rule,
@@ -426,9 +426,9 @@ class StorageAccount(
         publish_microsoft_endpoints: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param choice: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#choice StorageAccount#choice}.
-        :param publish_internet_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#publish_internet_endpoints StorageAccount#publish_internet_endpoints}.
-        :param publish_microsoft_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#publish_microsoft_endpoints StorageAccount#publish_microsoft_endpoints}.
+        :param choice: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#choice StorageAccount#choice}.
+        :param publish_internet_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#publish_internet_endpoints StorageAccount#publish_internet_endpoints}.
+        :param publish_microsoft_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#publish_microsoft_endpoints StorageAccount#publish_microsoft_endpoints}.
         '''
         value = StorageAccountRouting(
             choice=choice,
@@ -446,8 +446,8 @@ class StorageAccount(
         expiration_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expiration_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#expiration_period StorageAccount#expiration_period}.
-        :param expiration_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#expiration_action StorageAccount#expiration_action}.
+        :param expiration_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#expiration_period StorageAccount#expiration_period}.
+        :param expiration_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#expiration_action StorageAccount#expiration_action}.
         '''
         value = StorageAccountSasPolicy(
             expiration_period=expiration_period, expiration_action=expiration_action
@@ -464,9 +464,9 @@ class StorageAccount(
         smb: typing.Optional[typing.Union["StorageAccountSharePropertiesSmb", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy StorageAccount#retention_policy}
-        :param smb: smb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#smb StorageAccount#smb}
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy StorageAccount#retention_policy}
+        :param smb: smb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#smb StorageAccount#smb}
         '''
         value = StorageAccountShareProperties(
             cors_rule=cors_rule, retention_policy=retention_policy, smb=smb
@@ -482,8 +482,8 @@ class StorageAccount(
         index_document: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param error404_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#error_404_document StorageAccount#error_404_document}.
-        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#index_document StorageAccount#index_document}.
+        :param error404_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#error_404_document StorageAccount#error_404_document}.
+        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#index_document StorageAccount#index_document}.
         '''
         value = StorageAccountStaticWebsite(
             error404_document=error404_document, index_document=index_document
@@ -501,10 +501,10 @@ class StorageAccount(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#create StorageAccount#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#delete StorageAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#read StorageAccount#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#update StorageAccount#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#create StorageAccount#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#delete StorageAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#read StorageAccount#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#update StorageAccount#update}.
         '''
         value = StorageAccountTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -1748,9 +1748,9 @@ class StorageAccountAzureFilesAuthentication:
         default_share_level_permission: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#directory_type StorageAccount#directory_type}.
-        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#active_directory StorageAccount#active_directory}
-        :param default_share_level_permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_share_level_permission StorageAccount#default_share_level_permission}.
+        :param directory_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#directory_type StorageAccount#directory_type}.
+        :param active_directory: active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#active_directory StorageAccount#active_directory}
+        :param default_share_level_permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_share_level_permission StorageAccount#default_share_level_permission}.
         '''
         if isinstance(active_directory, dict):
             active_directory = StorageAccountAzureFilesAuthenticationActiveDirectory(**active_directory)
@@ -1769,7 +1769,7 @@ class StorageAccountAzureFilesAuthentication:
 
     @builtins.property
     def directory_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#directory_type StorageAccount#directory_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#directory_type StorageAccount#directory_type}.'''
         result = self._values.get("directory_type")
         assert result is not None, "Required property 'directory_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1780,14 +1780,14 @@ class StorageAccountAzureFilesAuthentication:
     ) -> typing.Optional["StorageAccountAzureFilesAuthenticationActiveDirectory"]:
         '''active_directory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#active_directory StorageAccount#active_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#active_directory StorageAccount#active_directory}
         '''
         result = self._values.get("active_directory")
         return typing.cast(typing.Optional["StorageAccountAzureFilesAuthenticationActiveDirectory"], result)
 
     @builtins.property
     def default_share_level_permission(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_share_level_permission StorageAccount#default_share_level_permission}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_share_level_permission StorageAccount#default_share_level_permission}.'''
         result = self._values.get("default_share_level_permission")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1827,12 +1827,12 @@ class StorageAccountAzureFilesAuthenticationActiveDirectory:
         storage_sid: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param domain_guid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#domain_guid StorageAccount#domain_guid}.
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#domain_name StorageAccount#domain_name}.
-        :param domain_sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#domain_sid StorageAccount#domain_sid}.
-        :param forest_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#forest_name StorageAccount#forest_name}.
-        :param netbios_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#netbios_domain_name StorageAccount#netbios_domain_name}.
-        :param storage_sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#storage_sid StorageAccount#storage_sid}.
+        :param domain_guid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#domain_guid StorageAccount#domain_guid}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#domain_name StorageAccount#domain_name}.
+        :param domain_sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#domain_sid StorageAccount#domain_sid}.
+        :param forest_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#forest_name StorageAccount#forest_name}.
+        :param netbios_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#netbios_domain_name StorageAccount#netbios_domain_name}.
+        :param storage_sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#storage_sid StorageAccount#storage_sid}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a36e3349ae74542f974fc8b566a50a811327891f324ba03b970b2b2e208072de)
@@ -1857,39 +1857,39 @@ class StorageAccountAzureFilesAuthenticationActiveDirectory:
 
     @builtins.property
     def domain_guid(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#domain_guid StorageAccount#domain_guid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#domain_guid StorageAccount#domain_guid}.'''
         result = self._values.get("domain_guid")
         assert result is not None, "Required property 'domain_guid' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#domain_name StorageAccount#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#domain_name StorageAccount#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def domain_sid(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#domain_sid StorageAccount#domain_sid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#domain_sid StorageAccount#domain_sid}.'''
         result = self._values.get("domain_sid")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def forest_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#forest_name StorageAccount#forest_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#forest_name StorageAccount#forest_name}.'''
         result = self._values.get("forest_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def netbios_domain_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#netbios_domain_name StorageAccount#netbios_domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#netbios_domain_name StorageAccount#netbios_domain_name}.'''
         result = self._values.get("netbios_domain_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage_sid(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#storage_sid StorageAccount#storage_sid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#storage_sid StorageAccount#storage_sid}.'''
         result = self._values.get("storage_sid")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2093,12 +2093,12 @@ class StorageAccountAzureFilesAuthenticationOutputReference(
         storage_sid: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param domain_guid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#domain_guid StorageAccount#domain_guid}.
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#domain_name StorageAccount#domain_name}.
-        :param domain_sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#domain_sid StorageAccount#domain_sid}.
-        :param forest_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#forest_name StorageAccount#forest_name}.
-        :param netbios_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#netbios_domain_name StorageAccount#netbios_domain_name}.
-        :param storage_sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#storage_sid StorageAccount#storage_sid}.
+        :param domain_guid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#domain_guid StorageAccount#domain_guid}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#domain_name StorageAccount#domain_name}.
+        :param domain_sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#domain_sid StorageAccount#domain_sid}.
+        :param forest_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#forest_name StorageAccount#forest_name}.
+        :param netbios_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#netbios_domain_name StorageAccount#netbios_domain_name}.
+        :param storage_sid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#storage_sid StorageAccount#storage_sid}.
         '''
         value = StorageAccountAzureFilesAuthenticationActiveDirectory(
             domain_guid=domain_guid,
@@ -2213,15 +2213,15 @@ class StorageAccountBlobProperties:
         versioning_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param change_feed_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#change_feed_enabled StorageAccount#change_feed_enabled}.
-        :param change_feed_retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#change_feed_retention_in_days StorageAccount#change_feed_retention_in_days}.
-        :param container_delete_retention_policy: container_delete_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#container_delete_retention_policy StorageAccount#container_delete_retention_policy}
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
-        :param default_service_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_service_version StorageAccount#default_service_version}.
-        :param delete_retention_policy: delete_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#delete_retention_policy StorageAccount#delete_retention_policy}
-        :param last_access_time_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#last_access_time_enabled StorageAccount#last_access_time_enabled}.
-        :param restore_policy: restore_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#restore_policy StorageAccount#restore_policy}
-        :param versioning_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#versioning_enabled StorageAccount#versioning_enabled}.
+        :param change_feed_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#change_feed_enabled StorageAccount#change_feed_enabled}.
+        :param change_feed_retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#change_feed_retention_in_days StorageAccount#change_feed_retention_in_days}.
+        :param container_delete_retention_policy: container_delete_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#container_delete_retention_policy StorageAccount#container_delete_retention_policy}
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
+        :param default_service_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_service_version StorageAccount#default_service_version}.
+        :param delete_retention_policy: delete_retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#delete_retention_policy StorageAccount#delete_retention_policy}
+        :param last_access_time_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#last_access_time_enabled StorageAccount#last_access_time_enabled}.
+        :param restore_policy: restore_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#restore_policy StorageAccount#restore_policy}
+        :param versioning_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#versioning_enabled StorageAccount#versioning_enabled}.
         '''
         if isinstance(container_delete_retention_policy, dict):
             container_delete_retention_policy = StorageAccountBlobPropertiesContainerDeleteRetentionPolicy(**container_delete_retention_policy)
@@ -2264,13 +2264,13 @@ class StorageAccountBlobProperties:
     def change_feed_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#change_feed_enabled StorageAccount#change_feed_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#change_feed_enabled StorageAccount#change_feed_enabled}.'''
         result = self._values.get("change_feed_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def change_feed_retention_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#change_feed_retention_in_days StorageAccount#change_feed_retention_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#change_feed_retention_in_days StorageAccount#change_feed_retention_in_days}.'''
         result = self._values.get("change_feed_retention_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2280,7 +2280,7 @@ class StorageAccountBlobProperties:
     ) -> typing.Optional["StorageAccountBlobPropertiesContainerDeleteRetentionPolicy"]:
         '''container_delete_retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#container_delete_retention_policy StorageAccount#container_delete_retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#container_delete_retention_policy StorageAccount#container_delete_retention_policy}
         '''
         result = self._values.get("container_delete_retention_policy")
         return typing.cast(typing.Optional["StorageAccountBlobPropertiesContainerDeleteRetentionPolicy"], result)
@@ -2291,14 +2291,14 @@ class StorageAccountBlobProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageAccountBlobPropertiesCorsRule"]]]:
         '''cors_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
         '''
         result = self._values.get("cors_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageAccountBlobPropertiesCorsRule"]]], result)
 
     @builtins.property
     def default_service_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_service_version StorageAccount#default_service_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_service_version StorageAccount#default_service_version}.'''
         result = self._values.get("default_service_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2308,7 +2308,7 @@ class StorageAccountBlobProperties:
     ) -> typing.Optional["StorageAccountBlobPropertiesDeleteRetentionPolicy"]:
         '''delete_retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#delete_retention_policy StorageAccount#delete_retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#delete_retention_policy StorageAccount#delete_retention_policy}
         '''
         result = self._values.get("delete_retention_policy")
         return typing.cast(typing.Optional["StorageAccountBlobPropertiesDeleteRetentionPolicy"], result)
@@ -2317,7 +2317,7 @@ class StorageAccountBlobProperties:
     def last_access_time_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#last_access_time_enabled StorageAccount#last_access_time_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#last_access_time_enabled StorageAccount#last_access_time_enabled}.'''
         result = self._values.get("last_access_time_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2327,7 +2327,7 @@ class StorageAccountBlobProperties:
     ) -> typing.Optional["StorageAccountBlobPropertiesRestorePolicy"]:
         '''restore_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#restore_policy StorageAccount#restore_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#restore_policy StorageAccount#restore_policy}
         '''
         result = self._values.get("restore_policy")
         return typing.cast(typing.Optional["StorageAccountBlobPropertiesRestorePolicy"], result)
@@ -2336,7 +2336,7 @@ class StorageAccountBlobProperties:
     def versioning_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#versioning_enabled StorageAccount#versioning_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#versioning_enabled StorageAccount#versioning_enabled}.'''
         result = self._values.get("versioning_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2360,7 +2360,7 @@ class StorageAccountBlobProperties:
 class StorageAccountBlobPropertiesContainerDeleteRetentionPolicy:
     def __init__(self, *, days: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1b3f1f346f85e36cc6bddb53d1d00b3cdc7647abc2419b0ca6d09a7fab4d363)
@@ -2371,7 +2371,7 @@ class StorageAccountBlobPropertiesContainerDeleteRetentionPolicy:
 
     @builtins.property
     def days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2468,11 +2468,11 @@ class StorageAccountBlobPropertiesCorsRule:
         max_age_in_seconds: jsii.Number,
     ) -> None:
         '''
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.
-        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.
-        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.
+        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.
+        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ab350d1852f307a865c2dc72de4b01824bcdce81d00db130b51efd01db75e26)
@@ -2491,35 +2491,35 @@ class StorageAccountBlobPropertiesCorsRule:
 
     @builtins.property
     def allowed_headers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.'''
         result = self._values.get("allowed_headers")
         assert result is not None, "Required property 'allowed_headers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         assert result is not None, "Required property 'allowed_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def exposed_headers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.'''
         result = self._values.get("exposed_headers")
         assert result is not None, "Required property 'exposed_headers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def max_age_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.'''
         result = self._values.get("max_age_in_seconds")
         assert result is not None, "Required property 'max_age_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
@@ -2774,8 +2774,8 @@ class StorageAccountBlobPropertiesDeleteRetentionPolicy:
         permanent_delete_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.
-        :param permanent_delete_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#permanent_delete_enabled StorageAccount#permanent_delete_enabled}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.
+        :param permanent_delete_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#permanent_delete_enabled StorageAccount#permanent_delete_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__868a8114349e3923b4e4483c045be5e938cb06143a765d87835b8f3fedef50a1)
@@ -2789,7 +2789,7 @@ class StorageAccountBlobPropertiesDeleteRetentionPolicy:
 
     @builtins.property
     def days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2797,7 +2797,7 @@ class StorageAccountBlobPropertiesDeleteRetentionPolicy:
     def permanent_delete_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#permanent_delete_enabled StorageAccount#permanent_delete_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#permanent_delete_enabled StorageAccount#permanent_delete_enabled}.'''
         result = self._values.get("permanent_delete_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2927,7 +2927,7 @@ class StorageAccountBlobPropertiesOutputReference(
         days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.
         '''
         value = StorageAccountBlobPropertiesContainerDeleteRetentionPolicy(days=days)
 
@@ -2954,8 +2954,8 @@ class StorageAccountBlobPropertiesOutputReference(
         permanent_delete_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.
-        :param permanent_delete_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#permanent_delete_enabled StorageAccount#permanent_delete_enabled}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.
+        :param permanent_delete_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#permanent_delete_enabled StorageAccount#permanent_delete_enabled}.
         '''
         value = StorageAccountBlobPropertiesDeleteRetentionPolicy(
             days=days, permanent_delete_enabled=permanent_delete_enabled
@@ -2966,7 +2966,7 @@ class StorageAccountBlobPropertiesOutputReference(
     @jsii.member(jsii_name="putRestorePolicy")
     def put_restore_policy(self, *, days: jsii.Number) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.
         '''
         value = StorageAccountBlobPropertiesRestorePolicy(days=days)
 
@@ -3192,7 +3192,7 @@ class StorageAccountBlobPropertiesOutputReference(
 class StorageAccountBlobPropertiesRestorePolicy:
     def __init__(self, *, days: jsii.Number) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3ad12b229031e3afd9e04587bec6a930677921d9f11b394fcabbc201410d543)
@@ -3203,7 +3203,7 @@ class StorageAccountBlobPropertiesRestorePolicy:
 
     @builtins.property
     def days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.'''
         result = self._values.get("days")
         assert result is not None, "Required property 'days' is missing"
         return typing.cast(jsii.Number, result)
@@ -3390,47 +3390,47 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_replication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#account_replication_type StorageAccount#account_replication_type}.
-        :param account_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#account_tier StorageAccount#account_tier}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#location StorageAccount#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#name StorageAccount#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#resource_group_name StorageAccount#resource_group_name}.
-        :param access_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#access_tier StorageAccount#access_tier}.
-        :param account_kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#account_kind StorageAccount#account_kind}.
-        :param allowed_copy_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_copy_scope StorageAccount#allowed_copy_scope}.
-        :param allow_nested_items_to_be_public: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allow_nested_items_to_be_public StorageAccount#allow_nested_items_to_be_public}.
-        :param azure_files_authentication: azure_files_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#azure_files_authentication StorageAccount#azure_files_authentication}
-        :param blob_properties: blob_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#blob_properties StorageAccount#blob_properties}
-        :param cross_tenant_replication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cross_tenant_replication_enabled StorageAccount#cross_tenant_replication_enabled}.
-        :param custom_domain: custom_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#custom_domain StorageAccount#custom_domain}
-        :param customer_managed_key: customer_managed_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#customer_managed_key StorageAccount#customer_managed_key}
-        :param default_to_oauth_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_to_oauth_authentication StorageAccount#default_to_oauth_authentication}.
-        :param dns_endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#dns_endpoint_type StorageAccount#dns_endpoint_type}.
-        :param edge_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#edge_zone StorageAccount#edge_zone}.
-        :param https_traffic_only_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#https_traffic_only_enabled StorageAccount#https_traffic_only_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#id StorageAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#identity StorageAccount#identity}
-        :param immutability_policy: immutability_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#immutability_policy StorageAccount#immutability_policy}
-        :param infrastructure_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#infrastructure_encryption_enabled StorageAccount#infrastructure_encryption_enabled}.
-        :param is_hns_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#is_hns_enabled StorageAccount#is_hns_enabled}.
-        :param large_file_share_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#large_file_share_enabled StorageAccount#large_file_share_enabled}.
-        :param local_user_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#local_user_enabled StorageAccount#local_user_enabled}.
-        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#min_tls_version StorageAccount#min_tls_version}.
-        :param network_rules: network_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#network_rules StorageAccount#network_rules}
-        :param nfsv3_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#nfsv3_enabled StorageAccount#nfsv3_enabled}.
-        :param provisioned_billing_model_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#provisioned_billing_model_version StorageAccount#provisioned_billing_model_version}.
-        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#public_network_access_enabled StorageAccount#public_network_access_enabled}.
-        :param queue_encryption_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#queue_encryption_key_type StorageAccount#queue_encryption_key_type}.
-        :param queue_properties: queue_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#queue_properties StorageAccount#queue_properties}
-        :param routing: routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#routing StorageAccount#routing}
-        :param sas_policy: sas_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#sas_policy StorageAccount#sas_policy}
-        :param sftp_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#sftp_enabled StorageAccount#sftp_enabled}.
-        :param shared_access_key_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#shared_access_key_enabled StorageAccount#shared_access_key_enabled}.
-        :param share_properties: share_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#share_properties StorageAccount#share_properties}
-        :param static_website: static_website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#static_website StorageAccount#static_website}
-        :param table_encryption_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#table_encryption_key_type StorageAccount#table_encryption_key_type}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#tags StorageAccount#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#timeouts StorageAccount#timeouts}
+        :param account_replication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#account_replication_type StorageAccount#account_replication_type}.
+        :param account_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#account_tier StorageAccount#account_tier}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#location StorageAccount#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#name StorageAccount#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#resource_group_name StorageAccount#resource_group_name}.
+        :param access_tier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#access_tier StorageAccount#access_tier}.
+        :param account_kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#account_kind StorageAccount#account_kind}.
+        :param allowed_copy_scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_copy_scope StorageAccount#allowed_copy_scope}.
+        :param allow_nested_items_to_be_public: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allow_nested_items_to_be_public StorageAccount#allow_nested_items_to_be_public}.
+        :param azure_files_authentication: azure_files_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#azure_files_authentication StorageAccount#azure_files_authentication}
+        :param blob_properties: blob_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#blob_properties StorageAccount#blob_properties}
+        :param cross_tenant_replication_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cross_tenant_replication_enabled StorageAccount#cross_tenant_replication_enabled}.
+        :param custom_domain: custom_domain block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#custom_domain StorageAccount#custom_domain}
+        :param customer_managed_key: customer_managed_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#customer_managed_key StorageAccount#customer_managed_key}
+        :param default_to_oauth_authentication: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_to_oauth_authentication StorageAccount#default_to_oauth_authentication}.
+        :param dns_endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#dns_endpoint_type StorageAccount#dns_endpoint_type}.
+        :param edge_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#edge_zone StorageAccount#edge_zone}.
+        :param https_traffic_only_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#https_traffic_only_enabled StorageAccount#https_traffic_only_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#id StorageAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#identity StorageAccount#identity}
+        :param immutability_policy: immutability_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#immutability_policy StorageAccount#immutability_policy}
+        :param infrastructure_encryption_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#infrastructure_encryption_enabled StorageAccount#infrastructure_encryption_enabled}.
+        :param is_hns_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#is_hns_enabled StorageAccount#is_hns_enabled}.
+        :param large_file_share_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#large_file_share_enabled StorageAccount#large_file_share_enabled}.
+        :param local_user_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#local_user_enabled StorageAccount#local_user_enabled}.
+        :param min_tls_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#min_tls_version StorageAccount#min_tls_version}.
+        :param network_rules: network_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#network_rules StorageAccount#network_rules}
+        :param nfsv3_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#nfsv3_enabled StorageAccount#nfsv3_enabled}.
+        :param provisioned_billing_model_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#provisioned_billing_model_version StorageAccount#provisioned_billing_model_version}.
+        :param public_network_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#public_network_access_enabled StorageAccount#public_network_access_enabled}.
+        :param queue_encryption_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#queue_encryption_key_type StorageAccount#queue_encryption_key_type}.
+        :param queue_properties: queue_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#queue_properties StorageAccount#queue_properties}
+        :param routing: routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#routing StorageAccount#routing}
+        :param sas_policy: sas_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#sas_policy StorageAccount#sas_policy}
+        :param sftp_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#sftp_enabled StorageAccount#sftp_enabled}.
+        :param shared_access_key_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#shared_access_key_enabled StorageAccount#shared_access_key_enabled}.
+        :param share_properties: share_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#share_properties StorageAccount#share_properties}
+        :param static_website: static_website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#static_website StorageAccount#static_website}
+        :param table_encryption_key_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#table_encryption_key_type StorageAccount#table_encryption_key_type}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#tags StorageAccount#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#timeouts StorageAccount#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3670,54 +3670,54 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def account_replication_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#account_replication_type StorageAccount#account_replication_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#account_replication_type StorageAccount#account_replication_type}.'''
         result = self._values.get("account_replication_type")
         assert result is not None, "Required property 'account_replication_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def account_tier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#account_tier StorageAccount#account_tier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#account_tier StorageAccount#account_tier}.'''
         result = self._values.get("account_tier")
         assert result is not None, "Required property 'account_tier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#location StorageAccount#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#location StorageAccount#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#name StorageAccount#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#name StorageAccount#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#resource_group_name StorageAccount#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#resource_group_name StorageAccount#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_tier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#access_tier StorageAccount#access_tier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#access_tier StorageAccount#access_tier}.'''
         result = self._values.get("access_tier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def account_kind(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#account_kind StorageAccount#account_kind}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#account_kind StorageAccount#account_kind}.'''
         result = self._values.get("account_kind")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def allowed_copy_scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_copy_scope StorageAccount#allowed_copy_scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_copy_scope StorageAccount#allowed_copy_scope}.'''
         result = self._values.get("allowed_copy_scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3725,7 +3725,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allow_nested_items_to_be_public(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allow_nested_items_to_be_public StorageAccount#allow_nested_items_to_be_public}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allow_nested_items_to_be_public StorageAccount#allow_nested_items_to_be_public}.'''
         result = self._values.get("allow_nested_items_to_be_public")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3735,7 +3735,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[StorageAccountAzureFilesAuthentication]:
         '''azure_files_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#azure_files_authentication StorageAccount#azure_files_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#azure_files_authentication StorageAccount#azure_files_authentication}
         '''
         result = self._values.get("azure_files_authentication")
         return typing.cast(typing.Optional[StorageAccountAzureFilesAuthentication], result)
@@ -3744,7 +3744,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def blob_properties(self) -> typing.Optional[StorageAccountBlobProperties]:
         '''blob_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#blob_properties StorageAccount#blob_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#blob_properties StorageAccount#blob_properties}
         '''
         result = self._values.get("blob_properties")
         return typing.cast(typing.Optional[StorageAccountBlobProperties], result)
@@ -3753,7 +3753,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cross_tenant_replication_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cross_tenant_replication_enabled StorageAccount#cross_tenant_replication_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cross_tenant_replication_enabled StorageAccount#cross_tenant_replication_enabled}.'''
         result = self._values.get("cross_tenant_replication_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3761,7 +3761,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def custom_domain(self) -> typing.Optional["StorageAccountCustomDomain"]:
         '''custom_domain block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#custom_domain StorageAccount#custom_domain}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#custom_domain StorageAccount#custom_domain}
         '''
         result = self._values.get("custom_domain")
         return typing.cast(typing.Optional["StorageAccountCustomDomain"], result)
@@ -3772,7 +3772,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["StorageAccountCustomerManagedKey"]:
         '''customer_managed_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#customer_managed_key StorageAccount#customer_managed_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#customer_managed_key StorageAccount#customer_managed_key}
         '''
         result = self._values.get("customer_managed_key")
         return typing.cast(typing.Optional["StorageAccountCustomerManagedKey"], result)
@@ -3781,19 +3781,19 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_to_oauth_authentication(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_to_oauth_authentication StorageAccount#default_to_oauth_authentication}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_to_oauth_authentication StorageAccount#default_to_oauth_authentication}.'''
         result = self._values.get("default_to_oauth_authentication")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def dns_endpoint_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#dns_endpoint_type StorageAccount#dns_endpoint_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#dns_endpoint_type StorageAccount#dns_endpoint_type}.'''
         result = self._values.get("dns_endpoint_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def edge_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#edge_zone StorageAccount#edge_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#edge_zone StorageAccount#edge_zone}.'''
         result = self._values.get("edge_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3801,13 +3801,13 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def https_traffic_only_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#https_traffic_only_enabled StorageAccount#https_traffic_only_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#https_traffic_only_enabled StorageAccount#https_traffic_only_enabled}.'''
         result = self._values.get("https_traffic_only_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#id StorageAccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#id StorageAccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3819,7 +3819,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["StorageAccountIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#identity StorageAccount#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#identity StorageAccount#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["StorageAccountIdentity"], result)
@@ -3830,7 +3830,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["StorageAccountImmutabilityPolicy"]:
         '''immutability_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#immutability_policy StorageAccount#immutability_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#immutability_policy StorageAccount#immutability_policy}
         '''
         result = self._values.get("immutability_policy")
         return typing.cast(typing.Optional["StorageAccountImmutabilityPolicy"], result)
@@ -3839,7 +3839,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def infrastructure_encryption_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#infrastructure_encryption_enabled StorageAccount#infrastructure_encryption_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#infrastructure_encryption_enabled StorageAccount#infrastructure_encryption_enabled}.'''
         result = self._values.get("infrastructure_encryption_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3847,7 +3847,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_hns_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#is_hns_enabled StorageAccount#is_hns_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#is_hns_enabled StorageAccount#is_hns_enabled}.'''
         result = self._values.get("is_hns_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3855,7 +3855,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def large_file_share_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#large_file_share_enabled StorageAccount#large_file_share_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#large_file_share_enabled StorageAccount#large_file_share_enabled}.'''
         result = self._values.get("large_file_share_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3863,13 +3863,13 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def local_user_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#local_user_enabled StorageAccount#local_user_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#local_user_enabled StorageAccount#local_user_enabled}.'''
         result = self._values.get("local_user_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def min_tls_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#min_tls_version StorageAccount#min_tls_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#min_tls_version StorageAccount#min_tls_version}.'''
         result = self._values.get("min_tls_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3877,7 +3877,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_rules(self) -> typing.Optional["StorageAccountNetworkRules"]:
         '''network_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#network_rules StorageAccount#network_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#network_rules StorageAccount#network_rules}
         '''
         result = self._values.get("network_rules")
         return typing.cast(typing.Optional["StorageAccountNetworkRules"], result)
@@ -3886,13 +3886,13 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def nfsv3_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#nfsv3_enabled StorageAccount#nfsv3_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#nfsv3_enabled StorageAccount#nfsv3_enabled}.'''
         result = self._values.get("nfsv3_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def provisioned_billing_model_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#provisioned_billing_model_version StorageAccount#provisioned_billing_model_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#provisioned_billing_model_version StorageAccount#provisioned_billing_model_version}.'''
         result = self._values.get("provisioned_billing_model_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3900,13 +3900,13 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_network_access_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#public_network_access_enabled StorageAccount#public_network_access_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#public_network_access_enabled StorageAccount#public_network_access_enabled}.'''
         result = self._values.get("public_network_access_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def queue_encryption_key_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#queue_encryption_key_type StorageAccount#queue_encryption_key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#queue_encryption_key_type StorageAccount#queue_encryption_key_type}.'''
         result = self._values.get("queue_encryption_key_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3914,7 +3914,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def queue_properties(self) -> typing.Optional["StorageAccountQueueProperties"]:
         '''queue_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#queue_properties StorageAccount#queue_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#queue_properties StorageAccount#queue_properties}
         '''
         result = self._values.get("queue_properties")
         return typing.cast(typing.Optional["StorageAccountQueueProperties"], result)
@@ -3923,7 +3923,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def routing(self) -> typing.Optional["StorageAccountRouting"]:
         '''routing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#routing StorageAccount#routing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#routing StorageAccount#routing}
         '''
         result = self._values.get("routing")
         return typing.cast(typing.Optional["StorageAccountRouting"], result)
@@ -3932,7 +3932,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sas_policy(self) -> typing.Optional["StorageAccountSasPolicy"]:
         '''sas_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#sas_policy StorageAccount#sas_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#sas_policy StorageAccount#sas_policy}
         '''
         result = self._values.get("sas_policy")
         return typing.cast(typing.Optional["StorageAccountSasPolicy"], result)
@@ -3941,7 +3941,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sftp_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#sftp_enabled StorageAccount#sftp_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#sftp_enabled StorageAccount#sftp_enabled}.'''
         result = self._values.get("sftp_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3949,7 +3949,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def shared_access_key_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#shared_access_key_enabled StorageAccount#shared_access_key_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#shared_access_key_enabled StorageAccount#shared_access_key_enabled}.'''
         result = self._values.get("shared_access_key_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3957,7 +3957,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def share_properties(self) -> typing.Optional["StorageAccountShareProperties"]:
         '''share_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#share_properties StorageAccount#share_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#share_properties StorageAccount#share_properties}
         '''
         result = self._values.get("share_properties")
         return typing.cast(typing.Optional["StorageAccountShareProperties"], result)
@@ -3966,20 +3966,20 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def static_website(self) -> typing.Optional["StorageAccountStaticWebsite"]:
         '''static_website block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#static_website StorageAccount#static_website}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#static_website StorageAccount#static_website}
         '''
         result = self._values.get("static_website")
         return typing.cast(typing.Optional["StorageAccountStaticWebsite"], result)
 
     @builtins.property
     def table_encryption_key_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#table_encryption_key_type StorageAccount#table_encryption_key_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#table_encryption_key_type StorageAccount#table_encryption_key_type}.'''
         result = self._values.get("table_encryption_key_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#tags StorageAccount#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#tags StorageAccount#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3987,7 +3987,7 @@ class StorageAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["StorageAccountTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#timeouts StorageAccount#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#timeouts StorageAccount#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StorageAccountTimeouts"], result)
@@ -4017,8 +4017,8 @@ class StorageAccountCustomDomain:
         use_subdomain: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#name StorageAccount#name}.
-        :param use_subdomain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#use_subdomain StorageAccount#use_subdomain}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#name StorageAccount#name}.
+        :param use_subdomain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#use_subdomain StorageAccount#use_subdomain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b927d48374e4b062fc040462e52f3ce85dc699f5e28158a4c0b5be88bc1d8ff)
@@ -4032,7 +4032,7 @@ class StorageAccountCustomDomain:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#name StorageAccount#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#name StorageAccount#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -4041,7 +4041,7 @@ class StorageAccountCustomDomain:
     def use_subdomain(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#use_subdomain StorageAccount#use_subdomain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#use_subdomain StorageAccount#use_subdomain}.'''
         result = self._values.get("use_subdomain")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4154,9 +4154,9 @@ class StorageAccountCustomerManagedKey:
         managed_hsm_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#user_assigned_identity_id StorageAccount#user_assigned_identity_id}.
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#key_vault_key_id StorageAccount#key_vault_key_id}.
-        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#managed_hsm_key_id StorageAccount#managed_hsm_key_id}.
+        :param user_assigned_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#user_assigned_identity_id StorageAccount#user_assigned_identity_id}.
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#key_vault_key_id StorageAccount#key_vault_key_id}.
+        :param managed_hsm_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#managed_hsm_key_id StorageAccount#managed_hsm_key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__718e82b00304ac54b807d4f54feba5f29c9ba241d86dcffbd8b437b68dba04bb)
@@ -4173,20 +4173,20 @@ class StorageAccountCustomerManagedKey:
 
     @builtins.property
     def user_assigned_identity_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#user_assigned_identity_id StorageAccount#user_assigned_identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#user_assigned_identity_id StorageAccount#user_assigned_identity_id}.'''
         result = self._values.get("user_assigned_identity_id")
         assert result is not None, "Required property 'user_assigned_identity_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_vault_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#key_vault_key_id StorageAccount#key_vault_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#key_vault_key_id StorageAccount#key_vault_key_id}.'''
         result = self._values.get("key_vault_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def managed_hsm_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#managed_hsm_key_id StorageAccount#managed_hsm_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#managed_hsm_key_id StorageAccount#managed_hsm_key_id}.'''
         result = self._values.get("managed_hsm_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4310,8 +4310,8 @@ class StorageAccountIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#type StorageAccount#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#identity_ids StorageAccount#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#type StorageAccount#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#identity_ids StorageAccount#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb8f459717de58a7b8c5d708614af039b7675bb2bb96411c8a0ff0dde14dc427)
@@ -4325,14 +4325,14 @@ class StorageAccountIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#type StorageAccount#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#type StorageAccount#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#identity_ids StorageAccount#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#identity_ids StorageAccount#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4447,9 +4447,9 @@ class StorageAccountImmutabilityPolicy:
         state: builtins.str,
     ) -> None:
         '''
-        :param allow_protected_append_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allow_protected_append_writes StorageAccount#allow_protected_append_writes}.
-        :param period_since_creation_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#period_since_creation_in_days StorageAccount#period_since_creation_in_days}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#state StorageAccount#state}.
+        :param allow_protected_append_writes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allow_protected_append_writes StorageAccount#allow_protected_append_writes}.
+        :param period_since_creation_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#period_since_creation_in_days StorageAccount#period_since_creation_in_days}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#state StorageAccount#state}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5bb5691a2bcbf4273cf02e7ebdaee6410534bd170bc7a6a57de81925bfdefd65)
@@ -4466,21 +4466,21 @@ class StorageAccountImmutabilityPolicy:
     def allow_protected_append_writes(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allow_protected_append_writes StorageAccount#allow_protected_append_writes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allow_protected_append_writes StorageAccount#allow_protected_append_writes}.'''
         result = self._values.get("allow_protected_append_writes")
         assert result is not None, "Required property 'allow_protected_append_writes' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def period_since_creation_in_days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#period_since_creation_in_days StorageAccount#period_since_creation_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#period_since_creation_in_days StorageAccount#period_since_creation_in_days}.'''
         result = self._values.get("period_since_creation_in_days")
         assert result is not None, "Required property 'period_since_creation_in_days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def state(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#state StorageAccount#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#state StorageAccount#state}.'''
         result = self._values.get("state")
         assert result is not None, "Required property 'state' is missing"
         return typing.cast(builtins.str, result)
@@ -4613,11 +4613,11 @@ class StorageAccountNetworkRules:
         virtual_network_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_action StorageAccount#default_action}.
-        :param bypass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#bypass StorageAccount#bypass}.
-        :param ip_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#ip_rules StorageAccount#ip_rules}.
-        :param private_link_access: private_link_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#private_link_access StorageAccount#private_link_access}
-        :param virtual_network_subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#virtual_network_subnet_ids StorageAccount#virtual_network_subnet_ids}.
+        :param default_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_action StorageAccount#default_action}.
+        :param bypass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#bypass StorageAccount#bypass}.
+        :param ip_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#ip_rules StorageAccount#ip_rules}.
+        :param private_link_access: private_link_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#private_link_access StorageAccount#private_link_access}
+        :param virtual_network_subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#virtual_network_subnet_ids StorageAccount#virtual_network_subnet_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7289f51993ff24b0f732378607ced170c4b67b1c6a755ad347ed3b2edc08d6b3)
@@ -4640,20 +4640,20 @@ class StorageAccountNetworkRules:
 
     @builtins.property
     def default_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#default_action StorageAccount#default_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#default_action StorageAccount#default_action}.'''
         result = self._values.get("default_action")
         assert result is not None, "Required property 'default_action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def bypass(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#bypass StorageAccount#bypass}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#bypass StorageAccount#bypass}.'''
         result = self._values.get("bypass")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def ip_rules(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#ip_rules StorageAccount#ip_rules}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#ip_rules StorageAccount#ip_rules}.'''
         result = self._values.get("ip_rules")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4663,14 +4663,14 @@ class StorageAccountNetworkRules:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageAccountNetworkRulesPrivateLinkAccess"]]]:
         '''private_link_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#private_link_access StorageAccount#private_link_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#private_link_access StorageAccount#private_link_access}
         '''
         result = self._values.get("private_link_access")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageAccountNetworkRulesPrivateLinkAccess"]]], result)
 
     @builtins.property
     def virtual_network_subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#virtual_network_subnet_ids StorageAccount#virtual_network_subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#virtual_network_subnet_ids StorageAccount#virtual_network_subnet_ids}.'''
         result = self._values.get("virtual_network_subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -4849,8 +4849,8 @@ class StorageAccountNetworkRulesPrivateLinkAccess:
         endpoint_tenant_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param endpoint_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#endpoint_resource_id StorageAccount#endpoint_resource_id}.
-        :param endpoint_tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#endpoint_tenant_id StorageAccount#endpoint_tenant_id}.
+        :param endpoint_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#endpoint_resource_id StorageAccount#endpoint_resource_id}.
+        :param endpoint_tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#endpoint_tenant_id StorageAccount#endpoint_tenant_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8629c9fcb9e793471227143c3ba3f3eda3e5782f6b586ea249d3ad7e08e309c7)
@@ -4864,14 +4864,14 @@ class StorageAccountNetworkRulesPrivateLinkAccess:
 
     @builtins.property
     def endpoint_resource_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#endpoint_resource_id StorageAccount#endpoint_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#endpoint_resource_id StorageAccount#endpoint_resource_id}.'''
         result = self._values.get("endpoint_resource_id")
         assert result is not None, "Required property 'endpoint_resource_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def endpoint_tenant_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#endpoint_tenant_id StorageAccount#endpoint_tenant_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#endpoint_tenant_id StorageAccount#endpoint_tenant_id}.'''
         result = self._values.get("endpoint_tenant_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5082,10 +5082,10 @@ class StorageAccountQueueProperties:
         minute_metrics: typing.Optional[typing.Union["StorageAccountQueuePropertiesMinuteMetrics", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
-        :param hour_metrics: hour_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#hour_metrics StorageAccount#hour_metrics}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#logging StorageAccount#logging}
-        :param minute_metrics: minute_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#minute_metrics StorageAccount#minute_metrics}
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
+        :param hour_metrics: hour_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#hour_metrics StorageAccount#hour_metrics}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#logging StorageAccount#logging}
+        :param minute_metrics: minute_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#minute_metrics StorageAccount#minute_metrics}
         '''
         if isinstance(hour_metrics, dict):
             hour_metrics = StorageAccountQueuePropertiesHourMetrics(**hour_metrics)
@@ -5115,7 +5115,7 @@ class StorageAccountQueueProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageAccountQueuePropertiesCorsRule"]]]:
         '''cors_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
         '''
         result = self._values.get("cors_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageAccountQueuePropertiesCorsRule"]]], result)
@@ -5126,7 +5126,7 @@ class StorageAccountQueueProperties:
     ) -> typing.Optional["StorageAccountQueuePropertiesHourMetrics"]:
         '''hour_metrics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#hour_metrics StorageAccount#hour_metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#hour_metrics StorageAccount#hour_metrics}
         '''
         result = self._values.get("hour_metrics")
         return typing.cast(typing.Optional["StorageAccountQueuePropertiesHourMetrics"], result)
@@ -5135,7 +5135,7 @@ class StorageAccountQueueProperties:
     def logging(self) -> typing.Optional["StorageAccountQueuePropertiesLogging"]:
         '''logging block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#logging StorageAccount#logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#logging StorageAccount#logging}
         '''
         result = self._values.get("logging")
         return typing.cast(typing.Optional["StorageAccountQueuePropertiesLogging"], result)
@@ -5146,7 +5146,7 @@ class StorageAccountQueueProperties:
     ) -> typing.Optional["StorageAccountQueuePropertiesMinuteMetrics"]:
         '''minute_metrics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#minute_metrics StorageAccount#minute_metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#minute_metrics StorageAccount#minute_metrics}
         '''
         result = self._values.get("minute_metrics")
         return typing.cast(typing.Optional["StorageAccountQueuePropertiesMinuteMetrics"], result)
@@ -5185,11 +5185,11 @@ class StorageAccountQueuePropertiesCorsRule:
         max_age_in_seconds: jsii.Number,
     ) -> None:
         '''
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.
-        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.
-        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.
+        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.
+        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba792e58dec5020224c628b61e94c3d9c8c2c4a4e2968ccd0971479a04a78680)
@@ -5208,35 +5208,35 @@ class StorageAccountQueuePropertiesCorsRule:
 
     @builtins.property
     def allowed_headers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.'''
         result = self._values.get("allowed_headers")
         assert result is not None, "Required property 'allowed_headers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         assert result is not None, "Required property 'allowed_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def exposed_headers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.'''
         result = self._values.get("exposed_headers")
         assert result is not None, "Required property 'exposed_headers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def max_age_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.'''
         result = self._values.get("max_age_in_seconds")
         assert result is not None, "Required property 'max_age_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
@@ -5495,10 +5495,10 @@ class StorageAccountQueuePropertiesHourMetrics:
         retention_policy_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#enabled StorageAccount#enabled}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#version StorageAccount#version}.
-        :param include_apis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#include_apis StorageAccount#include_apis}.
-        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#enabled StorageAccount#enabled}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#version StorageAccount#version}.
+        :param include_apis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#include_apis StorageAccount#include_apis}.
+        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2fa121c1310abed15c2f59f539705402dcd70e1552726a2b03a195fad9bbed07)
@@ -5517,14 +5517,14 @@ class StorageAccountQueuePropertiesHourMetrics:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#enabled StorageAccount#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#enabled StorageAccount#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#version StorageAccount#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#version StorageAccount#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
@@ -5533,13 +5533,13 @@ class StorageAccountQueuePropertiesHourMetrics:
     def include_apis(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#include_apis StorageAccount#include_apis}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#include_apis StorageAccount#include_apis}.'''
         result = self._values.get("include_apis")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def retention_policy_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.'''
         result = self._values.get("retention_policy_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5701,11 +5701,11 @@ class StorageAccountQueuePropertiesLogging:
         retention_policy_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#delete StorageAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#read StorageAccount#read}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#version StorageAccount#version}.
-        :param write: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#write StorageAccount#write}.
-        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#delete StorageAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#read StorageAccount#read}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#version StorageAccount#version}.
+        :param write: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#write StorageAccount#write}.
+        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e60fb75d325712510ce02e66e680fabe3db37683108491f0deab18cd8d7c6dab)
@@ -5725,35 +5725,35 @@ class StorageAccountQueuePropertiesLogging:
 
     @builtins.property
     def delete(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#delete StorageAccount#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#delete StorageAccount#delete}.'''
         result = self._values.get("delete")
         assert result is not None, "Required property 'delete' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def read(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#read StorageAccount#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#read StorageAccount#read}.'''
         result = self._values.get("read")
         assert result is not None, "Required property 'read' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#version StorageAccount#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#version StorageAccount#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def write(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#write StorageAccount#write}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#write StorageAccount#write}.'''
         result = self._values.get("write")
         assert result is not None, "Required property 'write' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def retention_policy_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.'''
         result = self._values.get("retention_policy_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5929,10 +5929,10 @@ class StorageAccountQueuePropertiesMinuteMetrics:
         retention_policy_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#enabled StorageAccount#enabled}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#version StorageAccount#version}.
-        :param include_apis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#include_apis StorageAccount#include_apis}.
-        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#enabled StorageAccount#enabled}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#version StorageAccount#version}.
+        :param include_apis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#include_apis StorageAccount#include_apis}.
+        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b35d0581f123411c1f92a3de9aff782644ff616c30663cf222f770e0685edb33)
@@ -5951,14 +5951,14 @@ class StorageAccountQueuePropertiesMinuteMetrics:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#enabled StorageAccount#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#enabled StorageAccount#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#version StorageAccount#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#version StorageAccount#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
@@ -5967,13 +5967,13 @@ class StorageAccountQueuePropertiesMinuteMetrics:
     def include_apis(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#include_apis StorageAccount#include_apis}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#include_apis StorageAccount#include_apis}.'''
         result = self._values.get("include_apis")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def retention_policy_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.'''
         result = self._values.get("retention_policy_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -6156,10 +6156,10 @@ class StorageAccountQueuePropertiesOutputReference(
         retention_policy_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#enabled StorageAccount#enabled}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#version StorageAccount#version}.
-        :param include_apis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#include_apis StorageAccount#include_apis}.
-        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#enabled StorageAccount#enabled}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#version StorageAccount#version}.
+        :param include_apis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#include_apis StorageAccount#include_apis}.
+        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
         '''
         value = StorageAccountQueuePropertiesHourMetrics(
             enabled=enabled,
@@ -6181,11 +6181,11 @@ class StorageAccountQueuePropertiesOutputReference(
         retention_policy_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#delete StorageAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#read StorageAccount#read}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#version StorageAccount#version}.
-        :param write: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#write StorageAccount#write}.
-        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#delete StorageAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#read StorageAccount#read}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#version StorageAccount#version}.
+        :param write: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#write StorageAccount#write}.
+        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
         '''
         value = StorageAccountQueuePropertiesLogging(
             delete=delete,
@@ -6207,10 +6207,10 @@ class StorageAccountQueuePropertiesOutputReference(
         retention_policy_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#enabled StorageAccount#enabled}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#version StorageAccount#version}.
-        :param include_apis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#include_apis StorageAccount#include_apis}.
-        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#enabled StorageAccount#enabled}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#version StorageAccount#version}.
+        :param include_apis: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#include_apis StorageAccount#include_apis}.
+        :param retention_policy_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy_days StorageAccount#retention_policy_days}.
         '''
         value = StorageAccountQueuePropertiesMinuteMetrics(
             enabled=enabled,
@@ -6319,9 +6319,9 @@ class StorageAccountRouting:
         publish_microsoft_endpoints: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param choice: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#choice StorageAccount#choice}.
-        :param publish_internet_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#publish_internet_endpoints StorageAccount#publish_internet_endpoints}.
-        :param publish_microsoft_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#publish_microsoft_endpoints StorageAccount#publish_microsoft_endpoints}.
+        :param choice: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#choice StorageAccount#choice}.
+        :param publish_internet_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#publish_internet_endpoints StorageAccount#publish_internet_endpoints}.
+        :param publish_microsoft_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#publish_microsoft_endpoints StorageAccount#publish_microsoft_endpoints}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__73e59beae78c1c5504753ad91cc0b11acab5f4367b297b3aeba2e6e1630e6fc8)
@@ -6338,7 +6338,7 @@ class StorageAccountRouting:
 
     @builtins.property
     def choice(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#choice StorageAccount#choice}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#choice StorageAccount#choice}.'''
         result = self._values.get("choice")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6346,7 +6346,7 @@ class StorageAccountRouting:
     def publish_internet_endpoints(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#publish_internet_endpoints StorageAccount#publish_internet_endpoints}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#publish_internet_endpoints StorageAccount#publish_internet_endpoints}.'''
         result = self._values.get("publish_internet_endpoints")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6354,7 +6354,7 @@ class StorageAccountRouting:
     def publish_microsoft_endpoints(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#publish_microsoft_endpoints StorageAccount#publish_microsoft_endpoints}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#publish_microsoft_endpoints StorageAccount#publish_microsoft_endpoints}.'''
         result = self._values.get("publish_microsoft_endpoints")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -6496,8 +6496,8 @@ class StorageAccountSasPolicy:
         expiration_action: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expiration_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#expiration_period StorageAccount#expiration_period}.
-        :param expiration_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#expiration_action StorageAccount#expiration_action}.
+        :param expiration_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#expiration_period StorageAccount#expiration_period}.
+        :param expiration_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#expiration_action StorageAccount#expiration_action}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e51b161f36cce15b5dc022b3fdd39bb55efeb36a0b457451bd77028382855b91)
@@ -6511,14 +6511,14 @@ class StorageAccountSasPolicy:
 
     @builtins.property
     def expiration_period(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#expiration_period StorageAccount#expiration_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#expiration_period StorageAccount#expiration_period}.'''
         result = self._values.get("expiration_period")
         assert result is not None, "Required property 'expiration_period' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expiration_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#expiration_action StorageAccount#expiration_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#expiration_action StorageAccount#expiration_action}.'''
         result = self._values.get("expiration_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6623,9 +6623,9 @@ class StorageAccountShareProperties:
         smb: typing.Optional[typing.Union["StorageAccountSharePropertiesSmb", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy StorageAccount#retention_policy}
-        :param smb: smb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#smb StorageAccount#smb}
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy StorageAccount#retention_policy}
+        :param smb: smb block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#smb StorageAccount#smb}
         '''
         if isinstance(retention_policy, dict):
             retention_policy = StorageAccountSharePropertiesRetentionPolicy(**retention_policy)
@@ -6650,7 +6650,7 @@ class StorageAccountShareProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageAccountSharePropertiesCorsRule"]]]:
         '''cors_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#cors_rule StorageAccount#cors_rule}
         '''
         result = self._values.get("cors_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageAccountSharePropertiesCorsRule"]]], result)
@@ -6661,7 +6661,7 @@ class StorageAccountShareProperties:
     ) -> typing.Optional["StorageAccountSharePropertiesRetentionPolicy"]:
         '''retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#retention_policy StorageAccount#retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#retention_policy StorageAccount#retention_policy}
         '''
         result = self._values.get("retention_policy")
         return typing.cast(typing.Optional["StorageAccountSharePropertiesRetentionPolicy"], result)
@@ -6670,7 +6670,7 @@ class StorageAccountShareProperties:
     def smb(self) -> typing.Optional["StorageAccountSharePropertiesSmb"]:
         '''smb block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#smb StorageAccount#smb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#smb StorageAccount#smb}
         '''
         result = self._values.get("smb")
         return typing.cast(typing.Optional["StorageAccountSharePropertiesSmb"], result)
@@ -6709,11 +6709,11 @@ class StorageAccountSharePropertiesCorsRule:
         max_age_in_seconds: jsii.Number,
     ) -> None:
         '''
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.
-        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.
-        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.
+        :param exposed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.
+        :param max_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__52ae5cf5e62de47bb4932fefaf568a5ec680c9adff9be449f3bee027c37ed614)
@@ -6732,35 +6732,35 @@ class StorageAccountSharePropertiesCorsRule:
 
     @builtins.property
     def allowed_headers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_headers StorageAccount#allowed_headers}.'''
         result = self._values.get("allowed_headers")
         assert result is not None, "Required property 'allowed_headers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_methods StorageAccount#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         assert result is not None, "Required property 'allowed_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#allowed_origins StorageAccount#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def exposed_headers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#exposed_headers StorageAccount#exposed_headers}.'''
         result = self._values.get("exposed_headers")
         assert result is not None, "Required property 'exposed_headers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def max_age_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#max_age_in_seconds StorageAccount#max_age_in_seconds}.'''
         result = self._values.get("max_age_in_seconds")
         assert result is not None, "Required property 'max_age_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
@@ -7039,7 +7039,7 @@ class StorageAccountSharePropertiesOutputReference(
         days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.
         '''
         value = StorageAccountSharePropertiesRetentionPolicy(days=days)
 
@@ -7056,11 +7056,11 @@ class StorageAccountSharePropertiesOutputReference(
         versions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param authentication_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#authentication_types StorageAccount#authentication_types}.
-        :param channel_encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#channel_encryption_type StorageAccount#channel_encryption_type}.
-        :param kerberos_ticket_encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#kerberos_ticket_encryption_type StorageAccount#kerberos_ticket_encryption_type}.
-        :param multichannel_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#multichannel_enabled StorageAccount#multichannel_enabled}.
-        :param versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#versions StorageAccount#versions}.
+        :param authentication_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#authentication_types StorageAccount#authentication_types}.
+        :param channel_encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#channel_encryption_type StorageAccount#channel_encryption_type}.
+        :param kerberos_ticket_encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#kerberos_ticket_encryption_type StorageAccount#kerberos_ticket_encryption_type}.
+        :param multichannel_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#multichannel_enabled StorageAccount#multichannel_enabled}.
+        :param versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#versions StorageAccount#versions}.
         '''
         value = StorageAccountSharePropertiesSmb(
             authentication_types=authentication_types,
@@ -7144,7 +7144,7 @@ class StorageAccountSharePropertiesOutputReference(
 class StorageAccountSharePropertiesRetentionPolicy:
     def __init__(self, *, days: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee35e27cfd232c0d8bdb801586e888f400716a5f137324b3fb8abe221c53f326)
@@ -7155,7 +7155,7 @@ class StorageAccountSharePropertiesRetentionPolicy:
 
     @builtins.property
     def days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#days StorageAccount#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#days StorageAccount#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7252,11 +7252,11 @@ class StorageAccountSharePropertiesSmb:
         versions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param authentication_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#authentication_types StorageAccount#authentication_types}.
-        :param channel_encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#channel_encryption_type StorageAccount#channel_encryption_type}.
-        :param kerberos_ticket_encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#kerberos_ticket_encryption_type StorageAccount#kerberos_ticket_encryption_type}.
-        :param multichannel_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#multichannel_enabled StorageAccount#multichannel_enabled}.
-        :param versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#versions StorageAccount#versions}.
+        :param authentication_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#authentication_types StorageAccount#authentication_types}.
+        :param channel_encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#channel_encryption_type StorageAccount#channel_encryption_type}.
+        :param kerberos_ticket_encryption_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#kerberos_ticket_encryption_type StorageAccount#kerberos_ticket_encryption_type}.
+        :param multichannel_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#multichannel_enabled StorageAccount#multichannel_enabled}.
+        :param versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#versions StorageAccount#versions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__407c4dcc6ab56a23291bf001c7727f675711ef5c589ea208e95125ab95a3c17a)
@@ -7279,13 +7279,13 @@ class StorageAccountSharePropertiesSmb:
 
     @builtins.property
     def authentication_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#authentication_types StorageAccount#authentication_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#authentication_types StorageAccount#authentication_types}.'''
         result = self._values.get("authentication_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def channel_encryption_type(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#channel_encryption_type StorageAccount#channel_encryption_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#channel_encryption_type StorageAccount#channel_encryption_type}.'''
         result = self._values.get("channel_encryption_type")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7293,7 +7293,7 @@ class StorageAccountSharePropertiesSmb:
     def kerberos_ticket_encryption_type(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#kerberos_ticket_encryption_type StorageAccount#kerberos_ticket_encryption_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#kerberos_ticket_encryption_type StorageAccount#kerberos_ticket_encryption_type}.'''
         result = self._values.get("kerberos_ticket_encryption_type")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7301,13 +7301,13 @@ class StorageAccountSharePropertiesSmb:
     def multichannel_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#multichannel_enabled StorageAccount#multichannel_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#multichannel_enabled StorageAccount#multichannel_enabled}.'''
         result = self._values.get("multichannel_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def versions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#versions StorageAccount#versions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#versions StorageAccount#versions}.'''
         result = self._values.get("versions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7491,8 +7491,8 @@ class StorageAccountStaticWebsite:
         index_document: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param error404_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#error_404_document StorageAccount#error_404_document}.
-        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#index_document StorageAccount#index_document}.
+        :param error404_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#error_404_document StorageAccount#error_404_document}.
+        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#index_document StorageAccount#index_document}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc7b5bdb1a73309a5b116db0cbe02ed8b6c3a41b1c2edf56c8449a3f7453f391)
@@ -7506,13 +7506,13 @@ class StorageAccountStaticWebsite:
 
     @builtins.property
     def error404_document(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#error_404_document StorageAccount#error_404_document}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#error_404_document StorageAccount#error_404_document}.'''
         result = self._values.get("error404_document")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def index_document(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#index_document StorageAccount#index_document}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#index_document StorageAccount#index_document}.'''
         result = self._values.get("index_document")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7626,10 +7626,10 @@ class StorageAccountTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#create StorageAccount#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#delete StorageAccount#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#read StorageAccount#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#update StorageAccount#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#create StorageAccount#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#delete StorageAccount#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#read StorageAccount#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#update StorageAccount#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac8b81d854d8deb8279cab432a28738baac3bfde4c2734ff61a2175e3f0459e4)
@@ -7649,25 +7649,25 @@ class StorageAccountTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#create StorageAccount#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#create StorageAccount#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#delete StorageAccount#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#delete StorageAccount#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#read StorageAccount#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#read StorageAccount#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/storage_account#update StorageAccount#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/storage_account#update StorageAccount#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

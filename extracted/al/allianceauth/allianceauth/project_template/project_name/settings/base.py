@@ -245,6 +245,7 @@ CACHES = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 
 DEBUG = True
+DISPLAY_DEBUG = True
 ALLOWED_HOSTS = ["*"]
 DATABASES = {
     "default": {

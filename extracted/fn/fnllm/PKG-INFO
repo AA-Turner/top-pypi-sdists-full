@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fnllm
-Version: 0.3.1
+Version: 0.4.0
 Summary: A function-based LLM protocol and wrapper.
 Author-email: Chris Trevino <chtrevin@microsoft.com>, Rodrigo Racanicci <rracanicci@microsoft.com>
 License:     MIT License
@@ -37,8 +37,8 @@ Requires-Dist: azure-storage-blob>=12.20.0; extra == 'azure'
 Provides-Extra: numpy
 Requires-Dist: numpy>=1.26.4; extra == 'numpy'
 Provides-Extra: openai
-Requires-Dist: openai>=1.35.12; extra == 'openai'
-Requires-Dist: tiktoken>=0.7.0; extra == 'openai'
+Requires-Dist: openai>=1.99.9; extra == 'openai'
+Requires-Dist: tiktoken>=0.11.0; extra == 'openai'
 Description-Content-Type: text/markdown
 
 # fnllm

@@ -104,13 +104,13 @@ def create_field(
     field_name: str,
     field_ddl: Optional[str] = None,
     *,
-    if_exists: str = "error",
+    if_field_exists: str = "error",
     first: bool = False,
     after: Optional[str] = None,
     sample_values: Optional[List[Any]] = None,
 ) -> DMLResult:
-    if if_exists not in {"error", "skip", "replace"}:
-        raise ValueError("if_exists must be one of 'error' | 'skip' | 'replace'")
+    if if_field_exists not in {"error", "skip", "replace"}:
+        raise ValueError("if_field_exists must be one of 'error' | 'skip' | 'replace'")
     if first and after:
         raise ValueError("Specify either first=True or after=..., not both")
 
@@ -143,11 +143,11 @@ def create_field(
             ddl = "VARCHAR(255) NULL"
 
     if exists:
-        if if_exists == "skip":
+        if if_field_exists == "skip":
             return {"affected_rows": 0}
-        if if_exists == "error":
+        if if_field_exists == "error":
             raise RuntimeError(f"Column {field_name!r} already exists in table {table_name!r}")
-        if if_exists == "replace":
+        if if_field_exists == "replace":
             connector.execute_query(
                 f"ALTER TABLE {table} DROP COLUMN {col}", allow_writes=True
             )

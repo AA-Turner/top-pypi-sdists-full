@@ -4,3 +4,5 @@
 #  -----------------------------------------------------------------------------------------
 
 from ibm_watsonx_ai.workspace.workspace import WorkSpace
+
+__all__ = ["WorkSpace"]

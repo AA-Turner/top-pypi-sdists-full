@@ -396,6 +396,7 @@ class DuckDB(Dialect):
 
         FUNCTIONS = {
             **parser.Parser.FUNCTIONS,
+            "ANY_VALUE": lambda args: exp.IgnoreNulls(this=exp.AnyValue.from_arg_list(args)),
             "ARRAY_REVERSE_SORT": _build_sort_array_desc,
             "ARRAY_SORT": exp.SortArray.from_arg_list,
             "DATEDIFF": _build_date_diff,
@@ -920,6 +921,7 @@ class DuckDB(Dialect):
         PROPERTIES_LOCATION[exp.LikeProperty] = exp.Properties.Location.POST_SCHEMA
         PROPERTIES_LOCATION[exp.TemporaryProperty] = exp.Properties.Location.POST_CREATE
         PROPERTIES_LOCATION[exp.ReturnsProperty] = exp.Properties.Location.POST_ALIAS
+        PROPERTIES_LOCATION[exp.SequenceProperties] = exp.Properties.Location.POST_EXPRESSION
 
         IGNORE_RESPECT_NULLS_WINDOW_FUNCTIONS = (
             exp.FirstValue,
@@ -1136,9 +1138,10 @@ class DuckDB(Dialect):
 
                 # If BQ's UNNEST is aliased, we transform it from a column alias to a table alias in DDB
                 alias = expression.args.get("alias")
-                if alias:
+                if isinstance(alias, exp.TableAlias):
                     expression.set("alias", None)
-                    alias = exp.TableAlias(this=seq_get(alias.args.get("columns"), 0))
+                    if alias.columns:
+                        alias = exp.TableAlias(this=seq_get(alias.columns, 0))
 
                 unnest_sql = super().unnest_sql(expression)
                 select = exp.Select(expressions=[unnest_sql]).subquery(alias)
@@ -1152,7 +1155,9 @@ class DuckDB(Dialect):
                 # window functions that accept it e.g. FIRST_VALUE(... IGNORE NULLS) OVER (...)
                 return super().ignorenulls_sql(expression)
 
-            self.unsupported("IGNORE NULLS is not supported for non-window functions.")
+            if not isinstance(expression.this, exp.AnyValue):
+                self.unsupported("IGNORE NULLS is not supported for non-window functions.")
+
             return self.sql(expression, "this")
 
         def respectnulls_sql(self, expression: exp.RespectNulls) -> str:
@@ -1247,3 +1252,27 @@ class DuckDB(Dialect):
                 return self.sql(exp.Subquery(this=exp.Select(expressions=[posexplode_sql])))
 
             return posexplode_sql
+
+        def addmonths_sql(self, expression: exp.AddMonths) -> str:
+            this = expression.this
+
+            if not this.type:
+                from sqlglot.optimizer.annotate_types import annotate_types
+
+                this = annotate_types(this, dialect=self.dialect)
+
+            if this.is_type(*exp.DataType.TEXT_TYPES):
+                this = exp.Cast(this=this, to=exp.DataType(this=exp.DataType.Type.TIMESTAMP))
+
+            func = self.func(
+                "DATE_ADD", this, exp.Interval(this=expression.expression, unit=exp.var("MONTH"))
+            )
+
+            # DuckDB's DATE_ADD function returns TIMESTAMP/DATETIME by default, even when the input is DATE
+            # To match for example Snowflake's ADD_MONTHS behavior (which preserves the input type)
+            # We need to cast the result back to the original type when the input is DATE or TIMESTAMPTZ
+            # Example: ADD_MONTHS('2023-01-31'::date, 1) should return DATE, not TIMESTAMP
+            if this.is_type(exp.DataType.Type.DATE, exp.DataType.Type.TIMESTAMPTZ):
+                return self.sql(exp.Cast(this=func, to=this.type))
+
+            return self.sql(func)

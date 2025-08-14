@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-solutions-constructs.core",
-    "version": "2.90.4",
+    "version": "2.91.0",
     "description": "Core CDK Construct for patterns library",
     "license": "Apache-2.0",
     "url": "https://github.com/awslabs/aws-solutions-constructs.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_solutions_constructs.core._jsii": [
-            "core@2.90.4.jsii.tgz"
+            "core@2.91.0.jsii.tgz"
         ],
         "aws_solutions_constructs.core": [
             "py.typed"
@@ -34,7 +34,7 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk-lib>=2.206.0, <3.0.0",
+        "aws-cdk-lib>=2.210.0, <3.0.0",
         "constructs>=10.0.0, <11.0.0",
         "jsii>=1.111.0, <2.0.0",
         "publication>=0.0.3",

@@ -1,7 +1,7 @@
 r'''
 # `azuread_application_app_role`
 
-Refer to the Terraform Registry for docs: [`azuread_application_app_role`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role).
+Refer to the Terraform Registry for docs: [`azuread_application_app_role`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationAppRoleA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.applicationAppRole.ApplicationAppRoleA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role azuread_application_app_role}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role azuread_application_app_role}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class ApplicationAppRoleA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role azuread_application_app_role} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role azuread_application_app_role} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param allowed_member_types: Specifies whether this app role definition can be assigned to users and groups by setting to ``User``, or to other applications (that are accessing this application in a standalone scenario) by setting to ``Application``, or to both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#allowed_member_types ApplicationAppRoleA#allowed_member_types}
-        :param application_id: The resource ID of the application to which this app role should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#application_id ApplicationAppRoleA#application_id}
-        :param description: Description of the app role that appears when the role is being assigned and, if the role functions as an application permissions, during the consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#description ApplicationAppRoleA#description}
-        :param display_name: Display name for the app role that appears during app role assignment and in consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#display_name ApplicationAppRoleA#display_name}
-        :param role_id: The unique identifier of the app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#role_id ApplicationAppRoleA#role_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#id ApplicationAppRoleA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#timeouts ApplicationAppRoleA#timeouts}
-        :param value: The value that is used for the ``roles`` claim in ID tokens and OAuth access tokens that are authenticating an assigned service or user principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#value ApplicationAppRoleA#value}
+        :param allowed_member_types: Specifies whether this app role definition can be assigned to users and groups by setting to ``User``, or to other applications (that are accessing this application in a standalone scenario) by setting to ``Application``, or to both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#allowed_member_types ApplicationAppRoleA#allowed_member_types}
+        :param application_id: The resource ID of the application to which this app role should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#application_id ApplicationAppRoleA#application_id}
+        :param description: Description of the app role that appears when the role is being assigned and, if the role functions as an application permissions, during the consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#description ApplicationAppRoleA#description}
+        :param display_name: Display name for the app role that appears during app role assignment and in consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#display_name ApplicationAppRoleA#display_name}
+        :param role_id: The unique identifier of the app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#role_id ApplicationAppRoleA#role_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#id ApplicationAppRoleA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#timeouts ApplicationAppRoleA#timeouts}
+        :param value: The value that is used for the ``roles`` claim in ID tokens and OAuth access tokens that are authenticating an assigned service or user principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#value ApplicationAppRoleA#value}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class ApplicationAppRoleA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationAppRoleA to import.
-        :param import_from_id: The id of the existing ApplicationAppRoleA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationAppRoleA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationAppRoleA to import is found.
         '''
         if __debug__:
@@ -145,10 +145,10 @@ class ApplicationAppRoleA(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#create ApplicationAppRoleA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#delete ApplicationAppRoleA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#read ApplicationAppRoleA#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#update ApplicationAppRoleA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#create ApplicationAppRoleA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#delete ApplicationAppRoleA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#read ApplicationAppRoleA#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#update ApplicationAppRoleA#update}.
         '''
         value = ApplicationAppRoleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -362,14 +362,14 @@ class ApplicationAppRoleAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param allowed_member_types: Specifies whether this app role definition can be assigned to users and groups by setting to ``User``, or to other applications (that are accessing this application in a standalone scenario) by setting to ``Application``, or to both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#allowed_member_types ApplicationAppRoleA#allowed_member_types}
-        :param application_id: The resource ID of the application to which this app role should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#application_id ApplicationAppRoleA#application_id}
-        :param description: Description of the app role that appears when the role is being assigned and, if the role functions as an application permissions, during the consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#description ApplicationAppRoleA#description}
-        :param display_name: Display name for the app role that appears during app role assignment and in consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#display_name ApplicationAppRoleA#display_name}
-        :param role_id: The unique identifier of the app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#role_id ApplicationAppRoleA#role_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#id ApplicationAppRoleA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#timeouts ApplicationAppRoleA#timeouts}
-        :param value: The value that is used for the ``roles`` claim in ID tokens and OAuth access tokens that are authenticating an assigned service or user principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#value ApplicationAppRoleA#value}
+        :param allowed_member_types: Specifies whether this app role definition can be assigned to users and groups by setting to ``User``, or to other applications (that are accessing this application in a standalone scenario) by setting to ``Application``, or to both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#allowed_member_types ApplicationAppRoleA#allowed_member_types}
+        :param application_id: The resource ID of the application to which this app role should be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#application_id ApplicationAppRoleA#application_id}
+        :param description: Description of the app role that appears when the role is being assigned and, if the role functions as an application permissions, during the consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#description ApplicationAppRoleA#description}
+        :param display_name: Display name for the app role that appears during app role assignment and in consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#display_name ApplicationAppRoleA#display_name}
+        :param role_id: The unique identifier of the app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#role_id ApplicationAppRoleA#role_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#id ApplicationAppRoleA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#timeouts ApplicationAppRoleA#timeouts}
+        :param value: The value that is used for the ``roles`` claim in ID tokens and OAuth access tokens that are authenticating an assigned service or user principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#value ApplicationAppRoleA#value}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -488,7 +488,7 @@ class ApplicationAppRoleAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allowed_member_types(self) -> typing.List[builtins.str]:
         '''Specifies whether this app role definition can be assigned to users and groups by setting to ``User``, or to other applications (that are accessing this application in a standalone scenario) by setting to ``Application``, or to both.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#allowed_member_types ApplicationAppRoleA#allowed_member_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#allowed_member_types ApplicationAppRoleA#allowed_member_types}
         '''
         result = self._values.get("allowed_member_types")
         assert result is not None, "Required property 'allowed_member_types' is missing"
@@ -498,7 +498,7 @@ class ApplicationAppRoleAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''The resource ID of the application to which this app role should be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#application_id ApplicationAppRoleA#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#application_id ApplicationAppRoleA#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -508,7 +508,7 @@ class ApplicationAppRoleAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> builtins.str:
         '''Description of the app role that appears when the role is being assigned and, if the role functions as an application permissions, during the consent experiences.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#description ApplicationAppRoleA#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#description ApplicationAppRoleA#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -518,7 +518,7 @@ class ApplicationAppRoleAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Display name for the app role that appears during app role assignment and in consent experiences.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#display_name ApplicationAppRoleA#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#display_name ApplicationAppRoleA#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -528,7 +528,7 @@ class ApplicationAppRoleAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role_id(self) -> builtins.str:
         '''The unique identifier of the app role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#role_id ApplicationAppRoleA#role_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#role_id ApplicationAppRoleA#role_id}
         '''
         result = self._values.get("role_id")
         assert result is not None, "Required property 'role_id' is missing"
@@ -536,7 +536,7 @@ class ApplicationAppRoleAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#id ApplicationAppRoleA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#id ApplicationAppRoleA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -548,7 +548,7 @@ class ApplicationAppRoleAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationAppRoleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#timeouts ApplicationAppRoleA#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#timeouts ApplicationAppRoleA#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationAppRoleTimeouts"], result)
@@ -557,7 +557,7 @@ class ApplicationAppRoleAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> typing.Optional[builtins.str]:
         '''The value that is used for the ``roles`` claim in ID tokens and OAuth access tokens that are authenticating an assigned service or user principal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#value ApplicationAppRoleA#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#value ApplicationAppRoleA#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -594,10 +594,10 @@ class ApplicationAppRoleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#create ApplicationAppRoleA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#delete ApplicationAppRoleA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#read ApplicationAppRoleA#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#update ApplicationAppRoleA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#create ApplicationAppRoleA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#delete ApplicationAppRoleA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#read ApplicationAppRoleA#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#update ApplicationAppRoleA#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ecbaca18f7a9bcf4af40088ea24e5f7b04bdd4cd7bb970f425413d8355d5bc67)
@@ -617,25 +617,25 @@ class ApplicationAppRoleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#create ApplicationAppRoleA#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#create ApplicationAppRoleA#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#delete ApplicationAppRoleA#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#delete ApplicationAppRoleA#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#read ApplicationAppRoleA#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#read ApplicationAppRoleA#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_app_role#update ApplicationAppRoleA#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_app_role#update ApplicationAppRoleA#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

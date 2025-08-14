@@ -2,21 +2,21 @@
 #  (C) Copyright IBM Corp. 2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
-from typing import Callable, Sequence, TypeVar, Any, cast
-from functools import reduce
-
 import re
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics.pairwise import cosine_similarity
-from langchain_core.documents import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from functools import reduce
+from typing import Any, Callable, Sequence, TypeVar, cast
 
+import numpy as np
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import MinMaxScaler
+
+from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.foundation_models.extensions.rag.chunker.base_chunker import (
     BaseChunker,
 )
-from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     HybridSemanticChunkerException,

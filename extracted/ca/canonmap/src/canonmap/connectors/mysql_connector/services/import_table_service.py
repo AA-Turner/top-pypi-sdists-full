@@ -87,7 +87,7 @@ def _import_table_from_file(
     file_path: str,
     table_name: Optional[str] = None,
     *,
-    if_exists: str = "append",
+    if_table_exists: str = "append",
 ) -> int:
     """Import CSV/XLSX file into MySQL with type inference and coercion.
 
@@ -119,12 +119,12 @@ def _import_table_from_file(
 
     # Handle table existence policy
     exists = _table_exists(connector, table_name)
-    if if_exists not in {"append", "replace", "fail"}:
-        raise ValueError("if_exists must be one of 'append' | 'replace' | 'fail'")
+    if if_table_exists not in {"append", "replace", "fail"}:
+        raise ValueError("if_table_exists must be one of 'append' | 'replace' | 'fail'")
     if exists:
-        if if_exists == "fail":
+        if if_table_exists == "fail":
             raise RuntimeError(f"Table '{table_name}' already exists")
-        if if_exists == "replace":
+        if if_table_exists == "replace":
             connector.execute_query(
                 f"DROP TABLE IF EXISTS {_q(table_name)}",
                 allow_writes=True,
@@ -167,8 +167,9 @@ def _import_table_from_file(
                     # Retry once
                     df.to_sql(
                         table_name,
-                        con=engine,
-                        if_exists="append",
+                        engine,
+                        None,
+                        "append",
                         index=False,
                         dtype=sql_types,
                         method="multi",
@@ -188,8 +189,8 @@ def import_table_from_file(
     file_path: str,
     table_name: Optional[str] = None,
     *,
-    if_exists: str = "append",
+    if_table_exists: str = "append",
 ) -> int:
     """Public wrapper for importing a table from file (non-underscored API)."""
-    return _import_table_from_file(connector, file_path, table_name, if_exists=if_exists)
+    return _import_table_from_file(connector, file_path, table_name, if_table_exists=if_table_exists)
 

@@ -4,17 +4,33 @@
 #  -----------------------------------------------------------------------------------------
 
 from ibm_watsonx_ai.helpers.connections.connections import (
-    DataConnection,
-    S3Connection,
-    S3Location,
-    FSLocation,
     AssetLocation,
     CloudAssetLocation,
-    DeploymentOutputAssetLocation,
-    NFSConnection,
-    NFSLocation,
     ConnectionAsset,
     ConnectionAssetLocation,
-    DatabaseLocation,
     ContainerLocation,
+    DatabaseLocation,
+    DataConnection,
+    DeploymentOutputAssetLocation,
+    FSLocation,
+    NFSConnection,
+    NFSLocation,
+    S3Connection,
+    S3Location,
 )
+
+__all__ = [
+    "AssetLocation",
+    "CloudAssetLocation",
+    "ConnectionAsset",
+    "ConnectionAssetLocation",
+    "ContainerLocation",
+    "DatabaseLocation",
+    "DataConnection",
+    "DeploymentOutputAssetLocation",
+    "FSLocation",
+    "NFSConnection",
+    "NFSLocation",
+    "S3Connection",
+    "S3Location",
+]

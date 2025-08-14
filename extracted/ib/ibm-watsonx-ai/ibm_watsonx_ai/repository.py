@@ -5,42 +5,40 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Any, Literal, TypeAlias, cast
-
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypeAlias, cast
 
 from requests import Response
 
 from ibm_watsonx_ai._wrappers import requests
-
+from ibm_watsonx_ai.ai_services import AIServices
 from ibm_watsonx_ai.experiments import Experiments
 from ibm_watsonx_ai.functions import Functions
-from ibm_watsonx_ai.ai_services import AIServices
 from ibm_watsonx_ai.libs.repo.mlrepositoryclient import MLRepositoryClient
 from ibm_watsonx_ai.lifecycle import SpecStates
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import (
+    AIServiceMetaNames,
     ExperimentMetaNames,
     FunctionMetaNames,
-    PipelineMetanames,
-    SpacesMetaNames,
     ModelMetaNames,
+    PipelineMetanames,
     RepositoryMemberMetaNames,
-    AIServiceMetaNames,
+    SpacesMetaNames,
 )
 from ibm_watsonx_ai.models import Models
 from ibm_watsonx_ai.pipelines import Pipelines
-from ibm_watsonx_ai.utils import inherited_docstring, get_url, get_user_agent_header
+from ibm_watsonx_ai.utils import get_url, get_user_agent_header, inherited_docstring
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
-
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     import numpy
     import pandas
     import pyspark
+
+    from ibm_watsonx_ai import APIClient
 
     LabelColumnNamesType: TypeAlias = (
         numpy.ndarray[Any, numpy.dtype[numpy.str_]] | list[str]

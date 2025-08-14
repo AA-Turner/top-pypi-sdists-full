@@ -4,12 +4,15 @@ use github_actions_models::workflow::Trigger;
 use github_actions_models::workflow::event::{BareEvent, BranchFilters, OptionalBody};
 
 use crate::audit::{Audit, audit_meta};
-use crate::finding::location::Locatable as _;
-use crate::finding::{Confidence, Finding, Severity};
+use crate::finding::location::{Locatable as _, Routable};
+use crate::finding::{Confidence, Finding, Fix, FixDisposition, Severity};
 use crate::models::StepCommon;
 use crate::models::coordinate::{ActionCoordinate, ControlExpr, ControlFieldType, Toggle, Usage};
 use crate::models::workflow::{JobExt as _, NormalJob, Step, Steps};
 use crate::state::AuditState;
+
+use indexmap::IndexMap;
+use yamlpatch::{Op, Patch};
 
 use super::AuditLoadError;
 
@@ -31,7 +34,12 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
         // https://github.com/actions/setup-java/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses_pattern: "actions/setup-java".parse().unwrap(),
-            control: ControlExpr::single(Toggle::OptIn, "cache", ControlFieldType::String, false),
+            control: ControlExpr::single(
+                Toggle::OptIn,
+                "cache",
+                ControlFieldType::FreeString,
+                false,
+            ),
         },
         // https://github.com/actions/setup-go/blob/main/action.yml
         ActionCoordinate::Configurable {
@@ -41,12 +49,22 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
         // https://github.com/actions/setup-node/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses_pattern: "actions/setup-node".parse().unwrap(),
-            control: ControlExpr::single(Toggle::OptIn, "cache", ControlFieldType::String, false),
+            control: ControlExpr::single(
+                Toggle::OptIn,
+                "cache",
+                ControlFieldType::FreeString,
+                false,
+            ),
         },
         // https://github.com/actions/setup-python/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses_pattern: "actions/setup-python".parse().unwrap(),
-            control: ControlExpr::single(Toggle::OptIn, "cache", ControlFieldType::String, false),
+            control: ControlExpr::single(
+                Toggle::OptIn,
+                "cache",
+                ControlFieldType::FreeString,
+                false,
+            ),
         },
         // https://github.com/actions/setup-dotnet/blob/main/action.yml
         ActionCoordinate::Configurable {
@@ -59,7 +77,7 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
             control: ControlExpr::single(
                 Toggle::OptOut,
                 "enable-cache",
-                ControlFieldType::String,
+                ControlFieldType::Boolean,
                 true,
             ),
         },
@@ -126,7 +144,12 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
         // https://github.com/graalvm/setup-graalvm/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses_pattern: "graalvm/setup-graalvm".parse().unwrap(),
-            control: ControlExpr::single(Toggle::OptIn, "cache", ControlFieldType::String, false),
+            control: ControlExpr::single(
+                Toggle::OptIn,
+                "cache",
+                ControlFieldType::FreeString,
+                false,
+            ),
         },
         // https://github.com/gradle/actions/blob/main/setup-gradle/action.yml
         ActionCoordinate::Configurable {
@@ -148,7 +171,12 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
                     ControlFieldType::Boolean,
                     true,
                 ),
-                ControlExpr::single(Toggle::OptIn, "version", ControlFieldType::String, false),
+                ControlExpr::single(
+                    Toggle::OptIn,
+                    "version",
+                    ControlFieldType::FreeString,
+                    false,
+                ),
             ]),
         },
         // https://github.com/actions-rust-lang/setup-rust-toolchain/blob/main/action.yml
@@ -278,10 +306,83 @@ impl CachePoisoning {
         ))
     }
 
-    fn evaluate_cache_usage<'doc>(&self, step: &impl StepCommon<'doc>) -> Option<Usage> {
+    fn evaluate_cache_usage<'doc>(
+        &self,
+        step: &impl StepCommon<'doc>,
+    ) -> Option<(&'static ActionCoordinate, Usage)> {
         KNOWN_CACHE_AWARE_ACTIONS
             .iter()
-            .find_map(|coord| coord.usage(step))
+            .find_map(|coord| coord.usage(step).map(|usage| (coord, usage)))
+    }
+
+    fn create_cache_disable_fix<'doc>(
+        &self,
+        coord: &ActionCoordinate,
+        step: &Step<'doc>,
+    ) -> Option<Fix<'doc>> {
+        match coord {
+            ActionCoordinate::NotConfigurable(_pattern) => {
+                // For non-configurable actions, we can't provide automatic fixes
+                None
+            }
+            ActionCoordinate::Configurable {
+                uses_pattern,
+                control,
+            } => self.create_configurable_action_fix(uses_pattern, control, step),
+        }
+    }
+
+    fn create_configurable_action_fix<'doc>(
+        &self,
+        _uses_pattern: &crate::models::uses::RepositoryUsesPattern,
+        control: &ControlExpr,
+        step: &Step<'doc>,
+    ) -> Option<Fix<'doc>> {
+        match control {
+            ControlExpr::Single {
+                toggle,
+                field_name,
+                field_type,
+                ..
+            } => {
+                let (field_value, title, _description) = match (toggle, field_type) {
+                    (Toggle::OptOut, ControlFieldType::Boolean) => (
+                        serde_yaml::Value::Bool(true),
+                        format!("Set {field_name}: true to disable caching"),
+                        format!(
+                            "Set '{field_name}' to 'true' to disable cache writes in this publishing workflow."
+                        ),
+                    ),
+                    (Toggle::OptIn, ControlFieldType::Boolean) => (
+                        serde_yaml::Value::Bool(false),
+                        format!("Set {field_name}: false to disable caching"),
+                        format!(
+                            "Set '{field_name}' to 'false' to disable caching in this publishing workflow."
+                        ),
+                    ),
+                    // String control fields are action-specific and we can't reliably know
+                    // what value disables caching (e.g., setup-node expects '' not 'false')
+                    (Toggle::OptIn, _) | (Toggle::OptOut, _) => {
+                        return None;
+                    }
+                };
+
+                Some(Fix {
+                    title,
+                    key: step.location().key,
+                    disposition: FixDisposition::default(),
+                    patches: vec![Patch {
+                        route: step.route(),
+                        operation: Op::MergeInto {
+                            key: "with".to_string(),
+                            updates: IndexMap::from([(field_name.to_string(), field_value)]),
+                        },
+                    }],
+                })
+            }
+            // For complex control expressions (All/Any/Not), don't provide automatic fixes for now
+            ControlExpr::All(_) | ControlExpr::Any(_) | ControlExpr::Not(_) => None,
+        }
     }
 
     fn uses_cache_aware_step<'doc>(
@@ -289,7 +390,7 @@ impl CachePoisoning {
         step: &Step<'doc>,
         scenario: &PublishingArtifactsScenario<'doc>,
     ) -> Option<Finding<'doc>> {
-        let cache_usage = self.evaluate_cache_usage(step)?;
+        let (coord, cache_usage) = self.evaluate_cache_usage(step)?;
 
         let (yaml_key, annotation) = match cache_usage {
             Usage::Always => ("uses", "caching always restored here"),
@@ -298,42 +399,45 @@ impl CachePoisoning {
             Usage::ConditionalOptIn => ("with", "opt-in for caching might happen here"),
         };
 
-        let finding = match scenario {
+        let mut finding_builder = match scenario {
             PublishingArtifactsScenario::UsingTypicalWorkflowTrigger => Self::finding()
                 .confidence(Confidence::Low)
                 .severity(Severity::High)
                 .add_location(
                     step.workflow()
                         .location()
-                        .with_keys(&["on".into()])
+                        .with_keys(["on".into()])
                         .annotated("generally used when publishing artifacts generated at runtime"),
                 )
                 .add_location(
                     step.location()
                         .primary()
-                        .with_keys(&[yaml_key.into()])
+                        .with_keys([yaml_key.into()])
                         .annotated(annotation),
-                )
-                .build(step.workflow()),
+                ),
             PublishingArtifactsScenario::UsingWellKnowPublisherAction(publisher) => Self::finding()
                 .confidence(Confidence::Low)
                 .severity(Severity::High)
                 .add_location(
                     publisher
                         .location()
-                        .with_keys(&["uses".into()])
+                        .with_keys(["uses".into()])
                         .annotated("runtime artifacts usually published here"),
                 )
                 .add_location(
                     step.location()
                         .primary()
-                        .with_keys(&[yaml_key.into()])
+                        .with_keys([yaml_key.into()])
                         .annotated(annotation),
-                )
-                .build(step.workflow()),
+                ),
         };
 
-        finding.ok()
+        // Add fix if available
+        if let Some(fix) = self.create_cache_disable_fix(coord, step) {
+            finding_builder = finding_builder.fix(fix);
+        }
+
+        finding_builder.build(step.workflow()).ok()
     }
 }
 
@@ -361,5 +465,201 @@ impl Audit for CachePoisoning {
         }
 
         Ok(findings)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        github_api::GitHubHost, models::workflow::Workflow, registry::InputKey, state::AuditState,
+    };
+
+    /// Macro for testing workflow audits with common boilerplate
+    ///
+    /// Usage: `test_workflow_audit!(AuditType, "filename.yml", workflow_yaml, |findings| { ... })`
+    ///
+    /// This macro:
+    /// 1. Creates a test workflow from the provided YAML with the specified filename
+    /// 2. Sets up the audit state
+    /// 3. Creates and runs the audit
+    /// 4. Executes the provided test closure with the findings
+    macro_rules! test_workflow_audit {
+        ($audit_type:ty, $filename:expr, $workflow_content:expr, $test_fn:expr) => {{
+            let key = InputKey::local($filename, None::<&str>).unwrap();
+            let workflow = Workflow::from_string($workflow_content.to_string(), key).unwrap();
+            let audit_state = AuditState {
+                config: &Default::default(),
+                no_online_audits: false,
+                gh_client: None,
+                gh_hostname: GitHubHost::Standard("github.com".into()),
+            };
+            let audit = <$audit_type>::new(&audit_state).unwrap();
+            let findings = audit.audit_workflow(&workflow).unwrap();
+
+            $test_fn(findings)
+        }};
+    }
+
+    /// Helper function to apply a fix and return the result for snapshot testing
+    fn apply_fix_for_snapshot(workflow_content: &str, findings: Vec<Finding>) -> String {
+        assert!(!findings.is_empty(), "Expected findings but got none");
+        let finding = &findings[0];
+        assert!(!finding.fixes.is_empty(), "Expected fixes but got none");
+
+        let fix = &finding.fixes[0];
+
+        // Parse the workflow content as a document
+        let document = yamlpath::Document::new(workflow_content).unwrap();
+
+        // Apply the fix and get the new document
+        let fixed_document = fix.apply(&document).unwrap();
+
+        // Return the source content
+        fixed_document.source().to_string()
+    }
+
+    #[test]
+    fn test_cache_disable_fix_opt_out_boolean() {
+        let workflow_content = r#"
+name: Test Workflow
+on: release
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: softprops/action-gh-release@v1
+"#;
+
+        test_workflow_audit!(
+            CachePoisoning,
+            "test_cache_disable_fix_opt_out_boolean.yml",
+            workflow_content,
+            |findings: Vec<Finding>| {
+                let fixed_content = apply_fix_for_snapshot(workflow_content, findings);
+                insta::assert_snapshot!(fixed_content, @r"
+                name: Test Workflow
+                on: release
+
+                jobs:
+                  test:
+                    runs-on: ubuntu-latest
+                    steps:
+                      - uses: actions/cache@v4
+                        with:
+                          path: |
+                            ~/.cargo/registry
+                            ~/.cargo/git
+                          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                          lookup-only: true
+                      - uses: softprops/action-gh-release@v1
+                ");
+            }
+        );
+    }
+
+    #[test]
+    fn test_cache_disable_fix_opt_in_boolean() {
+        let workflow_content = r#"
+name: Test Workflow
+on: release
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+      - uses: softprops/action-gh-release@v1
+"#;
+
+        test_workflow_audit!(
+            CachePoisoning,
+            "test_cache_disable_fix_opt_in_boolean.yml",
+            workflow_content,
+            |findings: Vec<Finding>| {
+                let fixed_content = apply_fix_for_snapshot(workflow_content, findings);
+                insta::assert_snapshot!(fixed_content, @r"
+                name: Test Workflow
+                on: release
+
+                jobs:
+                  test:
+                    runs-on: ubuntu-latest
+                    steps:
+                      - uses: actions/setup-go@v4
+                        with:
+                          go-version: '1.21'
+                          cache: false
+                      - uses: softprops/action-gh-release@v1
+                ");
+            }
+        );
+    }
+
+    #[test]
+    fn test_cache_disable_fix_opt_in_string() {
+        let workflow_content = r#"
+name: Test Workflow
+on: release
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+      - uses: softprops/action-gh-release@v1
+"#;
+
+        test_workflow_audit!(
+            CachePoisoning,
+            "test_cache_disable_fix_opt_in_string.yml",
+            workflow_content,
+            |findings: Vec<Finding>| {
+                let finding = &findings[0];
+                // String control fields should not have fixes since we can't reliably
+                // know what value disables caching for different actions
+                assert!(finding.fixes.is_empty());
+            }
+        );
+    }
+
+    #[test]
+    fn test_cache_disable_fix_non_configurable() {
+        let workflow_content = r#"
+name: Test Workflow
+on: release
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Mozilla-Actions/sccache-action@v1
+      - uses: softprops/action-gh-release@v1
+"#;
+
+        test_workflow_audit!(
+            CachePoisoning,
+            "test_cache_disable_fix_non_configurable.yml",
+            workflow_content,
+            |findings: Vec<Finding>| {
+                let finding = &findings[0];
+                // Non-configurable actions should not have fixes
+                assert!(finding.fixes.is_empty());
+            }
+        );
     }
 }

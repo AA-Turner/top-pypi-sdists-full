@@ -1,7 +1,7 @@
 r'''
 # `newrelic_user`
 
-Refer to the Terraform Registry for docs: [`newrelic_user`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user).
+Refer to the Terraform Registry for docs: [`newrelic_user`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class User(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.user.User",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user newrelic_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user newrelic_user}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class User(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user newrelic_user} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user newrelic_user} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authentication_domain_id: The ID of the authentication domain the user will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#authentication_domain_id User#authentication_domain_id}
-        :param email_id: The email ID of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#email_id User#email_id}
-        :param name: The name of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#name User#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#id User#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param user_type: The type of the user to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#user_type User#user_type}
+        :param authentication_domain_id: The ID of the authentication domain the user will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#authentication_domain_id User#authentication_domain_id}
+        :param email_id: The email ID of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#email_id User#email_id}
+        :param name: The name of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#name User#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#id User#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param user_type: The type of the user to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#user_type User#user_type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class User(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the User to import.
-        :param import_from_id: The id of the existing User that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing User that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the User to import is found.
         '''
         if __debug__:
@@ -276,11 +276,11 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authentication_domain_id: The ID of the authentication domain the user will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#authentication_domain_id User#authentication_domain_id}
-        :param email_id: The email ID of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#email_id User#email_id}
-        :param name: The name of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#name User#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#id User#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param user_type: The type of the user to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#user_type User#user_type}
+        :param authentication_domain_id: The ID of the authentication domain the user will belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#authentication_domain_id User#authentication_domain_id}
+        :param email_id: The email ID of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#email_id User#email_id}
+        :param name: The name of the user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#name User#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#id User#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param user_type: The type of the user to be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#user_type User#user_type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -390,7 +390,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authentication_domain_id(self) -> builtins.str:
         '''The ID of the authentication domain the user will belong to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#authentication_domain_id User#authentication_domain_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#authentication_domain_id User#authentication_domain_id}
         '''
         result = self._values.get("authentication_domain_id")
         assert result is not None, "Required property 'authentication_domain_id' is missing"
@@ -400,7 +400,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def email_id(self) -> builtins.str:
         '''The email ID of the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#email_id User#email_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#email_id User#email_id}
         '''
         result = self._values.get("email_id")
         assert result is not None, "Required property 'email_id' is missing"
@@ -410,7 +410,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#name User#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#name User#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -418,7 +418,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#id User#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#id User#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -430,7 +430,7 @@ class UserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_type(self) -> typing.Optional[builtins.str]:
         '''The type of the user to be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/user#user_type User#user_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/user#user_type User#user_type}
         '''
         result = self._values.get("user_type")
         return typing.cast(typing.Optional[builtins.str], result)

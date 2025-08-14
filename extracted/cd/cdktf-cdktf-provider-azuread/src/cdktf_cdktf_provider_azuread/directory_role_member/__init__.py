@@ -1,7 +1,7 @@
 r'''
 # `azuread_directory_role_member`
 
-Refer to the Terraform Registry for docs: [`azuread_directory_role_member`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member).
+Refer to the Terraform Registry for docs: [`azuread_directory_role_member`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DirectoryRoleMember(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.directoryRoleMember.DirectoryRoleMember",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member azuread_directory_role_member}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member azuread_directory_role_member}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DirectoryRoleMember(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member azuread_directory_role_member} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member azuread_directory_role_member} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#id DirectoryRoleMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param member_object_id: The object ID of the member. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#member_object_id DirectoryRoleMember#member_object_id}
-        :param role_object_id: The object ID of the directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#role_object_id DirectoryRoleMember#role_object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#timeouts DirectoryRoleMember#timeouts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#id DirectoryRoleMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member_object_id: The object ID of the member. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#member_object_id DirectoryRoleMember#member_object_id}
+        :param role_object_id: The object ID of the directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#role_object_id DirectoryRoleMember#role_object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#timeouts DirectoryRoleMember#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DirectoryRoleMember(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DirectoryRoleMember to import.
-        :param import_from_id: The id of the existing DirectoryRoleMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DirectoryRoleMember that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DirectoryRoleMember to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class DirectoryRoleMember(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#create DirectoryRoleMember#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#delete DirectoryRoleMember#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#read DirectoryRoleMember#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#create DirectoryRoleMember#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#delete DirectoryRoleMember#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#read DirectoryRoleMember#read}.
         '''
         value = DirectoryRoleMemberTimeouts(create=create, delete=delete, read=read)
 
@@ -274,10 +274,10 @@ class DirectoryRoleMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#id DirectoryRoleMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param member_object_id: The object ID of the member. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#member_object_id DirectoryRoleMember#member_object_id}
-        :param role_object_id: The object ID of the directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#role_object_id DirectoryRoleMember#role_object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#timeouts DirectoryRoleMember#timeouts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#id DirectoryRoleMember#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member_object_id: The object ID of the member. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#member_object_id DirectoryRoleMember#member_object_id}
+        :param role_object_id: The object ID of the directory role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#role_object_id DirectoryRoleMember#role_object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#timeouts DirectoryRoleMember#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -386,7 +386,7 @@ class DirectoryRoleMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#id DirectoryRoleMember#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#id DirectoryRoleMember#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -398,7 +398,7 @@ class DirectoryRoleMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def member_object_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the member.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#member_object_id DirectoryRoleMember#member_object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#member_object_id DirectoryRoleMember#member_object_id}
         '''
         result = self._values.get("member_object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -407,7 +407,7 @@ class DirectoryRoleMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role_object_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the directory role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#role_object_id DirectoryRoleMember#role_object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#role_object_id DirectoryRoleMember#role_object_id}
         '''
         result = self._values.get("role_object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -416,7 +416,7 @@ class DirectoryRoleMemberConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DirectoryRoleMemberTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#timeouts DirectoryRoleMember#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#timeouts DirectoryRoleMember#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DirectoryRoleMemberTimeouts"], result)
@@ -447,9 +447,9 @@ class DirectoryRoleMemberTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#create DirectoryRoleMember#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#delete DirectoryRoleMember#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#read DirectoryRoleMember#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#create DirectoryRoleMember#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#delete DirectoryRoleMember#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#read DirectoryRoleMember#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2f7a84f59f98f6cd4152f0761fe22b9dcaef6ee70df4288d72d7c4614d0634d)
@@ -466,19 +466,19 @@ class DirectoryRoleMemberTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#create DirectoryRoleMember#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#create DirectoryRoleMember#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#delete DirectoryRoleMember#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#delete DirectoryRoleMember#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/directory_role_member#read DirectoryRoleMember#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/directory_role_member#read DirectoryRoleMember#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_web_pubsub_hub`
 
-Refer to the Terraform Registry for docs: [`azurerm_web_pubsub_hub`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub).
+Refer to the Terraform Registry for docs: [`azurerm_web_pubsub_hub`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class WebPubsubHub(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.webPubsubHub.WebPubsubHub",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub azurerm_web_pubsub_hub}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub azurerm_web_pubsub_hub}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class WebPubsubHub(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub azurerm_web_pubsub_hub} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub azurerm_web_pubsub_hub} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#name WebPubsubHub#name}.
-        :param web_pubsub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#web_pubsub_id WebPubsubHub#web_pubsub_id}.
-        :param anonymous_connections_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#anonymous_connections_enabled WebPubsubHub#anonymous_connections_enabled}.
-        :param event_handler: event_handler block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#event_handler WebPubsubHub#event_handler}
-        :param event_listener: event_listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#event_listener WebPubsubHub#event_listener}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#id WebPubsubHub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#timeouts WebPubsubHub#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#name WebPubsubHub#name}.
+        :param web_pubsub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#web_pubsub_id WebPubsubHub#web_pubsub_id}.
+        :param anonymous_connections_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#anonymous_connections_enabled WebPubsubHub#anonymous_connections_enabled}.
+        :param event_handler: event_handler block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#event_handler WebPubsubHub#event_handler}
+        :param event_listener: event_listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#event_listener WebPubsubHub#event_listener}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#id WebPubsubHub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#timeouts WebPubsubHub#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class WebPubsubHub(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the WebPubsubHub to import.
-        :param import_from_id: The id of the existing WebPubsubHub that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing WebPubsubHub that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the WebPubsubHub to import is found.
         '''
         if __debug__:
@@ -168,10 +168,10 @@ class WebPubsubHub(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#create WebPubsubHub#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#delete WebPubsubHub#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#read WebPubsubHub#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#update WebPubsubHub#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#create WebPubsubHub#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#delete WebPubsubHub#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#read WebPubsubHub#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#update WebPubsubHub#update}.
         '''
         value = WebPubsubHubTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -371,13 +371,13 @@ class WebPubsubHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#name WebPubsubHub#name}.
-        :param web_pubsub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#web_pubsub_id WebPubsubHub#web_pubsub_id}.
-        :param anonymous_connections_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#anonymous_connections_enabled WebPubsubHub#anonymous_connections_enabled}.
-        :param event_handler: event_handler block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#event_handler WebPubsubHub#event_handler}
-        :param event_listener: event_listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#event_listener WebPubsubHub#event_listener}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#id WebPubsubHub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#timeouts WebPubsubHub#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#name WebPubsubHub#name}.
+        :param web_pubsub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#web_pubsub_id WebPubsubHub#web_pubsub_id}.
+        :param anonymous_connections_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#anonymous_connections_enabled WebPubsubHub#anonymous_connections_enabled}.
+        :param event_handler: event_handler block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#event_handler WebPubsubHub#event_handler}
+        :param event_listener: event_listener block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#event_listener WebPubsubHub#event_listener}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#id WebPubsubHub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#timeouts WebPubsubHub#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -494,14 +494,14 @@ class WebPubsubHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#name WebPubsubHub#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#name WebPubsubHub#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def web_pubsub_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#web_pubsub_id WebPubsubHub#web_pubsub_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#web_pubsub_id WebPubsubHub#web_pubsub_id}.'''
         result = self._values.get("web_pubsub_id")
         assert result is not None, "Required property 'web_pubsub_id' is missing"
         return typing.cast(builtins.str, result)
@@ -510,7 +510,7 @@ class WebPubsubHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def anonymous_connections_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#anonymous_connections_enabled WebPubsubHub#anonymous_connections_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#anonymous_connections_enabled WebPubsubHub#anonymous_connections_enabled}.'''
         result = self._values.get("anonymous_connections_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -520,7 +520,7 @@ class WebPubsubHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebPubsubHubEventHandler"]]]:
         '''event_handler block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#event_handler WebPubsubHub#event_handler}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#event_handler WebPubsubHub#event_handler}
         '''
         result = self._values.get("event_handler")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebPubsubHubEventHandler"]]], result)
@@ -531,14 +531,14 @@ class WebPubsubHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebPubsubHubEventListener"]]]:
         '''event_listener block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#event_listener WebPubsubHub#event_listener}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#event_listener WebPubsubHub#event_listener}
         '''
         result = self._values.get("event_listener")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WebPubsubHubEventListener"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#id WebPubsubHub#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#id WebPubsubHub#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -550,7 +550,7 @@ class WebPubsubHubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["WebPubsubHubTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#timeouts WebPubsubHub#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#timeouts WebPubsubHub#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["WebPubsubHubTimeouts"], result)
@@ -587,10 +587,10 @@ class WebPubsubHubEventHandler:
         user_event_pattern: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#url_template WebPubsubHub#url_template}.
-        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#auth WebPubsubHub#auth}
-        :param system_events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#system_events WebPubsubHub#system_events}.
-        :param user_event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#user_event_pattern WebPubsubHub#user_event_pattern}.
+        :param url_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#url_template WebPubsubHub#url_template}.
+        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#auth WebPubsubHub#auth}
+        :param system_events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#system_events WebPubsubHub#system_events}.
+        :param user_event_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#user_event_pattern WebPubsubHub#user_event_pattern}.
         '''
         if isinstance(auth, dict):
             auth = WebPubsubHubEventHandlerAuth(**auth)
@@ -612,7 +612,7 @@ class WebPubsubHubEventHandler:
 
     @builtins.property
     def url_template(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#url_template WebPubsubHub#url_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#url_template WebPubsubHub#url_template}.'''
         result = self._values.get("url_template")
         assert result is not None, "Required property 'url_template' is missing"
         return typing.cast(builtins.str, result)
@@ -621,20 +621,20 @@ class WebPubsubHubEventHandler:
     def auth(self) -> typing.Optional["WebPubsubHubEventHandlerAuth"]:
         '''auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#auth WebPubsubHub#auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#auth WebPubsubHub#auth}
         '''
         result = self._values.get("auth")
         return typing.cast(typing.Optional["WebPubsubHubEventHandlerAuth"], result)
 
     @builtins.property
     def system_events(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#system_events WebPubsubHub#system_events}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#system_events WebPubsubHub#system_events}.'''
         result = self._values.get("system_events")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def user_event_pattern(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#user_event_pattern WebPubsubHub#user_event_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#user_event_pattern WebPubsubHub#user_event_pattern}.'''
         result = self._values.get("user_event_pattern")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -658,7 +658,7 @@ class WebPubsubHubEventHandler:
 class WebPubsubHubEventHandlerAuth:
     def __init__(self, *, managed_identity_id: builtins.str) -> None:
         '''
-        :param managed_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#managed_identity_id WebPubsubHub#managed_identity_id}.
+        :param managed_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#managed_identity_id WebPubsubHub#managed_identity_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c52f820b18c76c7b6295f4956fc11370519189789df52e1ed9f49465c2a3cf01)
@@ -669,7 +669,7 @@ class WebPubsubHubEventHandlerAuth:
 
     @builtins.property
     def managed_identity_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#managed_identity_id WebPubsubHub#managed_identity_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#managed_identity_id WebPubsubHub#managed_identity_id}.'''
         result = self._values.get("managed_identity_id")
         assert result is not None, "Required property 'managed_identity_id' is missing"
         return typing.cast(builtins.str, result)
@@ -858,7 +858,7 @@ class WebPubsubHubEventHandlerOutputReference(
     @jsii.member(jsii_name="putAuth")
     def put_auth(self, *, managed_identity_id: builtins.str) -> None:
         '''
-        :param managed_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#managed_identity_id WebPubsubHub#managed_identity_id}.
+        :param managed_identity_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#managed_identity_id WebPubsubHub#managed_identity_id}.
         '''
         value = WebPubsubHubEventHandlerAuth(managed_identity_id=managed_identity_id)
 
@@ -975,10 +975,10 @@ class WebPubsubHubEventListener:
         user_event_name_filter: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param eventhub_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#eventhub_name WebPubsubHub#eventhub_name}.
-        :param eventhub_namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#eventhub_namespace_name WebPubsubHub#eventhub_namespace_name}.
-        :param system_event_name_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#system_event_name_filter WebPubsubHub#system_event_name_filter}.
-        :param user_event_name_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#user_event_name_filter WebPubsubHub#user_event_name_filter}.
+        :param eventhub_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#eventhub_name WebPubsubHub#eventhub_name}.
+        :param eventhub_namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#eventhub_namespace_name WebPubsubHub#eventhub_namespace_name}.
+        :param system_event_name_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#system_event_name_filter WebPubsubHub#system_event_name_filter}.
+        :param user_event_name_filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#user_event_name_filter WebPubsubHub#user_event_name_filter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9b2c3777fa79740805b48cf51f99d18f7e22d4c9c845931b85fef4929cb7bec)
@@ -997,27 +997,27 @@ class WebPubsubHubEventListener:
 
     @builtins.property
     def eventhub_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#eventhub_name WebPubsubHub#eventhub_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#eventhub_name WebPubsubHub#eventhub_name}.'''
         result = self._values.get("eventhub_name")
         assert result is not None, "Required property 'eventhub_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def eventhub_namespace_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#eventhub_namespace_name WebPubsubHub#eventhub_namespace_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#eventhub_namespace_name WebPubsubHub#eventhub_namespace_name}.'''
         result = self._values.get("eventhub_namespace_name")
         assert result is not None, "Required property 'eventhub_namespace_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def system_event_name_filter(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#system_event_name_filter WebPubsubHub#system_event_name_filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#system_event_name_filter WebPubsubHub#system_event_name_filter}.'''
         result = self._values.get("system_event_name_filter")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def user_event_name_filter(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#user_event_name_filter WebPubsubHub#user_event_name_filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#user_event_name_filter WebPubsubHub#user_event_name_filter}.'''
         result = self._values.get("user_event_name_filter")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1267,10 +1267,10 @@ class WebPubsubHubTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#create WebPubsubHub#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#delete WebPubsubHub#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#read WebPubsubHub#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#update WebPubsubHub#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#create WebPubsubHub#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#delete WebPubsubHub#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#read WebPubsubHub#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#update WebPubsubHub#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf4125e38895f36f1867d536cf288d287efc132c749e2280319c978b65a9b0d6)
@@ -1290,25 +1290,25 @@ class WebPubsubHubTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#create WebPubsubHub#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#create WebPubsubHub#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#delete WebPubsubHub#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#delete WebPubsubHub#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#read WebPubsubHub#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#read WebPubsubHub#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/web_pubsub_hub#update WebPubsubHub#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/web_pubsub_hub#update WebPubsubHub#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -14,7 +14,7 @@
 
 from __future__ import absolute_import
 
-__version__ = "2.313.0"
+__version__ = "2.315.0"
 
 # import apis into sdk package
 from data_repo_client.api.data_repository_service_api import DataRepositoryServiceApi

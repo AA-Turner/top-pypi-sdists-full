@@ -1,6 +1,7 @@
 from typing import Union
 
 import click
+
 from gable import GableClient
 from gable.api.client import GableAPIClient
 

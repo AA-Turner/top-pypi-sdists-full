@@ -557,6 +557,7 @@ class ConfigManager:
             'leak_detection': None,
             'human_activity_recognition': None,
             'gas_leak_detection': None,
+            'license_plate_monitor' : None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -983,6 +984,14 @@ class ConfigManager:
         try:
             from ..usecases.human_activity_recognition import HumanActivityConfig
             return HumanActivityConfig
+        except ImportError:
+            return None
+
+    def license_plate_monitor_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.license_plate_monitoring import LicensePlateMonitorConfig
+            return LicensePlateMonitorConfig
         except ImportError:
             return None
     
@@ -2044,6 +2053,22 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+
+        elif usecase == "license_plate_monitor":
+            # Import here to avoid circular import
+            from ..usecases.license_plate_monitoring import LicensePlateMonitorConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = LicensePlateMonitorConfig(
+                category=category or "license_plate_monitor",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
         
         #Add IMAGE based usecases here::
         elif usecase == "blood_cancer_detection_img":
@@ -2514,6 +2539,12 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.gas_leak_detection import GasLeakDetectionConfig
             default_config = GasLeakDetectionConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "license_plate_monitor":
+            # Import here to avoid circular import
+            from ..usecases.license_plate_monitoring import LicensePlateMonitorConfig
+            default_config = LicensePlateMonitorConfig()
             return default_config.to_dict()
 
         #Add all image based usecases here

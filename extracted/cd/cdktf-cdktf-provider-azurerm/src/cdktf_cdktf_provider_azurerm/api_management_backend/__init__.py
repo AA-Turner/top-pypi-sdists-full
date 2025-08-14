@@ -1,7 +1,7 @@
 r'''
 # `azurerm_api_management_backend`
 
-Refer to the Terraform Registry for docs: [`azurerm_api_management_backend`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend).
+Refer to the Terraform Registry for docs: [`azurerm_api_management_backend`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApiManagementBackend(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.apiManagementBackend.ApiManagementBackend",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend azurerm_api_management_backend}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend azurerm_api_management_backend}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class ApiManagementBackend(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend azurerm_api_management_backend} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend azurerm_api_management_backend} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#api_management_name ApiManagementBackend#api_management_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#name ApiManagementBackend#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#protocol ApiManagementBackend#protocol}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#resource_group_name ApiManagementBackend#resource_group_name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#url ApiManagementBackend#url}.
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#credentials ApiManagementBackend#credentials}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#description ApiManagementBackend#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#id ApiManagementBackend#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param proxy: proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#proxy ApiManagementBackend#proxy}
-        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#resource_id ApiManagementBackend#resource_id}.
-        :param service_fabric_cluster: service_fabric_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#service_fabric_cluster ApiManagementBackend#service_fabric_cluster}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#timeouts ApiManagementBackend#timeouts}
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#title ApiManagementBackend#title}.
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#tls ApiManagementBackend#tls}
+        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#api_management_name ApiManagementBackend#api_management_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#name ApiManagementBackend#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#protocol ApiManagementBackend#protocol}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#resource_group_name ApiManagementBackend#resource_group_name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#url ApiManagementBackend#url}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#credentials ApiManagementBackend#credentials}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#description ApiManagementBackend#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#id ApiManagementBackend#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param proxy: proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#proxy ApiManagementBackend#proxy}
+        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#resource_id ApiManagementBackend#resource_id}.
+        :param service_fabric_cluster: service_fabric_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#service_fabric_cluster ApiManagementBackend#service_fabric_cluster}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#timeouts ApiManagementBackend#timeouts}
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#title ApiManagementBackend#title}.
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#tls ApiManagementBackend#tls}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class ApiManagementBackend(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApiManagementBackend to import.
-        :param import_from_id: The id of the existing ApiManagementBackend that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApiManagementBackend that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApiManagementBackend to import is found.
         '''
         if __debug__:
@@ -163,10 +163,10 @@ class ApiManagementBackend(
         query: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#authorization ApiManagementBackend#authorization}
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#certificate ApiManagementBackend#certificate}.
-        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#header ApiManagementBackend#header}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#query ApiManagementBackend#query}.
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#authorization ApiManagementBackend#authorization}
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#certificate ApiManagementBackend#certificate}.
+        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#header ApiManagementBackend#header}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#query ApiManagementBackend#query}.
         '''
         value = ApiManagementBackendCredentials(
             authorization=authorization,
@@ -186,9 +186,9 @@ class ApiManagementBackend(
         password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#url ApiManagementBackend#url}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#username ApiManagementBackend#username}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#password ApiManagementBackend#password}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#url ApiManagementBackend#url}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#username ApiManagementBackend#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#password ApiManagementBackend#password}.
         '''
         value = ApiManagementBackendProxy(
             url=url, username=username, password=password
@@ -208,12 +208,12 @@ class ApiManagementBackend(
         server_x509_name: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApiManagementBackendServiceFabricClusterServerX509Name", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param management_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#management_endpoints ApiManagementBackend#management_endpoints}.
-        :param max_partition_resolution_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#max_partition_resolution_retries ApiManagementBackend#max_partition_resolution_retries}.
-        :param client_certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#client_certificate_id ApiManagementBackend#client_certificate_id}.
-        :param client_certificate_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#client_certificate_thumbprint ApiManagementBackend#client_certificate_thumbprint}.
-        :param server_certificate_thumbprints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#server_certificate_thumbprints ApiManagementBackend#server_certificate_thumbprints}.
-        :param server_x509_name: server_x509_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#server_x509_name ApiManagementBackend#server_x509_name}
+        :param management_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#management_endpoints ApiManagementBackend#management_endpoints}.
+        :param max_partition_resolution_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#max_partition_resolution_retries ApiManagementBackend#max_partition_resolution_retries}.
+        :param client_certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#client_certificate_id ApiManagementBackend#client_certificate_id}.
+        :param client_certificate_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#client_certificate_thumbprint ApiManagementBackend#client_certificate_thumbprint}.
+        :param server_certificate_thumbprints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#server_certificate_thumbprints ApiManagementBackend#server_certificate_thumbprints}.
+        :param server_x509_name: server_x509_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#server_x509_name ApiManagementBackend#server_x509_name}
         '''
         value = ApiManagementBackendServiceFabricCluster(
             management_endpoints=management_endpoints,
@@ -236,10 +236,10 @@ class ApiManagementBackend(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#create ApiManagementBackend#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#delete ApiManagementBackend#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#read ApiManagementBackend#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#update ApiManagementBackend#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#create ApiManagementBackend#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#delete ApiManagementBackend#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#read ApiManagementBackend#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#update ApiManagementBackend#update}.
         '''
         value = ApiManagementBackendTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -255,8 +255,8 @@ class ApiManagementBackend(
         validate_certificate_name: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param validate_certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#validate_certificate_chain ApiManagementBackend#validate_certificate_chain}.
-        :param validate_certificate_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#validate_certificate_name ApiManagementBackend#validate_certificate_name}.
+        :param validate_certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#validate_certificate_chain ApiManagementBackend#validate_certificate_chain}.
+        :param validate_certificate_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#validate_certificate_name ApiManagementBackend#validate_certificate_name}.
         '''
         value = ApiManagementBackendTls(
             validate_certificate_chain=validate_certificate_chain,
@@ -585,20 +585,20 @@ class ApiManagementBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#api_management_name ApiManagementBackend#api_management_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#name ApiManagementBackend#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#protocol ApiManagementBackend#protocol}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#resource_group_name ApiManagementBackend#resource_group_name}.
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#url ApiManagementBackend#url}.
-        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#credentials ApiManagementBackend#credentials}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#description ApiManagementBackend#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#id ApiManagementBackend#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param proxy: proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#proxy ApiManagementBackend#proxy}
-        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#resource_id ApiManagementBackend#resource_id}.
-        :param service_fabric_cluster: service_fabric_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#service_fabric_cluster ApiManagementBackend#service_fabric_cluster}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#timeouts ApiManagementBackend#timeouts}
-        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#title ApiManagementBackend#title}.
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#tls ApiManagementBackend#tls}
+        :param api_management_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#api_management_name ApiManagementBackend#api_management_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#name ApiManagementBackend#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#protocol ApiManagementBackend#protocol}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#resource_group_name ApiManagementBackend#resource_group_name}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#url ApiManagementBackend#url}.
+        :param credentials: credentials block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#credentials ApiManagementBackend#credentials}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#description ApiManagementBackend#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#id ApiManagementBackend#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param proxy: proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#proxy ApiManagementBackend#proxy}
+        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#resource_id ApiManagementBackend#resource_id}.
+        :param service_fabric_cluster: service_fabric_cluster block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#service_fabric_cluster ApiManagementBackend#service_fabric_cluster}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#timeouts ApiManagementBackend#timeouts}
+        :param title: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#title ApiManagementBackend#title}.
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#tls ApiManagementBackend#tls}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -741,35 +741,35 @@ class ApiManagementBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def api_management_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#api_management_name ApiManagementBackend#api_management_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#api_management_name ApiManagementBackend#api_management_name}.'''
         result = self._values.get("api_management_name")
         assert result is not None, "Required property 'api_management_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#name ApiManagementBackend#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#name ApiManagementBackend#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#protocol ApiManagementBackend#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#protocol ApiManagementBackend#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#resource_group_name ApiManagementBackend#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#resource_group_name ApiManagementBackend#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#url ApiManagementBackend#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#url ApiManagementBackend#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
@@ -778,20 +778,20 @@ class ApiManagementBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def credentials(self) -> typing.Optional["ApiManagementBackendCredentials"]:
         '''credentials block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#credentials ApiManagementBackend#credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#credentials ApiManagementBackend#credentials}
         '''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional["ApiManagementBackendCredentials"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#description ApiManagementBackend#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#description ApiManagementBackend#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#id ApiManagementBackend#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#id ApiManagementBackend#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -803,14 +803,14 @@ class ApiManagementBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def proxy(self) -> typing.Optional["ApiManagementBackendProxy"]:
         '''proxy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#proxy ApiManagementBackend#proxy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#proxy ApiManagementBackend#proxy}
         '''
         result = self._values.get("proxy")
         return typing.cast(typing.Optional["ApiManagementBackendProxy"], result)
 
     @builtins.property
     def resource_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#resource_id ApiManagementBackend#resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#resource_id ApiManagementBackend#resource_id}.'''
         result = self._values.get("resource_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -820,7 +820,7 @@ class ApiManagementBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApiManagementBackendServiceFabricCluster"]:
         '''service_fabric_cluster block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#service_fabric_cluster ApiManagementBackend#service_fabric_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#service_fabric_cluster ApiManagementBackend#service_fabric_cluster}
         '''
         result = self._values.get("service_fabric_cluster")
         return typing.cast(typing.Optional["ApiManagementBackendServiceFabricCluster"], result)
@@ -829,14 +829,14 @@ class ApiManagementBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApiManagementBackendTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#timeouts ApiManagementBackend#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#timeouts ApiManagementBackend#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApiManagementBackendTimeouts"], result)
 
     @builtins.property
     def title(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#title ApiManagementBackend#title}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#title ApiManagementBackend#title}.'''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -844,7 +844,7 @@ class ApiManagementBackendConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tls(self) -> typing.Optional["ApiManagementBackendTls"]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#tls ApiManagementBackend#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#tls ApiManagementBackend#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional["ApiManagementBackendTls"], result)
@@ -881,10 +881,10 @@ class ApiManagementBackendCredentials:
         query: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#authorization ApiManagementBackend#authorization}
-        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#certificate ApiManagementBackend#certificate}.
-        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#header ApiManagementBackend#header}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#query ApiManagementBackend#query}.
+        :param authorization: authorization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#authorization ApiManagementBackend#authorization}
+        :param certificate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#certificate ApiManagementBackend#certificate}.
+        :param header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#header ApiManagementBackend#header}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#query ApiManagementBackend#query}.
         '''
         if isinstance(authorization, dict):
             authorization = ApiManagementBackendCredentialsAuthorization(**authorization)
@@ -910,26 +910,26 @@ class ApiManagementBackendCredentials:
     ) -> typing.Optional["ApiManagementBackendCredentialsAuthorization"]:
         '''authorization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#authorization ApiManagementBackend#authorization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#authorization ApiManagementBackend#authorization}
         '''
         result = self._values.get("authorization")
         return typing.cast(typing.Optional["ApiManagementBackendCredentialsAuthorization"], result)
 
     @builtins.property
     def certificate(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#certificate ApiManagementBackend#certificate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#certificate ApiManagementBackend#certificate}.'''
         result = self._values.get("certificate")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def header(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#header ApiManagementBackend#header}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#header ApiManagementBackend#header}.'''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def query(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#query ApiManagementBackend#query}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#query ApiManagementBackend#query}.'''
         result = self._values.get("query")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -958,8 +958,8 @@ class ApiManagementBackendCredentialsAuthorization:
         scheme: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#parameter ApiManagementBackend#parameter}.
-        :param scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#scheme ApiManagementBackend#scheme}.
+        :param parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#parameter ApiManagementBackend#parameter}.
+        :param scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#scheme ApiManagementBackend#scheme}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d75e7ff760ba7370dcb3ca2d73e772ab9d532ee4c6e28bd98c7ca3b33468ad01)
@@ -973,13 +973,13 @@ class ApiManagementBackendCredentialsAuthorization:
 
     @builtins.property
     def parameter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#parameter ApiManagementBackend#parameter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#parameter ApiManagementBackend#parameter}.'''
         result = self._values.get("parameter")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scheme(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#scheme ApiManagementBackend#scheme}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#scheme ApiManagementBackend#scheme}.'''
         result = self._values.get("scheme")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1103,8 +1103,8 @@ class ApiManagementBackendCredentialsOutputReference(
         scheme: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#parameter ApiManagementBackend#parameter}.
-        :param scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#scheme ApiManagementBackend#scheme}.
+        :param parameter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#parameter ApiManagementBackend#parameter}.
+        :param scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#scheme ApiManagementBackend#scheme}.
         '''
         value = ApiManagementBackendCredentialsAuthorization(
             parameter=parameter, scheme=scheme
@@ -1227,9 +1227,9 @@ class ApiManagementBackendProxy:
         password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#url ApiManagementBackend#url}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#username ApiManagementBackend#username}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#password ApiManagementBackend#password}.
+        :param url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#url ApiManagementBackend#url}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#username ApiManagementBackend#username}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#password ApiManagementBackend#password}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e8178c48da5ceba7b66d08549e73e6bf1c007ba456887ebb98660ff48dfc3b3)
@@ -1245,21 +1245,21 @@ class ApiManagementBackendProxy:
 
     @builtins.property
     def url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#url ApiManagementBackend#url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#url ApiManagementBackend#url}.'''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#username ApiManagementBackend#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#username ApiManagementBackend#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#password ApiManagementBackend#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#password ApiManagementBackend#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1387,12 +1387,12 @@ class ApiManagementBackendServiceFabricCluster:
         server_x509_name: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApiManagementBackendServiceFabricClusterServerX509Name", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param management_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#management_endpoints ApiManagementBackend#management_endpoints}.
-        :param max_partition_resolution_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#max_partition_resolution_retries ApiManagementBackend#max_partition_resolution_retries}.
-        :param client_certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#client_certificate_id ApiManagementBackend#client_certificate_id}.
-        :param client_certificate_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#client_certificate_thumbprint ApiManagementBackend#client_certificate_thumbprint}.
-        :param server_certificate_thumbprints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#server_certificate_thumbprints ApiManagementBackend#server_certificate_thumbprints}.
-        :param server_x509_name: server_x509_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#server_x509_name ApiManagementBackend#server_x509_name}
+        :param management_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#management_endpoints ApiManagementBackend#management_endpoints}.
+        :param max_partition_resolution_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#max_partition_resolution_retries ApiManagementBackend#max_partition_resolution_retries}.
+        :param client_certificate_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#client_certificate_id ApiManagementBackend#client_certificate_id}.
+        :param client_certificate_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#client_certificate_thumbprint ApiManagementBackend#client_certificate_thumbprint}.
+        :param server_certificate_thumbprints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#server_certificate_thumbprints ApiManagementBackend#server_certificate_thumbprints}.
+        :param server_x509_name: server_x509_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#server_x509_name ApiManagementBackend#server_x509_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94cdfc08c8e2d10a9a03e51bb13e0ac5771fc419cf2f05994727512f84692502)
@@ -1417,27 +1417,27 @@ class ApiManagementBackendServiceFabricCluster:
 
     @builtins.property
     def management_endpoints(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#management_endpoints ApiManagementBackend#management_endpoints}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#management_endpoints ApiManagementBackend#management_endpoints}.'''
         result = self._values.get("management_endpoints")
         assert result is not None, "Required property 'management_endpoints' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def max_partition_resolution_retries(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#max_partition_resolution_retries ApiManagementBackend#max_partition_resolution_retries}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#max_partition_resolution_retries ApiManagementBackend#max_partition_resolution_retries}.'''
         result = self._values.get("max_partition_resolution_retries")
         assert result is not None, "Required property 'max_partition_resolution_retries' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def client_certificate_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#client_certificate_id ApiManagementBackend#client_certificate_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#client_certificate_id ApiManagementBackend#client_certificate_id}.'''
         result = self._values.get("client_certificate_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def client_certificate_thumbprint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#client_certificate_thumbprint ApiManagementBackend#client_certificate_thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#client_certificate_thumbprint ApiManagementBackend#client_certificate_thumbprint}.'''
         result = self._values.get("client_certificate_thumbprint")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1445,7 +1445,7 @@ class ApiManagementBackendServiceFabricCluster:
     def server_certificate_thumbprints(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#server_certificate_thumbprints ApiManagementBackend#server_certificate_thumbprints}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#server_certificate_thumbprints ApiManagementBackend#server_certificate_thumbprints}.'''
         result = self._values.get("server_certificate_thumbprints")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1455,7 +1455,7 @@ class ApiManagementBackendServiceFabricCluster:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementBackendServiceFabricClusterServerX509Name"]]]:
         '''server_x509_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#server_x509_name ApiManagementBackend#server_x509_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#server_x509_name ApiManagementBackend#server_x509_name}
         '''
         result = self._values.get("server_x509_name")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApiManagementBackendServiceFabricClusterServerX509Name"]]], result)
@@ -1656,8 +1656,8 @@ class ApiManagementBackendServiceFabricClusterServerX509Name:
         name: builtins.str,
     ) -> None:
         '''
-        :param issuer_certificate_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#issuer_certificate_thumbprint ApiManagementBackend#issuer_certificate_thumbprint}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#name ApiManagementBackend#name}.
+        :param issuer_certificate_thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#issuer_certificate_thumbprint ApiManagementBackend#issuer_certificate_thumbprint}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#name ApiManagementBackend#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f48d9f8b8b3bdfafc9508a13b56033fe128c21b124c00a66ac107f1d3e48fbad)
@@ -1670,14 +1670,14 @@ class ApiManagementBackendServiceFabricClusterServerX509Name:
 
     @builtins.property
     def issuer_certificate_thumbprint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#issuer_certificate_thumbprint ApiManagementBackend#issuer_certificate_thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#issuer_certificate_thumbprint ApiManagementBackend#issuer_certificate_thumbprint}.'''
         result = self._values.get("issuer_certificate_thumbprint")
         assert result is not None, "Required property 'issuer_certificate_thumbprint' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#name ApiManagementBackend#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#name ApiManagementBackend#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1885,10 +1885,10 @@ class ApiManagementBackendTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#create ApiManagementBackend#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#delete ApiManagementBackend#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#read ApiManagementBackend#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#update ApiManagementBackend#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#create ApiManagementBackend#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#delete ApiManagementBackend#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#read ApiManagementBackend#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#update ApiManagementBackend#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b4b48bd817d4c0004f6151138206f24563b96cd6183a7a8254380fdb921b81a)
@@ -1908,25 +1908,25 @@ class ApiManagementBackendTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#create ApiManagementBackend#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#create ApiManagementBackend#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#delete ApiManagementBackend#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#delete ApiManagementBackend#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#read ApiManagementBackend#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#read ApiManagementBackend#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#update ApiManagementBackend#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#update ApiManagementBackend#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2080,8 +2080,8 @@ class ApiManagementBackendTls:
         validate_certificate_name: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param validate_certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#validate_certificate_chain ApiManagementBackend#validate_certificate_chain}.
-        :param validate_certificate_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#validate_certificate_name ApiManagementBackend#validate_certificate_name}.
+        :param validate_certificate_chain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#validate_certificate_chain ApiManagementBackend#validate_certificate_chain}.
+        :param validate_certificate_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#validate_certificate_name ApiManagementBackend#validate_certificate_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__836c0f1250db6a943d929c0e2266ec5953d68a5a627b73d7eff3cab47b403e3e)
@@ -2097,7 +2097,7 @@ class ApiManagementBackendTls:
     def validate_certificate_chain(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#validate_certificate_chain ApiManagementBackend#validate_certificate_chain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#validate_certificate_chain ApiManagementBackend#validate_certificate_chain}.'''
         result = self._values.get("validate_certificate_chain")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2105,7 +2105,7 @@ class ApiManagementBackendTls:
     def validate_certificate_name(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/api_management_backend#validate_certificate_name ApiManagementBackend#validate_certificate_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/api_management_backend#validate_certificate_name ApiManagementBackend#validate_certificate_name}.'''
         result = self._values.get("validate_certificate_name")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

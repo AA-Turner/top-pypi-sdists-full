@@ -5,7 +5,7 @@ from warnings import warn
 
 import torch
 from torch import nn
-from torch.optim import SGD, Adam, AdamW, Optimizer
+from torch.optim import LBFGS, SGD, Adam, AdamW, NAdam, Optimizer, RMSprop
 
 from pytorch_optimizer.base.type import OPTIMIZER, PARAMETERS
 from pytorch_optimizer.optimizer.a2grad import A2Grad
@@ -43,7 +43,7 @@ from pytorch_optimizer.optimizer.came import CAME
 from pytorch_optimizer.optimizer.dadapt import DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptLion, DAdaptSGD
 from pytorch_optimizer.optimizer.demo import DeMo
 from pytorch_optimizer.optimizer.diffgrad import DiffGrad
-from pytorch_optimizer.optimizer.emonavi import EmoFact, EmoLynx, EmoNavi
+from pytorch_optimizer.optimizer.emonavi import EmoFact, EmoLynx, EmoNavi, EmoNeco, EmoZeal
 from pytorch_optimizer.optimizer.exadam import EXAdam
 from pytorch_optimizer.optimizer.experimental.ranger25 import Ranger25
 from pytorch_optimizer.optimizer.fadam import FAdam
@@ -67,7 +67,7 @@ from pytorch_optimizer.optimizer.lookahead import Lookahead
 from pytorch_optimizer.optimizer.madgrad import MADGRAD
 from pytorch_optimizer.optimizer.mars import MARS
 from pytorch_optimizer.optimizer.msvag import MSVAG
-from pytorch_optimizer.optimizer.muon import AdaMuon, Muon
+from pytorch_optimizer.optimizer.muon import AdaMuon, DistributedMuon, Muon, prepare_muon_parameters
 from pytorch_optimizer.optimizer.nero import Nero
 from pytorch_optimizer.optimizer.novograd import NovoGrad
 from pytorch_optimizer.optimizer.orthograd import OrthoGrad
@@ -111,8 +111,129 @@ HAS_BNB: bool = find_spec('bitsandbytes') is not None
 HAS_Q_GALORE: bool = find_spec('q-galore-torch') is not None
 HAS_TORCHAO: bool = find_spec('torchao') is not None
 
+OPTIMIZER_LIST: List[OPTIMIZER] = [
+    LBFGS,
+    SGD,
+    Adam,
+    AdamW,
+    NAdam,
+    RMSprop,
+    A2Grad,
+    ADOPT,
+    APOLLO,
+    ASGD,
+    AccSGD,
+    AdEMAMix,
+    AdaBelief,
+    AdaBound,
+    AdaDelta,
+    AdaFactor,
+    AdaGC,
+    AdaHessian,
+    AdaLOMO,
+    AdaMax,
+    AdaMod,
+    AdaMuon,
+    AdaNorm,
+    AdaPNM,
+    AdaShift,
+    AdaSmooth,
+    AdaTAM,
+    Adai,
+    Adalite,
+    AdamC,
+    AdamG,
+    AdamMini,
+    AdamP,
+    AdamS,
+    AdamWSN,
+    Adan,
+    AggMo,
+    Aida,
+    AliG,
+    Alice,
+    Amos,
+    ApolloDQN,
+    AvaGrad,
+    BSAM,
+    CAME,
+    DAdaptAdaGrad,
+    DAdaptAdam,
+    DAdaptAdan,
+    DAdaptLion,
+    DAdaptSGD,
+    DeMo,
+    DiffGrad,
+    DistributedMuon,
+    EXAdam,
+    EmoFact,
+    EmoLynx,
+    EmoNavi,
+    EmoNeco,
+    EmoZeal,
+    FAdam,
+    FOCUS,
+    FTRL,
+    Fira,
+    Fromage,
+    GaLore,
+    Grams,
+    Gravity,
+    GrokFastAdamW,
+    Kate,
+    Kron,
+    LARS,
+    LOMO,
+    LaProp,
+    Lamb,
+    Lion,
+    MADGRAD,
+    MARS,
+    MSVAG,
+    Muon,
+    Nero,
+    NovoGrad,
+    PAdam,
+    PID,
+    PNM,
+    Prodigy,
+    QHAdam,
+    QHM,
+    RACS,
+    RAdam,
+    Ranger,
+    Ranger21,
+    Ranger25,
+    SCION,
+    SCIONLight,
+    SGDP,
+    SGDSaI,
+    SGDW,
+    SM3,
+    SOAP,
+    SPAM,
+    SPlus,
+    SRMM,
+    SWATS,
+    ScalableShampoo,
+    ScheduleFreeAdamW,
+    ScheduleFreeRAdam,
+    ScheduleFreeSGD,
+    Shampoo,
+    SignSGD,
+    SimplifiedAdEMAMix,
+    SophiaH,
+    StableAdamW,
+    StableSPAM,
+    TAM,
+    Tiger,
+    VSGD,
+    Yogi,
+]
+OPTIMIZERS: Dict[str, OPTIMIZER] = {str(optimizer.__name__).lower(): optimizer for optimizer in OPTIMIZER_LIST}
 
-def load_bnb_optimizer(optimizer: str) -> OPTIMIZER:  # pragma: no cover  # noqa: PLR0911
+
+def load_bnb_optimizer(optimizer: str) -> OPTIMIZER:  # pragma: no cover  # noqa: PLR0911, PLR0912
     r"""Load bnb optimizer instance."""
     from bitsandbytes import optim  # noqa: PLC0415
 
@@ -217,122 +338,6 @@ def load_optimizer(optimizer: str) -> OPTIMIZER:
     return OPTIMIZERS[optimizer]
 
 
-OPTIMIZER_LIST: List[OPTIMIZER] = [
-    AdamW,
-    Adam,
-    SGD,
-    AdaBelief,
-    AdaBound,
-    AdamWSN,
-    AdamC,
-    PID,
-    AdamP,
-    Adai,
-    Adan,
-    AdaMod,
-    AdaPNM,
-    DiffGrad,
-    Lamb,
-    LARS,
-    QHAdam,
-    QHM,
-    MADGRAD,
-    Nero,
-    PNM,
-    MSVAG,
-    RAdam,
-    Ranger,
-    Ranger21,
-    SGDP,
-    Shampoo,
-    ScalableShampoo,
-    DAdaptAdaGrad,
-    Fromage,
-    AggMo,
-    DAdaptAdam,
-    DAdaptSGD,
-    DAdaptAdan,
-    AdamS,
-    AdaFactor,
-    ApolloDQN,
-    APOLLO,
-    SWATS,
-    NovoGrad,
-    Lion,
-    AliG,
-    SM3,
-    AdaNorm,
-    A2Grad,
-    AccSGD,
-    SGDW,
-    Yogi,
-    ASGD,
-    AdaMax,
-    Gravity,
-    AdaSmooth,
-    SRMM,
-    AvaGrad,
-    AdaShift,
-    TAM,
-    AdaTAM,
-    AdaDelta,
-    Amos,
-    AdaHessian,
-    SophiaH,
-    SignSGD,
-    Prodigy,
-    PAdam,
-    LOMO,
-    Tiger,
-    CAME,
-    DAdaptLion,
-    Aida,
-    GaLore,
-    Adalite,
-    BSAM,
-    ScheduleFreeSGD,
-    ScheduleFreeAdamW,
-    FAdam,
-    GrokFastAdamW,
-    Kate,
-    StableAdamW,
-    AdamMini,
-    AdaLOMO,
-    AdamG,
-    AdEMAMix,
-    SimplifiedAdEMAMix,
-    SOAP,
-    ADOPT,
-    FTRL,
-    DeMo,
-    Muon,
-    ScheduleFreeRAdam,
-    LaProp,
-    MARS,
-    SGDSaI,
-    FOCUS,
-    Grams,
-    SPAM,
-    Kron,
-    EXAdam,
-    SCION,
-    SCIONLight,
-    StableSPAM,
-    AdaGC,
-    Ranger25,
-    Fira,
-    RACS,
-    Alice,
-    VSGD,
-    AdaMuon,
-    SPlus,
-    EmoFact,
-    EmoLynx,
-    EmoNavi,
-]
-OPTIMIZERS: Dict[str, OPTIMIZER] = {str(optimizer.__name__).lower(): optimizer for optimizer in OPTIMIZER_LIST}
-
-
 def create_optimizer(
     model: nn.Module,
     optimizer_name: str,
@@ -363,8 +368,12 @@ def create_optimizer(
 
     if optimizer_name == 'alig':
         optimizer = optimizer_class(parameters, max_lr=lr, **kwargs)
-    elif optimizer_name in {'lomo', 'adalomo', 'adammini'}:
+    elif optimizer_name in ('lomo', 'adalomo', 'adammini'):
         optimizer = optimizer_class(model, lr=lr, **kwargs)
+    elif optimizer_name in ('muon', 'adamuon'):
+        warn(f'highly recommend you to manually create the {optimizer_name} manually.', UserWarning, 1)
+
+        optimizer = prepare_muon_parameters(model, optimizer_name, lr=lr, weight_decay=weight_decay, **kwargs)
     else:
         optimizer = optimizer_class(parameters, lr=lr, **kwargs)
 

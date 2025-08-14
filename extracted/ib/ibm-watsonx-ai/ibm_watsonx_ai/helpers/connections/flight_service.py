@@ -2,49 +2,51 @@
 #  (C) Copyright IBM Corp. 2023-2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
-import os
-import logging
 import json
-import sys
-import time
-import threading
+import logging
+import os
 import queue
-from random import random
-
+import sys
+import threading
+import time
 from ast import literal_eval
 from contextlib import nullcontext
 from functools import partial
-from typing import List, Optional, Iterable, Generator
+from math import ceil
+from random import random
+from typing import Generator, Iterable, List, Optional
+from warnings import warn
 
 import pandas as pd
 
 from ibm_watsonx_ai import APIClient
-from ibm_watsonx_ai.utils.autoai.errors import InvalidSamplingType, CorruptedData
 from ibm_watsonx_ai.utils.autoai.enums import PredictionType, SamplingTypes
-from ibm_watsonx_ai.wml_client_error import (
-    DataStreamError,
-    WrongLocationProperty,
-    WrongFileLocation,
-    SpaceIDandProjectIDCannotBeNone,
-    EmptyDataSource,
-)
+from ibm_watsonx_ai.utils.autoai.errors import CorruptedData, InvalidSamplingType
 from ibm_watsonx_ai.utils.utils import (
+    _get_expiration_datetime_from_headers,
     is_lib_installed,
     prepare_interaction_props_for_cos,
-    _get_expiration_datetime_from_headers,
+)
+from ibm_watsonx_ai.wml_client_error import (
+    DataStreamError,
+    EmptyDataSource,
+    SpaceIDandProjectIDCannotBeNone,
+    WrongFileLocation,
+    WrongLocationProperty,
 )
 
-
-is_lib_installed(lib_name="pyarrow", install=True)
-import pyarrow as pa
-from pyarrow import flight
-from warnings import warn
-from math import ceil
+try:
+    import pyarrow as pa
+    from pyarrow import flight
+except ImportError:
+    is_lib_installed(lib_name="pyarrow", install=True)
+    import pyarrow as pa
+    from pyarrow import flight
 
 from .utils.flight_utils import (
-    SimplyCallback,
     CallbackSchema,
     HeaderMiddlewareFactory,
+    SimplyCallback,
     _flight_retry,
 )
 
@@ -72,56 +74,53 @@ class BaseFlightConnection:
 
     def _set_default_flight_location(self) -> None:
         """Try to set default flight location and port from WS."""
+        from urllib.parse import urlparse
+
         if (
-            not os.environ.get("FLIGHT_SERVICE_LOCATION")
+            not os.getenv("FLIGHT_SERVICE_LOCATION")
             and self._api_client
             and self._api_client.CLOUD_PLATFORM_SPACES
         ):
             try:
                 flight_location = self._api_client.PLATFORM_URLS_MAP[
                     self._api_client.credentials.url
-                ].replace("https://", "")
+                ]
             except KeyError as e:
                 if (
                     self._api_client.credentials.url
                     in self._api_client.PLATFORM_URLS_MAP.values()
                 ):
-                    flight_location = self._api_client.credentials.url.replace(
-                        "https://", ""
-                    )
+                    flight_location = self._api_client.credentials.url
                 else:
                     raise e
-            flight_port = 443
+            flight_port = "443"
         else:
-            host = os.environ.get(
-                "ASSET_API_SERVICE_HOST", os.environ.get("CATALOG_API_SERVICE_HOST")
+            flight_location = (
+                os.getenv("FLIGHT_SERVICE_LOCATION")
+                or os.getenv("ASSET_API_SERVICE_HOST")
+                or os.getenv("CATALOG_API_SERVICE_HOST")
             )
+            flight_port = os.getenv("FLIGHT_SERVICE_PORT", "443")
 
-            if host is None or "api." not in host:
-                default_service_url = os.environ.get(
-                    "RUNTIME_FLIGHT_SERVICE_URL", "grpc+tls://wdp-connect-flight:443"
+            if flight_location is None or "api." not in flight_location:
+                default_service_parsed_url = urlparse(
+                    os.getenv(
+                        "RUNTIME_FLIGHT_SERVICE_URL",
+                        "grpc+tls://wdp-connect-flight:443",
+                    )
                 )
-                default_service_url = default_service_url.split("//")[-1]
-                flight_location = os.environ.get("FLIGHT_SERVICE_LOCATION")
-                flight_port = os.environ.get("FLIGHT_SERVICE_PORT")
 
                 if flight_location is None or flight_location == "":
-                    flight_location = default_service_url.split(":")[0]
-                elif flight_location.startswith("https://"):
-                    flight_location = flight_location.replace("https://", "")
+                    flight_location = default_service_parsed_url.hostname
 
                 if flight_port is None or flight_port == "":
-                    flight_port = default_service_url.split(":")[-1]
+                    flight_port = default_service_parsed_url.port
 
-            else:
-                flight_location = host
-                flight_port = "443"
-
-        self.flight_location = flight_location
+        self.flight_location = urlparse(flight_location).hostname or flight_location
         self.flight_port = flight_port
 
-        self._logger.debug(f"Flight location: {self.flight_location}")
-        self._logger.debug(f"Flight port: {self.flight_port}")
+        self._logger.debug("Flight location: %s", self.flight_location)
+        self._logger.debug("Flight port: %s", self.flight_port)
 
 
 class FlightConnection(BaseFlightConnection):
@@ -202,6 +201,9 @@ class FlightConnection(BaseFlightConnection):
 
     :param max_retry_time: maximal time for retrying in seconds (the whole retrying process should take less than max_retry_time)
     :type max_retry_time: int, optional
+
+    :param cast_strings: when True then all string columns are cast to float or bool if applicable
+    :type cast_strings: bool, optional
     """
 
     flight_client: flight.FlightClient
@@ -231,11 +233,11 @@ class FlightConnection(BaseFlightConnection):
         total_size_limit=1073741824,  # 1GB in Bytes
         total_nrows_limit=None,
         total_percentage_limit=1.0,
-        apply_literal_eval=False,
+        apply_literal_eval: bool = False,
         max_retry_time: int = 200,
+        cast_strings: bool = True,
         **kwargs,
     ) -> None:
-
         super().__init__(
             api_client=kwargs.get("_api_client") or kwargs.get("_wml_client"),
             _logger=logger,
@@ -250,6 +252,7 @@ class FlightConnection(BaseFlightConnection):
         self.number_of_batch_rows = number_of_batch_rows
         self.stop_after_first_batch = stop_after_first_batch
         self.apply_literal_eval = apply_literal_eval
+        self.cast_strings = cast_strings
 
         # backward compatibility:
         if kwargs.get("data_size_limit"):
@@ -329,14 +332,14 @@ class FlightConnection(BaseFlightConnection):
         self.lock_read = threading.Lock()
         self.stop_reading = False
         self.row_size = 0
-        self.threads_exceptions: List["str"] = []
+        self.threads_exceptions: List[str] = []
         self.q = queue.Queue()
         # a threading.Condition() to notify of q or
         # stop_reading changes
         self.read_status_change = threading.Condition()
 
-        self.subsampled_data: "pd.DataFrame" = pd.DataFrame()
-        self.data: "pd.DataFrame" = pd.DataFrame()
+        self.subsampled_data = pd.DataFrame()
+        self.data = pd.DataFrame()
         self.enable_subsampling = enable_subsampling
         self.return_subsampling_stats = return_subsampling_stats
         self.total_size = (
@@ -468,6 +471,22 @@ class FlightConnection(BaseFlightConnection):
             self.stop_reading = value
             self.read_status_change.notify_all()
 
+    def _handle_flight_internal_error_CDICO2034E(self, exc_message: str):
+        if "The property [infer_as_varchar] is not supported." in exc_message:
+            # Don't send `infer_as_varchar`` in flight command
+            self.infer_as_varchar = None
+        elif "The property [quote_character]" in exc_message:
+            # Don't send `quote_character`` in flight command if it is not yet supported
+            self.params["quote_character"] = None
+        else:
+            raise WrongLocationProperty(reason=exc_message)
+
+    def _handle_flight_internal_error_CDICO9999E(self, exc_message: str):
+        if "Connect timeout error" in exc_message:
+            return
+
+        raise WrongLocationProperty(reason=exc_message)
+
     def get_endpoints(self) -> Iterable[List["flight.FlightEndpoint"]]:
         """Listing all available Flight Service endpoints (one endpoint corresponds to one batch)"""
         max_retries = 3
@@ -480,79 +499,86 @@ class FlightConnection(BaseFlightConnection):
                     info = self.flight_client.get_flight_info(
                         flight.FlightDescriptor.for_command(source_command)
                     )
+                    self._logger.debug(
+                        "Successfully retrieved endpoints: %s", info.endpoints
+                    )
                     yield info.endpoints
                     return
 
                 except flight.FlightUnauthenticatedError as e:
                     last_exception = e
+                    self._logger.debug(
+                        "Caught FlightUnauthenticatedError in get_endpoints", exc_info=e
+                    )
+
                     if exp_time := _get_expiration_datetime_from_headers(self.headers):
-                        self._logger.debug(f"Token expiration time: {exp_time}")
+                        self._logger.debug("Token expiration time: %s", exp_time)
+
                     # suggest CPD users to check the Flight variables
-                    if hasattr(self._api_client, "ICP_PLATFORM_SPACES"):
-                        if self._api_client.ICP_PLATFORM_SPACES:
-                            raise ConnectionError(
-                                f"Cannot connect to the Flight service. Please make sure you set correct "
-                                f"FLIGHT_SERVICE_LOCATION and FLIGHT_SERVICE_PORT environmental variables.\n"
-                                f"If you are trying to connect to FIPS-enabled cluster, "
-                                f"please set the following as environment variable and try again:\n"
-                                f"GRPC_SSL_CIPHER_SUITES="
-                                f"ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384 "
-                                f"Error: {e}"
-                            )
-                    else:
+                    if getattr(self._api_client, "ICP_PLATFORM_SPACES", False):
                         raise ConnectionError(
-                            f"Cannot connect to the Flight service. Error: {e}"
+                            f"Cannot connect to the Flight service. Please make sure you set correct "
+                            f"FLIGHT_SERVICE_LOCATION and FLIGHT_SERVICE_PORT environmental variables.\n"
+                            f"If you are trying to connect to FIPS-enabled cluster, "
+                            f"please set the following as environment variable and try again:\n"
+                            f"GRPC_SSL_CIPHER_SUITES="
+                            f"ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384 "
+                            f"Error: {e}"
                         )
+
+                    raise ConnectionError(
+                        f"Cannot connect to the Flight service. Error: {e}"
+                    )
                 except flight.FlightInternalError as e:
                     last_exception = e
+                    exc_message = str(e)
                     self._logger.debug(
-                        f"Caught FlightInternalError in get_endpoints: {str(e)}"
+                        "Caught FlightInternalError in get_endpoints", exc_info=e
                     )
-                    if "CDICO2034E" in str(e):
-                        if "The property [infer_as_varchar] is not supported." in str(
-                            e
-                        ):
-                            # Don't send infer_as_varchar in flight command and try again.
-                            self.infer_as_varchar = None
-                        elif "The property [quote_character]" in str(e):
-                            # Don't send quote_character in flight command if it is not yet supported and try again.
-                            self.params["quote_character"] = None
-                        else:
-                            raise WrongLocationProperty(reason=str(e))
-                    elif "CDICO2015E" in str(e):
-                        raise WrongFileLocation(reason=str(e))
-                    elif "CDICO9999E" in str(e):
-                        raise WrongLocationProperty(reason=str(e))
+
+                    if "CDICO2034E" in exc_message:
+                        self._handle_flight_internal_error_CDICO2034E(exc_message)
+                    elif "CDICO2015E" in exc_message:
+                        raise WrongFileLocation(reason=exc_message)
+                    elif "CDICO9999E" in exc_message:
+                        self._handle_flight_internal_error_CDICO9999E(exc_message)
                     elif not any(
-                        code in str(e)
+                        code in exc_message
                         for code in ["CDICO2016E", "CDICO2026E", "CDICO2027E"]
                     ):
                         raise e
 
                 except pa.lib.ArrowInvalid as e:
                     last_exception = e
+                    exc_message = str(e)
+
                     self._logger.debug(
-                        f"Caught ArrowInvalid in get_endpoints: {str(e)}"
+                        "Caught ArrowInvalid in get_endpoints", exc_info=e
                     )
+
                     if not any(
-                        keyword in str(e)
+                        keyword in exc_message
                         for keyword in ["No asset found with the id", "Asset with ID"]
                     ):
                         raise e
 
                 except flight.FlightUnavailableError as e:
                     last_exception = e
-                    if "failed to connect to all addresses" in str(e):
+                    exc_message = str(e)
+
+                    if "failed to connect to all addresses" in exc_message:
                         self._logger.debug(
-                            f"Cannot connect to Flight Service. "
-                            f"Flight Service can be restarting, prolongation sleeping time to 180s"
+                            "Cannot connect to Flight Service. "
+                            "Flight Service can be restarting, prolongation sleeping time to 180s"
                         )
                         # wait up to 180 seconds - Flight Service can be restarting issue #30564
                         prolong = 180
-                    else:
+                    elif "Received http2 header with status" not in exc_message:
                         raise e
 
-                self._logger.debug(f"Retry {attempt + 1} of {max_retries} in progress.")
+                self._logger.debug(
+                    "Retry %s of %s in progress.", attempt + 1, max_retries
+                )
 
                 jitter = 1 + 0.25 * random()
                 sleep_seconds = min(
@@ -561,8 +587,35 @@ class FlightConnection(BaseFlightConnection):
                 time.sleep(sleep_seconds)
                 attempt += 1
 
-            self._logger.debug(f"Maximum retries reached: {attempt}/{max_retries}.")
+            self._logger.debug("Maximum retries reached: %s/%s", attempt, max_retries)
             raise last_exception
+
+    def _flight_do_get_with_retry(
+        self,
+        ticket: flight.Ticket,
+        options: flight.FlightCallOptions | None = None,
+        max_retries: int = 3,
+    ) -> flight.FlightStreamReader:
+        exceptions: list[flight.FlightError] = []
+
+        for attempt in range(max_retries):
+            try:
+                return self.flight_client.do_get(ticket, options)
+            except flight.FlightError as exc:
+                exceptions.append(exc)
+                self._logger.debug(
+                    "Flight do_get operation failed (attempt %s/%s)",
+                    attempt + 1,
+                    max_retries,
+                    exc_info=exc,
+                )
+
+            jitter = 1 + 0.25 * random()
+            time.sleep(min(2**attempt * jitter, self.max_retry_time))
+
+        raise Exception(
+            f"Flight do_get operation failed: {[str(e) for e in exceptions]}"
+        )
 
     def _get_data(self, thread_number: int, endpoint: "flight.FlightEndpoint") -> None:
         """Read data from Flight Service (only one batch).
@@ -577,7 +630,7 @@ class FlightConnection(BaseFlightConnection):
         :rtype: pandas.DataFrame
         """
         try:
-            reader = self.flight_client.do_get(endpoint.ticket)
+            reader = self._flight_do_get_with_retry(endpoint.ticket)
             mb_counter = 0
 
             while True:
@@ -593,11 +646,12 @@ class FlightConnection(BaseFlightConnection):
                         if self.enable_subsampling:
                             # put all data into further subsampling
                             self._logger.debug(
-                                f"GD {thread_number}: putting mini batch to the queue..."
+                                "GD %s: putting mini batch to the queue...",
+                                thread_number,
                             )
                             self._q_put_nowait((thread_number, data))
                             self._logger.debug(
-                                f"GD {thread_number}: mini batch already put."
+                                "GD %s: mini batch already put.", thread_number
                             )
 
                         else:
@@ -621,21 +675,21 @@ class FlightConnection(BaseFlightConnection):
                     else:
                         break
 
-            self._logger.debug(f"GD {thread_number}: Finishing thread work...")
+            self._logger.debug("GD %s: Finishing thread work...", thread_number)
             self._q_put_nowait((thread_number, 0))  # finish this thread
 
         except StopIteration:
             # Reading of batch finished, result commited."
-            self._logger.debug(f"GD {thread_number}: StopIteration occurred.")
+            self._logger.debug("GD %s: StopIteration occurred.", thread_number)
             self._q_put_nowait((thread_number, 0))
 
         except Exception as e:
-            self._logger.debug(f"GD {thread_number}: Some error occurred. Error: {e}")
+            self._logger.debug("GD %s: Some error occurred", thread_number, exc_info=e)
             self._q_put_nowait((thread_number, 0))
             self.threads_exceptions.append(str(e))
 
     @staticmethod
-    def _cast_columns_to_float64_and_bool(data: "pd.DataFrame") -> "pd.DataFrame":
+    def _cast_columns_to_float64_and_bool(data: pd.DataFrame) -> pd.DataFrame:
         def check_bool_value(value: str):
             if value.lower() == "true":
                 return True
@@ -644,7 +698,7 @@ class FlightConnection(BaseFlightConnection):
             else:
                 return value
 
-        """Flight Service will cast decfloat types to strings, we need to cast them to correct types."""
+        # Flight Service will cast decfloat types to strings, we need to cast them to correct types.
         for i, (col_name, col_type) in enumerate(zip(data.dtypes.index, data.dtypes)):
             if col_type == "object":
                 try:
@@ -657,24 +711,34 @@ class FlightConnection(BaseFlightConnection):
                         data[col_name] = data[col_name].apply(check_bool_value)
                     except ValueError:  # ignore when column cannot be cast to bool
                         logger.debug(
-                            f"Column '{col_name}' cannot be cast to bool as it has normal strings inside"
+                            "Column '%s' cannot be cast to bool as it has normal strings inside",
+                            col_name,
                         )
                     except Exception as e:
-                        logger.debug(f"Casting data column '{col_name}' error: {e}")
+                        logger.debug(
+                            "Error while casting data column '%s' to bool",
+                            col_name,
+                            exc_info=e,
+                        )
                 except Exception as e:
-                    logger.debug(f"Casting data column '{col_name}' error: {e}")
+                    logger.debug(
+                        "Error while casting data column '%s' to float64",
+                        col_name,
+                        exc_info=e,
+                    )
 
         return data
 
     def _process_data(self, data: pd.DataFrame) -> pd.DataFrame:
         """Process data columns and log data size"""
-        self._logger.debug(f"Process data: Casting string data to numerical columns")
-        data = self._cast_columns_to_float64_and_bool(data)
+        self._logger.debug("Process data: Casting string data to numerical columns")
+        if self.cast_strings:
+            data = self._cast_columns_to_float64_and_bool(data)
 
         if self.apply_literal_eval:
             data = self._apply_literal_eval(data)
 
-        self._logger.debug(f"BATCH SIZE: {sys.getsizeof(data)} Bytes")
+        self._logger.debug("BATCH SIZE: %s Bytes", sys.getsizeof(data))
         return data
 
     def _read_chunk(
@@ -682,13 +746,13 @@ class FlightConnection(BaseFlightConnection):
     ):
         """Provides unified reading method for flight chunks."""
         self._logger.debug(
-            f"RC {thread_number}: Waiting for next mini batch from Flight Service..."
+            "RC %s: Waiting for next mini batch from Flight Service...", thread_number
         )
         try:
             # Flight Service could split one batch into several chunks to have better performance
             mini_batch, metadata = reader.read_chunk()
             self._logger.debug(
-                f"RC {thread_number}: Mini batch received from Flight Service."
+                "RC %s: Mini batch received from Flight Service.", thread_number
             )
             data = pa.Table.from_batches(batches=[mini_batch]).to_pandas()
         except StopIteration as stop_iteration_error:
@@ -701,7 +765,11 @@ class FlightConnection(BaseFlightConnection):
 
         elif len(data) > 1:
             # Cast data to numerical types to reduce row size if possible. Needed especially when infer_schema is false
-            processed_data = self._cast_columns_to_float64_and_bool(data)
+            processed_data = (
+                self._cast_columns_to_float64_and_bool(data)
+                if self.cast_strings
+                else data
+            )
             if self.apply_literal_eval:
                 processed_data = self._apply_literal_eval(processed_data)
             row_size = sys.getsizeof(processed_data) // len(processed_data)
@@ -713,8 +781,11 @@ class FlightConnection(BaseFlightConnection):
 
         mini_batch_size = sys.getsizeof(data)
         self._logger.debug(
-            f"RC {thread_number}: downloading mini_batch: {mb_counter} / shape: {data.shape} "
-            f"/ size: {mini_batch_size}"
+            "RC %s: downloading mini_batch: %s / shape: %s / size: %s",
+            thread_number,
+            mb_counter,
+            data.shape,
+            mini_batch_size,
         )
 
         with self.lock_read:
@@ -723,13 +794,15 @@ class FlightConnection(BaseFlightConnection):
 
         if mb_counter % 10 == 0:
             self._logger.debug(
-                f"RC {thread_number}: Total downloaded data size: "
-                f"{self.downloaded_data_size / 1024 / 1024}MB, rows: {self.downloaded_data_nrows}"
+                "RC %s: Total downloaded data size: %sMB, rows: %s",
+                thread_number,
+                self.downloaded_data_size / 1024 / 1024,
+                self.downloaded_data_nrows,
             )
 
         return data, row_size
 
-    def _chunk_queue_check(self, data: "pd.DataFrame", thread_number: int):
+    def _chunk_queue_check(self, data: pd.DataFrame, thread_number: int):
         # note: check if queue is not too large, if it is, wait 3 sec and check again
         while True:
             q_valid_size = self.q.qsize() - len(self.empty_data_threads)
@@ -737,11 +810,14 @@ class FlightConnection(BaseFlightConnection):
                 data_rows = len(data) * q_valid_size
                 if data_rows > self.number_of_batch_rows and not self.stop_reading:
                     self._logger.debug(
-                        f"QC {thread_number}: Waiting 3 sec as data queue is too large."
+                        "QC %s: Waiting 3 sec as data queue is too large.",
+                        thread_number,
                     )
                     self._logger.debug(
-                        f"QC {thread_number}: Data queue size: {data_rows} rows, max rows per batch: "
-                        f"{self.number_of_batch_rows}"
+                        "QC %s: Data queue size: %s rows, max rows per batch: %s",
+                        thread_number,
+                        data_rows,
+                        self.number_of_batch_rows,
                     )
                     with self.read_status_change:
                         self.read_status_change.wait(timeout=3)
@@ -752,11 +828,14 @@ class FlightConnection(BaseFlightConnection):
                 data_size = sys.getsizeof(data) * q_valid_size
                 if data_size >= self.data_batch_size_limit and not self.stop_reading:
                     self._logger.debug(
-                        f"QC {thread_number}: Waiting 3 sec as data queue is too large."
+                        "QC %s: Waiting 3 sec as data queue is too large.",
+                        thread_number,
                     )
                     self._logger.debug(
-                        f"QC {thread_number}: Data queue size: {data_size / 1024 / 1024}MB, available memory: "
-                        f"{self.data_batch_size_limit / 1024 / 1024}MB"
+                        "QC %s: Data queue size: %sMB, available memory: %sMB",
+                        thread_number,
+                        data_size / 1024 / 1024,
+                        self.data_batch_size_limit / 1024 / 1024,
                     )
                     with self.read_status_change:
                         self.read_status_change.wait(timeout=3)
@@ -780,7 +859,7 @@ class FlightConnection(BaseFlightConnection):
         :rtype: pandas.DataFrame
         """
         try:
-            reader = self.flight_client.do_get(endpoint.ticket)
+            reader = self._flight_do_get_with_retry(endpoint.ticket)
             mb_counter = 0
 
             while True:
@@ -794,15 +873,15 @@ class FlightConnection(BaseFlightConnection):
                 ):  # append batches only when we have data
                     self._chunk_queue_check(data=data, thread_number=thread_number)
                     self._logger.debug(
-                        f"RT {thread_number}: putting mini batch to the queue..."
+                        "RT %s: putting mini batch to the queue...", thread_number
                     )
                     self._q_put_nowait((thread_number, data))
-                    self._logger.debug(f"RT {thread_number}: mini batch already put.")
+                    self._logger.debug("RT %s: mini batch already put.", thread_number)
 
                 else:
                     break
 
-            self._logger.debug(f"RT {thread_number}: Finishing thread work...")
+            self._logger.debug("RT %s: Finishing thread work...", thread_number)
             self._q_put_nowait((thread_number, 0))  # finish this thread
 
         except StopIteration:
@@ -810,7 +889,7 @@ class FlightConnection(BaseFlightConnection):
             self._q_put_nowait((thread_number, 0))
 
         except Exception as e:
-            self._logger.debug(f"RT {thread_number}: Some error occurred. Error: {e}")
+            self._logger.debug("RT %s: Some error occurred", thread_number, exc_info=e)
             self._q_put_nowait((thread_number, 0))
             self.threads_exceptions.append(str(e))
 
@@ -879,15 +958,15 @@ class FlightConnection(BaseFlightConnection):
                 )
                 threads.append(reading_thread)
                 self._logger.debug(
-                    f"IR: Starting batch reading thread: {i}, sequence: {n}..."
+                    "IR: Starting batch reading thread: %s, sequence: %s...", i, n
                 )
                 reading_thread.start()
 
         for n, batch in enumerate(
             self.create_logical_batch(timeout=60 * 60, _type="data")
         ):
-            self._logger.debug(f"IR: Logical batch number {n} received.")
-            self._logger.debug(f"IR: Passing batch to upper layer.")
+            self._logger.debug("IR: Logical batch number %s received.", n)
+            self._logger.debug("IR: Passing batch to upper layer.")
             self._check_for_breaking_exceptions()
             self.yielded_nrows += len(batch)
             if (n == 0 and self.stop_after_first_batch) or (
@@ -900,26 +979,29 @@ class FlightConnection(BaseFlightConnection):
                 break
 
             if self.return_subsampling_stats:
-                yield batch, {
-                    "data_batch_size": sys.getsizeof(batch),
-                    "data_batch_nrows": len(batch),
-                }
+                yield (
+                    batch,
+                    {
+                        "data_batch_size": sys.getsizeof(batch),
+                        "data_batch_nrows": len(batch),
+                    },
+                )
             else:
                 yield batch
 
-            self._logger.debug(f"IR: We have control back, creating next batch...")
+            self._logger.debug("IR: We have control back, creating next batch...")
             if (n == 0 and self.stop_after_first_batch) or (
                 self.total_nrows_limit
                 and self.total_nrows_limit - self.yielded_nrows <= 0
             ):
                 break
 
-    def read(self) -> "pd.DataFrame":
+    def read(self) -> Generator[pd.DataFrame, None, None]:
         """Fetch the data from Flight Service. Fetching is done in batches.
         There is an upper top limit of data size to be fetched configured to 1 GB.
 
         :return: fetched data
-        :rtype: pandas.DataFrame
+        :rtype: Generator[pandas.DataFrame, None, None]
         """
         self.callback.status_message("Starting reading training data...")
         sequences = []
@@ -951,7 +1033,9 @@ class FlightConnection(BaseFlightConnection):
                         )
                         threads.append(reading_thread)
                         self._logger.debug(
-                            f"R: Starting batch reading thread: {i}, sequence: {n}..."
+                            "R: Starting batch reading thread: %s, sequence: %s...",
+                            i,
+                            n,
                         )
 
                         reading_thread.start()
@@ -961,11 +1045,10 @@ class FlightConnection(BaseFlightConnection):
                 self._set_stop_reading(True)
                 raise e
             finally:
-
                 for n, sequence in enumerate(sequences):
                     for i, thread in enumerate(sequence):
                         self._logger.debug(
-                            f"R: Joining batch reading thread {i}, sequence: {n}..."
+                            "R: Joining batch reading thread %s, sequence: %s...", i, n
                         )
 
                         thread.join()
@@ -979,7 +1062,7 @@ class FlightConnection(BaseFlightConnection):
 
                     else:
                         normal_read_thread.join()
-                except:
+                except Exception:
                     pass
 
         try:
@@ -1015,8 +1098,8 @@ class FlightConnection(BaseFlightConnection):
                 f"Parallel data connection problem, "
                 f"fallback to 1 connection with {timeout} timeout."
             )
-            self._logger.debug(f"Data merging error: {e}")
-            self._logger.debug(f"Fallback to 1 connection. Timeout: {timeout}s")
+            self._logger.debug("Data merging error", exc_info=e)
+            self._logger.debug("Fallback to 1 connection. Timeout: %ss", timeout)
             time.sleep(timeout)
 
             self.max_flight_batch_number = 1
@@ -1027,7 +1110,7 @@ class FlightConnection(BaseFlightConnection):
             # Log every partition thread error (should be the flight service info included)
             if self.threads_exceptions:
                 self._logger.debug(
-                    f"Partitions Thread Errors: {self.threads_exceptions}"
+                    "Partitions Thread Errors: %s", self.threads_exceptions
                 )
 
             try:
@@ -1079,14 +1162,14 @@ class FlightConnection(BaseFlightConnection):
                 self._check_for_breaking_exceptions()
                 if self.threads_exceptions:
                     self._logger.debug(
-                        f"R: Partitions Thread Errors: {self.threads_exceptions}"
+                        "R: Partitions Thread Errors: %s", self.threads_exceptions
                     )
                     raise DataStreamError(reason=str(self.threads_exceptions))
                 time.sleep(1)
 
     def regression_random_sampling(self, label_column: str) -> None:
         """Start collecting sampled data (random sample for regression problem)"""
-        self._logger.debug(f"Starting regression random sampling.")
+        self._logger.debug("Starting regression random sampling.")
         max_rows = self._get_max_rows(_type="data")
         downloaded_data_size = 0
         data_batch_size = []
@@ -1100,7 +1183,7 @@ class FlightConnection(BaseFlightConnection):
             self.callback.status_message(
                 f"Downloaded data size: {downloaded_data_size // 1024 // 1024} MB"
             )
-            self._logger.debug(f"Logical batch size: {data_size}")
+            self._logger.debug("Logical batch size: %s", data_size)
 
             # join previous sampled batch with new one
             if self.subsampled_data is not None:
@@ -1114,12 +1197,12 @@ class FlightConnection(BaseFlightConnection):
 
             self.data_batch_size = data_batch_size[0]
             self._logger.debug(
-                f"Subsampled batch size: {sys.getsizeof(self.subsampled_data)}"
+                "Subsampled batch size: %s", sys.getsizeof(self.subsampled_data)
             )
 
     def stratified_subsampling(self, label_column: str) -> None:
         """Start collecting sampled data (stratified sample for classification problem)"""
-        self._logger.debug(f"Starting classification stratified sampling.")
+        self._logger.debug("Starting classification stratified sampling.")
         max_rows = self._get_max_rows(_type="data")
         downloaded_data_size = 0
         data_batch_size = []
@@ -1133,12 +1216,12 @@ class FlightConnection(BaseFlightConnection):
             self.callback.status_message(
                 f"Downloaded data size: {downloaded_data_size // 1024 // 1024} MB"
             )
-            self._logger.debug(f"Logical batch size: {data_size}")
+            self._logger.debug("Logical batch size: %s", data_size)
 
             stats = data[label_column].value_counts()
             indexes = stats[stats == 1].index.values
             for i in indexes:
-                self._logger.debug(f"Unique value in label column: {i}")
+                self._logger.debug("Unique value in label column: %s", i)
                 data = data[data[label_column] != i]
 
             # join previous sampled batch with new one
@@ -1154,13 +1237,13 @@ class FlightConnection(BaseFlightConnection):
                 ).apply(lambda x: x.sample(frac=max_rows / len(data)))
 
             self._logger.debug(
-                f"Subsampled batch size: {sys.getsizeof(self.subsampled_data)}"
+                "Subsampled batch size: %s", sys.getsizeof(self.subsampled_data)
             )
         self.data_batch_size = data_batch_size[0]
 
     def truncate_sampling(self, label_column: str) -> None:
         """Start collecting sampled data (truncate sample for forecasting problem)"""
-        self._logger.debug(f"Starting forecasting truncate sampling.")
+        self._logger.debug("Starting forecasting truncate sampling.")
         max_rows = self._get_max_rows(_type="data")
         downloaded_data_size = 0
         data_batch_size = []
@@ -1172,7 +1255,7 @@ class FlightConnection(BaseFlightConnection):
             self.callback.status_message(
                 f"Downloaded data size: {downloaded_data_size // 1024 // 1024} MB"
             )
-            self._logger.debug(f"Logical batch size: {data_size}")
+            self._logger.debug("Logical batch size: %s", data_size)
 
             # join previous sampled batch with new one
             if self.subsampled_data is not None:
@@ -1190,7 +1273,7 @@ class FlightConnection(BaseFlightConnection):
                 self.subsampled_data = data.tail(max_rows)
 
             self._logger.debug(
-                f"Subsampled batch size: {sys.getsizeof(self.subsampled_data)}"
+                "Subsampled batch size: %s", sys.getsizeof(self.subsampled_data)
             )
         self.data_batch_size = data_batch_size[0]
 
@@ -1204,7 +1287,7 @@ class FlightConnection(BaseFlightConnection):
 
     def create_logical_batch(
         self, timeout: int = 60 * 10, _type: str = "logical"
-    ) -> "pd.DataFrame":
+    ) -> Generator[pd.DataFrame, None, None]:
         """Create a logical batch for sampling, logical batch is larger ~2GB.
         If used with normal read, it will return all of the collected data, max 1GB based on a limitation.
         """
@@ -1229,13 +1312,15 @@ class FlightConnection(BaseFlightConnection):
 
                 self.q.task_done()
                 self._logger.debug(
-                    f"LB: Mini batch received and taken from the queue. Batch from thread: {thread_number}"
+                    "LB: Mini batch received and taken from the queue. Batch from thread: %s",
+                    thread_number,
                 )
 
                 # when the last thread finish reading (finish sequence (-1, -1))
                 if isinstance(data, int) and thread_number == -1 and data == -1:
                     self._logger.debug(
-                        f"LB: Received the final batch. Batch from thread: {thread_number}"
+                        "LB: Received the final batch. Batch from thread: %s",
+                        thread_number,
                     )
                     self._set_stop_reading(True)
                     if logical_batch:
@@ -1250,7 +1335,7 @@ class FlightConnection(BaseFlightConnection):
 
                 mini_batch_counter += 1
 
-                self._logger.debug(f"LB: Mini batch number: {mini_batch_counter}")
+                self._logger.debug("LB: Mini batch number: %s", mini_batch_counter)
 
             except queue.Empty:
                 if (
@@ -1435,7 +1520,7 @@ class FlightConnection(BaseFlightConnection):
             del command["interaction_properties"]["path"]
 
         if "connection_properties" not in command:
-            self._logger.debug(f"Command: {command}")
+            self._logger.debug("Command: %s", command)
 
         return [json.dumps(command)]
 
@@ -1458,7 +1543,7 @@ class FlightConnection(BaseFlightConnection):
             binary_data_array = []
             for endpoints in self.get_endpoints():
                 for endpoint in endpoints:
-                    reader = self.flight_client.do_get(endpoint.ticket)
+                    reader = self._flight_do_get_with_retry(endpoint.ticket)
                     try:
                         while True:
                             mini_batch, metadata = reader.read_chunk()
@@ -1502,7 +1587,7 @@ class FlightConnection(BaseFlightConnection):
                     )
                     self.flight_client.wait_for_available()
 
-    def write_data(self, data: "pd.DataFrame"):
+    def write_data(self, data: pd.DataFrame):
         """Write data from pandas DataFrame. The limit is 16MB dataframe as this is the upper batch size limit.
         Upper layer should fallback to use binary write.
         """
@@ -1519,7 +1604,7 @@ class FlightConnection(BaseFlightConnection):
 
         return writer, reader
 
-    def get_batch_writer(self, schema: "pa.Schema") -> "FlightStreamWriter":
+    def get_batch_writer(self, schema: "pa.Schema") -> "flight.FlightStreamWriter":
         """Prepare FlightStreamWriter and return it."""
         commands = self._select_source_command(infer_schema=False)
 
@@ -1532,7 +1617,7 @@ class FlightConnection(BaseFlightConnection):
         # Log every partition thread error (should be the flight service info included)
         if self.threads_exceptions:
             self._logger.debug(
-                f"IR/R: Partitions Thread Errors: {self.threads_exceptions}"
+                "IR/R: Partitions Thread Errors: %s", self.threads_exceptions
             )
 
             for msg in self.threads_exceptions:
@@ -1589,8 +1674,10 @@ class FlightConnection(BaseFlightConnection):
             if 1.0 > percentage > 0.0:
                 nrows = int(percentage * full_data_nrows)
                 self._logger.debug(
-                    f"Running sampling to prercentage of data: "
-                    f"{percentage} from {full_data_nrows} rows gives {nrows} of data rows"
+                    "Running sampling to percentage of data: %s from %s rows gives %s of data rows",
+                    percentage,
+                    full_data_nrows,
+                    nrows,
                 )
                 if len(data) < nrows:
                     return data  # no sampling needed
@@ -1691,9 +1778,7 @@ class FlightConnection(BaseFlightConnection):
             ):  # store response structure in case of no assets available
                 result = response_parsed
                 break
-            elif (
-                new_assets
-            ):  # store last response with available and actual fields (`asset_types`, `total_count`)
+            elif new_assets:  # store last response with available and actual fields (`asset_types`, `total_count`)
                 result = response_parsed
                 assets.extend(new_assets)
                 command["offset"] += results_per_batch

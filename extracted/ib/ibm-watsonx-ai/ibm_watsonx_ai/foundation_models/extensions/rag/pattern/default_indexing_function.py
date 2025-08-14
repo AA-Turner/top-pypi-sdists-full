@@ -6,10 +6,10 @@
 
 def default_indexing_function(docs=None, params=None):
     from ibm_watsonx_ai import APIClient, Credentials
+    from ibm_watsonx_ai.foundation_models.extensions.rag import VectorStore
     from ibm_watsonx_ai.foundation_models.extensions.rag.chunker.langchain_chunker import (
         LangChainChunker,
     )
-    from ibm_watsonx_ai.foundation_models.extensions.rag import VectorStore
 
     client = APIClient(
         Credentials.from_dict(params["credentials"]),

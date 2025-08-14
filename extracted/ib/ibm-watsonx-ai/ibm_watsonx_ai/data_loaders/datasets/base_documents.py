@@ -5,35 +5,30 @@
 from __future__ import annotations
 
 import logging
-
-from langchain_core.documents import Document
-
-from ibm_watsonx_ai.helpers import ContainerLocation
-
-logger = logging.getLogger(__name__)
-
 import os
 from copy import copy
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 import pandas as pd
-from typing import TYPE_CHECKING, Iterator, Any, Callable
+from langchain_core.documents import Document
 
-from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.data_loaders.text_loader import (
     _asynch_download,
     _prepare_iterator,
 )
+from ibm_watsonx_ai.helpers import ContainerLocation
+from ibm_watsonx_ai.helpers.connections import DataConnection
 from ibm_watsonx_ai.helpers.remote_document import RemoteDocument
+from ibm_watsonx_ai.utils import get_filename_from_asset_details
 from ibm_watsonx_ai.utils.autoai.enums import DocumentsSamplingTypes, SamplingTypes
 from ibm_watsonx_ai.utils.autoai.errors import (
-    InvalidSizeLimit,
+    CannotGetFilename,
     DirectoryHasNoFilename,
     FolderDownloadNotSupported,
+    InvalidSizeLimit,
     NoDocumentsLoaded,
 )
-
-if TYPE_CHECKING:
-    from ibm_watsonx_ai.helpers.connections import DataConnection
+from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 # Note: try to import torch lib if available, this fallback is done based on
 # torch dependency removal request
@@ -44,15 +39,19 @@ except ImportError:
     IterableDataset: type = object  # type: ignore[no-redef]
 # --- end note
 
+if TYPE_CHECKING:
+    from pandas import DataFrame
+
 DEFAULT_SAMPLE_SIZE_LIMIT = (
     1073741824  # 1GB in Bytes is verified later by _set_sample_size_limit
 )
 DEFAULT_SAMPLING_TYPE = SamplingTypes.FIRST_VALUES
 DEFAULT_DOCUMENTS_SAMPLING_TYPE = DocumentsSamplingTypes.RANDOM
 
+logger = logging.getLogger(__name__)
+
 
 class BaseDocumentsIterableDataset(IterableDataset):
-
     def __init__(
         self,
         *,
@@ -67,7 +66,7 @@ class BaseDocumentsIterableDataset(IterableDataset):
         error_callback: Callable[[str, Exception], None] | None = None,
         **kwargs: Any,
     ) -> None:
-        from ibm_watsonx_ai.helpers import S3Location, AssetLocation, NFSLocation
+        from ibm_watsonx_ai.helpers import AssetLocation, NFSLocation, S3Location
 
         IterableDataset.__init__(self)
         self.enable_sampling = enable_sampling
@@ -93,12 +92,11 @@ class BaseDocumentsIterableDataset(IterableDataset):
         data_asset_id_name_mapping = {}
 
         if any(isinstance(conn.location, AssetLocation) for conn in connections):
-
             for client in set_of_api_clients:
                 for res in client.data_assets.get_details(get_all=True)["resources"]:
-                    data_asset_id_name_mapping[res["metadata"]["asset_id"]] = res[
-                        "metadata"
-                    ]["resource_key"].split("/")[-1]
+                    if (filename := get_filename_from_asset_details(res)) is None:
+                        raise CannotGetFilename()
+                    data_asset_id_name_mapping[res["metadata"]["asset_id"]] = filename
 
         def get_document_id(conn):
             if isinstance(conn.location, AssetLocation):
@@ -227,10 +225,10 @@ class BaseDocumentsIterableDataset(IterableDataset):
 
         return [remote_documents[i] for i in sampling_order]
 
-    def _load_doc(self, doc: RemoteDocument) -> Document | Iterator["pandas.DataFrame"]:
+    def _load_doc(self, doc: RemoteDocument) -> Document | Iterator["DataFrame"]:
         raise NotImplementedError()
 
-    def _sequential_gen(self, sampled_docs) -> Iterator[Document | "pandas.DataFrame"]:
+    def _sequential_gen(self, sampled_docs) -> Iterator[Document | "DataFrame"]:
         for doc in sampled_docs:
             try:
                 loaded_doc = self._load_doc(doc)
@@ -242,7 +240,7 @@ class BaseDocumentsIterableDataset(IterableDataset):
                 else:
                     raise e
 
-    def _parallel_gen(self, sampled_docs) -> Iterator[Document | "pandas.DataFrame"]:
+    def _parallel_gen(self, sampled_docs) -> Iterator[Document | "DataFrame"]:
         import multiprocessing.dummy as mp
 
         thread_no = min(5, len(sampled_docs))
@@ -263,7 +261,7 @@ class BaseDocumentsIterableDataset(IterableDataset):
                 while True:
                     try:
                         result = qs_output[i].get(timeout=10 * 60)
-                        if result is "End":
+                        if isinstance(result, str) and result == "End":
                             break
                     except Empty as e:
                         result = e
@@ -325,7 +323,7 @@ class BaseDocumentsIterableDataset(IterableDataset):
         if self.total_ndocs_limit is not None:
             if len(sampled_docs) > self.total_ndocs_limit:
                 logger.info(
-                    f"Documents sampled with total_ndocs_limit param, "
+                    "Documents sampled with total_ndocs_limit param, "
                     + f"{len(sampled_docs[: self.total_ndocs_limit])} docs chosen "
                     + f"from {len(sampled_docs)} possible."
                 )

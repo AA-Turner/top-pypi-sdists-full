@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azdev
-Version: 0.2.4
+Version: 0.2.5
 Summary: Microsoft Azure CLI Developer Tools
 Home-page: https://github.com/Azure/azure-cli-dev-tools
 Author: Microsoft Corporation
@@ -13,12 +13,12 @@ Classifier: Topic :: Software Development :: Build Tools
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.6
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: azure-multiapi-storage
 Requires-Dist: docutils
@@ -160,6 +160,11 @@ License
 
 Release History
 ===============
+0.2.5
+++++++
+* Add support for Python 3.11, 3.12, and 3.13
+* Tested compatibility (externally via External GitHub Actions)
+
 0.2.4
 ++++++
 * pin setuptools to 70.0.0

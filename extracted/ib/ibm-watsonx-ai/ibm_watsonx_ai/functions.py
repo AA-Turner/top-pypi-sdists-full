@@ -3,8 +3,9 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
+
 import os
-from typing import TYPE_CHECKING, Callable, Any, cast, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 from warnings import warn
 
 import ibm_watsonx_ai._wrappers.requests as requests
@@ -13,16 +14,17 @@ from ibm_watsonx_ai.metanames import FunctionMetaNames
 from ibm_watsonx_ai.utils import FUNCTION_DETAILS_TYPE, is_of_python_basic_type
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    UnexpectedType,
     ApiRequestFailure,
+    UnexpectedType,
+    WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
+    import pandas
+
     from ibm_watsonx_ai import APIClient
     from ibm_watsonx_ai.lifecycle import SpecStates
-    import pandas
 
 
 class Functions(WMLResource):
@@ -101,7 +103,6 @@ class Functions(WMLResource):
         )
 
         try:
-
             function_metadata = self.ConfigurationMetaNames._generate_resource_metadata(
                 meta_props, with_validation=True, client=self._client
             )
@@ -222,7 +223,6 @@ class Functions(WMLResource):
         updated_function: str | Callable | None = None,
         **kwargs: Any,
     ) -> None:
-
         function_id = _get_id_from_deprecated_uid(kwargs, function_id, "function")
         # No additional checking for `updated_function` because of presence _validate_type(updated_function, ..., True)
 
@@ -818,11 +818,11 @@ class Functions(WMLResource):
         else:
             function = cast(Callable, function)
             try:
-                import inspect
                 import gzip
-                import uuid
+                import inspect
                 import re
                 import shutil
+                import uuid
 
                 code = inspect.getsource(function).split("\n")
                 r = re.compile(r"^ *")

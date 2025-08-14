@@ -26,6 +26,7 @@ from gable.cli.helpers.data_asset_s3.compression_handler import (
     FileFormat,
     FileTypeMetadata,
 )
+from gable.cli.helpers.data_asset_s3.duckdb_connection import get_resilient_duckdb
 from gable.cli.helpers.data_asset_s3.native_s3_converter import (
     NativeS3Converter,
     merge_schemas,
@@ -33,8 +34,7 @@ from gable.cli.helpers.data_asset_s3.native_s3_converter import (
 from gable.cli.helpers.data_asset_s3.schema_profiler import (
     get_data_asset_field_profiles_for_data_asset,
 )
-from gable.openapi import S3SamplingParameters, DataAssetFieldsToProfilesMapping
-from gable.cli.helpers.data_asset_s3.duckdb_connection import get_resilient_duckdb
+from gable.openapi import DataAssetFieldsToProfilesMapping, S3SamplingParameters
 
 
 @dataclass

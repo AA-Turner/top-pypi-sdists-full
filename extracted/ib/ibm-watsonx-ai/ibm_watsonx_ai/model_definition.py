@@ -3,21 +3,23 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
-import os
+
 import json
+import os
 import uuid
 from typing import TYPE_CHECKING, Any
 from warnings import warn
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import ModelDefinitionMetaNames
-from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
+from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     import pandas
+
+    from ibm_watsonx_ai import APIClient
 
 
 class ModelDefinition(WMLResource):
@@ -66,14 +68,14 @@ class ModelDefinition(WMLResource):
             ]
 
         if self.ConfigurationMetaNames.PLATFORM in meta_props:
-            doc["entity"]["wml_model_definition"]["platform"]["name"] = meta_props[self.ConfigurationMetaNames.PLATFORM]["name"]  # type: ignore[index]
-            doc["entity"]["wml_model_definition"]["platform"]["versions"][
-                0
-            ] = meta_props[self.ConfigurationMetaNames.PLATFORM][
-                "versions"
-            ][  # type: ignore[index]
-                0
-            ]
+            doc["entity"]["wml_model_definition"]["platform"]["name"] = meta_props[
+                self.ConfigurationMetaNames.PLATFORM
+            ]["name"]  # type: ignore[index]
+            doc["entity"]["wml_model_definition"]["platform"]["versions"][0] = (
+                meta_props[self.ConfigurationMetaNames.PLATFORM]["versions"][  # type: ignore[index]
+                    0
+                ]
+            )
 
         if self.ConfigurationMetaNames.COMMAND in meta_props:
             doc["entity"]["wml_model_definition"].update(
@@ -417,7 +419,6 @@ class ModelDefinition(WMLResource):
         )
 
     def _get_required_element_from_response(self, response_data: dict) -> dict:
-
         WMLResource._validate_type(response_data, "model_definition_response", dict)
         revision_id = None
 
@@ -509,7 +510,7 @@ class ModelDefinition(WMLResource):
                     }
                 )
             return new_el
-        except Exception as e:
+        except Exception:
             raise WMLClientError(
                 f"Failed to read Response from down-stream service: {response_data}"
             )
@@ -769,7 +770,6 @@ class ModelDefinition(WMLResource):
 
             # Since we are dealing with direct asset apis, there can be metadata or entity patch or both
             if "name" in meta_props or "description" in meta_props:
-
                 for key in meta_props:
                     if key == "name" or key == "description":
                         props_for_asset_meta_patch.update({key: meta_props[key]})
@@ -978,7 +978,6 @@ class ModelDefinition(WMLResource):
             url, params=paramvalue, headers=self._client._get_headers()
         )
         if response_get.status_code == 200:
-
             response = self._get_required_element_from_response(
                 self._handle_response(200, op_name, response_get)
             )

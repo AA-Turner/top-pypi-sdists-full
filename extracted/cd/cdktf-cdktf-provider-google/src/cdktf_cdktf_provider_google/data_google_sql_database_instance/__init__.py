@@ -1,7 +1,7 @@
 r'''
 # `data_google_sql_database_instance`
 
-Refer to the Terraform Registry for docs: [`data_google_sql_database_instance`](https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance).
+Refer to the Terraform Registry for docs: [`data_google_sql_database_instance`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleSqlDatabaseInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleSqlDatabaseInstance.DataGoogleSqlDatabaseInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance google_sql_database_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance google_sql_database_instance}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGoogleSqlDatabaseInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance google_sql_database_instance} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance google_sql_database_instance} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
+        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGoogleSqlDatabaseInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleSqlDatabaseInstance to import.
-        :param import_from_id: The id of the existing DataGoogleSqlDatabaseInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleSqlDatabaseInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleSqlDatabaseInstance to import is found.
         '''
         if __debug__:
@@ -205,6 +205,11 @@ class DataGoogleSqlDatabaseInstance(
     @jsii.member(jsii_name="masterInstanceName")
     def master_instance_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "masterInstanceName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeCount")
+    def node_count(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "nodeCount"))
 
     @builtins.property
     @jsii.member(jsii_name="privateIpAddress")
@@ -532,9 +537,9 @@ class DataGoogleSqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
+        :param name: The name of the instance. If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -642,7 +647,7 @@ class DataGoogleSqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         If the name is left blank, Terraform will randomly generate one when the instance is first created. This is done because after a name is used, it cannot be reused for up to one week.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#name DataGoogleSqlDatabaseInstance#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -650,7 +655,7 @@ class DataGoogleSqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#id DataGoogleSqlDatabaseInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -664,7 +669,7 @@ class DataGoogleSqlDatabaseInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instance#project DataGoogleSqlDatabaseInstance#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1322,6 +1327,11 @@ class DataGoogleSqlDatabaseInstanceReplicationClusterOutputReference(
     @jsii.member(jsii_name="failoverDrReplicaName")
     def failover_dr_replica_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "failoverDrReplicaName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="psaWriteEndpoint")
+    def psa_write_endpoint(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "psaWriteEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -3710,6 +3720,11 @@ class DataGoogleSqlDatabaseInstanceSettingsIpConfigurationPscConfigOutputReferen
         return typing.cast(typing.List[builtins.str], jsii.get(self, "allowedConsumerProjects"))
 
     @builtins.property
+    @jsii.member(jsii_name="networkAttachmentUri")
+    def network_attachment_uri(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "networkAttachmentUri"))
+
+    @builtins.property
     @jsii.member(jsii_name="pscAutoConnections")
     def psc_auto_connections(
         self,
@@ -4400,6 +4415,11 @@ class DataGoogleSqlDatabaseInstanceSettingsOutputReference(
     @jsii.member(jsii_name="edition")
     def edition(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "edition"))
+
+    @builtins.property
+    @jsii.member(jsii_name="effectiveAvailabilityType")
+    def effective_availability_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "effectiveAvailabilityType"))
 
     @builtins.property
     @jsii.member(jsii_name="enableDataplexIntegration")

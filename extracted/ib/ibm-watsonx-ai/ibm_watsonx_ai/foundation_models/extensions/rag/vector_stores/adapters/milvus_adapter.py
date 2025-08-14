@@ -4,30 +4,30 @@
 #  -----------------------------------------------------------------------------------------
 
 import asyncio
-from typing import Any, TypeAlias, cast
 import copy
+from typing import Any, TypeAlias, cast
 
+from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
     LangChainVectorStoreAdapter,
 )
 from ibm_watsonx_ai.wml_client_error import (
-    MissingExtension,
     InvalidValue,
+    MissingExtension,
     VectorStoreSerializationError,
 )
-from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 
 try:
+    from langchain_core.embeddings import Embeddings as LCEmbeddings
     from langchain_milvus import Milvus
     from langchain_milvus.utils.sparse import (
         BaseSparseEmbedding as LCMilvusBaseSparseEmbedding,
     )
-    from langchain_core.embeddings import Embeddings as LCEmbeddings
 
     from .milvus_utils import (
-        _LangchainEmbeddings,
-        MilvusBM25BuiltinFunction,
         DEFAULT_INDEX_PARAM,
+        MilvusBM25BuiltinFunction,
+        _LangchainEmbeddings,
     )
 
 except ImportError as exc:
@@ -43,9 +43,9 @@ try:
 except ImportError:
     raise MissingExtension("pymilvus")
 
-from ibm_watsonx_ai import APIClient
-
 import logging
+
+from ibm_watsonx_ai import APIClient
 
 logger = logging.getLogger(__name__)
 

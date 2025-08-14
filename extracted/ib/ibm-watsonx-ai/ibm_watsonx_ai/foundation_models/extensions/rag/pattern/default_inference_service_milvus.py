@@ -67,14 +67,14 @@ def inference_service(context, vector_store_settings=None):
     from ibm_watsonx_ai import APIClient, Credentials
     from ibm_watsonx_ai.foundation_models import ModelInference
     from ibm_watsonx_ai.foundation_models.extensions.rag import Retriever
-    from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores import (
-        MilvusVectorStore,
-    )
     from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.prompt_builder import (
         build_prompt,
     )
     from ibm_watsonx_ai.foundation_models.extensions.rag.utils import (
         get_max_input_tokens,
+    )
+    from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores import (
+        MilvusVectorStore,
     )
 
     vector_store_settings = (
@@ -270,7 +270,6 @@ def inference_service(context, vector_store_settings=None):
         yield chunk_response
 
         for chunk in response_stream:
-
             message = {
                 "content": chunk["results"][0]["generated_text"],
             }

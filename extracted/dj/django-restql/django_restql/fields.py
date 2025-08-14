@@ -2,24 +2,22 @@ try:
     from django.utils.decorators import classproperty
 except ImportError:
     from django.utils.functional import classproperty
-from django.db.models.fields.related import ManyToOneRel
 
-from rest_framework.fields import (
-    DictField, ListField, SkipField, Field, empty
-)
+from django.db.models.fields.related import ManyToOneRel
+from rest_framework.fields import Field, DictField, ListField, SkipField, empty
 from rest_framework.serializers import (
-    ListSerializer, PrimaryKeyRelatedField,
-    SerializerMethodField, ValidationError
+    ListSerializer, ValidationError, SerializerMethodField, PrimaryKeyRelatedField
 )
 
 from .parser import Query
 from .exceptions import InvalidOperation
-from .operations import ADD, CREATE, REMOVE, UPDATE
+from .operations import ADD, CREATE, DELETE, REMOVE, UPDATE
+
 
 CREATE_OPERATIONS = (ADD, CREATE)
-UPDATE_OPERATIONS = (ADD, CREATE, REMOVE, UPDATE)
+UPDATE_OPERATIONS = (ADD, CREATE, UPDATE, REMOVE, DELETE)
 
-ALL_RELATED_OBJS = '__all__'
+ALL_RELATED_OBJS = "__all__"
 
 
 class DynamicSerializerMethodField(SerializerMethodField):
@@ -46,7 +44,7 @@ class DynamicSerializerMethodField(SerializerMethodField):
 
 class BaseRESTQLNestedField(object):
     def to_internal_value(self, data):
-        raise NotImplementedError('`to_internal_value()` must be implemented.')
+        raise NotImplementedError("`to_internal_value()` must be implemented.")
 
 
 def BaseNestedFieldSerializerFactory(
@@ -54,10 +52,11 @@ def BaseNestedFieldSerializerFactory(
         accept_pk=False,
         accept_pk_only=False,
         delete_on_null=False,
+        serializer_class=None,
         allow_remove_all=False,
+        allow_delete_all=False,
         create_ops=CREATE_OPERATIONS,
         update_ops=UPDATE_OPERATIONS,
-        serializer_class=None,
         **kwargs):
     many = kwargs.get("many", False)
     partial = kwargs.get("partial", None)
@@ -82,6 +81,13 @@ def BaseNestedFieldSerializerFactory(
     )
 
     assert not (
+        allow_delete_all and not many
+    ), (
+        "`allow_delete_all=True` can only be applied to many related "
+        "nested fields, ensure the kwarg `many=True` is set."
+    )
+
+    assert not (
         delete_on_null and accept_pk
     ), "`delete_on_null=True` can not be used if  `accept_pk=True`."
 
@@ -89,7 +95,7 @@ def BaseNestedFieldSerializerFactory(
         delete_on_null and accept_pk_only
     ), "`delete_on_null=True` can not be used if  `accept_pk_only=True`."
 
-    def join_words(words, many='are', single='is'):
+    def join_words(words, many="are", single="is"):
         word_list = ["`" + word + "`" for word in words]
 
         if len(words) > 1:
@@ -194,6 +200,17 @@ def BaseNestedFieldSerializerFactory(
             else:
                 self.run_pk_list_validation(data)
 
+        def run_delete_list_validation(self, data):
+            if data == ALL_RELATED_OBJS:
+                if not allow_delete_all:
+                    msg = (
+                        "Using `%s` value on `%s` operation is disabled"
+                        % (ALL_RELATED_OBJS, DELETE)
+                    )
+                    raise ValidationError(msg, code="not_allowed")
+            else:
+                self.run_pk_list_validation(data)
+
         def run_update_list_validation(self, data):
             DictField().run_validation(data)
             pks = list(data.keys())
@@ -211,8 +228,9 @@ def BaseNestedFieldSerializerFactory(
             operation_2_validation_method = {
                 ADD: self.run_add_list_validation,
                 CREATE: self.run_create_list_validation,
-                REMOVE: self.run_remove_list_validation,
                 UPDATE: self.run_update_list_validation,
+                REMOVE: self.run_remove_list_validation,
+                DELETE: self.run_delete_list_validation,
             }
 
             allowed_operation_2_validation_method = {
@@ -233,13 +251,13 @@ def BaseNestedFieldSerializerFactory(
                         "for this request %s"
                         % (operation, join_words(allowed_ops))
                     )
-                    code = 'invalid_operation'
+                    code = "invalid_operation"
                     raise ValidationError(msg, code=code) from None
 
         def to_internal_value(self, data):
             if self.child.root.instance is None:
                 parent_operation = self.context.get("parent_operation")
-                if parent_operation == "update":
+                if parent_operation == UPDATE:
                     # Definitely an update
                     self.run_data_validation(data, update_ops)
                 else:
@@ -310,8 +328,8 @@ def BaseNestedFieldSerializerFactory(
             return data
 
         def to_internal_value(self, data):
-            required = kwargs.get('required', True)
-            default = kwargs.get('default', empty)
+            required = kwargs.get("required", True)
+            default = kwargs.get("default", empty)
 
             if data == empty:
                 # Implementation under this block is made
@@ -328,7 +346,7 @@ def BaseNestedFieldSerializerFactory(
                     if default == empty:
                         raise ValidationError(
                             "This field is required.",
-                            code='required'
+                            code="required"
                         )
                     else:
                         # Use the default value
@@ -360,7 +378,7 @@ def BaseNestedFieldSerializerFactory(
 
 class TemporaryNestedField(Field, BaseRESTQLNestedField):
     """
-    This is meant to be used temporarily when 'self' is
+    This is meant to be used temporarily when "self" is
     passed as the first arg to `NestedField`
     """
 
@@ -400,14 +418,14 @@ def NestedFieldWraper(*args, **kwargs):
             field_kwargs=kwargs
         )
 
-    serializer_validation_kwargs = {**factory['kwargs']}
+    serializer_validation_kwargs = {**factory["kwargs"]}
 
     # Remove all non validation related kwargs and
     # DynamicFieldsMixin kwargs from `valdation_kwargs`
     non_validation_related_kwargs = [
-        'many', 'data', 'instance', 'context', 'fields',
-        'exclude', 'return_pk', 'disable_dynamic_fields',
-        'query', 'parsed_query', 'partial'
+        "many", "data", "instance", "context", "fields",
+        "exclude", "return_pk", "disable_dynamic_fields",
+        "query", "parsed_query", "partial"
     ]
 
     for kwarg in non_validation_related_kwargs:

@@ -1,7 +1,7 @@
 r'''
 # `newrelic_application_settings`
 
-Refer to the Terraform Registry for docs: [`newrelic_application_settings`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings).
+Refer to the Terraform Registry for docs: [`newrelic_application_settings`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationSettings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.applicationSettings.ApplicationSettings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings newrelic_application_settings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings newrelic_application_settings}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class ApplicationSettings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings newrelic_application_settings} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings newrelic_application_settings} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_apdex_threshold: The response time threshold value for Apdex score calculation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#app_apdex_threshold ApplicationSettings#app_apdex_threshold}
-        :param enable_real_user_monitoring: Dummy field to support backward compatibility of previous version.should be removed with next major version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#enable_real_user_monitoring ApplicationSettings#enable_real_user_monitoring}
-        :param enable_slow_sql: Samples and reports the slowest database queries in your traces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#enable_slow_sql ApplicationSettings#enable_slow_sql}
-        :param enable_thread_profiler: Enable or disable the thread profiler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#enable_thread_profiler ApplicationSettings#enable_thread_profiler}
-        :param end_user_apdex_threshold: Dummy field to support backward compatibility of previous version.should be removed with next major version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#end_user_apdex_threshold ApplicationSettings#end_user_apdex_threshold}
-        :param error_collector: error_collector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#error_collector ApplicationSettings#error_collector}
-        :param guid: The GUID of the application in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#guid ApplicationSettings#guid}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#id ApplicationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The name of the application in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#name ApplicationSettings#name}
-        :param tracer_type: The type of tracer to use, either 'CROSS_APPLICATION_TRACER', 'DISTRIBUTED_TRACING', 'NONE', or 'OPT_OUT'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#tracer_type ApplicationSettings#tracer_type}
-        :param transaction_tracer: transaction_tracer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#transaction_tracer ApplicationSettings#transaction_tracer}
-        :param use_server_side_config: Enable or disable server side monitoring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#use_server_side_config ApplicationSettings#use_server_side_config}
+        :param app_apdex_threshold: The response time threshold value for Apdex score calculation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#app_apdex_threshold ApplicationSettings#app_apdex_threshold}
+        :param enable_real_user_monitoring: Dummy field to support backward compatibility of previous version.should be removed with next major version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#enable_real_user_monitoring ApplicationSettings#enable_real_user_monitoring}
+        :param enable_slow_sql: Samples and reports the slowest database queries in your traces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#enable_slow_sql ApplicationSettings#enable_slow_sql}
+        :param enable_thread_profiler: Enable or disable the thread profiler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#enable_thread_profiler ApplicationSettings#enable_thread_profiler}
+        :param end_user_apdex_threshold: Dummy field to support backward compatibility of previous version.should be removed with next major version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#end_user_apdex_threshold ApplicationSettings#end_user_apdex_threshold}
+        :param error_collector: error_collector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#error_collector ApplicationSettings#error_collector}
+        :param guid: The GUID of the application in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#guid ApplicationSettings#guid}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#id ApplicationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the application in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#name ApplicationSettings#name}
+        :param tracer_type: The type of tracer to use, either 'CROSS_APPLICATION_TRACER', 'DISTRIBUTED_TRACING', 'NONE', or 'OPT_OUT'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#tracer_type ApplicationSettings#tracer_type}
+        :param transaction_tracer: transaction_tracer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#transaction_tracer ApplicationSettings#transaction_tracer}
+        :param use_server_side_config: Enable or disable server side monitoring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#use_server_side_config ApplicationSettings#use_server_side_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class ApplicationSettings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationSettings to import.
-        :param import_from_id: The id of the existing ApplicationSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationSettings to import is found.
         '''
         if __debug__:
@@ -519,18 +519,18 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_apdex_threshold: The response time threshold value for Apdex score calculation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#app_apdex_threshold ApplicationSettings#app_apdex_threshold}
-        :param enable_real_user_monitoring: Dummy field to support backward compatibility of previous version.should be removed with next major version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#enable_real_user_monitoring ApplicationSettings#enable_real_user_monitoring}
-        :param enable_slow_sql: Samples and reports the slowest database queries in your traces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#enable_slow_sql ApplicationSettings#enable_slow_sql}
-        :param enable_thread_profiler: Enable or disable the thread profiler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#enable_thread_profiler ApplicationSettings#enable_thread_profiler}
-        :param end_user_apdex_threshold: Dummy field to support backward compatibility of previous version.should be removed with next major version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#end_user_apdex_threshold ApplicationSettings#end_user_apdex_threshold}
-        :param error_collector: error_collector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#error_collector ApplicationSettings#error_collector}
-        :param guid: The GUID of the application in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#guid ApplicationSettings#guid}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#id ApplicationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: The name of the application in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#name ApplicationSettings#name}
-        :param tracer_type: The type of tracer to use, either 'CROSS_APPLICATION_TRACER', 'DISTRIBUTED_TRACING', 'NONE', or 'OPT_OUT'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#tracer_type ApplicationSettings#tracer_type}
-        :param transaction_tracer: transaction_tracer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#transaction_tracer ApplicationSettings#transaction_tracer}
-        :param use_server_side_config: Enable or disable server side monitoring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#use_server_side_config ApplicationSettings#use_server_side_config}
+        :param app_apdex_threshold: The response time threshold value for Apdex score calculation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#app_apdex_threshold ApplicationSettings#app_apdex_threshold}
+        :param enable_real_user_monitoring: Dummy field to support backward compatibility of previous version.should be removed with next major version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#enable_real_user_monitoring ApplicationSettings#enable_real_user_monitoring}
+        :param enable_slow_sql: Samples and reports the slowest database queries in your traces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#enable_slow_sql ApplicationSettings#enable_slow_sql}
+        :param enable_thread_profiler: Enable or disable the thread profiler. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#enable_thread_profiler ApplicationSettings#enable_thread_profiler}
+        :param end_user_apdex_threshold: Dummy field to support backward compatibility of previous version.should be removed with next major version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#end_user_apdex_threshold ApplicationSettings#end_user_apdex_threshold}
+        :param error_collector: error_collector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#error_collector ApplicationSettings#error_collector}
+        :param guid: The GUID of the application in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#guid ApplicationSettings#guid}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#id ApplicationSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: The name of the application in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#name ApplicationSettings#name}
+        :param tracer_type: The type of tracer to use, either 'CROSS_APPLICATION_TRACER', 'DISTRIBUTED_TRACING', 'NONE', or 'OPT_OUT'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#tracer_type ApplicationSettings#tracer_type}
+        :param transaction_tracer: transaction_tracer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#transaction_tracer ApplicationSettings#transaction_tracer}
+        :param use_server_side_config: Enable or disable server side monitoring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#use_server_side_config ApplicationSettings#use_server_side_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -663,7 +663,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_apdex_threshold(self) -> typing.Optional[jsii.Number]:
         '''The response time threshold value for Apdex score calculation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#app_apdex_threshold ApplicationSettings#app_apdex_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#app_apdex_threshold ApplicationSettings#app_apdex_threshold}
         '''
         result = self._values.get("app_apdex_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -674,7 +674,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Dummy field to support backward compatibility of previous version.should be removed with next major version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#enable_real_user_monitoring ApplicationSettings#enable_real_user_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#enable_real_user_monitoring ApplicationSettings#enable_real_user_monitoring}
         '''
         result = self._values.get("enable_real_user_monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -685,7 +685,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Samples and reports the slowest database queries in your traces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#enable_slow_sql ApplicationSettings#enable_slow_sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#enable_slow_sql ApplicationSettings#enable_slow_sql}
         '''
         result = self._values.get("enable_slow_sql")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -696,7 +696,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable or disable the thread profiler.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#enable_thread_profiler ApplicationSettings#enable_thread_profiler}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#enable_thread_profiler ApplicationSettings#enable_thread_profiler}
         '''
         result = self._values.get("enable_thread_profiler")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -705,7 +705,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def end_user_apdex_threshold(self) -> typing.Optional[jsii.Number]:
         '''Dummy field to support backward compatibility of previous version.should be removed with next major version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#end_user_apdex_threshold ApplicationSettings#end_user_apdex_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#end_user_apdex_threshold ApplicationSettings#end_user_apdex_threshold}
         '''
         result = self._values.get("end_user_apdex_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -716,7 +716,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationSettingsErrorCollector"]]]:
         '''error_collector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#error_collector ApplicationSettings#error_collector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#error_collector ApplicationSettings#error_collector}
         '''
         result = self._values.get("error_collector")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationSettingsErrorCollector"]]], result)
@@ -725,14 +725,14 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def guid(self) -> typing.Optional[builtins.str]:
         '''The GUID of the application in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#guid ApplicationSettings#guid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#guid ApplicationSettings#guid}
         '''
         result = self._values.get("guid")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#id ApplicationSettings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#id ApplicationSettings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -744,7 +744,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the application in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#name ApplicationSettings#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#name ApplicationSettings#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -753,7 +753,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tracer_type(self) -> typing.Optional[builtins.str]:
         '''The type of tracer to use, either 'CROSS_APPLICATION_TRACER', 'DISTRIBUTED_TRACING', 'NONE', or 'OPT_OUT'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#tracer_type ApplicationSettings#tracer_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#tracer_type ApplicationSettings#tracer_type}
         '''
         result = self._values.get("tracer_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -764,7 +764,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationSettingsTransactionTracer"]]]:
         '''transaction_tracer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#transaction_tracer ApplicationSettings#transaction_tracer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#transaction_tracer ApplicationSettings#transaction_tracer}
         '''
         result = self._values.get("transaction_tracer")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationSettingsTransactionTracer"]]], result)
@@ -775,7 +775,7 @@ class ApplicationSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable or disable server side monitoring.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#use_server_side_config ApplicationSettings#use_server_side_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#use_server_side_config ApplicationSettings#use_server_side_config}
         '''
         result = self._values.get("use_server_side_config")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -812,10 +812,10 @@ class ApplicationSettingsErrorCollector:
         ignored_error_codes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param expected_error_classes: A list of error classes that are expected and should not trigger alerts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#expected_error_classes ApplicationSettings#expected_error_classes}
-        :param expected_error_codes: A list of error codes that are expected and should not trigger alerts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#expected_error_codes ApplicationSettings#expected_error_codes}
-        :param ignored_error_classes: A list of error classes that should be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#ignored_error_classes ApplicationSettings#ignored_error_classes}
-        :param ignored_error_codes: A list of error codes that should be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#ignored_error_codes ApplicationSettings#ignored_error_codes}
+        :param expected_error_classes: A list of error classes that are expected and should not trigger alerts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#expected_error_classes ApplicationSettings#expected_error_classes}
+        :param expected_error_codes: A list of error codes that are expected and should not trigger alerts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#expected_error_codes ApplicationSettings#expected_error_codes}
+        :param ignored_error_classes: A list of error classes that should be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#ignored_error_classes ApplicationSettings#ignored_error_classes}
+        :param ignored_error_codes: A list of error codes that should be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#ignored_error_codes ApplicationSettings#ignored_error_codes}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8395be5d29384305bc752e8e7fb78386e57b9d0631f69a5867394fe9f0577f91)
@@ -837,7 +837,7 @@ class ApplicationSettingsErrorCollector:
     def expected_error_classes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of error classes that are expected and should not trigger alerts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#expected_error_classes ApplicationSettings#expected_error_classes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#expected_error_classes ApplicationSettings#expected_error_classes}
         '''
         result = self._values.get("expected_error_classes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -846,7 +846,7 @@ class ApplicationSettingsErrorCollector:
     def expected_error_codes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of error codes that are expected and should not trigger alerts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#expected_error_codes ApplicationSettings#expected_error_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#expected_error_codes ApplicationSettings#expected_error_codes}
         '''
         result = self._values.get("expected_error_codes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -855,7 +855,7 @@ class ApplicationSettingsErrorCollector:
     def ignored_error_classes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of error classes that should be ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#ignored_error_classes ApplicationSettings#ignored_error_classes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#ignored_error_classes ApplicationSettings#ignored_error_classes}
         '''
         result = self._values.get("ignored_error_classes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -864,7 +864,7 @@ class ApplicationSettingsErrorCollector:
     def ignored_error_codes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of error codes that should be ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#ignored_error_codes ApplicationSettings#ignored_error_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#ignored_error_codes ApplicationSettings#ignored_error_codes}
         '''
         result = self._values.get("ignored_error_codes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1126,11 +1126,11 @@ class ApplicationSettingsTransactionTracer:
         transaction_threshold_value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param explain_query_plans: explain_query_plans block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#explain_query_plans ApplicationSettings#explain_query_plans}
-        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#sql ApplicationSettings#sql}
-        :param stack_trace_threshold_value: The response time threshold value for capturing stack traces of SQL queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#stack_trace_threshold_value ApplicationSettings#stack_trace_threshold_value}
-        :param transaction_threshold_type: The type of threshold for transaction tracing, either 'APDEX_F' or 'VALUE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#transaction_threshold_type ApplicationSettings#transaction_threshold_type}
-        :param transaction_threshold_value: The threshold value for transaction tracing when 'transaction_threshold_type' is 'VALUE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#transaction_threshold_value ApplicationSettings#transaction_threshold_value}
+        :param explain_query_plans: explain_query_plans block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#explain_query_plans ApplicationSettings#explain_query_plans}
+        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#sql ApplicationSettings#sql}
+        :param stack_trace_threshold_value: The response time threshold value for capturing stack traces of SQL queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#stack_trace_threshold_value ApplicationSettings#stack_trace_threshold_value}
+        :param transaction_threshold_type: The type of threshold for transaction tracing, either 'APDEX_F' or 'VALUE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#transaction_threshold_type ApplicationSettings#transaction_threshold_type}
+        :param transaction_threshold_value: The threshold value for transaction tracing when 'transaction_threshold_type' is 'VALUE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#transaction_threshold_value ApplicationSettings#transaction_threshold_value}
         '''
         if isinstance(sql, dict):
             sql = ApplicationSettingsTransactionTracerSql(**sql)
@@ -1159,7 +1159,7 @@ class ApplicationSettingsTransactionTracer:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationSettingsTransactionTracerExplainQueryPlans"]]]:
         '''explain_query_plans block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#explain_query_plans ApplicationSettings#explain_query_plans}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#explain_query_plans ApplicationSettings#explain_query_plans}
         '''
         result = self._values.get("explain_query_plans")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationSettingsTransactionTracerExplainQueryPlans"]]], result)
@@ -1168,7 +1168,7 @@ class ApplicationSettingsTransactionTracer:
     def sql(self) -> typing.Optional["ApplicationSettingsTransactionTracerSql"]:
         '''sql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#sql ApplicationSettings#sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#sql ApplicationSettings#sql}
         '''
         result = self._values.get("sql")
         return typing.cast(typing.Optional["ApplicationSettingsTransactionTracerSql"], result)
@@ -1177,7 +1177,7 @@ class ApplicationSettingsTransactionTracer:
     def stack_trace_threshold_value(self) -> typing.Optional[jsii.Number]:
         '''The response time threshold value for capturing stack traces of SQL queries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#stack_trace_threshold_value ApplicationSettings#stack_trace_threshold_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#stack_trace_threshold_value ApplicationSettings#stack_trace_threshold_value}
         '''
         result = self._values.get("stack_trace_threshold_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1186,7 +1186,7 @@ class ApplicationSettingsTransactionTracer:
     def transaction_threshold_type(self) -> typing.Optional[builtins.str]:
         '''The type of threshold for transaction tracing, either 'APDEX_F' or 'VALUE'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#transaction_threshold_type ApplicationSettings#transaction_threshold_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#transaction_threshold_type ApplicationSettings#transaction_threshold_type}
         '''
         result = self._values.get("transaction_threshold_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1195,7 +1195,7 @@ class ApplicationSettingsTransactionTracer:
     def transaction_threshold_value(self) -> typing.Optional[jsii.Number]:
         '''The threshold value for transaction tracing when 'transaction_threshold_type' is 'VALUE'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#transaction_threshold_value ApplicationSettings#transaction_threshold_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#transaction_threshold_value ApplicationSettings#transaction_threshold_value}
         '''
         result = self._values.get("transaction_threshold_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1228,8 +1228,8 @@ class ApplicationSettingsTransactionTracerExplainQueryPlans:
         query_plan_threshold_value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param query_plan_threshold_type: The type of threshold for explain plans, either 'APDEX_F' or 'VALUE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#query_plan_threshold_type ApplicationSettings#query_plan_threshold_type}
-        :param query_plan_threshold_value: The threshold value for explain plans when 'query_plan_threshold_type' is 'VALUE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#query_plan_threshold_value ApplicationSettings#query_plan_threshold_value}
+        :param query_plan_threshold_type: The type of threshold for explain plans, either 'APDEX_F' or 'VALUE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#query_plan_threshold_type ApplicationSettings#query_plan_threshold_type}
+        :param query_plan_threshold_value: The threshold value for explain plans when 'query_plan_threshold_type' is 'VALUE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#query_plan_threshold_value ApplicationSettings#query_plan_threshold_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4738c562695c9f9faa2efc558d05c513a654aaa6477310eaae5564d53a7e261)
@@ -1245,7 +1245,7 @@ class ApplicationSettingsTransactionTracerExplainQueryPlans:
     def query_plan_threshold_type(self) -> typing.Optional[builtins.str]:
         '''The type of threshold for explain plans, either 'APDEX_F' or 'VALUE'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#query_plan_threshold_type ApplicationSettings#query_plan_threshold_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#query_plan_threshold_type ApplicationSettings#query_plan_threshold_type}
         '''
         result = self._values.get("query_plan_threshold_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1254,7 +1254,7 @@ class ApplicationSettingsTransactionTracerExplainQueryPlans:
     def query_plan_threshold_value(self) -> typing.Optional[jsii.Number]:
         '''The threshold value for explain plans when 'query_plan_threshold_type' is 'VALUE'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#query_plan_threshold_value ApplicationSettings#query_plan_threshold_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#query_plan_threshold_value ApplicationSettings#query_plan_threshold_value}
         '''
         result = self._values.get("query_plan_threshold_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1585,7 +1585,7 @@ class ApplicationSettingsTransactionTracerOutputReference(
     @jsii.member(jsii_name="putSql")
     def put_sql(self, *, record_sql: builtins.str) -> None:
         '''
-        :param record_sql: The level of SQL recording, either 'OBFUSCATED', 'OFF', or 'RAW'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#record_sql ApplicationSettings#record_sql}
+        :param record_sql: The level of SQL recording, either 'OBFUSCATED', 'OFF', or 'RAW'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#record_sql ApplicationSettings#record_sql}
         '''
         value = ApplicationSettingsTransactionTracerSql(record_sql=record_sql)
 
@@ -1712,7 +1712,7 @@ class ApplicationSettingsTransactionTracerOutputReference(
 class ApplicationSettingsTransactionTracerSql:
     def __init__(self, *, record_sql: builtins.str) -> None:
         '''
-        :param record_sql: The level of SQL recording, either 'OBFUSCATED', 'OFF', or 'RAW'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#record_sql ApplicationSettings#record_sql}
+        :param record_sql: The level of SQL recording, either 'OBFUSCATED', 'OFF', or 'RAW'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#record_sql ApplicationSettings#record_sql}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__37cf8d21b0afa765ca7b6626e3f3a1370237d06ea73d6051209fa88b1aa350a9)
@@ -1725,7 +1725,7 @@ class ApplicationSettingsTransactionTracerSql:
     def record_sql(self) -> builtins.str:
         '''The level of SQL recording, either 'OBFUSCATED', 'OFF', or 'RAW'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/application_settings#record_sql ApplicationSettings#record_sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/application_settings#record_sql ApplicationSettings#record_sql}
         '''
         result = self._values.get("record_sql")
         assert result is not None, "Required property 'record_sql' is missing"

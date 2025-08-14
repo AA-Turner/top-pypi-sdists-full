@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: unstructured
-Version: 0.18.11
+Version: 0.18.13
 Summary: A library that prepares raw documents for downstream ML tasks.
 Home-page: https://github.com/Unstructured-IO/unstructured
 Author: Unstructured Technologies

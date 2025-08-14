@@ -3,5 +3,7 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from .web_service import WebService
 from .batch import Batch
+from .web_service import WebService
+
+__all__ = ["Batch", "WebService"]

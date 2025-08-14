@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai
-Version: 0.0.79
+Version: 0.0.80
 Summary: An open source framework for voice (and multimodal) assistants
 License-Expression: BSD-2-Clause
 Project-URL: Source, https://github.com/pipecat-ai/pipecat
@@ -29,6 +29,7 @@ Requires-Dist: pyloudnorm~=0.1.1
 Requires-Dist: resampy~=0.4.3
 Requires-Dist: soxr~=0.5.0
 Requires-Dist: openai<=1.99.1,>=1.74.0
+Requires-Dist: numba==0.61.2
 Provides-Extra: anthropic
 Requires-Dist: anthropic~=0.49.0; extra == "anthropic"
 Provides-Extra: assemblyai
@@ -98,7 +99,9 @@ Requires-Dist: mem0ai~=0.1.94; extra == "mem0"
 Provides-Extra: mlx-whisper
 Requires-Dist: mlx-whisper~=0.4.2; extra == "mlx-whisper"
 Provides-Extra: moondream
+Requires-Dist: accelerate~=1.10.0; extra == "moondream"
 Requires-Dist: einops~=0.8.0; extra == "moondream"
+Requires-Dist: pyvips[binary]~=3.0.0; extra == "moondream"
 Requires-Dist: timm~=1.0.13; extra == "moondream"
 Requires-Dist: transformers>=4.48.0; extra == "moondream"
 Provides-Extra: nim
@@ -113,7 +116,6 @@ Requires-Dist: openpipe~=4.50.0; extra == "openpipe"
 Provides-Extra: openrouter
 Provides-Extra: perplexity
 Provides-Extra: playht
-Requires-Dist: pyht>=0.1.6; extra == "playht"
 Requires-Dist: websockets<15.0,>=13.1; extra == "playht"
 Provides-Extra: qwen
 Provides-Extra: rime
@@ -279,7 +281,8 @@ You can get started with Pipecat running on your local machine, then move your a
 
 ### Prerequisites
 
-**Python Version:** 3.10+
+**Minimum Python Version:** 3.10
+**Recommended Python Version:** 3.11-3.12
 
 ### Setup Steps
 
@@ -293,7 +296,7 @@ You can get started with Pipecat running on your local machine, then move your a
 2. Install development and testing dependencies:
 
    ```bash
-   uv sync --group dev --all-extras --no-extra krisp
+   uv sync --group dev --all-extras --no-extra gstreamer --no-extra krisp --no-extra local
    ```
 
 3. Install the git pre-commit hooks:
@@ -302,17 +305,24 @@ You can get started with Pipecat running on your local machine, then move your a
    uv run pre-commit install
    ```
 
-### Python 3.13+ Note
+### Python 3.13+ Compatibility
 
-Some features require PyTorch (not yet available on Python 3.13+):
-
-- `ultravox`, `local-smart-turn`, `moondream`, `mlx-whisper`
-
-**For full compatibility:** Use Python 3.12
+Some features require PyTorch, which doesn't yet support Python 3.13+. Install using:
 
 ```bash
-uv python pin 3.12 && uv sync --group dev --all-extras --no-extra krisp
+uv sync --group dev --all-extras \
+  --no-extra gstreamer \
+  --no-extra krisp \
+  --no-extra local \
+  --no-extra local-smart-turn \
+  --no-extra mlx-whisper \
+  --no-extra moondream \
+  --no-extra ultravox
 ```
+
+> **Tip:** For full compatibility, use Python 3.12: `uv python pin 3.12`
+
+> **Note**: Some extras (local, gstreamer) require system dependencies. See documentation if you encounter build errors.
 
 ### Running tests
 

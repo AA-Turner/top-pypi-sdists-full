@@ -1,7 +1,7 @@
 r'''
 # `azurerm_log_analytics_solution`
 
-Refer to the Terraform Registry for docs: [`azurerm_log_analytics_solution`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution).
+Refer to the Terraform Registry for docs: [`azurerm_log_analytics_solution`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogAnalyticsSolution(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.logAnalyticsSolution.LogAnalyticsSolution",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution azurerm_log_analytics_solution}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution azurerm_log_analytics_solution}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class LogAnalyticsSolution(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution azurerm_log_analytics_solution} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution azurerm_log_analytics_solution} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#location LogAnalyticsSolution#location}.
-        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#plan LogAnalyticsSolution#plan}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#resource_group_name LogAnalyticsSolution#resource_group_name}.
-        :param solution_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#solution_name LogAnalyticsSolution#solution_name}.
-        :param workspace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#workspace_name LogAnalyticsSolution#workspace_name}.
-        :param workspace_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#workspace_resource_id LogAnalyticsSolution#workspace_resource_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#id LogAnalyticsSolution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#tags LogAnalyticsSolution#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#timeouts LogAnalyticsSolution#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#location LogAnalyticsSolution#location}.
+        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#plan LogAnalyticsSolution#plan}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#resource_group_name LogAnalyticsSolution#resource_group_name}.
+        :param solution_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#solution_name LogAnalyticsSolution#solution_name}.
+        :param workspace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#workspace_name LogAnalyticsSolution#workspace_name}.
+        :param workspace_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#workspace_resource_id LogAnalyticsSolution#workspace_resource_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#id LogAnalyticsSolution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#tags LogAnalyticsSolution#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#timeouts LogAnalyticsSolution#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class LogAnalyticsSolution(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogAnalyticsSolution to import.
-        :param import_from_id: The id of the existing LogAnalyticsSolution that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogAnalyticsSolution that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogAnalyticsSolution to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class LogAnalyticsSolution(
         promotion_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#product LogAnalyticsSolution#product}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#publisher LogAnalyticsSolution#publisher}.
-        :param promotion_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#promotion_code LogAnalyticsSolution#promotion_code}.
+        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#product LogAnalyticsSolution#product}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#publisher LogAnalyticsSolution#publisher}.
+        :param promotion_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#promotion_code LogAnalyticsSolution#promotion_code}.
         '''
         value = LogAnalyticsSolutionPlan(
             product=product, publisher=publisher, promotion_code=promotion_code
@@ -167,10 +167,10 @@ class LogAnalyticsSolution(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#create LogAnalyticsSolution#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#delete LogAnalyticsSolution#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#read LogAnalyticsSolution#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#update LogAnalyticsSolution#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#create LogAnalyticsSolution#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#delete LogAnalyticsSolution#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#read LogAnalyticsSolution#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#update LogAnalyticsSolution#update}.
         '''
         value = LogAnalyticsSolutionTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -396,15 +396,15 @@ class LogAnalyticsSolutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#location LogAnalyticsSolution#location}.
-        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#plan LogAnalyticsSolution#plan}
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#resource_group_name LogAnalyticsSolution#resource_group_name}.
-        :param solution_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#solution_name LogAnalyticsSolution#solution_name}.
-        :param workspace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#workspace_name LogAnalyticsSolution#workspace_name}.
-        :param workspace_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#workspace_resource_id LogAnalyticsSolution#workspace_resource_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#id LogAnalyticsSolution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#tags LogAnalyticsSolution#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#timeouts LogAnalyticsSolution#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#location LogAnalyticsSolution#location}.
+        :param plan: plan block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#plan LogAnalyticsSolution#plan}
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#resource_group_name LogAnalyticsSolution#resource_group_name}.
+        :param solution_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#solution_name LogAnalyticsSolution#solution_name}.
+        :param workspace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#workspace_name LogAnalyticsSolution#workspace_name}.
+        :param workspace_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#workspace_resource_id LogAnalyticsSolution#workspace_resource_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#id LogAnalyticsSolution#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#tags LogAnalyticsSolution#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#timeouts LogAnalyticsSolution#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -525,7 +525,7 @@ class LogAnalyticsSolutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#location LogAnalyticsSolution#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#location LogAnalyticsSolution#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
@@ -534,7 +534,7 @@ class LogAnalyticsSolutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def plan(self) -> "LogAnalyticsSolutionPlan":
         '''plan block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#plan LogAnalyticsSolution#plan}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#plan LogAnalyticsSolution#plan}
         '''
         result = self._values.get("plan")
         assert result is not None, "Required property 'plan' is missing"
@@ -542,35 +542,35 @@ class LogAnalyticsSolutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#resource_group_name LogAnalyticsSolution#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#resource_group_name LogAnalyticsSolution#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def solution_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#solution_name LogAnalyticsSolution#solution_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#solution_name LogAnalyticsSolution#solution_name}.'''
         result = self._values.get("solution_name")
         assert result is not None, "Required property 'solution_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workspace_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#workspace_name LogAnalyticsSolution#workspace_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#workspace_name LogAnalyticsSolution#workspace_name}.'''
         result = self._values.get("workspace_name")
         assert result is not None, "Required property 'workspace_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workspace_resource_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#workspace_resource_id LogAnalyticsSolution#workspace_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#workspace_resource_id LogAnalyticsSolution#workspace_resource_id}.'''
         result = self._values.get("workspace_resource_id")
         assert result is not None, "Required property 'workspace_resource_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#id LogAnalyticsSolution#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#id LogAnalyticsSolution#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -580,7 +580,7 @@ class LogAnalyticsSolutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#tags LogAnalyticsSolution#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#tags LogAnalyticsSolution#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -588,7 +588,7 @@ class LogAnalyticsSolutionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LogAnalyticsSolutionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#timeouts LogAnalyticsSolution#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#timeouts LogAnalyticsSolution#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LogAnalyticsSolutionTimeouts"], result)
@@ -623,9 +623,9 @@ class LogAnalyticsSolutionPlan:
         promotion_code: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#product LogAnalyticsSolution#product}.
-        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#publisher LogAnalyticsSolution#publisher}.
-        :param promotion_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#promotion_code LogAnalyticsSolution#promotion_code}.
+        :param product: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#product LogAnalyticsSolution#product}.
+        :param publisher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#publisher LogAnalyticsSolution#publisher}.
+        :param promotion_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#promotion_code LogAnalyticsSolution#promotion_code}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8d826d38b70153b43503cb116f2e21c5b63819a8ca709d7c6190381cf28e025)
@@ -641,21 +641,21 @@ class LogAnalyticsSolutionPlan:
 
     @builtins.property
     def product(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#product LogAnalyticsSolution#product}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#product LogAnalyticsSolution#product}.'''
         result = self._values.get("product")
         assert result is not None, "Required property 'product' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def publisher(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#publisher LogAnalyticsSolution#publisher}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#publisher LogAnalyticsSolution#publisher}.'''
         result = self._values.get("publisher")
         assert result is not None, "Required property 'publisher' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def promotion_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#promotion_code LogAnalyticsSolution#promotion_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#promotion_code LogAnalyticsSolution#promotion_code}.'''
         result = self._values.get("promotion_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -784,10 +784,10 @@ class LogAnalyticsSolutionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#create LogAnalyticsSolution#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#delete LogAnalyticsSolution#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#read LogAnalyticsSolution#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#update LogAnalyticsSolution#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#create LogAnalyticsSolution#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#delete LogAnalyticsSolution#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#read LogAnalyticsSolution#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#update LogAnalyticsSolution#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a1ce757426e322dec420f9ccd38f067d7208767d4820618f9e152ce24aaed43)
@@ -807,25 +807,25 @@ class LogAnalyticsSolutionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#create LogAnalyticsSolution#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#create LogAnalyticsSolution#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#delete LogAnalyticsSolution#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#delete LogAnalyticsSolution#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#read LogAnalyticsSolution#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#read LogAnalyticsSolution#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/log_analytics_solution#update LogAnalyticsSolution#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/log_analytics_solution#update LogAnalyticsSolution#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

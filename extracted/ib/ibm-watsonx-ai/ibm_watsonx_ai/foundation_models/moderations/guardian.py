@@ -4,17 +4,16 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
+
 from copy import deepcopy
-
-from ibm_watsonx_ai.wml_resource import WMLResource
-
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+from typing import TYPE_CHECKING
 
 from ibm_watsonx_ai.foundation_models.schema import (
-    GuardianDetectors,
     BaseSchema,
+    GuardianDetectors,
 )
+from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -57,7 +56,6 @@ class Guardian(WMLResource):
     def __init__(
         self, api_client: APIClient, detectors: dict | GuardianDetectors
     ) -> None:
-
         self._client = api_client
 
         Guardian._validate_type(

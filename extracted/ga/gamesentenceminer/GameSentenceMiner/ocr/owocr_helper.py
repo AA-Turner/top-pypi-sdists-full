@@ -378,8 +378,16 @@ def text_callback(text, orig_text, time, img=None, came_from_ss=False, filtering
             previous_orig_text = orig_text_string
             previous_ocr1_result = previous_text
             if crop_coords and get_ocr_optimize_second_scan():
+                x1, y1, x2, y2 = crop_coords
+                x1 = max(0, min(x1, img.width))
+                y1 = max(0, min(y1, img.height))
+                x2 = max(x1, min(x2, img.width))
+                y2 = max(y1, min(y2, img.height))
                 previous_img_local.save(os.path.join(get_temporary_directory(), "pre_oneocrcrop.png"))
-                previous_img_local = previous_img_local.crop(crop_coords)
+                try:
+                    previous_img_local = previous_img_local.crop((x1, y1, x2, y2))
+                except ValueError:
+                    logger.warning("Error cropping image, using original image")
             second_ocr_queue.put((previous_text, stable_time, previous_img_local, filtering, pre_crop_image))
             # threading.Thread(target=do_second_ocr, args=(previous_text, stable_time, previous_img_local, filtering), daemon=True).start()
             previous_img = None
@@ -468,8 +476,6 @@ def add_ss_hotkey(ss_hotkey="ctrl+shift+g"):
         img = run.apply_ocr_config_to_image(img, ocr_config, is_secondary=True)
         do_second_ocr("", datetime.now(), img, TextFiltering(lang=get_ocr_language()), ignore_furigana_filter=True, ignore_previous_result=True)
         
-    if not manual:
-        keyboard.add_hotkey(get_ocr_manual_ocr_hotkey().lower(), ocr_secondary_rectangles)
     secret_ss_hotkey = "F14"
     filtering = TextFiltering(lang=get_ocr_language())
     cropper = ScreenCropper()
@@ -487,19 +493,29 @@ def add_ss_hotkey(ss_hotkey="ctrl+shift+g"):
     hotkey_reg = None
     try:
         hotkey_reg = keyboard.add_hotkey(ss_hotkey, capture)
+        if not manual:
+            secondary_hotkey_reg = keyboard.add_hotkey(get_ocr_manual_ocr_hotkey().lower(), ocr_secondary_rectangles)
         if "f13" in ss_hotkey.lower():
-            keyboard.add_hotkey(secret_ss_hotkey, capture_main_monitor)
+            secret_hotkey_reg = keyboard.add_hotkey(secret_ss_hotkey, capture_main_monitor)
         print(f"Press {ss_hotkey} to take a screenshot.")
     except Exception as e:
         if hotkey_reg:
             keyboard.remove_hotkey(hotkey_reg)
+        if secondary_hotkey_reg:
+            keyboard.remove_hotkey(secondary_hotkey_reg)
+        if secret_hotkey_reg:
+            keyboard.remove_hotkey(secret_hotkey_reg)
         logger.error(f"Error setting up screenshot hotkey with keyboard, Attempting Backup: {e}")
         logger.debug(e)
         pynput_hotkey = ss_hotkey.replace("ctrl", "<ctrl>").replace("shift", "<shift>").replace("alt", "<alt>")
+        secret_ss_hotkey = secret_hotkey_reg.replace("ctrl", "<ctrl>").replace("shift", "<shift>").replace("alt", "<alt>")
+        secondary_ss_hotkey = secondary_hotkey_reg.replace("ctrl", "<ctrl>").replace("shift", "<shift>").replace("alt", "<alt>")
         try:
             from pynput import keyboard as pynput_keyboard
             listener = pynput_keyboard.GlobalHotKeys({
-                pynput_hotkey: capture
+                pynput_hotkey: capture,
+                secondary_ss_hotkey: ocr_secondary_rectangles,
+                secret_ss_hotkey: capture_main_monitor
             })
             listener.start()
             print(f"Press {pynput_hotkey} to take a screenshot.")
@@ -568,7 +584,7 @@ if __name__ == "__main__":
         keep_newline = args.keep_newline
         obs_ocr = args.obs_ocr
         
-        obs.connect_to_obs_sync(retry=0)
+        obs.connect_to_obs_sync(retry=0, check_output=False)
     
         # Start config change checker thread
         config_check_thread = ConfigChangeCheckThread()

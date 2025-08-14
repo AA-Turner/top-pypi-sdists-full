@@ -16018,19 +16018,24 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageGroupSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={"destination": "destination"},
+        name_mapping={
+            "destination": "destination",
+            "mediapackage_v2_group_settings": "mediapackageV2GroupSettings",
+        },
     )
     class MediaPackageGroupSettingsProperty:
         def __init__(
             self,
             *,
             destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mediapackage_v2_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MediaPackageV2GroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for the MediaPackage group.
 
             The parent of this entity is OutputGroupSettings.
 
             :param destination: The MediaPackage channel destination.
+            :param mediapackage_v2_group_settings: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagegroupsettings.html
             :exampleMetadata: fixture=_generated
@@ -16044,15 +16049,25 @@ class CfnChannel(
                 media_package_group_settings_property = medialive.CfnChannel.MediaPackageGroupSettingsProperty(
                     destination=medialive.CfnChannel.OutputLocationRefProperty(
                         destination_ref_id="destinationRefId"
+                    ),
+                    mediapackage_v2_group_settings=medialive.CfnChannel.MediaPackageV2GroupSettingsProperty(
+                        caption_language_mappings=[medialive.CfnChannel.CaptionLanguageMappingProperty(
+                            caption_channel=123,
+                            language_code="languageCode",
+                            language_description="languageDescription"
+                        )]
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__85fb14a458ec20936e4659288aff4ca667c9931c1d403d6a189b9b390fa82420)
                 check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+                check_type(argname="argument mediapackage_v2_group_settings", value=mediapackage_v2_group_settings, expected_type=type_hints["mediapackage_v2_group_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if destination is not None:
                 self._values["destination"] = destination
+            if mediapackage_v2_group_settings is not None:
+                self._values["mediapackage_v2_group_settings"] = mediapackage_v2_group_settings
 
         @builtins.property
         def destination(
@@ -16064,6 +16079,16 @@ class CfnChannel(
             '''
             result = self._values.get("destination")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.OutputLocationRefProperty"]], result)
+
+        @builtins.property
+        def mediapackage_v2_group_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageV2GroupSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagegroupsettings.html#cfn-medialive-channel-mediapackagegroupsettings-mediapackagev2groupsettings
+            '''
+            result = self._values.get("mediapackage_v2_group_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageV2GroupSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16170,11 +16195,22 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageOutputSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={},
+        name_mapping={
+            "media_package_v2_destination_settings": "mediaPackageV2DestinationSettings",
+        },
     )
     class MediaPackageOutputSettingsProperty:
-        def __init__(self) -> None:
-            '''
+        def __init__(
+            self,
+            *,
+            media_package_v2_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.MediaPackageV2DestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The settings for a MediaPackage output.
+
+            The parent of this entity is OutputSettings.
+
+            :param media_package_v2_destination_settings: 
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageoutputsettings.html
             :exampleMetadata: fixture=_generated
 
@@ -16184,9 +16220,31 @@ class CfnChannel(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_medialive as medialive
                 
-                media_package_output_settings_property = medialive.CfnChannel.MediaPackageOutputSettingsProperty()
+                media_package_output_settings_property = medialive.CfnChannel.MediaPackageOutputSettingsProperty(
+                    media_package_v2_destination_settings=medialive.CfnChannel.MediaPackageV2DestinationSettingsProperty(
+                        audio_group_id="audioGroupId",
+                        audio_rendition_sets="audioRenditionSets",
+                        hls_auto_select="hlsAutoSelect",
+                        hls_default="hlsDefault"
+                    )
+                )
             '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9761b0531c7dd9bf5b687d6f1f84caf60dcc2278f66da2452ed86fe3678b06f1)
+                check_type(argname="argument media_package_v2_destination_settings", value=media_package_v2_destination_settings, expected_type=type_hints["media_package_v2_destination_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if media_package_v2_destination_settings is not None:
+                self._values["media_package_v2_destination_settings"] = media_package_v2_destination_settings
+
+        @builtins.property
+        def media_package_v2_destination_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageV2DestinationSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageoutputsettings.html#cfn-medialive-channel-mediapackageoutputsettings-mediapackagev2destinationsettings
+            '''
+            result = self._values.get("media_package_v2_destination_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnChannel.MediaPackageV2DestinationSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16196,6 +16254,165 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "MediaPackageOutputSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageV2DestinationSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "audio_group_id": "audioGroupId",
+            "audio_rendition_sets": "audioRenditionSets",
+            "hls_auto_select": "hlsAutoSelect",
+            "hls_default": "hlsDefault",
+        },
+    )
+    class MediaPackageV2DestinationSettingsProperty:
+        def __init__(
+            self,
+            *,
+            audio_group_id: typing.Optional[builtins.str] = None,
+            audio_rendition_sets: typing.Optional[builtins.str] = None,
+            hls_auto_select: typing.Optional[builtins.str] = None,
+            hls_default: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param audio_group_id: 
+            :param audio_rendition_sets: 
+            :param hls_auto_select: 
+            :param hls_default: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2destinationsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                media_package_v2_destination_settings_property = medialive.CfnChannel.MediaPackageV2DestinationSettingsProperty(
+                    audio_group_id="audioGroupId",
+                    audio_rendition_sets="audioRenditionSets",
+                    hls_auto_select="hlsAutoSelect",
+                    hls_default="hlsDefault"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f3d603bf777a51fcd4a655ef17dcc1a5fa66a4fa5fe69e9918522175dc22316e)
+                check_type(argname="argument audio_group_id", value=audio_group_id, expected_type=type_hints["audio_group_id"])
+                check_type(argname="argument audio_rendition_sets", value=audio_rendition_sets, expected_type=type_hints["audio_rendition_sets"])
+                check_type(argname="argument hls_auto_select", value=hls_auto_select, expected_type=type_hints["hls_auto_select"])
+                check_type(argname="argument hls_default", value=hls_default, expected_type=type_hints["hls_default"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if audio_group_id is not None:
+                self._values["audio_group_id"] = audio_group_id
+            if audio_rendition_sets is not None:
+                self._values["audio_rendition_sets"] = audio_rendition_sets
+            if hls_auto_select is not None:
+                self._values["hls_auto_select"] = hls_auto_select
+            if hls_default is not None:
+                self._values["hls_default"] = hls_default
+
+        @builtins.property
+        def audio_group_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2destinationsettings.html#cfn-medialive-channel-mediapackagev2destinationsettings-audiogroupid
+            '''
+            result = self._values.get("audio_group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def audio_rendition_sets(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2destinationsettings.html#cfn-medialive-channel-mediapackagev2destinationsettings-audiorenditionsets
+            '''
+            result = self._values.get("audio_rendition_sets")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def hls_auto_select(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2destinationsettings.html#cfn-medialive-channel-mediapackagev2destinationsettings-hlsautoselect
+            '''
+            result = self._values.get("hls_auto_select")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def hls_default(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2destinationsettings.html#cfn-medialive-channel-mediapackagev2destinationsettings-hlsdefault
+            '''
+            result = self._values.get("hls_default")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaPackageV2DestinationSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageV2GroupSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"caption_language_mappings": "captionLanguageMappings"},
+    )
+    class MediaPackageV2GroupSettingsProperty:
+        def __init__(
+            self,
+            *,
+            caption_language_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnChannel.CaptionLanguageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param caption_language_mappings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                media_package_v2_group_settings_property = medialive.CfnChannel.MediaPackageV2GroupSettingsProperty(
+                    caption_language_mappings=[medialive.CfnChannel.CaptionLanguageMappingProperty(
+                        caption_channel=123,
+                        language_code="languageCode",
+                        language_description="languageDescription"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8189ecb41c1c07836a410e8f437062328cb6483c38d02ea4abcb3be57ed148e4)
+                check_type(argname="argument caption_language_mappings", value=caption_language_mappings, expected_type=type_hints["caption_language_mappings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if caption_language_mappings is not None:
+                self._values["caption_language_mappings"] = caption_language_mappings
+
+        @builtins.property
+        def caption_language_mappings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionLanguageMappingProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-captionlanguagemappings
+            '''
+            result = self._values.get("caption_language_mappings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnChannel.CaptionLanguageMappingProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaPackageV2GroupSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -18909,6 +19126,13 @@ class CfnChannel(
                     media_package_group_settings=medialive.CfnChannel.MediaPackageGroupSettingsProperty(
                         destination=medialive.CfnChannel.OutputLocationRefProperty(
                             destination_ref_id="destinationRefId"
+                        ),
+                        mediapackage_v2_group_settings=medialive.CfnChannel.MediaPackageV2GroupSettingsProperty(
+                            caption_language_mappings=[medialive.CfnChannel.CaptionLanguageMappingProperty(
+                                caption_channel=123,
+                                language_code="languageCode",
+                                language_description="languageDescription"
+                            )]
                         )
                     ),
                     ms_smooth_group_settings=medialive.CfnChannel.MsSmoothGroupSettingsProperty(
@@ -19410,7 +19634,14 @@ class CfnChannel(
                             name_modifier="nameModifier",
                             segment_modifier="segmentModifier"
                         ),
-                        media_package_output_settings=medialive.CfnChannel.MediaPackageOutputSettingsProperty(),
+                        media_package_output_settings=medialive.CfnChannel.MediaPackageOutputSettingsProperty(
+                            media_package_v2_destination_settings=medialive.CfnChannel.MediaPackageV2DestinationSettingsProperty(
+                                audio_group_id="audioGroupId",
+                                audio_rendition_sets="audioRenditionSets",
+                                hls_auto_select="hlsAutoSelect",
+                                hls_default="hlsDefault"
+                            )
+                        ),
                         ms_smooth_output_settings=medialive.CfnChannel.MsSmoothOutputSettingsProperty(
                             h265_packaging_type="h265PackagingType",
                             name_modifier="nameModifier"
@@ -19851,7 +20082,14 @@ class CfnChannel(
                         name_modifier="nameModifier",
                         segment_modifier="segmentModifier"
                     ),
-                    media_package_output_settings=medialive.CfnChannel.MediaPackageOutputSettingsProperty(),
+                    media_package_output_settings=medialive.CfnChannel.MediaPackageOutputSettingsProperty(
+                        media_package_v2_destination_settings=medialive.CfnChannel.MediaPackageV2DestinationSettingsProperty(
+                            audio_group_id="audioGroupId",
+                            audio_rendition_sets="audioRenditionSets",
+                            hls_auto_select="hlsAutoSelect",
+                            hls_default="hlsDefault"
+                        )
+                    ),
                     ms_smooth_output_settings=medialive.CfnChannel.MsSmoothOutputSettingsProperty(
                         h265_packaging_type="h265PackagingType",
                         name_modifier="nameModifier"
@@ -33632,6 +33870,7 @@ def _typecheckingstub__c9392d58176c012cd3edcfd8cba809739bf0435a5bf1d6a207b2696cd
 def _typecheckingstub__85fb14a458ec20936e4659288aff4ca667c9931c1d403d6a189b9b390fa82420(
     *,
     destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mediapackage_v2_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaPackageV2GroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -33641,6 +33880,30 @@ def _typecheckingstub__874df17e03aca6480b8e3f6dcef1562be61cb009cf5db8263599bb5c4
     channel_group: typing.Optional[builtins.str] = None,
     channel_id: typing.Optional[builtins.str] = None,
     channel_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9761b0531c7dd9bf5b687d6f1f84caf60dcc2278f66da2452ed86fe3678b06f1(
+    *,
+    media_package_v2_destination_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaPackageV2DestinationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3d603bf777a51fcd4a655ef17dcc1a5fa66a4fa5fe69e9918522175dc22316e(
+    *,
+    audio_group_id: typing.Optional[builtins.str] = None,
+    audio_rendition_sets: typing.Optional[builtins.str] = None,
+    hls_auto_select: typing.Optional[builtins.str] = None,
+    hls_default: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8189ecb41c1c07836a410e8f437062328cb6483c38d02ea4abcb3be57ed148e4(
+    *,
+    caption_language_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CaptionLanguageMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

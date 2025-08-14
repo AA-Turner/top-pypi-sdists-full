@@ -4,6 +4,6 @@
 #  -----------------------------------------------------------------------------------------
 
 from .base_retriever import BaseRetriever
-from .retriever import Retriever, RetrievalMethod
+from .retriever import RetrievalMethod, Retriever
 
 __all__ = ["BaseRetriever", "Retriever", "RetrievalMethod"]

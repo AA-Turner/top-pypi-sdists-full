@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-gevent
-Version: 25.4.0.20250812
+Version: 25.4.0.20250814
 Summary: Typing stubs for gevent
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -37,4 +37,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.403
 
 It was generated from typeshed commit
-[`ea39410142352293438a60312c17c80afe191659`](https://github.com/python/typeshed/commit/ea39410142352293438a60312c17c80afe191659).
+[`1e537d6216d4aef76a8c96ffac9da014ccfe7fc3`](https://github.com/python/typeshed/commit/1e537d6216d4aef76a8c96ffac9da014ccfe7fc3).

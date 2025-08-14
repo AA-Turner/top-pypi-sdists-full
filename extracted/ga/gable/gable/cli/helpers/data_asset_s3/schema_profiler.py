@@ -9,10 +9,19 @@ or Arrow tables that you already produce in schema_detection.py.
 
 from __future__ import annotations
 
-import duckdb
-import pyarrow as pa
 from typing import Dict, Mapping, Union
 
+import duckdb
+import pyarrow as pa
+from loguru import logger
+
+from gable.cli.helpers.data_asset_s3.duckdb_connection import get_resilient_duckdb
+from gable.cli.helpers.data_asset_s3.path_pattern_manager import (
+    UUID_REGEX_V1,
+    UUID_REGEX_V3,
+    UUID_REGEX_V4,
+    UUID_REGEX_V5,
+)
 from gable.openapi import (
     DataAssetFieldProfile,
     DataAssetFieldProfileBoolean,
@@ -26,14 +35,6 @@ from gable.openapi import (
     DataAssetFieldsToProfilesMapping,
     S3SamplingParameters,
 )
-from gable.cli.helpers.data_asset_s3.path_pattern_manager import (
-    UUID_REGEX_V1,
-    UUID_REGEX_V3,
-    UUID_REGEX_V4,
-    UUID_REGEX_V5,
-)
-from loguru import logger
-from gable.cli.helpers.data_asset_s3.duckdb_connection import get_resilient_duckdb
 
 
 # ────────────────────────────────────────────────────────────────────────────

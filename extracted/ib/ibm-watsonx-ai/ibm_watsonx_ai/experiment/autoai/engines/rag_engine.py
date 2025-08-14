@@ -7,33 +7,32 @@ import io
 import json
 import time
 from copy import deepcopy
-
-from pandas import DataFrame
 from typing import TYPE_CHECKING, Any, Literal
 
+from pandas import DataFrame
+
 import ibm_watsonx_ai._wrappers.requests as requests
-from ibm_watsonx_ai.utils import (
-    print_text_header_h1,
-    StatusLogger,
-    DisableWarningsLogger,
-)
-from ibm_watsonx_ai.utils.autoai.utils import run_id_required, is_ipython
-from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    UnsupportedOperation,
-    MissingValue,
-)
-from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai.foundation_models import Embeddings
-from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames as EmbedParams
-from ibm_watsonx_ai.foundation_models import ModelInference
+from ibm_watsonx_ai.foundation_models import Embeddings, ModelInference
 from ibm_watsonx_ai.helpers.connections import DataConnection
+from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames as EmbedParams
 from ibm_watsonx_ai.metanames import RAGOptimizerConfigurationMetaNames
+from ibm_watsonx_ai.utils import (
+    DisableWarningsLogger,
+    StatusLogger,
+    print_text_header_h1,
+)
+from ibm_watsonx_ai.utils.autoai.utils import is_ipython, run_id_required
+from ibm_watsonx_ai.wml_client_error import (
+    MissingValue,
+    UnsupportedOperation,
+    WMLClientError,
+)
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai.workspace import WorkSpace
     from ibm_watsonx_ai.foundation_models.extensions.rag.pattern import RAGPattern
+    from ibm_watsonx_ai.workspace import WorkSpace
 
 __all__ = ["RAGEngine"]
 
@@ -581,7 +580,6 @@ class RAGEngine(WMLResource):
                     use_rrf = False
                     rrf_params = None
                 else:
-
                     if model_id == "bm25":
                         retrieval_strategies["bm25"] = {}
 
@@ -623,7 +621,6 @@ class RAGEngine(WMLResource):
 
             bm25_builtin_func = None
             if hybrid_ranker:
-
                 if model_id == "bm25":
                     from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores import (
                         MilvusBM25BuiltinFunction,
@@ -902,6 +899,7 @@ class RAGEngine(WMLResource):
 
         if is_ipython():
             from IPython.display import display
+
             from ibm_watsonx_ai.utils import create_download_link
 
             display(create_download_link(filename))
@@ -1002,6 +1000,7 @@ class RAGEngine(WMLResource):
 
         if is_ipython():
             from IPython.display import display
+
             from ibm_watsonx_ai.utils import create_download_link
 
             display(create_download_link(filename))
@@ -1042,12 +1041,13 @@ class RAGEngine(WMLResource):
             setattr(data_connection.location, attr_name, evaluation_results_location)
         data_connection.set_client(self._client)
 
-        filename = f'{pattern_name}_{evaluation_results_location.split("/")[-1]}'
+        filename = f"{pattern_name}_{evaluation_results_location.split('/')[-1]}"
 
         data_connection.download(filename=filename)
 
         if is_ipython():
             from IPython.display import display
+
             from ibm_watsonx_ai.utils import create_download_link
 
             display(create_download_link(filename))
@@ -1191,13 +1191,12 @@ class RAGEngine(WMLResource):
                 headers=self._client._get_headers(),
             )
             return response_autoai_rag_api.status_code != 404
-        except:
+        except Exception:
             return False
 
     def _get_inference_service(
         self, details: dict, pattern_name: str | None = None
     ) -> str | None:
-
         code_connection = self._determine_connection(
             details=details,
             location_key="inference_service_code",
@@ -1222,7 +1221,6 @@ class RAGEngine(WMLResource):
     def _get_service_metadata(
         self, details: dict, pattern_name: str | None = None
     ) -> dict | None:
-
         connection = self._determine_connection(
             details=details,
             location_key="inference_service_metadata",
@@ -1242,7 +1240,6 @@ class RAGEngine(WMLResource):
         location_key: str,
         pattern_name: str | None = None,
     ) -> DataConnection | None:
-
         pattern_details = self.get_best_pattern_details(
             details=details, pattern_name=pattern_name
         )

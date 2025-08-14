@@ -3,35 +3,33 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
+import ast
+import gzip
 import inspect
 import re
-import ast
+import tempfile
 import uuid
-import gzip
+from abc import ABC, abstractmethod
 from enum import Enum
 from functools import cache
 from typing import Any, Callable, cast
-import tempfile
-from abc import ABC, abstractmethod
 
 from ibm_watsonx_ai import APIClient, Credentials
-from ibm_watsonx_ai.wml_resource import WMLResource
 from ibm_watsonx_ai.ai_services import AIServices
 from ibm_watsonx_ai.deployments import RuntimeContext
 from ibm_watsonx_ai.foundation_models import ModelInference
-from ibm_watsonx_ai.utils.utils import is_lib_installed
-
 from ibm_watsonx_ai.foundation_models.extensions.rag.utils.utils import (
     FunctionTransformer,
     FunctionVisitor,
     _get_components_replace_data,
 )
-
 from ibm_watsonx_ai.foundation_models.utils.utils import _copy_function
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import (
     MissingValue,
     WMLClientError,
 )
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 
 class Context(str, Enum):
@@ -75,7 +73,6 @@ class BaseRAGPatternService(ABC):
         cached: bool = False,
         _allow_store: bool = True,
     ) -> None:
-
         self.api_client = api_client
         self.store_params = store_params
         self._allow_store = _allow_store
@@ -268,7 +265,6 @@ class RAGPatternService(BaseRAGPatternService):
         cached: bool = False,
         _allow_store: bool = True,
     ) -> None:
-
         self._code: str | None = None
 
         super().__init__(
@@ -435,9 +431,8 @@ class RAGPatternService(BaseRAGPatternService):
                                 embeddings_init_params.pop("verify", None)
                     else:
                         embeddings_init_params = embedding_function
-                        if (
-                            "ibm_watsonx_ai.foundation_models.embeddings.embeddings"
-                            in (embeddings_init_params.get("__module__", ""))
+                        if "ibm_watsonx_ai.foundation_models.embeddings.embeddings" in (
+                            embeddings_init_params.get("__module__", "")
                         ):
                             embeddings_init_params.pop("credentials", None)
                             embeddings_init_params.pop("project_id", None)
@@ -555,7 +550,6 @@ class RAGPatternService(BaseRAGPatternService):
         :rtype: dict
         """
         if self._code is not None:
-
             tmp_uid = "tmp_ai_service_python_function_code_{}.py.gz".format(
                 str(uuid.uuid4()).replace("-", "_")
             )
@@ -674,10 +668,9 @@ class RAGPatternService(BaseRAGPatternService):
         """
 
         if not space_id and not self.api_client.default_space_id:
-
             raise MissingValue(
                 value_name="space_id",
-                reason=f"Deployment space ID must be provided to deploy RAGPattern's inference AI service.",
+                reason="Deployment space ID must be provided to deploy RAGPattern's inference AI service.",
             )
         return super().deploy(
             name=name,
@@ -718,7 +711,6 @@ class RAGPatternFunction(BaseRAGPatternService):
         store_params: dict | None = None,
         _allow_store: bool = True,
     ) -> None:
-
         # api_client is mandatory to store and deploy function asset
         WMLResource._validate_type(api_client, "api_client", APIClient, mandatory=True)
         api_client = cast(APIClient, api_client)
@@ -886,7 +878,6 @@ class RAGPatternFunction(BaseRAGPatternService):
         """
 
         if not space_id and not self.api_client.default_space_id:
-
             raise MissingValue(
                 value_name="space_id",
                 reason=f"Deployment space ID must be provided to deploy RAGPattern's inference {'service' if isinstance(self, RAGPatternService) else 'service'}.",

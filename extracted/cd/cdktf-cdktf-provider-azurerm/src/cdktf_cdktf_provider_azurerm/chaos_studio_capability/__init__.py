@@ -1,7 +1,7 @@
 r'''
 # `azurerm_chaos_studio_capability`
 
-Refer to the Terraform Registry for docs: [`azurerm_chaos_studio_capability`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability).
+Refer to the Terraform Registry for docs: [`azurerm_chaos_studio_capability`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ChaosStudioCapability(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.chaosStudioCapability.ChaosStudioCapability",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability azurerm_chaos_studio_capability}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability azurerm_chaos_studio_capability}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class ChaosStudioCapability(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability azurerm_chaos_studio_capability} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability azurerm_chaos_studio_capability} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capability_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#capability_type ChaosStudioCapability#capability_type}.
-        :param chaos_studio_target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#chaos_studio_target_id ChaosStudioCapability#chaos_studio_target_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#id ChaosStudioCapability#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#timeouts ChaosStudioCapability#timeouts}
+        :param capability_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#capability_type ChaosStudioCapability#capability_type}.
+        :param chaos_studio_target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#chaos_studio_target_id ChaosStudioCapability#chaos_studio_target_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#id ChaosStudioCapability#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#timeouts ChaosStudioCapability#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class ChaosStudioCapability(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ChaosStudioCapability to import.
-        :param import_from_id: The id of the existing ChaosStudioCapability that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ChaosStudioCapability that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ChaosStudioCapability to import is found.
         '''
         if __debug__:
@@ -132,9 +132,9 @@ class ChaosStudioCapability(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#create ChaosStudioCapability#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#delete ChaosStudioCapability#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#read ChaosStudioCapability#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#create ChaosStudioCapability#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#delete ChaosStudioCapability#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#read ChaosStudioCapability#read}.
         '''
         value = ChaosStudioCapabilityTimeouts(create=create, delete=delete, read=read)
 
@@ -271,10 +271,10 @@ class ChaosStudioCapabilityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capability_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#capability_type ChaosStudioCapability#capability_type}.
-        :param chaos_studio_target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#chaos_studio_target_id ChaosStudioCapability#chaos_studio_target_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#id ChaosStudioCapability#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#timeouts ChaosStudioCapability#timeouts}
+        :param capability_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#capability_type ChaosStudioCapability#capability_type}.
+        :param chaos_studio_target_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#chaos_studio_target_id ChaosStudioCapability#chaos_studio_target_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#id ChaosStudioCapability#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#timeouts ChaosStudioCapability#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -382,21 +382,21 @@ class ChaosStudioCapabilityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def capability_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#capability_type ChaosStudioCapability#capability_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#capability_type ChaosStudioCapability#capability_type}.'''
         result = self._values.get("capability_type")
         assert result is not None, "Required property 'capability_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def chaos_studio_target_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#chaos_studio_target_id ChaosStudioCapability#chaos_studio_target_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#chaos_studio_target_id ChaosStudioCapability#chaos_studio_target_id}.'''
         result = self._values.get("chaos_studio_target_id")
         assert result is not None, "Required property 'chaos_studio_target_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#id ChaosStudioCapability#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#id ChaosStudioCapability#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -408,7 +408,7 @@ class ChaosStudioCapabilityConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ChaosStudioCapabilityTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#timeouts ChaosStudioCapability#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#timeouts ChaosStudioCapability#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ChaosStudioCapabilityTimeouts"], result)
@@ -439,9 +439,9 @@ class ChaosStudioCapabilityTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#create ChaosStudioCapability#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#delete ChaosStudioCapability#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#read ChaosStudioCapability#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#create ChaosStudioCapability#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#delete ChaosStudioCapability#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#read ChaosStudioCapability#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26650dd4540108d79f52622ab03515483ca4b77efd39e6eafec6881a013dcf21)
@@ -458,19 +458,19 @@ class ChaosStudioCapabilityTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#create ChaosStudioCapability#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#create ChaosStudioCapability#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#delete ChaosStudioCapability#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#delete ChaosStudioCapability#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/chaos_studio_capability#read ChaosStudioCapability#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/chaos_studio_capability#read ChaosStudioCapability#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

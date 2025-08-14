@@ -7,23 +7,23 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Generator, TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 
 from requests import Response
 
 from ibm_watsonx_ai._wrappers import requests
-
 from ibm_watsonx_ai.metanames import PkgExtnMetaNames
 from ibm_watsonx_ai.utils import PKG_EXTN_DETAILS_TYPE, content_type_for
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
     ApiRequestFailure,
     ResourceIdByNameNotFound,
+    WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from pandas import DataFrame
+
     from ibm_watsonx_ai import APIClient
 
 
@@ -230,7 +230,7 @@ class PkgExtn(WMLResource):
                 else:
                     try:
                         self.delete(pkg_extn_asset_id)
-                    except:
+                    except Exception:
                         pass
                     raise WMLClientError(
                         "Failed while creating a package extensions "
@@ -239,7 +239,7 @@ class PkgExtn(WMLResource):
             else:
                 try:
                     self.delete(pkg_extn_asset_id)
-                except:
+                except Exception:
                     pass
                 raise WMLClientError(
                     "Failed while creating a package extensions " + put_response.text
@@ -405,7 +405,6 @@ class PkgExtn(WMLResource):
             return self._handle_response(204, "delete pkg extn specification", response)
 
     def _get_required_element_from_response(self, response_data: dict) -> dict:
-
         WMLResource._validate_type(response_data, "pkg_extn_response", dict)
 
         if self._client.default_space_id is not None:

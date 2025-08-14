@@ -3,8 +3,7 @@ import keyword
 from abc import ABC
 from typing import List, Type
 from orionis.services.introspection.abstract.contracts.reflection import IReflectionAbstract
-from orionis.services.introspection.dependencies.entities.class_dependencies import ClassDependency
-from orionis.services.introspection.dependencies.entities.method_dependencies import MethodDependency
+from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
 from orionis.services.introspection.dependencies.reflection import ReflectDependencies
 from orionis.services.introspection.exceptions import (
     ReflectionAttributeError,
@@ -1382,20 +1381,20 @@ class ReflectionAbstract(IReflectionAbstract):
 
         return prop.fget.__doc__ if prop.fget else None
 
-    def getConstructorDependencies(self) -> ClassDependency:
+    def getConstructorDependencies(self) -> ResolveArguments:
         """
         Get the resolved and unresolved dependencies from the constructor.
 
         Returns
         -------
-        ClassDependency
+        ResolveArguments
             A structured representation of the constructor dependencies containing
             resolved dependencies (with names and values) and unresolved dependencies
             (parameter names without default values or annotations).
         """
         return ReflectDependencies(self.__abstract).getConstructorDependencies()
 
-    def getMethodDependencies(self, method_name: str) -> MethodDependency:
+    def getMethodDependencies(self, method_name: str) -> ResolveArguments:
         """
         Get the resolved and unresolved dependencies from a specific method.
 
@@ -1406,7 +1405,7 @@ class ReflectionAbstract(IReflectionAbstract):
 
         Returns
         -------
-        MethodDependency
+        ResolveArguments
             A structured representation of the method dependencies containing
             resolved dependencies (with names and values) and unresolved dependencies
             (parameter names without default values or annotations).

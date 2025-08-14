@@ -3,10 +3,8 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import cast
-
-from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 
 class CPDVersion:

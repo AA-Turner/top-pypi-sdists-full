@@ -3,25 +3,22 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
+from os import environ
+from re import findall
 from typing import TYPE_CHECKING, List, Union
 
 from ibm_watsonx_ai.helpers.connections import (
-    DataConnection,
-    S3Location,
-    FSLocation,
     AssetLocation,
     CloudAssetLocation,
-    DeploymentOutputAssetLocation,
     ContainerLocation,
+    DataConnection,
+    DeploymentOutputAssetLocation,
+    FSLocation,
     S3Connection,
+    S3Location,
 )
 from ibm_watsonx_ai.utils.autoai.enums import DataConnectionTypes
 from ibm_watsonx_ai.utils.autoai.errors import ContainerTypeNotSupported
-
-
-from os import environ
-from re import findall
-
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai.workspace import WorkSpace
@@ -43,7 +40,6 @@ def validate_source_data_connections(
     deployment=False,
 ) -> List["DataConnection"]:
     for data_connection in source_data_connections:
-
         if isinstance(data_connection.location, FSLocation):
             # note: save data as an data asset
             if workspace.api_client.ICP_PLATFORM_SPACES:
@@ -190,8 +186,8 @@ def get_max_sample_size_limit() -> int:
     Returns sample size limit in bytes.
     """
     from ibm_watsonx_ai.data_loaders.datasets.experiment import (
-        DEFAULT_SAMPLE_SIZE_LIMIT,
         DEFAULT_REDUCED_SAMPLE_SIZE_LIMIT,
+        DEFAULT_SAMPLE_SIZE_LIMIT,
     )
 
     size_mem = int(findall(r"[0-9]+", environ.get("MEM", "32"))[0])

@@ -6,10 +6,10 @@ import random
 import re
 import time
 import urllib.parse
-from tqdm import tqdm
 from typing import Any, Dict, List, Optional
 
 import pyarrow.compute as pc
+from tqdm import tqdm
 
 from .cache_manager import InventoryCacheManager
 from .data_loader import InventoryDataLoader

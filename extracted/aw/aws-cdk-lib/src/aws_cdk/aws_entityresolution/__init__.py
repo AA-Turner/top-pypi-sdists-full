@@ -87,7 +87,10 @@ class CfnIdMappingWorkflow(
 ):
     '''Creates an ``IdMappingWorkflow`` object which stores the configuration of the data processing job to be run.
 
-    Each ``IdMappingWorkflow`` must have a unique workflow name. To modify an existing workflow, use the ``UpdateIdMappingWorkflow`` API.
+    Each ``IdMappingWorkflow`` must have a unique workflow name. To modify an existing workflow, use the UpdateIdMappingWorkflow API.
+    .. epigraph::
+
+       Incremental processing is not supported for ID mapping workflows.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html
     :cloudformationResource: AWS::EntityResolution::IdMappingWorkflow
@@ -171,7 +174,7 @@ class CfnIdMappingWorkflow(
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
         :param workflow_name: The name of the workflow. There can't be multiple ``IdMappingWorkflows`` with the same name.
         :param description: A description of the workflow.
-        :param output_source_config: A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``OutputS3Path`` and ``Output`` .
+        :param output_source_config: A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
         :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
@@ -338,7 +341,7 @@ class CfnIdMappingWorkflow(
     def output_source_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]]:
-        '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``OutputS3Path`` and ``Output`` .'''
+        '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty"]]]], jsii.get(self, "outputSourceConfig"))
 
     @output_source_config.setter
@@ -385,7 +388,7 @@ class CfnIdMappingWorkflow(
         ) -> None:
             '''An object that defines the list of matching rules to run in an ID mapping workflow.
 
-            :param attribute_matching_model: The comparison type. You can either choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` . If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A matches the value of the ``BusinessEmail`` field of Profile B, the two profiles are matched on the ``Email`` attribute type. If you choose ``ONE_TO_ONE`` , the system can only match attributes if the sub-types are an exact match. For example, for the ``Email`` attribute type, the system will only consider it a match if the value of the ``Email`` field of Profile A matches the value of the ``Email`` field of Profile B.
+            :param attribute_matching_model: The comparison type. You can either choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` . If you choose ``ONE_TO_ONE`` , the system can only match attributes if the sub-types are an exact match. For example, for the ``Email`` attribute type, the system will only consider it a match if the value of the ``Email`` field of Profile A matches the value of the ``Email`` field of Profile B. If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A matches the value of the ``BusinessEmail`` field of Profile B, the two profiles are matched on the ``Email`` attribute type.
             :param record_matching_model: The type of matching record that is allowed to be used in an ID mapping workflow. If the value is set to ``ONE_SOURCE_TO_ONE_TARGET`` , only one record in the source can be matched to the same record in the target. If the value is set to ``MANY_SOURCE_TO_ONE_TARGET`` , multiple records in the source can be matched to one record in the target.
             :param rule_definition_type: The set of rules you can use in an ID mapping workflow. The limitations specified for the source or target to define the match rules must be compatible.
             :param rules: The rules that can be used for ID mapping.
@@ -430,9 +433,9 @@ class CfnIdMappingWorkflow(
         def attribute_matching_model(self) -> builtins.str:
             '''The comparison type. You can either choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` .
 
-            If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A matches the value of the ``BusinessEmail`` field of Profile B, the two profiles are matched on the ``Email`` attribute type.
-
             If you choose ``ONE_TO_ONE`` , the system can only match attributes if the sub-types are an exact match. For example, for the ``Email`` attribute type, the system will only consider it a match if the value of the ``Email`` field of Profile A matches the value of the ``Email`` field of Profile B.
+
+            If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A matches the value of the ``BusinessEmail`` field of Profile B, the two profiles are matched on the ``Email`` attribute type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idmappingworkflow-idmappingrulebasedproperties.html#cfn-entityresolution-idmappingworkflow-idmappingrulebasedproperties-attributematchingmodel
             '''
@@ -617,7 +620,7 @@ class CfnIdMappingWorkflow(
             schema_arn: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''An object containing ``InputSourceARN`` , ``SchemaName`` , and ``Type`` .
+            '''An object containing ``inputSourceARN`` , ``schemaName`` , and ``type`` .
 
             :param input_source_arn: An AWS Glue table Amazon Resource Name (ARN) or a matching workflow ARN for the input source table.
             :param schema_arn: The ARN (Amazon Resource Name) that AWS Entity Resolution generated for the ``SchemaMapping`` .
@@ -708,7 +711,7 @@ class CfnIdMappingWorkflow(
             output_s3_path: builtins.str,
             kms_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``OutputS3Path`` and ``Output`` .
+            '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
 
             :param output_s3_path: The S3 path to which AWS Entity Resolution will write the output table.
             :param kms_arn: Customer AWS KMS ARN for encryption at rest. If not provided, system will use an AWS Entity Resolution managed KMS key.
@@ -941,7 +944,7 @@ class CfnIdMappingWorkflow(
             matching_keys: typing.Sequence[builtins.str],
             rule_name: builtins.str,
         ) -> None:
-            '''An object containing ``RuleName`` , and ``MatchingKeys`` .
+            '''An object containing the ``ruleName`` and ``matchingKeys`` .
 
             :param matching_keys: A list of ``MatchingKeys`` . The ``MatchingKeys`` must have been defined in the ``SchemaMapping`` . Two records are considered to match according to this rule if all of the ``MatchingKeys`` match.
             :param rule_name: A name for the matching rule.
@@ -1035,7 +1038,7 @@ class CfnIdMappingWorkflowProps:
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
         :param workflow_name: The name of the workflow. There can't be multiple ``IdMappingWorkflows`` with the same name.
         :param description: A description of the workflow.
-        :param output_source_config: A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``OutputS3Path`` and ``Output`` .
+        :param output_source_config: A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
         :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html
@@ -1180,7 +1183,7 @@ class CfnIdMappingWorkflowProps:
     def output_source_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIdMappingWorkflow.IdMappingWorkflowOutputSourceProperty]]]]:
-        '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``OutputS3Path`` and ``Output`` .
+        '''A list of ``IdMappingWorkflowOutputSource`` objects, each of which contains fields ``outputS3Path`` and ``KMSArn`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idmappingworkflow.html#cfn-entityresolution-idmappingworkflow-outputsourceconfig
         '''
@@ -1216,7 +1219,7 @@ class CfnIdNamespace(
 ):
     '''Creates an ID namespace object which will help customers provide metadata explaining their dataset and how to use it.
 
-    Each ID namespace must have a unique name. To modify an existing ID namespace, use the ``UpdateIdNamespace`` API.
+    Each ID namespace must have a unique name. To modify an existing ID namespace, use the UpdateIdNamespace API.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-idnamespace.html
     :cloudformationResource: AWS::EntityResolution::IdNamespace
@@ -1499,7 +1502,7 @@ class CfnIdNamespace(
             provider_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdNamespace.NamespaceProviderPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rule_based_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIdNamespace.NamespaceRuleBasedPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''An object containing ``IdMappingType`` , ``ProviderProperties`` , and ``RuleBasedProperties`` .
+            '''An object containing ``idMappingType`` , ``providerProperties`` , and ``ruleBasedProperties`` .
 
             :param id_mapping_type: The type of ID mapping.
             :param provider_properties: An object which defines any additional configurations required by the provider service.
@@ -1608,7 +1611,7 @@ class CfnIdNamespace(
             input_source_arn: builtins.str,
             schema_name: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''An object containing ``InputSourceARN`` and ``SchemaName`` .
+            '''An object containing ``inputSourceARN`` and ``schemaName`` .
 
             :param input_source_arn: An AWS Glue table Amazon Resource Name (ARN) or a matching workflow ARN for the input source table.
             :param schema_name: The name of the schema.
@@ -1684,7 +1687,7 @@ class CfnIdNamespace(
             provider_service_arn: builtins.str,
             provider_configuration: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
         ) -> None:
-            '''An object containing ``ProviderConfiguration`` and ``ProviderServiceArn`` .
+            '''An object containing ``providerConfiguration`` and ``providerServiceArn`` .
 
             :param provider_service_arn: The Amazon Resource Name (ARN) of the provider service.
             :param provider_configuration: An object which defines any additional configurations required by the provider service.
@@ -1772,7 +1775,7 @@ class CfnIdNamespace(
 
             These properties define how the ID namespace can be used in an ID mapping workflow.
 
-            :param attribute_matching_model: The comparison type. You can either choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` . If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A matches the value of ``BusinessEmail`` field of Profile B, the two profiles are matched on the ``Email`` attribute type. If you choose ``ONE_TO_ONE`` , the system can only match attributes if the sub-types are an exact match. For example, for the ``Email`` attribute type, the system will only consider it a match if the value of the ``Email`` field of Profile A matches the value of the ``Email`` field of Profile B.
+            :param attribute_matching_model: The comparison type. You can either choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` . If you choose ``ONE_TO_ONE`` , the system can only match attributes if the sub-types are an exact match. For example, for the ``Email`` attribute type, the system will only consider it a match if the value of the ``Email`` field of Profile A matches the value of the ``Email`` field of Profile B. If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A matches the value of ``BusinessEmail`` field of Profile B, the two profiles are matched on the ``Email`` attribute type.
             :param record_matching_models: The type of matching record that is allowed to be used in an ID mapping workflow. If the value is set to ``ONE_SOURCE_TO_ONE_TARGET`` , only one record in the source is matched to one record in the target. If the value is set to ``MANY_SOURCE_TO_ONE_TARGET`` , all matching records in the source are matched to one record in the target.
             :param rule_definition_types: The sets of rules you can use in an ID mapping workflow. The limitations specified for the source and target must be compatible.
             :param rules: The rules for the ID namespace.
@@ -1816,9 +1819,9 @@ class CfnIdNamespace(
         def attribute_matching_model(self) -> typing.Optional[builtins.str]:
             '''The comparison type. You can either choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` .
 
-            If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A matches the value of ``BusinessEmail`` field of Profile B, the two profiles are matched on the ``Email`` attribute type.
-
             If you choose ``ONE_TO_ONE`` , the system can only match attributes if the sub-types are an exact match. For example, for the ``Email`` attribute type, the system will only consider it a match if the value of the ``Email`` field of Profile A matches the value of the ``Email`` field of Profile B.
+
+            If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A matches the value of ``BusinessEmail`` field of Profile B, the two profiles are matched on the ``Email`` attribute type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-idnamespace-namespacerulebasedproperties.html#cfn-entityresolution-idnamespace-namespacerulebasedproperties-attributematchingmodel
             '''
@@ -1883,7 +1886,7 @@ class CfnIdNamespace(
             matching_keys: typing.Sequence[builtins.str],
             rule_name: builtins.str,
         ) -> None:
-            '''An object containing ``RuleName`` , and ``MatchingKeys`` .
+            '''An object containing the ``ruleName`` and ``matchingKeys`` .
 
             :param matching_keys: A list of ``MatchingKeys`` . The ``MatchingKeys`` must have been defined in the ``SchemaMapping`` . Two records are considered to match according to this rule if all of the ``MatchingKeys`` match.
             :param rule_name: A name for the matching rule.
@@ -2152,7 +2155,7 @@ class CfnMatchingWorkflow(
     The workflow name must be unique. To modify an existing workflow, use ``UpdateMatchingWorkflow`` .
     .. epigraph::
 
-       For workflows where ``resolutionType`` is ML_MATCHING, incremental processing is not supported.
+       For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html
     :cloudformationResource: AWS::EntityResolution::MatchingWorkflow
@@ -2207,6 +2210,12 @@ class CfnMatchingWorkflow(
         
                     # the properties below are optional
                     match_purpose="matchPurpose"
+                ),
+                rule_condition_properties=entityresolution.CfnMatchingWorkflow.RuleConditionPropertiesProperty(
+                    rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
+                        condition="condition",
+                        rule_name="ruleName"
+                    )]
                 )
             ),
             role_arn="roleArn",
@@ -2242,12 +2251,12 @@ class CfnMatchingWorkflow(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param input_source_config: A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
-        :param output_source_config: A list of ``OutputSource`` objects, each of which contains fields ``OutputS3Path`` , ``ApplyNormalization`` , and ``Output`` .
+        :param output_source_config: A list of ``OutputSource`` objects, each of which contains fields ``outputS3Path`` , ``applyNormalization`` , ``KMSArn`` , and ``output`` .
         :param resolution_techniques: An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
         :param workflow_name: The name of the workflow. There can't be multiple ``MatchingWorkflows`` with the same name.
         :param description: A description of the workflow.
-        :param incremental_run_config: Optional. An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
+        :param incremental_run_config: Optional. An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
         :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
@@ -2358,7 +2367,7 @@ class CfnMatchingWorkflow(
     def output_source_config(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.OutputSourceProperty"]]]:
-        '''A list of ``OutputSource`` objects, each of which contains fields ``OutputS3Path`` , ``ApplyNormalization`` , and ``Output`` .'''
+        '''A list of ``OutputSource`` objects, each of which contains fields ``outputS3Path`` , ``applyNormalization`` , ``KMSArn`` , and ``output`` .'''
         return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.OutputSourceProperty"]]], jsii.get(self, "outputSourceConfig"))
 
     @output_source_config.setter
@@ -2471,9 +2480,9 @@ class CfnMatchingWorkflow(
             An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console.
             .. epigraph::
 
-               For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
+               For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
 
-            :param incremental_run_type: The type of incremental run. The only valid value is ``IMMEDIATE`` . This appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
+            :param incremental_run_type: The type of incremental run. The only valid value is ``IMMEDIATE`` . This appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-incrementalrunconfig.html
             :exampleMetadata: fixture=_generated
@@ -2501,7 +2510,7 @@ class CfnMatchingWorkflow(
 
             .. epigraph::
 
-               For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
+               For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-incrementalrunconfig.html#cfn-entityresolution-matchingworkflow-incrementalrunconfig-incrementalruntype
             '''
@@ -2537,9 +2546,9 @@ class CfnMatchingWorkflow(
             schema_arn: builtins.str,
             apply_normalization: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         ) -> None:
-            '''An object containing ``InputSourceARN`` , ``SchemaName`` , and ``ApplyNormalization`` .
+            '''An object containing ``inputSourceARN`` , ``schemaName`` , and ``applyNormalization`` .
 
-            :param input_source_arn: An object containing ``InputSourceARN`` , ``SchemaName`` , and ``ApplyNormalization`` .
+            :param input_source_arn: An object containing ``inputSourceARN`` , ``schemaName`` , and ``applyNormalization`` .
             :param schema_arn: The name of the schema.
             :param apply_normalization: Normalizes the attributes defined in the schema in the input data. For example, if an attribute has an ``AttributeType`` of ``PHONE_NUMBER`` , and the data in the input table is in a format of 1234567890, AWS Entity Resolution will normalize this field in the output to (123)-456-7890.
 
@@ -2574,7 +2583,7 @@ class CfnMatchingWorkflow(
 
         @builtins.property
         def input_source_arn(self) -> builtins.str:
-            '''An object containing ``InputSourceARN`` , ``SchemaName`` , and ``ApplyNormalization`` .
+            '''An object containing ``inputSourceARN`` , ``schemaName`` , and ``applyNormalization`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-inputsource.html#cfn-entityresolution-matchingworkflow-inputsource-inputsourcearn
             '''
@@ -2985,6 +2994,7 @@ class CfnMatchingWorkflow(
             "provider_properties": "providerProperties",
             "resolution_type": "resolutionType",
             "rule_based_properties": "ruleBasedProperties",
+            "rule_condition_properties": "ruleConditionProperties",
         },
     )
     class ResolutionTechniquesProperty:
@@ -2994,12 +3004,14 @@ class CfnMatchingWorkflow(
             provider_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.ProviderPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             resolution_type: typing.Optional[builtins.str] = None,
             rule_based_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.RuleBasedPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rule_condition_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.RuleConditionPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .
 
             :param provider_properties: The properties of the provider service.
-            :param resolution_type: The type of matching. There are three types of matching: ``RULE_MATCHING`` , ``ML_MATCHING`` , and ``PROVIDER`` .
-            :param rule_based_properties: An object which defines the list of matching rules to run and has a field ``Rules`` , which is a list of rule objects.
+            :param resolution_type: The type of matching workflow to create. Specify one of the following types:. - ``RULE_MATCHING`` : Match records using configurable rule-based criteria - ``ML_MATCHING`` : Match records using machine learning models - ``PROVIDER`` : Match records using a third-party matching provider
+            :param rule_based_properties: An object which defines the list of matching rules to run and has a field ``rules`` , which is a list of rule objects.
+            :param rule_condition_properties: An object containing the ``rules`` for a matching workflow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-resolutiontechniques.html
             :exampleMetadata: fixture=_generated
@@ -3032,6 +3044,12 @@ class CfnMatchingWorkflow(
                 
                         # the properties below are optional
                         match_purpose="matchPurpose"
+                    ),
+                    rule_condition_properties=entityresolution.CfnMatchingWorkflow.RuleConditionPropertiesProperty(
+                        rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
+                            condition="condition",
+                            rule_name="ruleName"
+                        )]
                     )
                 )
             '''
@@ -3040,6 +3058,7 @@ class CfnMatchingWorkflow(
                 check_type(argname="argument provider_properties", value=provider_properties, expected_type=type_hints["provider_properties"])
                 check_type(argname="argument resolution_type", value=resolution_type, expected_type=type_hints["resolution_type"])
                 check_type(argname="argument rule_based_properties", value=rule_based_properties, expected_type=type_hints["rule_based_properties"])
+                check_type(argname="argument rule_condition_properties", value=rule_condition_properties, expected_type=type_hints["rule_condition_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if provider_properties is not None:
                 self._values["provider_properties"] = provider_properties
@@ -3047,6 +3066,8 @@ class CfnMatchingWorkflow(
                 self._values["resolution_type"] = resolution_type
             if rule_based_properties is not None:
                 self._values["rule_based_properties"] = rule_based_properties
+            if rule_condition_properties is not None:
+                self._values["rule_condition_properties"] = rule_condition_properties
 
         @builtins.property
         def provider_properties(
@@ -3061,9 +3082,11 @@ class CfnMatchingWorkflow(
 
         @builtins.property
         def resolution_type(self) -> typing.Optional[builtins.str]:
-            '''The type of matching.
+            '''The type of matching workflow to create. Specify one of the following types:.
 
-            There are three types of matching: ``RULE_MATCHING`` , ``ML_MATCHING`` , and ``PROVIDER`` .
+            - ``RULE_MATCHING`` : Match records using configurable rule-based criteria
+            - ``ML_MATCHING`` : Match records using machine learning models
+            - ``PROVIDER`` : Match records using a third-party matching provider
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-resolutiontechniques.html#cfn-entityresolution-matchingworkflow-resolutiontechniques-resolutiontype
             '''
@@ -3074,12 +3097,23 @@ class CfnMatchingWorkflow(
         def rule_based_properties(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleBasedPropertiesProperty"]]:
-            '''An object which defines the list of matching rules to run and has a field ``Rules`` , which is a list of rule objects.
+            '''An object which defines the list of matching rules to run and has a field ``rules`` , which is a list of rule objects.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-resolutiontechniques.html#cfn-entityresolution-matchingworkflow-resolutiontechniques-rulebasedproperties
             '''
             result = self._values.get("rule_based_properties")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleBasedPropertiesProperty"]], result)
+
+        @builtins.property
+        def rule_condition_properties(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleConditionPropertiesProperty"]]:
+            '''An object containing the ``rules`` for a matching workflow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-resolutiontechniques.html#cfn-entityresolution-matchingworkflow-resolutiontechniques-ruleconditionproperties
+            '''
+            result = self._values.get("rule_condition_properties")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleConditionPropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3111,9 +3145,7 @@ class CfnMatchingWorkflow(
         ) -> None:
             '''An object which defines the list of matching rules to run in a matching workflow.
 
-            RuleBasedProperties contain a ``Rules`` field, which is a list of rule objects.
-
-            :param attribute_matching_model: The comparison type. You can either choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` . If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A and the value of ``BusinessEmail`` field of Profile B matches, the two profiles are matched on the ``Email`` attribute type. If you choose ``ONE_TO_ONE`` , the system can only match attributes if the sub-types are an exact match. For example, for the ``Email`` attribute type, the system will only consider it a match if the value of the ``Email`` field of Profile A matches the value of the ``Email`` field of Profile B.
+            :param attribute_matching_model: The comparison type. You can choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` . If you choose ``ONE_TO_ONE`` , the system can only match attributes if the sub-types are an exact match. For example, for the ``Email`` attribute type, the system will only consider it a match if the value of the ``Email`` field of Profile A matches the value of the ``Email`` field of Profile B. If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A and the value of ``BusinessEmail`` field of Profile B matches, the two profiles are matched on the ``Email`` attribute type.
             :param rules: A list of ``Rule`` objects, each of which have fields ``RuleName`` and ``MatchingKeys`` .
             :param match_purpose: An indicator of whether to generate IDs and index the data or not. If you choose ``IDENTIFIER_GENERATION`` , the process generates IDs and indexes the data. If you choose ``INDEXING`` , the process indexes the data without generating IDs.
 
@@ -3151,11 +3183,11 @@ class CfnMatchingWorkflow(
 
         @builtins.property
         def attribute_matching_model(self) -> builtins.str:
-            '''The comparison type. You can either choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` .
-
-            If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A and the value of ``BusinessEmail`` field of Profile B matches, the two profiles are matched on the ``Email`` attribute type.
+            '''The comparison type. You can choose ``ONE_TO_ONE`` or ``MANY_TO_MANY`` as the ``attributeMatchingModel`` .
 
             If you choose ``ONE_TO_ONE`` , the system can only match attributes if the sub-types are an exact match. For example, for the ``Email`` attribute type, the system will only consider it a match if the value of the ``Email`` field of Profile A matches the value of the ``Email`` field of Profile B.
+
+            If you choose ``MANY_TO_MANY`` , the system can match attributes across the sub-types of an attribute type. For example, if the value of the ``Email`` field of Profile A and the value of ``BusinessEmail`` field of Profile B matches, the two profiles are matched on the ``Email`` attribute type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-rulebasedproperties.html#cfn-entityresolution-matchingworkflow-rulebasedproperties-attributematchingmodel
             '''
@@ -3200,6 +3232,147 @@ class CfnMatchingWorkflow(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow.RuleConditionPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"rules": "rules"},
+    )
+    class RuleConditionPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMatchingWorkflow.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''The properties of a rule condition that provides the ability to use more complex syntax.
+
+            :param rules: A list of rule objects, each of which have fields ``ruleName`` and ``condition`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-ruleconditionproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_entityresolution as entityresolution
+                
+                rule_condition_properties_property = entityresolution.CfnMatchingWorkflow.RuleConditionPropertiesProperty(
+                    rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
+                        condition="condition",
+                        rule_name="ruleName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c01a018e071645429b67216971e253282d8265d42f85a054b775019645ee4406)
+                check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "rules": rules,
+            }
+
+        @builtins.property
+        def rules(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleConditionProperty"]]]:
+            '''A list of rule objects, each of which have fields ``ruleName`` and ``condition`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-ruleconditionproperties.html#cfn-entityresolution-matchingworkflow-ruleconditionproperties-rules
+            '''
+            result = self._values.get("rules")
+            assert result is not None, "Required property 'rules' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.RuleConditionProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleConditionPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow.RuleConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"condition": "condition", "rule_name": "ruleName"},
+    )
+    class RuleConditionProperty:
+        def __init__(
+            self,
+            *,
+            condition: typing.Optional[builtins.str] = None,
+            rule_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''An object that defines the ``ruleCondition`` and the ``ruleName`` to use in a matching workflow.
+
+            :param condition: A statement that specifies the conditions for a matching rule. If your data is accurate, use an Exact matching function: ``Exact`` or ``ExactManyToMany`` . If your data has variations in spelling or pronunciation, use a Fuzzy matching function: ``Cosine`` , ``Levenshtein`` , or ``Soundex`` . Use operators if you want to combine ( ``AND`` ), separate ( ``OR`` ), or group matching functions ``(...)`` . For example: ``(Cosine(a, 10) AND Exact(b, true)) OR ExactManyToMany(c, d)``
+            :param rule_name: A name for the matching rule. For example: ``Rule1``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-rulecondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_entityresolution as entityresolution
+                
+                rule_condition_property = entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
+                    condition="condition",
+                    rule_name="ruleName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__28df643a12cf66e35dffd89eb89db8b5764b5a2d46b109a0ff8e34bc82b17306)
+                check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
+                check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if condition is not None:
+                self._values["condition"] = condition
+            if rule_name is not None:
+                self._values["rule_name"] = rule_name
+
+        @builtins.property
+        def condition(self) -> typing.Optional[builtins.str]:
+            '''A statement that specifies the conditions for a matching rule.
+
+            If your data is accurate, use an Exact matching function: ``Exact`` or ``ExactManyToMany`` .
+
+            If your data has variations in spelling or pronunciation, use a Fuzzy matching function: ``Cosine`` , ``Levenshtein`` , or ``Soundex`` .
+
+            Use operators if you want to combine ( ``AND`` ), separate ( ``OR`` ), or group matching functions ``(...)`` .
+
+            For example: ``(Cosine(a, 10) AND Exact(b, true)) OR ExactManyToMany(c, d)``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-rulecondition.html#cfn-entityresolution-matchingworkflow-rulecondition-condition
+            '''
+            result = self._values.get("condition")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def rule_name(self) -> typing.Optional[builtins.str]:
+            '''A name for the matching rule.
+
+            For example: ``Rule1``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-rulecondition.html#cfn-entityresolution-matchingworkflow-rulecondition-rulename
+            '''
+            result = self._values.get("rule_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow.RuleProperty",
         jsii_struct_bases=[],
         name_mapping={"matching_keys": "matchingKeys", "rule_name": "ruleName"},
@@ -3211,7 +3384,7 @@ class CfnMatchingWorkflow(
             matching_keys: typing.Sequence[builtins.str],
             rule_name: builtins.str,
         ) -> None:
-            '''An object containing ``RuleName`` , and ``MatchingKeys`` .
+            '''An object containing the ``ruleName`` and ``matchingKeys`` .
 
             :param matching_keys: A list of ``MatchingKeys`` . The ``MatchingKeys`` must have been defined in the ``SchemaMapping`` . Two records are considered to match according to this rule if all of the ``MatchingKeys`` match.
             :param rule_name: A name for the matching rule.
@@ -3303,12 +3476,12 @@ class CfnMatchingWorkflowProps:
         '''Properties for defining a ``CfnMatchingWorkflow``.
 
         :param input_source_config: A list of ``InputSource`` objects, which have the fields ``InputSourceARN`` and ``SchemaName`` .
-        :param output_source_config: A list of ``OutputSource`` objects, each of which contains fields ``OutputS3Path`` , ``ApplyNormalization`` , and ``Output`` .
+        :param output_source_config: A list of ``OutputSource`` objects, each of which contains fields ``outputS3Path`` , ``applyNormalization`` , ``KMSArn`` , and ``output`` .
         :param resolution_techniques: An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
         :param workflow_name: The name of the workflow. There can't be multiple ``MatchingWorkflows`` with the same name.
         :param description: A description of the workflow.
-        :param incremental_run_config: Optional. An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
+        :param incremental_run_config: Optional. An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
         :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html
@@ -3363,6 +3536,12 @@ class CfnMatchingWorkflowProps:
             
                         # the properties below are optional
                         match_purpose="matchPurpose"
+                    ),
+                    rule_condition_properties=entityresolution.CfnMatchingWorkflow.RuleConditionPropertiesProperty(
+                        rules=[entityresolution.CfnMatchingWorkflow.RuleConditionProperty(
+                            condition="condition",
+                            rule_name="ruleName"
+                        )]
                     )
                 ),
                 role_arn="roleArn",
@@ -3419,7 +3598,7 @@ class CfnMatchingWorkflowProps:
     def output_source_config(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnMatchingWorkflow.OutputSourceProperty]]]:
-        '''A list of ``OutputSource`` objects, each of which contains fields ``OutputS3Path`` , ``ApplyNormalization`` , and ``Output`` .
+        '''A list of ``OutputSource`` objects, each of which contains fields ``outputS3Path`` , ``applyNormalization`` , ``KMSArn`` , and ``output`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-outputsourceconfig
         '''
@@ -3481,7 +3660,7 @@ class CfnMatchingWorkflowProps:
         An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console.
         .. epigraph::
 
-           For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
+           For workflows where ``resolutionType`` is ``ML_MATCHING`` or ``PROVIDER`` , incremental processing is not supported.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-incrementalrunconfig
         '''
@@ -4756,6 +4935,7 @@ def _typecheckingstub__d1c6ea89cbe5bb10bb721c60f7c5951a6a56729058a7b00d3dd16b091
     provider_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.ProviderPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resolution_type: typing.Optional[builtins.str] = None,
     rule_based_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.RuleBasedPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rule_condition_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.RuleConditionPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4765,6 +4945,21 @@ def _typecheckingstub__96d1f97c0110dea5fb9a8413e199ae25878eedad10521ad056ca772f3
     attribute_matching_model: builtins.str,
     rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
     match_purpose: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c01a018e071645429b67216971e253282d8265d42f85a054b775019645ee4406(
+    *,
+    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMatchingWorkflow.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__28df643a12cf66e35dffd89eb89db8b5764b5a2d46b109a0ff8e34bc82b17306(
+    *,
+    condition: typing.Optional[builtins.str] = None,
+    rule_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

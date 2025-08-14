@@ -131,8 +131,8 @@ pub fn get_tombi_schemastore_content(schema_url: &url::Url) -> Option<&'static s
             "/api/json/catalog.json" => Some(include_str!(
                 "../../../json.tombi.dev/api/json/catalog.json"
             )),
-            "/root-tombi-directive.json" => Some(include_str!(
-                "../../../json.tombi.dev/root-tombi-directive.json"
+            "/document-tombi-directive.json" => Some(include_str!(
+                "../../../json.tombi.dev/document-tombi-directive.json"
             )),
             _ => None,
         },

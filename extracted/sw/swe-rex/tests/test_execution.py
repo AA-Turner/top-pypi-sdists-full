@@ -63,9 +63,13 @@ async def test_execute_command_with_leading_space_output(remote_runtime: RemoteR
 
 
 async def test_execute_command_with_echon(remote_runtime: RemoteRuntime):
-    assert (await remote_runtime.execute(C(command="echo -n 'hello world'", shell=True))).stdout == "hello world"
-    assert (await remote_runtime.execute(C(command="echo -n 'hello world\n'", shell=True))).stdout == "hello world\n"
-    assert (await remote_runtime.execute(C(command="echo -n '\nhello world'", shell=True))).stdout == "\nhello world"
+    assert (await remote_runtime.execute(C(command=["echo", "-n", "hello world"], shell=False))).stdout == "hello world"
+    assert (
+        await remote_runtime.execute(C(command=["echo", "-n", "hello world\n"], shell=False))
+    ).stdout == "hello world\n"
+    assert (
+        await remote_runtime.execute(C(command=["echo", "-n", "\nhello world"], shell=False))
+    ).stdout == "\nhello world"
 
 
 async def test_execute_command_with_newline_in_session(runtime_with_default_session: RemoteRuntime):
@@ -217,6 +221,22 @@ async def test_multiple_isolated_shells(remote_runtime: RemoteRuntime):
 async def test_empty_command(remote_runtime: RemoteRuntime):
     await remote_runtime.execute(C(command="", shell=True, check=True))
     await remote_runtime.execute(C(command="\n", shell=True, check=True))
+
+
+async def test_execute_merge_output_streams_true(remote_runtime: RemoteRuntime):
+    r = await remote_runtime.execute(
+        C(command=["bash", "-lc", "echo 'out'; echo 'err' 1>&2"], shell=False, merge_output_streams=True)
+    )
+    assert r.stderr == ""
+    assert r.stdout.splitlines() == ["out", "err"]
+
+
+async def test_execute_merge_output_streams_false(remote_runtime: RemoteRuntime):
+    r = await remote_runtime.execute(
+        C(command=["bash", "-lc", "echo out; echo err 1>&2"], shell=False, merge_output_streams=False)
+    )
+    assert r.stdout.strip() == "out"
+    assert r.stderr.strip() == "err"
 
 
 async def test_command_fails_check_exit_code(runtime_with_default_session: RemoteRuntime):

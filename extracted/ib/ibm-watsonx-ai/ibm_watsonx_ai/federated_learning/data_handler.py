@@ -9,15 +9,15 @@ import logging
 import numpy
 
 from ibm_watsonx_ai.federated_learning.data_util import (
-    get_min,
     get_max,
     get_mean,
-    get_var,
-    get_std,
-    get_quantile,
-    get_normalizer,
-    get_standardscaler,
+    get_min,
     get_minmaxscaler,
+    get_normalizer,
+    get_quantile,
+    get_standardscaler,
+    get_std,
+    get_var,
 )
 from ibm_watsonx_ai.federated_learning.FLExceptions import FLException
 
@@ -68,7 +68,7 @@ class DataHandler(abc.ABC):
                 counts = len(self.training_generator.filenames)
                 assert isinstance(counts, int)
                 return counts
-            except:
+            except Exception:
                 raise FLException(
                     "Error ocurred during accessing the training sample size."
                 )
@@ -147,11 +147,11 @@ class DataHandler(abc.ABC):
                     )
                 else:
                     raise FLException(
-                        "Cannot compute quantile, " "missing quantile requirement."
+                        "Cannot compute quantile, missing quantile requirement."
                     )
             else:
                 logger.warning(
-                    "Current required statistics " "is not supported. Skipping..."
+                    "Current required statistics is not supported. Skipping..."
                 )
 
         return list_stats
@@ -226,4 +226,4 @@ class DataHandler(abc.ABC):
             else:
                 self.preprocessor = get_minmaxscaler(sample_data_schema)
         else:
-            logger.warning("Required preprocessor is not supported. " "Skipping...")
+            logger.warning("Required preprocessor is not supported. Skipping...")

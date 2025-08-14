@@ -485,6 +485,20 @@ class CellValueType(IntEnum):
     IS_NUMERIC = 2,
     IS_STRING = 8,
     IS_UNKNOWN = 0,
+class ChartColorPaletteType(IntEnum):
+    MONOCHROMATIC_PALETTE_1 = 1,
+    MONOCHROMATIC_PALETTE_10 = 10,
+    MONOCHROMATIC_PALETTE_11 = 11,
+    MONOCHROMATIC_PALETTE_12 = 12,
+    MONOCHROMATIC_PALETTE_13 = 13,
+    MONOCHROMATIC_PALETTE_2 = 2,
+    MONOCHROMATIC_PALETTE_3 = 3,
+    MONOCHROMATIC_PALETTE_4 = 4,
+    MONOCHROMATIC_PALETTE_5 = 5,
+    MONOCHROMATIC_PALETTE_6 = 6,
+    MONOCHROMATIC_PALETTE_7 = 7,
+    MONOCHROMATIC_PALETTE_8 = 8,
+    MONOCHROMATIC_PALETTE_9 = 9,
 class ChartLineFormattingType(IntEnum):
     AUTOMATIC = 0,
     GRADIENT = 3,
@@ -2721,14 +2735,17 @@ class ShapeLockType(IntEnum):
     SHAPE_TYPE = 11,
     TEXT = 2,
     UNGROUP = 9,
+class ShapePathPointValueType(IntEnum):
+    ANGLE = 1,
+    POSITION = 0,
 class ShapePathType(IntEnum):
     ARC_TO = 6,
-    CLOSE = 3,
-    CUBIC_BEZIER_CURVE_TO = 1,
+    CLOSE = 128,
+    CUBIC_BEZIER_CURVE_TO = 3,
     END = 4,
     ESCAPE = 5,
-    LINE_TO = 0,
-    MOVE_TO = 2,
+    LINE_TO = 1,
+    MOVE_TO = 0,
     UNKNOWN = 7,
 class ShapeTextVerticalAlignmentType(IntEnum):
     BOTTOM = 2,
@@ -3386,6 +3403,7 @@ from com.aspose.cells import LowCodeSaveOptions
 from com.aspose.cells import LowCodeSaveOptionsProviderOfAssembling
 from com.aspose.cells import LowCodeSaveOptionsProviderOfPlaceHolders
 from com.aspose.cells import LowCodeSplitOptions
+from com.aspose.cells import MarkdownLoadOptions
 from com.aspose.cells import MarkdownSaveOptions
 from com.aspose.cells import MemoryFontSource
 from com.aspose.cells import MetadataOptions

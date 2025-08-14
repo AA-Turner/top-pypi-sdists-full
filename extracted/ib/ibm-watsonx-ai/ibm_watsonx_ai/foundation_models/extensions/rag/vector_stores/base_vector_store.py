@@ -3,18 +3,15 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
 from langchain_core.documents import Document
 
-from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.wml_client_error import WMLClientError
-
-import contextlib
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +187,12 @@ class BaseVectorStore(ABC):
         """
         if self._client is not None:
             connection_data = self._client.connections.get_details(connection_id)
+
+            if "restricted" in connection_data["entity"].get("flags", []):
+                raise WMLClientError(
+                    "Initializing VectorStore with 'connection_id' representing connection with "
+                    "credentials marked as sensitive (restricted) is not supported."
+                )
             datasource_type = self._get_connection_type(connection_data)
             properties = connection_data["entity"]["properties"]
 
@@ -212,7 +215,6 @@ class BaseVectorStore(ABC):
         :rtype: str
         """
         if self._client is not None:
-
             datasource_type_details = (
                 self._client.connections.get_datasource_type_details_by_id(
                     connection_details["entity"]["datasource_type"]

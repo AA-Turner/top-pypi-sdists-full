@@ -3,62 +3,64 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import json
-import os
-
 from copy import deepcopy
 from typing import TYPE_CHECKING, List, Union
 from warnings import warn
-from contextlib import redirect_stdout
 
 from numpy import ndarray
 from pandas import DataFrame
 
+from ibm_watsonx_ai.experiment.autoai.engines import ServiceEngine
 from ibm_watsonx_ai.helpers.connections import (
-    DataConnection,
-    S3Location,
-    FSLocation,
     AssetLocation,
     ContainerLocation,
     DatabaseLocation,
+    DataConnection,
+    FSLocation,
+    S3Location,
+)
+from ibm_watsonx_ai.utils import WMLClientError
+from ibm_watsonx_ai.utils.autoai.connection import (
+    validate_source_data_connections,
 )
 from ibm_watsonx_ai.utils.autoai.enums import (
-    RunStateTypes,
-    PipelineTypes,
-    TShirtSize,
     ClassificationAlgorithms,
-    RegressionAlgorithms,
     DataConnectionTypes,
     ForecastingPipelineTypes,
+    PipelineTypes,
     PredictionType,
+    RegressionAlgorithms,
+    RunStateTypes,
     TimeseriesAnomalyPredictionPipelineTypes,
+    TShirtSize,
 )
 from ibm_watsonx_ai.utils.autoai.errors import (
     FitNotCompleted,
-    MissingDataPreprocessingStep,
-    DataSourceSizeNotSupported,
-    TrainingDataSourceIsNotFile,
+    ForecastingUnsupportedOperation,
+    FutureExogenousFeaturesNotSupported,
+    InvalidDataAsset,
+    LibraryNotCompatible,
     NoneDataConnection,
     PipelineNotLoaded,
-    ForecastingUnsupportedOperation,
-    LibraryNotCompatible,
-    InvalidDataAsset,
     TestDataNotPresent,
-    FutureExogenousFeaturesNotSupported,
 )
-from ibm_watsonx_ai.utils.autoai.utils import try_import_lale, all_logging_disabled
-from ibm_watsonx_ai.utils.autoai.connection import (
-    validate_source_data_connections,
-    validate_results_data_connection,
-)
-from ibm_watsonx_ai.utils import DisableWarningsLogger, WMLClientError
-from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.utils.autoai.utils import try_import_lale
+
 from .base_auto_pipelines import BaseAutoPipelines
-from ibm_watsonx_ai.experiment.autoai.engines import ServiceEngine
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai.experiment.autoai.engines import WMLEngine
-    from ibm_watsonx_ai.utils.autoai.enums import Metrics, PredictionType, Transformers
+    from lale.operators import TrainablePipeline
     from sklearn.pipeline import Pipeline
+
+    from ibm_watsonx_ai.experiment.autoai.engines import WMLEngine
+    from ibm_watsonx_ai.utils.autoai.enums import (
+        BatchedClassificationAlgorithms,
+        BatchedRegressionAlgorithms,
+        Metrics,
+        PredictionType,
+        Transformers,
+    )
+
 
 __all__ = ["RemoteAutoPipelines"]
 
@@ -206,7 +208,6 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         feature_selector_mode: str = None,
         **kwargs,
     ):
-
         # Deprecation of excel_sheet as number:
         if isinstance(excel_sheet, int) or isinstance(test_data_excel_sheet, int):
             excel_sheet_as_number_deprecated_warning = (
@@ -553,7 +554,6 @@ class RemoteAutoPipelines(BaseAutoPipelines):
                     else self._engine._wml_client
                 )
                 if self._workspace.api_client.default_project_id is None:
-
                     location.path = location.path.format(
                         option="spaces", id=client.default_space_id
                     )
@@ -582,16 +582,21 @@ class RemoteAutoPipelines(BaseAutoPipelines):
                     )
                 )
         # -- end note
-        if isinstance(results_reference.location, AssetLocation):
-            if (
-                results_reference.location._get_connection_id(
-                    self._workspace.api_client
-                )
-                is None
-            ):
-                raise InvalidDataAsset(
-                    reason="Please specify Data Asset pointing to connection e.g. COS as an output."
-                )
+
+        if (
+            isinstance(results_reference.location, AssetLocation)
+            and results_reference.location._get_connection_id(
+                self._workspace.api_client
+            )
+            is None
+        ):
+            raise InvalidDataAsset(
+                reason="Please specify Data Asset pointing to connection e.g. COS as an output."
+            )
+
+        results_reference._update_location_path_with_container_id(
+            self._engine._api_client
+        )
 
         # note: results can be stored only on FS or COS
         if not isinstance(
@@ -599,7 +604,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
             (S3Location, FSLocation, AssetLocation, ContainerLocation),
         ):
             raise TypeError(
-                "Unsupported results location type. Results referance can be stored"
+                "Unsupported results location type. Results reference can be stored"
                 " only on S3Location or FSLocation or AssetLocation."
             )
         # -- end
@@ -857,7 +862,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
                     return "".join(cell["source"])
                 elif cell["cell_type"] == "markdown":
                     return "\n".join(
-                        ["# " + l for l in "".join(cell["source"]).split("\n")]
+                        ["# " + line for line in "".join(cell["source"]).split("\n")]
                     )
                 else:
                     return ""
@@ -880,7 +885,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
                         f"{optimizer_var_name}._workspace.credentials.api_key",
                     )
 
-                except:
+                except Exception:
                     pass
 
             import IPython.core

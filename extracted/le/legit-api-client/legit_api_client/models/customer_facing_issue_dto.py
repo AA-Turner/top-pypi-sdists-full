@@ -20,18 +20,14 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
-from legit_api_client.models.ai_validation_result import AiValidationResult
 from legit_api_client.models.closing_reason import ClosingReason
-from legit_api_client.models.customer_facing_issue_source_dto import CustomerFacingIssueSourceDto
-from legit_api_client.models.dast_confidence_level import DastConfidenceLevel
-from legit_api_client.models.dependency_fix_type import DependencyFixType
+from legit_api_client.models.dast_data_dto import DastDataDto
+from legit_api_client.models.dependency_vulnerability_data_dto import DependencyVulnerabilityDataDto
 from legit_api_client.models.issue_closing_location_dto import IssueClosingLocationDto
-from legit_api_client.models.issue_comment_dto import IssueCommentDto
 from legit_api_client.models.issue_status import IssueStatus
-from legit_api_client.models.issue_tag_dto import IssueTagDto
 from legit_api_client.models.issue_type import IssueType
 from legit_api_client.models.origin_type import OriginType
-from legit_api_client.models.secret_issue_validity_status import SecretIssueValidityStatus
+from legit_api_client.models.secretes_data_dto import SecretesDataDto
 from legit_api_client.models.severity import Severity
 from legit_api_client.models.snoozed_type import SnoozedType
 from typing import Optional, Set
@@ -41,42 +37,31 @@ class CustomerFacingIssueDto(BaseModel):
     """
     CustomerFacingIssueDto
     """ # noqa: E501
-    id: Optional[StrictStr] = None
-    title: Optional[StrictStr] = None
-    detected_at: Optional[datetime] = Field(default=None, alias="detectedAt")
-    last_closed_at: Optional[datetime] = Field(default=None, alias="lastClosedAt")
-    last_action_time: Optional[datetime] = Field(default=None, alias="lastActionTime")
-    status: Optional[IssueStatus] = None
-    issue_type: Optional[IssueType] = Field(default=None, alias="issueType")
-    severity: Optional[Severity] = None
-    policy_severity: Optional[Severity] = Field(default=None, alias="policySeverity")
-    closing_reason: Optional[ClosingReason] = Field(default=None, alias="closingReason")
-    closing_location: Optional[IssueClosingLocationDto] = Field(default=None, alias="closingLocation")
-    status_changed_note: Optional[StrictStr] = Field(default=None, alias="statusChangedNote")
-    remediation_steps: Optional[List[StrictStr]] = Field(default=None, alias="remediationSteps")
-    snoozed_type: Optional[SnoozedType] = Field(default=None, alias="snoozedType")
-    snoozed_until: Optional[datetime] = Field(default=None, alias="snoozedUntil")
-    score: Optional[Union[StrictFloat, StrictInt]] = None
-    epss_score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="epssScore")
-    additional_data: Optional[Any] = Field(default=None, description="Additional specific data on the issue (fields can change from issue to issue). This data is not strictly structured and can be changed by legit at any time.", alias="additionalData")
-    ai_validation_result: Optional[AiValidationResult] = Field(default=None, alias="aiValidationResult")
-    dast_confidence_level: Optional[DastConfidenceLevel] = Field(default=None, alias="dastConfidenceLevel")
-    validity_status: Optional[SecretIssueValidityStatus] = Field(default=None, alias="validityStatus")
-    validity_check_time: Optional[datetime] = Field(default=None, alias="validityCheckTime")
-    verified_validation_url: Optional[StrictStr] = Field(default=None, alias="verifiedValidationUrl")
-    minimal_dependency_fix_type: Optional[DependencyFixType] = Field(default=None, alias="minimalDependencyFixType")
-    sources: Optional[List[CustomerFacingIssueSourceDto]] = Field(default=None, description="The issue sources. May be omitted if data fetch fails - in this case please contact legit for support.")
-    comments: Optional[List[IssueCommentDto]] = Field(default=None, description="Comments on the issue (can be an empty list). May be omitted if data fetch fails - in this case please contact legit for support.")
-    tags: Optional[List[IssueTagDto]] = Field(default=None, description="Tags related to the issue (can be an empty list). May be omitted if data fetch fails - in this case please contact legit for support.")
-    tickets: Optional[List[StrictStr]] = Field(default=None, description="Tickets related to the issue (can be an empty list). May be omitted if data fetch fails - in this case please contact legit for support.")
-    origin_id: Optional[StrictStr] = Field(default=None, alias="originId")
-    origin_type: Optional[OriginType] = Field(default=None, alias="originType")
-    origin_link: Optional[StrictStr] = Field(default=None, description="A link to fetch the issue origin using the API", alias="originLink")
-    action_id: Optional[StrictStr] = Field(default=None, description="The id of the Action that contains this issue", alias="actionId")
-    policy_name: Optional[StrictStr] = Field(default=None, alias="policyName")
-    product_ids: Optional[List[StrictStr]] = Field(default=None, alias="productIds")
-    assigned_user_id: Optional[StrictStr] = Field(default=None, alias="assignedUserId")
-    __properties: ClassVar[List[str]] = ["id", "title", "detectedAt", "lastClosedAt", "lastActionTime", "status", "issueType", "severity", "policySeverity", "closingReason", "closingLocation", "statusChangedNote", "remediationSteps", "snoozedType", "snoozedUntil", "score", "epssScore", "additionalData", "aiValidationResult", "dastConfidenceLevel", "validityStatus", "validityCheckTime", "verifiedValidationUrl", "minimalDependencyFixType", "sources", "comments", "tags", "tickets", "originId", "originType", "originLink", "actionId", "policyName", "productIds", "assignedUserId"]
+    id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the issue")
+    title: Optional[StrictStr] = Field(default=None, description="The title/name of the issue")
+    detected_at: Optional[datetime] = Field(default=None, description="Timestamp when the issue was first detected by legit, in ISO 8601 format", alias="detectedAt")
+    last_closed_at: Optional[datetime] = Field(default=None, description="Timestamp when the issue was last closed (if applicable), in ISO 8601 format", alias="lastClosedAt")
+    last_action_time: Optional[datetime] = Field(default=None, description="Timestamp of the last action performed on this issue (if applicable), in ISO 8601 format", alias="lastActionTime")
+    status: Optional[IssueStatus] = Field(default=None, description="Current status of the issue")
+    issue_type: Optional[IssueType] = Field(default=None, description="The type of the issue", alias="issueType")
+    severity: Optional[Severity] = Field(default=None, description="Severity level of the issue")
+    policy_severity: Optional[Severity] = Field(default=None, description="Severity level of the policy the issue originated from", alias="policySeverity")
+    closing_reason: Optional[ClosingReason] = Field(default=None, description="Reason why the issue was closed (if applicable)", alias="closingReason")
+    closing_location: Optional[IssueClosingLocationDto] = Field(default=None, description="Location where the issue was closed (if applicable)", alias="closingLocation")
+    status_changed_note: Optional[StrictStr] = Field(default=None, description="Note added when the status was last changed", alias="statusChangedNote")
+    snoozed_type: Optional[SnoozedType] = Field(default=None, description="Type of snooze applied to the issue (if applicable)", alias="snoozedType")
+    snoozed_until: Optional[datetime] = Field(default=None, description="Date and time until which the issue is snoozed (if applicable), in ISO 8601 format", alias="snoozedUntil")
+    score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Risk score of the issue (0-100)")
+    secretes_data_dto: Optional[SecretesDataDto] = Field(default=None, description="Data specific to issues of type secret. Will be null for other issue types", alias="secretesDataDto")
+    dependency_vulnerability_data_dto: Optional[DependencyVulnerabilityDataDto] = Field(default=None, description="Data specific to issues of type SCA or ContainerScanning. Will be null for other issue types", alias="dependencyVulnerabilityDataDto")
+    dast_data_dto: Optional[DastDataDto] = Field(default=None, description="Data specific to issues of type DAST. Will be null for other issue types", alias="dastDataDto")
+    origin_id: Optional[StrictStr] = Field(default=None, description="Identifier of the asset where the issue was found", alias="originId")
+    origin_type: Optional[OriginType] = Field(default=None, description="Type of asset where the issue was found", alias="originType")
+    origin_link: Optional[StrictStr] = Field(default=None, description="Direct link to fetch the asset in Legit API", alias="originLink")
+    action_id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the action the issue belongs to", alias="actionId")
+    policy_name: Optional[StrictStr] = Field(default=None, description="Name of the policy that detected this issue", alias="policyName")
+    assigned_user_id: Optional[StrictStr] = Field(default=None, description="ID of the user assigned to handle this issue (if applicable)", alias="assignedUserId")
+    __properties: ClassVar[List[str]] = ["id", "title", "detectedAt", "lastClosedAt", "lastActionTime", "status", "issueType", "severity", "policySeverity", "closingReason", "closingLocation", "statusChangedNote", "snoozedType", "snoozedUntil", "score", "secretesDataDto", "dependencyVulnerabilityDataDto", "dastDataDto", "originId", "originType", "originLink", "actionId", "policyName", "assignedUserId"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -108,10 +93,8 @@ class CustomerFacingIssueDto(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
-            "additional_data",
         ])
 
         _dict = self.model_dump(
@@ -119,27 +102,15 @@ class CustomerFacingIssueDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in sources (list)
-        _items = []
-        if self.sources:
-            for _item_sources in self.sources:
-                if _item_sources:
-                    _items.append(_item_sources.to_dict())
-            _dict['sources'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in comments (list)
-        _items = []
-        if self.comments:
-            for _item_comments in self.comments:
-                if _item_comments:
-                    _items.append(_item_comments.to_dict())
-            _dict['comments'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in tags (list)
-        _items = []
-        if self.tags:
-            for _item_tags in self.tags:
-                if _item_tags:
-                    _items.append(_item_tags.to_dict())
-            _dict['tags'] = _items
+        # override the default output from pydantic by calling `to_dict()` of secretes_data_dto
+        if self.secretes_data_dto:
+            _dict['secretesDataDto'] = self.secretes_data_dto.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of dependency_vulnerability_data_dto
+        if self.dependency_vulnerability_data_dto:
+            _dict['dependencyVulnerabilityDataDto'] = self.dependency_vulnerability_data_dto.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of dast_data_dto
+        if self.dast_data_dto:
+            _dict['dastDataDto'] = self.dast_data_dto.to_dict()
         # set to None if id (nullable) is None
         # and model_fields_set contains the field
         if self.id is None and "id" in self.model_fields_set:
@@ -175,11 +146,6 @@ class CustomerFacingIssueDto(BaseModel):
         if self.status_changed_note is None and "status_changed_note" in self.model_fields_set:
             _dict['statusChangedNote'] = None
 
-        # set to None if remediation_steps (nullable) is None
-        # and model_fields_set contains the field
-        if self.remediation_steps is None and "remediation_steps" in self.model_fields_set:
-            _dict['remediationSteps'] = None
-
         # set to None if snoozed_type (nullable) is None
         # and model_fields_set contains the field
         if self.snoozed_type is None and "snoozed_type" in self.model_fields_set:
@@ -195,50 +161,20 @@ class CustomerFacingIssueDto(BaseModel):
         if self.score is None and "score" in self.model_fields_set:
             _dict['score'] = None
 
-        # set to None if epss_score (nullable) is None
+        # set to None if secretes_data_dto (nullable) is None
         # and model_fields_set contains the field
-        if self.epss_score is None and "epss_score" in self.model_fields_set:
-            _dict['epssScore'] = None
+        if self.secretes_data_dto is None and "secretes_data_dto" in self.model_fields_set:
+            _dict['secretesDataDto'] = None
 
-        # set to None if additional_data (nullable) is None
+        # set to None if dependency_vulnerability_data_dto (nullable) is None
         # and model_fields_set contains the field
-        if self.additional_data is None and "additional_data" in self.model_fields_set:
-            _dict['additionalData'] = None
+        if self.dependency_vulnerability_data_dto is None and "dependency_vulnerability_data_dto" in self.model_fields_set:
+            _dict['dependencyVulnerabilityDataDto'] = None
 
-        # set to None if ai_validation_result (nullable) is None
+        # set to None if dast_data_dto (nullable) is None
         # and model_fields_set contains the field
-        if self.ai_validation_result is None and "ai_validation_result" in self.model_fields_set:
-            _dict['aiValidationResult'] = None
-
-        # set to None if validity_check_time (nullable) is None
-        # and model_fields_set contains the field
-        if self.validity_check_time is None and "validity_check_time" in self.model_fields_set:
-            _dict['validityCheckTime'] = None
-
-        # set to None if verified_validation_url (nullable) is None
-        # and model_fields_set contains the field
-        if self.verified_validation_url is None and "verified_validation_url" in self.model_fields_set:
-            _dict['verifiedValidationUrl'] = None
-
-        # set to None if sources (nullable) is None
-        # and model_fields_set contains the field
-        if self.sources is None and "sources" in self.model_fields_set:
-            _dict['sources'] = None
-
-        # set to None if comments (nullable) is None
-        # and model_fields_set contains the field
-        if self.comments is None and "comments" in self.model_fields_set:
-            _dict['comments'] = None
-
-        # set to None if tags (nullable) is None
-        # and model_fields_set contains the field
-        if self.tags is None and "tags" in self.model_fields_set:
-            _dict['tags'] = None
-
-        # set to None if tickets (nullable) is None
-        # and model_fields_set contains the field
-        if self.tickets is None and "tickets" in self.model_fields_set:
-            _dict['tickets'] = None
+        if self.dast_data_dto is None and "dast_data_dto" in self.model_fields_set:
+            _dict['dastDataDto'] = None
 
         # set to None if origin_id (nullable) is None
         # and model_fields_set contains the field
@@ -259,11 +195,6 @@ class CustomerFacingIssueDto(BaseModel):
         # and model_fields_set contains the field
         if self.policy_name is None and "policy_name" in self.model_fields_set:
             _dict['policyName'] = None
-
-        # set to None if product_ids (nullable) is None
-        # and model_fields_set contains the field
-        if self.product_ids is None and "product_ids" in self.model_fields_set:
-            _dict['productIds'] = None
 
         # set to None if assigned_user_id (nullable) is None
         # and model_fields_set contains the field
@@ -294,28 +225,17 @@ class CustomerFacingIssueDto(BaseModel):
             "closingReason": obj.get("closingReason"),
             "closingLocation": obj.get("closingLocation"),
             "statusChangedNote": obj.get("statusChangedNote"),
-            "remediationSteps": obj.get("remediationSteps"),
             "snoozedType": obj.get("snoozedType"),
             "snoozedUntil": obj.get("snoozedUntil"),
             "score": obj.get("score"),
-            "epssScore": obj.get("epssScore"),
-            "additionalData": obj.get("additionalData"),
-            "aiValidationResult": obj.get("aiValidationResult"),
-            "dastConfidenceLevel": obj.get("dastConfidenceLevel"),
-            "validityStatus": obj.get("validityStatus"),
-            "validityCheckTime": obj.get("validityCheckTime"),
-            "verifiedValidationUrl": obj.get("verifiedValidationUrl"),
-            "minimalDependencyFixType": obj.get("minimalDependencyFixType"),
-            "sources": [CustomerFacingIssueSourceDto.from_dict(_item) for _item in obj["sources"]] if obj.get("sources") is not None else None,
-            "comments": [IssueCommentDto.from_dict(_item) for _item in obj["comments"]] if obj.get("comments") is not None else None,
-            "tags": [IssueTagDto.from_dict(_item) for _item in obj["tags"]] if obj.get("tags") is not None else None,
-            "tickets": obj.get("tickets"),
+            "secretesDataDto": SecretesDataDto.from_dict(obj["secretesDataDto"]) if obj.get("secretesDataDto") is not None else None,
+            "dependencyVulnerabilityDataDto": DependencyVulnerabilityDataDto.from_dict(obj["dependencyVulnerabilityDataDto"]) if obj.get("dependencyVulnerabilityDataDto") is not None else None,
+            "dastDataDto": DastDataDto.from_dict(obj["dastDataDto"]) if obj.get("dastDataDto") is not None else None,
             "originId": obj.get("originId"),
             "originType": obj.get("originType"),
             "originLink": obj.get("originLink"),
             "actionId": obj.get("actionId"),
             "policyName": obj.get("policyName"),
-            "productIds": obj.get("productIds"),
             "assignedUserId": obj.get("assignedUserId")
         })
         return _obj

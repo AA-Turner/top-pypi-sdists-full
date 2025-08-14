@@ -482,15 +482,15 @@ class GMM(object):
 
         Parameters
         ----------
-        indices : array-like, shape (n_features_1,)
+        indices : array-like, shape (n_features_in,)
             Indices of dimensions that we want to condition.
 
-        X : array-like, shape (n_samples, n_features_1)
+        X : array-like, shape (n_samples, n_features_in)
             Values of the features that we know.
 
         Returns
         -------
-        Y : array, shape (n_samples, n_features_2)
+        Y : array, shape (n_samples, n_features_out)
             Predicted means of missing values.
         """
         self._check_initialized()
@@ -609,7 +609,7 @@ def plot_error_ellipses(ax, gmm, colors=None, alpha=0.25, factors=np.linspace(0.
     colors : list of str, optional (default: None)
         Colors in which the ellipses should be plotted
 
-    alpha : int, optional (default: 0.25)
+    alpha : float, optional (default: 0.25)
         Alpha value for ellipses
 
     factors : array, optional (default: np.linspace(0.25, 2.0, 8))

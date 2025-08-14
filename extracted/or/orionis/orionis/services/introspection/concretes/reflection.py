@@ -4,8 +4,7 @@ import keyword
 from typing import Any, Callable, List, Type
 from orionis.services.asynchrony.coroutines import Coroutine
 from orionis.services.introspection.concretes.contracts.reflection import IReflectionConcrete
-from orionis.services.introspection.dependencies.entities.class_dependencies import ClassDependency
-from orionis.services.introspection.dependencies.entities.method_dependencies import MethodDependency
+from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
 from orionis.services.introspection.dependencies.reflection import ReflectDependencies
 from orionis.services.introspection.exceptions import (
     ReflectionAttributeError,
@@ -1538,7 +1537,7 @@ class ReflectionConcrete(IReflectionConcrete):
         """
         return inspect.signature(self._concrete.__init__)
 
-    def getConstructorDependencies(self) -> ClassDependency:
+    def getConstructorDependencies(self) -> ResolveArguments:
         """
         Get dependency analysis for the class constructor.
 
@@ -1547,14 +1546,14 @@ class ReflectionConcrete(IReflectionConcrete):
 
         Returns
         -------
-        ClassDependency
+        ResolveArguments
             A structured representation containing resolved dependencies
             (with default values/annotations) and unresolved dependencies
             (parameters without defaults or type information).
         """
         return ReflectDependencies(self._concrete).getConstructorDependencies()
 
-    def getMethodDependencies(self, method_name: str) -> MethodDependency:
+    def getMethodDependencies(self, method_name: str) -> ResolveArguments:
         """
         Get dependency analysis for a specific method.
 
@@ -1568,7 +1567,7 @@ class ReflectionConcrete(IReflectionConcrete):
 
         Returns
         -------
-        MethodDependency
+        ResolveArguments
             A structured representation containing resolved dependencies
             (with default values/annotations) and unresolved dependencies
             (parameters without defaults or type information).

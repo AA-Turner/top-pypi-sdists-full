@@ -117,6 +117,12 @@ __all__ = (
     "AcceptSubscriptionRequestInputTypeDef",
     "AcceptSubscriptionRequestOutputTypeDef",
     "AcceptedAssetScopeTypeDef",
+    "AccountInfoOutputTypeDef",
+    "AccountInfoTypeDef",
+    "AccountPoolSummaryTypeDef",
+    "AccountSourceOutputTypeDef",
+    "AccountSourceTypeDef",
+    "AccountSourceUnionTypeDef",
     "ActionParametersTypeDef",
     "AddEntityOwnerInputTypeDef",
     "AddPolicyGrantInputTypeDef",
@@ -168,6 +174,8 @@ __all__ = (
     "ConnectionPropertiesOutputTypeDef",
     "ConnectionPropertiesPatchTypeDef",
     "ConnectionSummaryTypeDef",
+    "CreateAccountPoolInputTypeDef",
+    "CreateAccountPoolOutputTypeDef",
     "CreateAssetFilterInputTypeDef",
     "CreateAssetFilterOutputTypeDef",
     "CreateAssetInputTypeDef",
@@ -227,6 +235,7 @@ __all__ = (
     "CreateSubscriptionTargetOutputTypeDef",
     "CreateUserProfileInputTypeDef",
     "CreateUserProfileOutputTypeDef",
+    "CustomAccountPoolHandlerTypeDef",
     "CustomParameterTypeDef",
     "DataProductItemAdditionalAttributesTypeDef",
     "DataProductItemOutputTypeDef",
@@ -244,6 +253,7 @@ __all__ = (
     "DataSourceRunLineageSummaryTypeDef",
     "DataSourceRunSummaryTypeDef",
     "DataSourceSummaryTypeDef",
+    "DeleteAccountPoolInputTypeDef",
     "DeleteAssetFilterInputTypeDef",
     "DeleteAssetInputTypeDef",
     "DeleteAssetTypeInputTypeDef",
@@ -307,6 +317,7 @@ __all__ = (
     "EnvironmentErrorTypeDef",
     "EnvironmentParameterTypeDef",
     "EnvironmentProfileSummaryTypeDef",
+    "EnvironmentResolvedAccountTypeDef",
     "EnvironmentSummaryTypeDef",
     "EqualToExpressionTypeDef",
     "EventSummaryTypeDef",
@@ -320,6 +331,8 @@ __all__ = (
     "FormInputTypeDef",
     "FormOutputTypeDef",
     "FormTypeDataTypeDef",
+    "GetAccountPoolInputTypeDef",
+    "GetAccountPoolOutputTypeDef",
     "GetAssetFilterInputTypeDef",
     "GetAssetFilterOutputTypeDef",
     "GetAssetInputTypeDef",
@@ -437,6 +450,12 @@ __all__ = (
     "LineageRunDetailsTypeDef",
     "LineageSqlQueryRunDetailsTypeDef",
     "LineageSyncScheduleTypeDef",
+    "ListAccountPoolsInputPaginateTypeDef",
+    "ListAccountPoolsInputTypeDef",
+    "ListAccountPoolsOutputTypeDef",
+    "ListAccountsInAccountPoolInputPaginateTypeDef",
+    "ListAccountsInAccountPoolInputTypeDef",
+    "ListAccountsInAccountPoolOutputTypeDef",
     "ListAssetFiltersInputPaginateTypeDef",
     "ListAssetFiltersInputTypeDef",
     "ListAssetFiltersOutputTypeDef",
@@ -708,6 +727,8 @@ __all__ = (
     "TimestampTypeDef",
     "TopicTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAccountPoolInputTypeDef",
+    "UpdateAccountPoolOutputTypeDef",
     "UpdateAssetFilterInputTypeDef",
     "UpdateAssetFilterOutputTypeDef",
     "UpdateConnectionInputTypeDef",
@@ -783,6 +804,37 @@ class FormOutputTypeDef(TypedDict):
     content: NotRequired[str]
     typeName: NotRequired[str]
     typeRevision: NotRequired[str]
+
+
+class AccountInfoOutputTypeDef(TypedDict):
+    awsAccountId: str
+    supportedRegions: List[str]
+    awsAccountName: NotRequired[str]
+
+
+class AccountInfoTypeDef(TypedDict):
+    awsAccountId: str
+    supportedRegions: Sequence[str]
+    awsAccountName: NotRequired[str]
+
+
+AccountPoolSummaryTypeDef = TypedDict(
+    "AccountPoolSummaryTypeDef",
+    {
+        "createdBy": NotRequired[str],
+        "domainId": NotRequired[str],
+        "domainUnitId": NotRequired[str],
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "resolutionStrategy": NotRequired[Literal["MANUAL"]],
+        "updatedBy": NotRequired[str],
+    },
+)
+
+
+class CustomAccountPoolHandlerTypeDef(TypedDict):
+    lambdaFunctionArn: str
+    lambdaExecutionRoleArn: NotRequired[str]
 
 
 class AwsConsoleLinkParametersTypeDef(TypedDict):
@@ -1258,6 +1310,11 @@ class RunStatisticsForAssetsTypeDef(TypedDict):
     updated: NotRequired[int]
 
 
+class DeleteAccountPoolInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+
 class DeleteAssetFilterInputTypeDef(TypedDict):
     assetIdentifier: str
     domainIdentifier: str
@@ -1457,6 +1514,12 @@ class EnvironmentConfigurationParameterTypeDef(TypedDict):
     value: NotRequired[str]
 
 
+class EnvironmentResolvedAccountTypeDef(TypedDict):
+    awsAccountId: str
+    regionName: str
+    sourceAccountPoolId: NotRequired[str]
+
+
 EnvironmentProfileSummaryTypeDef = TypedDict(
     "EnvironmentProfileSummaryTypeDef",
     {
@@ -1520,6 +1583,11 @@ FilterExpressionTypeDef = TypedDict(
 class ImportTypeDef(TypedDict):
     name: str
     revision: str
+
+
+class GetAccountPoolInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
 
 
 class GetAssetFilterInputTypeDef(TypedDict):
@@ -1884,6 +1952,22 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+
+class ListAccountPoolsInputTypeDef(TypedDict):
+    domainIdentifier: str
+    maxResults: NotRequired[int]
+    name: NotRequired[str]
+    nextToken: NotRequired[str]
+    sortBy: NotRequired[Literal["NAME"]]
+    sortOrder: NotRequired[SortOrderType]
+
+
+class ListAccountsInAccountPoolInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class ListAssetFiltersInputTypeDef(TypedDict):
@@ -2623,6 +2707,28 @@ class AcceptSubscriptionRequestInputTypeDef(TypedDict):
     decisionComment: NotRequired[str]
 
 
+class ListAccountsInAccountPoolOutputTypeDef(TypedDict):
+    items: List[AccountInfoOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListAccountPoolsOutputTypeDef(TypedDict):
+    items: List[AccountPoolSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class AccountSourceOutputTypeDef(TypedDict):
+    accounts: NotRequired[List[AccountInfoOutputTypeDef]]
+    customAccountPoolHandler: NotRequired[CustomAccountPoolHandlerTypeDef]
+
+
+class AccountSourceTypeDef(TypedDict):
+    accounts: NotRequired[Sequence[AccountInfoTypeDef]]
+    customAccountPoolHandler: NotRequired[CustomAccountPoolHandlerTypeDef]
+
+
 class ActionParametersTypeDef(TypedDict):
     awsConsoleLink: NotRequired[AwsConsoleLinkParametersTypeDef]
 
@@ -3001,18 +3107,6 @@ class CreateEnvironmentProfileInputTypeDef(TypedDict):
     awsAccountRegion: NotRequired[str]
     description: NotRequired[str]
     userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
-
-
-class EnvironmentConfigurationUserParameterOutputTypeDef(TypedDict):
-    environmentConfigurationName: NotRequired[str]
-    environmentId: NotRequired[str]
-    environmentParameters: NotRequired[List[EnvironmentParameterTypeDef]]
-
-
-class EnvironmentConfigurationUserParameterTypeDef(TypedDict):
-    environmentConfigurationName: NotRequired[str]
-    environmentId: NotRequired[str]
-    environmentParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
 
 
 class UpdateEnvironmentInputTypeDef(TypedDict):
@@ -3437,6 +3531,20 @@ class EnvironmentConfigurationParametersDetailsTypeDef(TypedDict):
     ssmPath: NotRequired[str]
 
 
+class EnvironmentConfigurationUserParameterOutputTypeDef(TypedDict):
+    environmentConfigurationName: NotRequired[str]
+    environmentId: NotRequired[str]
+    environmentParameters: NotRequired[List[EnvironmentParameterTypeDef]]
+    environmentResolvedAccount: NotRequired[EnvironmentResolvedAccountTypeDef]
+
+
+class EnvironmentConfigurationUserParameterTypeDef(TypedDict):
+    environmentConfigurationName: NotRequired[str]
+    environmentId: NotRequired[str]
+    environmentParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
+    environmentResolvedAccount: NotRequired[EnvironmentResolvedAccountTypeDef]
+
+
 class ListEnvironmentProfilesOutputTypeDef(TypedDict):
     items: List[EnvironmentProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3732,6 +3840,20 @@ class RedshiftLineageSyncConfigurationOutputTypeDef(TypedDict):
     enabled: NotRequired[bool]
     lineageJobId: NotRequired[str]
     schedule: NotRequired[LineageSyncScheduleTypeDef]
+
+
+class ListAccountPoolsInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    name: NotRequired[str]
+    sortBy: NotRequired[Literal["NAME"]]
+    sortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListAccountsInAccountPoolInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListAssetFiltersInputPaginateTypeDef(TypedDict):
@@ -4245,6 +4367,58 @@ class SubscribedPrincipalTypeDef(TypedDict):
 
 
 TermRelationsUnionTypeDef = Union[TermRelationsTypeDef, TermRelationsOutputTypeDef]
+CreateAccountPoolOutputTypeDef = TypedDict(
+    "CreateAccountPoolOutputTypeDef",
+    {
+        "accountSource": AccountSourceOutputTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "domainUnitId": str,
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "name": str,
+        "resolutionStrategy": Literal["MANUAL"],
+        "updatedBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetAccountPoolOutputTypeDef = TypedDict(
+    "GetAccountPoolOutputTypeDef",
+    {
+        "accountSource": AccountSourceOutputTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "domainUnitId": str,
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "name": str,
+        "resolutionStrategy": Literal["MANUAL"],
+        "updatedBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdateAccountPoolOutputTypeDef = TypedDict(
+    "UpdateAccountPoolOutputTypeDef",
+    {
+        "accountSource": AccountSourceOutputTypeDef,
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "domainUnitId": str,
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "name": str,
+        "resolutionStrategy": Literal["MANUAL"],
+        "updatedBy": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+AccountSourceUnionTypeDef = Union[AccountSourceTypeDef, AccountSourceOutputTypeDef]
 
 
 class CreateEnvironmentActionInputTypeDef(TypedDict):
@@ -4450,11 +4624,6 @@ class ListDataSourcesOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-EnvironmentConfigurationUserParameterUnionTypeDef = Union[
-    EnvironmentConfigurationUserParameterTypeDef, EnvironmentConfigurationUserParameterOutputTypeDef
-]
-
-
 class ListProjectsOutputTypeDef(TypedDict):
     items: List[ProjectSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4585,66 +4754,6 @@ UpdateEnvironmentOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-CreateProjectOutputTypeDef = TypedDict(
-    "CreateProjectOutputTypeDef",
-    {
-        "createdAt": datetime,
-        "createdBy": str,
-        "description": str,
-        "domainId": str,
-        "domainUnitId": str,
-        "environmentDeploymentDetails": EnvironmentDeploymentDetailsOutputTypeDef,
-        "failureReasons": List[ProjectDeletionErrorTypeDef],
-        "glossaryTerms": List[str],
-        "id": str,
-        "lastUpdatedAt": datetime,
-        "name": str,
-        "projectProfileId": str,
-        "projectStatus": ProjectStatusType,
-        "userParameters": List[EnvironmentConfigurationUserParameterOutputTypeDef],
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-GetProjectOutputTypeDef = TypedDict(
-    "GetProjectOutputTypeDef",
-    {
-        "createdAt": datetime,
-        "createdBy": str,
-        "description": str,
-        "domainId": str,
-        "domainUnitId": str,
-        "environmentDeploymentDetails": EnvironmentDeploymentDetailsOutputTypeDef,
-        "failureReasons": List[ProjectDeletionErrorTypeDef],
-        "glossaryTerms": List[str],
-        "id": str,
-        "lastUpdatedAt": datetime,
-        "name": str,
-        "projectProfileId": str,
-        "projectStatus": ProjectStatusType,
-        "userParameters": List[EnvironmentConfigurationUserParameterOutputTypeDef],
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-UpdateProjectOutputTypeDef = TypedDict(
-    "UpdateProjectOutputTypeDef",
-    {
-        "createdAt": datetime,
-        "createdBy": str,
-        "description": str,
-        "domainId": str,
-        "domainUnitId": str,
-        "environmentDeploymentDetails": EnvironmentDeploymentDetailsOutputTypeDef,
-        "failureReasons": List[ProjectDeletionErrorTypeDef],
-        "glossaryTerms": List[str],
-        "id": str,
-        "lastUpdatedAt": datetime,
-        "name": str,
-        "projectProfileId": str,
-        "projectStatus": ProjectStatusType,
-        "userParameters": List[EnvironmentConfigurationUserParameterOutputTypeDef],
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
 EnvironmentDeploymentDetailsUnionTypeDef = Union[
     EnvironmentDeploymentDetailsTypeDef, EnvironmentDeploymentDetailsOutputTypeDef
 ]
@@ -4706,10 +4815,11 @@ UpdateDomainUnitOutputTypeDef = TypedDict(
 EnvironmentConfigurationOutputTypeDef = TypedDict(
     "EnvironmentConfigurationOutputTypeDef",
     {
-        "awsAccount": AwsAccountTypeDef,
-        "awsRegion": RegionTypeDef,
         "environmentBlueprintId": str,
         "name": str,
+        "accountPools": NotRequired[List[str]],
+        "awsAccount": NotRequired[AwsAccountTypeDef],
+        "awsRegion": NotRequired[RegionTypeDef],
         "configurationParameters": NotRequired[
             EnvironmentConfigurationParametersDetailsOutputTypeDef
         ],
@@ -4722,6 +4832,69 @@ EnvironmentConfigurationOutputTypeDef = TypedDict(
 EnvironmentConfigurationParametersDetailsUnionTypeDef = Union[
     EnvironmentConfigurationParametersDetailsTypeDef,
     EnvironmentConfigurationParametersDetailsOutputTypeDef,
+]
+CreateProjectOutputTypeDef = TypedDict(
+    "CreateProjectOutputTypeDef",
+    {
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "domainUnitId": str,
+        "environmentDeploymentDetails": EnvironmentDeploymentDetailsOutputTypeDef,
+        "failureReasons": List[ProjectDeletionErrorTypeDef],
+        "glossaryTerms": List[str],
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "name": str,
+        "projectProfileId": str,
+        "projectStatus": ProjectStatusType,
+        "userParameters": List[EnvironmentConfigurationUserParameterOutputTypeDef],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetProjectOutputTypeDef = TypedDict(
+    "GetProjectOutputTypeDef",
+    {
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "domainUnitId": str,
+        "environmentDeploymentDetails": EnvironmentDeploymentDetailsOutputTypeDef,
+        "failureReasons": List[ProjectDeletionErrorTypeDef],
+        "glossaryTerms": List[str],
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "name": str,
+        "projectProfileId": str,
+        "projectStatus": ProjectStatusType,
+        "userParameters": List[EnvironmentConfigurationUserParameterOutputTypeDef],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdateProjectOutputTypeDef = TypedDict(
+    "UpdateProjectOutputTypeDef",
+    {
+        "createdAt": datetime,
+        "createdBy": str,
+        "description": str,
+        "domainId": str,
+        "domainUnitId": str,
+        "environmentDeploymentDetails": EnvironmentDeploymentDetailsOutputTypeDef,
+        "failureReasons": List[ProjectDeletionErrorTypeDef],
+        "glossaryTerms": List[str],
+        "id": str,
+        "lastUpdatedAt": datetime,
+        "name": str,
+        "projectProfileId": str,
+        "projectStatus": ProjectStatusType,
+        "userParameters": List[EnvironmentConfigurationUserParameterOutputTypeDef],
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+EnvironmentConfigurationUserParameterUnionTypeDef = Union[
+    EnvironmentConfigurationUserParameterTypeDef, EnvironmentConfigurationUserParameterOutputTypeDef
 ]
 
 
@@ -5205,6 +5378,23 @@ class UpdateGlossaryTermInputTypeDef(TypedDict):
     termRelations: NotRequired[TermRelationsUnionTypeDef]
 
 
+class CreateAccountPoolInputTypeDef(TypedDict):
+    accountSource: AccountSourceUnionTypeDef
+    domainIdentifier: str
+    name: str
+    resolutionStrategy: Literal["MANUAL"]
+    description: NotRequired[str]
+
+
+class UpdateAccountPoolInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    accountSource: NotRequired[AccountSourceUnionTypeDef]
+    description: NotRequired[str]
+    name: NotRequired[str]
+    resolutionStrategy: NotRequired[Literal["MANUAL"]]
+
+
 class ListEnvironmentActionsOutputTypeDef(TypedDict):
     items: List[EnvironmentActionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5238,28 +5428,6 @@ class ListEnvironmentBlueprintsOutputTypeDef(TypedDict):
     items: List[EnvironmentBlueprintSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-
-class CreateProjectInputTypeDef(TypedDict):
-    domainIdentifier: str
-    name: str
-    description: NotRequired[str]
-    domainUnitId: NotRequired[str]
-    glossaryTerms: NotRequired[Sequence[str]]
-    projectProfileId: NotRequired[str]
-    userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
-
-
-class UpdateProjectInputTypeDef(TypedDict):
-    domainIdentifier: str
-    identifier: str
-    description: NotRequired[str]
-    domainUnitId: NotRequired[str]
-    environmentDeploymentDetails: NotRequired[EnvironmentDeploymentDetailsUnionTypeDef]
-    glossaryTerms: NotRequired[Sequence[str]]
-    name: NotRequired[str]
-    projectProfileVersion: NotRequired[str]
-    userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
 
 
 class PolicyGrantPrincipalOutputTypeDef(TypedDict):
@@ -5327,10 +5495,11 @@ UpdateProjectProfileOutputTypeDef = TypedDict(
 EnvironmentConfigurationTypeDef = TypedDict(
     "EnvironmentConfigurationTypeDef",
     {
-        "awsAccount": AwsAccountTypeDef,
-        "awsRegion": RegionTypeDef,
         "environmentBlueprintId": str,
         "name": str,
+        "accountPools": NotRequired[Sequence[str]],
+        "awsAccount": NotRequired[AwsAccountTypeDef],
+        "awsRegion": NotRequired[RegionTypeDef],
         "configurationParameters": NotRequired[
             EnvironmentConfigurationParametersDetailsUnionTypeDef
         ],
@@ -5340,6 +5509,28 @@ EnvironmentConfigurationTypeDef = TypedDict(
         "id": NotRequired[str],
     },
 )
+
+
+class CreateProjectInputTypeDef(TypedDict):
+    domainIdentifier: str
+    name: str
+    description: NotRequired[str]
+    domainUnitId: NotRequired[str]
+    glossaryTerms: NotRequired[Sequence[str]]
+    projectProfileId: NotRequired[str]
+    userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
+
+
+class UpdateProjectInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+    description: NotRequired[str]
+    domainUnitId: NotRequired[str]
+    environmentDeploymentDetails: NotRequired[EnvironmentDeploymentDetailsUnionTypeDef]
+    glossaryTerms: NotRequired[Sequence[str]]
+    name: NotRequired[str]
+    projectProfileVersion: NotRequired[str]
+    userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
 
 
 class GlueRunConfigurationInputTypeDef(TypedDict):

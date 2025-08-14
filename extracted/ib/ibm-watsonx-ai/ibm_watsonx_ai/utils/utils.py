@@ -5,13 +5,13 @@
 
 from __future__ import annotations
 
-import importlib
 import functools
+import importlib
 import importlib.util
-import mimetypes
 import inspect
 import json
 import logging
+import mimetypes
 import os
 import platform
 import re
@@ -21,40 +21,43 @@ import tarfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from subprocess import check_call
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Generator,
     Iterable,
     Type,
-    Generator,
     TypeAlias,
     cast,
 )
 from warnings import warn
-from pathlib import Path
 
 import httpx
 import numpy
 from packaging import version
 
 import ibm_watsonx_ai._wrappers.requests as requests
-from ibm_watsonx_ai import package_name, __version__ as package_version
-from ibm_watsonx_ai._wrappers.requests import HTTPX_DEFAULT_TIMEOUT, HTTPX_DEFAULT_LIMIT
+from ibm_watsonx_ai import __version__ as package_version
+from ibm_watsonx_ai import package_name
+from ibm_watsonx_ai._wrappers.requests import HTTPX_DEFAULT_LIMIT, HTTPX_DEFAULT_TIMEOUT
 from ibm_watsonx_ai.href_definitions import HrefDefinitions
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
     CannotInstallLibrary,
+    WMLClientError,
 )
 
 if TYPE_CHECKING:
-    import pyspark
     import collections
     from types import TracebackType
-    from ibm_watsonx_ai import APIClient
+
+    import pyspark
     from IPython.display import HTML
     from requests import Response
+
+    from ibm_watsonx_ai import APIClient
 
     PipelineType: TypeAlias = Any
     MLModelType: TypeAlias = Any
@@ -112,7 +115,6 @@ def _get_id_from_deprecated_uid(
 def get_url(
     url: str, headers: dict, params: dict | None = None, isIcp: bool = False
 ) -> Response:
-
     if isIcp:
         return requests.get(url, headers=headers, params=params)
     else:
@@ -171,7 +173,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return INSTANCE_DETAILS_TYPE
-        except:
+        except Exception:
             pass
         try:
             if (
@@ -179,7 +181,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return PIPELINE_DETAILS_TYPE
-        except:
+        except Exception:
             pass
         try:
             if (
@@ -191,7 +193,7 @@ def get_type_of_details(details: dict) -> str:
                 or "virtual_deployment_downloads" in details["entity"]["status"]
             ):
                 return DEPLOYMENT_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -200,7 +202,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return EXPERIMENT_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -209,13 +211,13 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return TRAINING_RUN_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
             if re.search(r"\/models\/[^\/]+$", details["metadata"]["href"]) is not None:
                 return MODEL_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -224,7 +226,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return FUNCTION_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -233,7 +235,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return RUNTIME_SPEC_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -242,13 +244,13 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return LIBRARY_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
             if re.search(r"\/spaces\/[^\/]+$", details["metadata"]["href"]) is not None:
                 return SPACES_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -257,7 +259,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return MEMBER_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -266,13 +268,13 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return MEMBER_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
             if re.search(r"\/assets\/[^\/]+$", details["metadata"]["href"]) is not None:
                 return DATA_ASSETS_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -283,7 +285,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return SW_SPEC_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -294,7 +296,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return HW_SPEC_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -306,7 +308,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return PKG_EXTN_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -315,7 +317,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return SPACES_IMPORTS_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         try:
@@ -324,7 +326,7 @@ def get_type_of_details(details: dict) -> str:
                 is not None
             ):
                 return SPACES_EXPORTS_DETAILS_TYPE
-        except:
+        except Exception:
             pass
 
         return UNKNOWN_TYPE
@@ -395,7 +397,6 @@ def format_metrics(latest_metrics_list: list[dict]) -> str:
     formatted_metrics = ""
 
     for i in latest_metrics_list:
-
         values = i["values"]
 
         if len(values) > 0:
@@ -648,7 +649,7 @@ def install_package(package: str) -> None:
 def is_ipython() -> bool:
     # checks if the code is run in the notebook
     try:
-        get_ipython  # type: ignore[name-defined]
+        get_ipython  # type: ignore[name-defined]  # noqa: F821
         return True
     except Exception:
         return False
@@ -658,8 +659,9 @@ def create_download_link(file_path: str, title: str = "Download file.") -> HTML 
     # creates download link for binary files on notebook filesystem (Watson Studio)
 
     if is_ipython():
-        from IPython.display import HTML
         import base64
+
+        from IPython.display import HTML
 
         filename = os.path.basename(file_path)
 
@@ -693,7 +695,7 @@ def is_of_python_basic_type(el: object | list | None) -> bool:
     elif type(el) in [list, tuple]:
         return all([is_of_python_basic_type(t) for t in cast(Iterable, el)])
     elif type(el) is dict:
-        if not all(type(k) == str for k in el.keys()):
+        if not all(type(k) is str for k in el.keys()):
             return False
 
         return is_of_python_basic_type(list(el.values()))
@@ -1163,3 +1165,11 @@ def content_type_for(filepath: str, default: str = "application/octet-stream") -
     ext = Path(filepath).suffix
     mime = mimetypes.types_map.get(ext.lower())
     return mime or default
+
+
+def get_filename_from_asset_details(asset_details: dict) -> str | None:
+    """Return filename from asset details."""
+    filename = asset_details["metadata"].get("resource_key") or asset_details[
+        "metadata"
+    ].get("attachment_name")
+    return filename.split("/")[-1] if filename else None

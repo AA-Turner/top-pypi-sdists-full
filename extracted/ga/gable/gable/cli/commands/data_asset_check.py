@@ -2,6 +2,8 @@ from typing import Optional, Union, cast
 
 import click
 from click.core import Context as ClickContext
+from loguru import logger
+
 from gable.cli.commands.asset_plugins.avro import AvroAssetPlugin
 from gable.cli.commands.asset_plugins.mssql import MsSQLAssetPlugin
 from gable.cli.commands.asset_plugins.mysql import MySQLAssetPlugin
@@ -34,7 +36,6 @@ from gable.openapi import (
     ResponseType,
     SourceType,
 )
-from loguru import logger
 
 
 @click.command(
@@ -313,6 +314,7 @@ def check_data_asset(
             "node_modules_include": node_modules_include,
             "emitter_file_path": emitter_file_path,
             "emitter_location": emitter_location or emitter_file_path,
+            "exclude": exclude,
         }
         plugin_check(
             asset_plugin,

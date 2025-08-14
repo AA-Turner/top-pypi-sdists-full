@@ -1,7 +1,7 @@
 r'''
 # `azuread_synchronization_secret`
 
-Refer to the Terraform Registry for docs: [`azuread_synchronization_secret`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret).
+Refer to the Terraform Registry for docs: [`azuread_synchronization_secret`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SynchronizationSecret(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.synchronizationSecret.SynchronizationSecret",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret azuread_synchronization_secret}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret azuread_synchronization_secret}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class SynchronizationSecret(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret azuread_synchronization_secret} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret azuread_synchronization_secret} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_principal_id: The object ID of the service principal for which this synchronization secret should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#service_principal_id SynchronizationSecret#service_principal_id}
-        :param credential: credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#credential SynchronizationSecret#credential}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#id SynchronizationSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#timeouts SynchronizationSecret#timeouts}
+        :param service_principal_id: The object ID of the service principal for which this synchronization secret should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#service_principal_id SynchronizationSecret#service_principal_id}
+        :param credential: credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#credential SynchronizationSecret#credential}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#id SynchronizationSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#timeouts SynchronizationSecret#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class SynchronizationSecret(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SynchronizationSecret to import.
-        :param import_from_id: The id of the existing SynchronizationSecret that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SynchronizationSecret that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SynchronizationSecret to import is found.
         '''
         if __debug__:
@@ -146,10 +146,10 @@ class SynchronizationSecret(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#create SynchronizationSecret#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#delete SynchronizationSecret#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#read SynchronizationSecret#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#update SynchronizationSecret#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#create SynchronizationSecret#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#delete SynchronizationSecret#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#read SynchronizationSecret#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#update SynchronizationSecret#update}.
         '''
         value = SynchronizationSecretTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -282,10 +282,10 @@ class SynchronizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_principal_id: The object ID of the service principal for which this synchronization secret should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#service_principal_id SynchronizationSecret#service_principal_id}
-        :param credential: credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#credential SynchronizationSecret#credential}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#id SynchronizationSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#timeouts SynchronizationSecret#timeouts}
+        :param service_principal_id: The object ID of the service principal for which this synchronization secret should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#service_principal_id SynchronizationSecret#service_principal_id}
+        :param credential: credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#credential SynchronizationSecret#credential}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#id SynchronizationSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#timeouts SynchronizationSecret#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -396,7 +396,7 @@ class SynchronizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_principal_id(self) -> builtins.str:
         '''The object ID of the service principal for which this synchronization secret should be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#service_principal_id SynchronizationSecret#service_principal_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#service_principal_id SynchronizationSecret#service_principal_id}
         '''
         result = self._values.get("service_principal_id")
         assert result is not None, "Required property 'service_principal_id' is missing"
@@ -408,14 +408,14 @@ class SynchronizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SynchronizationSecretCredential"]]]:
         '''credential block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#credential SynchronizationSecret#credential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#credential SynchronizationSecret#credential}
         '''
         result = self._values.get("credential")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SynchronizationSecretCredential"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#id SynchronizationSecret#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#id SynchronizationSecret#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -427,7 +427,7 @@ class SynchronizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SynchronizationSecretTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#timeouts SynchronizationSecret#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#timeouts SynchronizationSecret#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SynchronizationSecretTimeouts"], result)
@@ -452,8 +452,8 @@ class SynchronizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class SynchronizationSecretCredential:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Name for this key-value pair. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#key SynchronizationSecret#key}
-        :param value: Value for this key-value pair. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#value SynchronizationSecret#value}
+        :param key: Name for this key-value pair. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#key SynchronizationSecret#key}
+        :param value: Value for this key-value pair. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#value SynchronizationSecret#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__713e8408540f0ba19ba8e22446a909ab2ece0d04272c172e5e8d9fb09317d6e2)
@@ -468,7 +468,7 @@ class SynchronizationSecretCredential:
     def key(self) -> builtins.str:
         '''Name for this key-value pair.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#key SynchronizationSecret#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#key SynchronizationSecret#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -478,7 +478,7 @@ class SynchronizationSecretCredential:
     def value(self) -> builtins.str:
         '''Value for this key-value pair.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#value SynchronizationSecret#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#value SynchronizationSecret#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -687,10 +687,10 @@ class SynchronizationSecretTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#create SynchronizationSecret#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#delete SynchronizationSecret#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#read SynchronizationSecret#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#update SynchronizationSecret#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#create SynchronizationSecret#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#delete SynchronizationSecret#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#read SynchronizationSecret#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#update SynchronizationSecret#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd31a04e644ce36e6724365782fcd089029e109145587e56560a95533aec01e0)
@@ -710,25 +710,25 @@ class SynchronizationSecretTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#create SynchronizationSecret#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#create SynchronizationSecret#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#delete SynchronizationSecret#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#delete SynchronizationSecret#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#read SynchronizationSecret#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#read SynchronizationSecret#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_secret#update SynchronizationSecret#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_secret#update SynchronizationSecret#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

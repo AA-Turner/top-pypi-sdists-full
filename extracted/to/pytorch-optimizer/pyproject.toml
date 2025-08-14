@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pytorch_optimizer"
-version = "3.7.0"
+version = "3.8.0"
 description = "optimizer & lr scheduler & objective function collections in PyTorch"
 license = "Apache-2.0"
 authors = ["kozistr <kozistr@gmail.com>"]
@@ -15,14 +15,14 @@ keywords = [
     "AdaSmooth", "AdEMAMix", "Simplified-AdEMAMix", "ADOPT", "AdaHessian", "Adai", "Adalite", "AdaLomo", "AdamMini",
     "AdamP", "AdamS", "Adan", "AggMo", "Aida", "AliG", "Amos", "Apollo", "APOLLO", "AvaGrad", "bSAM", "CAME",
     "DAdaptAdaGrad", "DAdaptAdam", "DAdaptAdan", "DAdaptSGD", "DAdaptLion", "DeMo", "DiffGrad", "EmoFact", "EmoLynx",
-    "EmoNavi", "EXAdam", "FAdam", "Fira", "FOCUS", "Fromage", "FTRL", "GaLore", "Grams", "Gravity", "GrokFast", "GSAM",
-    "Kate", "Lamb", "LaProp", "LARS", "Lion", "LOMO", "Lookahead", "MADGRAD", "MARS", "MSVAG", "Muno", "Nero",
-    "NovoGrad", "OrthoGrad", "PAdam", "PCGrad", "PID", "PNM", "Prodigy", "PSGD", "QHAdam", "QHM", "RACS", "RAdam",
-    "Ranger", "Ranger21", "RotoGrad", "SAM", "GCSAM", "LookSAM", "ScheduleFreeSGD", "ScheduleFreeAdamW",
-    "ScheduleFreeRAdam", "SCION", "SGDP", "Shampoo", "ScalableShampoo", "SGDW", "SignSGD", "SM3", "SOAP", "SopihaH",
-    "SPAM", "StableSPAM", "SPlus", "SRMM", "StableAdamW", "SWATS", "TAM", "Tiger", "TRAC", "VSGD", "WSAM", "Yogi",
-    "BCE", "BCEFocal", "Focal", "FocalCosine", "SoftF1", "Dice", "LDAM", "Jaccard", "Bi-Tempered", "Tversky",
-    "FocalTversky", "LovaszHinge", "bitsandbytes", "WSD", "QGaLore",
+    "EmoNavi", "EmoNeco", "EmoZeal", "EXAdam", "FAdam", "Fira", "FOCUS", "Fromage", "FTRL", "GaLore", "Grams",
+    "Gravity", "GrokFast", "GSAM", "Kate", "Lamb", "LaProp", "LARS", "Lion", "LOMO", "Lookahead", "MADGRAD", "MARS",
+    "MSVAG", "Muno", "Nero", "NovoGrad", "OrthoGrad", "PAdam", "PCGrad", "PID", "PNM", "Prodigy", "PSGD", "QHAdam",
+    "QHM", "RACS", "RAdam", "Ranger", "Ranger21", "RotoGrad", "SAM", "GCSAM", "LookSAM", "ScheduleFreeSGD",
+    "ScheduleFreeAdamW", "ScheduleFreeRAdam", "SCION", "SGDP", "Shampoo", "ScalableShampoo", "SGDW", "SignSGD", "SM3",
+    "SOAP", "SopihaH", "SPAM", "StableSPAM", "SPlus", "SRMM", "StableAdamW", "SWATS", "TAM", "Tiger", "TRAC", "VSGD",
+    "WSAM", "Yogi", "BCE", "BCEFocal", "Focal", "FocalCosine", "SoftF1", "Dice", "LDAM", "Jaccard", "Bi-Tempered",
+    "Tversky", "FocalTversky", "LovaszHinge", "bitsandbytes", "WSD", "QGaLore",
 ]
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
@@ -103,9 +103,8 @@ select = [
 ignore = [
     "B905",
     "D100", "D102", "D104", "D105", "D107", "D203", "D213", "D413",
-    "PLR0912", "PLR0913", "PLR0915", "PLR2004", "PLW2901",
+    "PLR0913", "PLR2004", "PLW2901",
     "Q003", "ARG002",
-    "RUF028",
 ]
 fixable = ["ALL"]
 unfixable = ["F401"]
@@ -126,7 +125,8 @@ force-sort-within-sections = false
 known-first-party = ["pytorch_optimizer"]
 
 [tool.ruff.lint.pylint]
-max-args = 7
+max-statements = 60
+max-branches = 17
 
 [tool.ruff.format]
 quote-style = "single"

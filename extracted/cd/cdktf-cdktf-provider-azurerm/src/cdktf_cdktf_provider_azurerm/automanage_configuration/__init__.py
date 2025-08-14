@@ -1,7 +1,7 @@
 r'''
 # `azurerm_automanage_configuration`
 
-Refer to the Terraform Registry for docs: [`azurerm_automanage_configuration`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration).
+Refer to the Terraform Registry for docs: [`azurerm_automanage_configuration`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AutomanageConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.automanageConfiguration.AutomanageConfiguration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration azurerm_automanage_configuration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration azurerm_automanage_configuration}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class AutomanageConfiguration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration azurerm_automanage_configuration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration azurerm_automanage_configuration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#location AutomanageConfiguration#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#name AutomanageConfiguration#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#resource_group_name AutomanageConfiguration#resource_group_name}.
-        :param antimalware: antimalware block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#antimalware AutomanageConfiguration#antimalware}
-        :param automation_account_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#automation_account_enabled AutomanageConfiguration#automation_account_enabled}.
-        :param azure_security_baseline: azure_security_baseline block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#azure_security_baseline AutomanageConfiguration#azure_security_baseline}
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#backup AutomanageConfiguration#backup}
-        :param boot_diagnostics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#boot_diagnostics_enabled AutomanageConfiguration#boot_diagnostics_enabled}.
-        :param defender_for_cloud_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#defender_for_cloud_enabled AutomanageConfiguration#defender_for_cloud_enabled}.
-        :param guest_configuration_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#guest_configuration_enabled AutomanageConfiguration#guest_configuration_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#id AutomanageConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_analytics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#log_analytics_enabled AutomanageConfiguration#log_analytics_enabled}.
-        :param status_change_alert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#status_change_alert_enabled AutomanageConfiguration#status_change_alert_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#tags AutomanageConfiguration#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#timeouts AutomanageConfiguration#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#location AutomanageConfiguration#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#name AutomanageConfiguration#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#resource_group_name AutomanageConfiguration#resource_group_name}.
+        :param antimalware: antimalware block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#antimalware AutomanageConfiguration#antimalware}
+        :param automation_account_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#automation_account_enabled AutomanageConfiguration#automation_account_enabled}.
+        :param azure_security_baseline: azure_security_baseline block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#azure_security_baseline AutomanageConfiguration#azure_security_baseline}
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#backup AutomanageConfiguration#backup}
+        :param boot_diagnostics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#boot_diagnostics_enabled AutomanageConfiguration#boot_diagnostics_enabled}.
+        :param defender_for_cloud_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#defender_for_cloud_enabled AutomanageConfiguration#defender_for_cloud_enabled}.
+        :param guest_configuration_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#guest_configuration_enabled AutomanageConfiguration#guest_configuration_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#id AutomanageConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_analytics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#log_analytics_enabled AutomanageConfiguration#log_analytics_enabled}.
+        :param status_change_alert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#status_change_alert_enabled AutomanageConfiguration#status_change_alert_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#tags AutomanageConfiguration#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#timeouts AutomanageConfiguration#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class AutomanageConfiguration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AutomanageConfiguration to import.
-        :param import_from_id: The id of the existing AutomanageConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AutomanageConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AutomanageConfiguration to import is found.
         '''
         if __debug__:
@@ -168,12 +168,12 @@ class AutomanageConfiguration(
         scheduled_scan_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exclusions: exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#exclusions AutomanageConfiguration#exclusions}
-        :param real_time_protection_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#real_time_protection_enabled AutomanageConfiguration#real_time_protection_enabled}.
-        :param scheduled_scan_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_day AutomanageConfiguration#scheduled_scan_day}.
-        :param scheduled_scan_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_enabled AutomanageConfiguration#scheduled_scan_enabled}.
-        :param scheduled_scan_time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_time_in_minutes AutomanageConfiguration#scheduled_scan_time_in_minutes}.
-        :param scheduled_scan_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_type AutomanageConfiguration#scheduled_scan_type}.
+        :param exclusions: exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#exclusions AutomanageConfiguration#exclusions}
+        :param real_time_protection_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#real_time_protection_enabled AutomanageConfiguration#real_time_protection_enabled}.
+        :param scheduled_scan_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_day AutomanageConfiguration#scheduled_scan_day}.
+        :param scheduled_scan_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_enabled AutomanageConfiguration#scheduled_scan_enabled}.
+        :param scheduled_scan_time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_time_in_minutes AutomanageConfiguration#scheduled_scan_time_in_minutes}.
+        :param scheduled_scan_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_type AutomanageConfiguration#scheduled_scan_type}.
         '''
         value = AutomanageConfigurationAntimalware(
             exclusions=exclusions,
@@ -193,7 +193,7 @@ class AutomanageConfiguration(
         assignment_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param assignment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#assignment_type AutomanageConfiguration#assignment_type}.
+        :param assignment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#assignment_type AutomanageConfiguration#assignment_type}.
         '''
         value = AutomanageConfigurationAzureSecurityBaseline(
             assignment_type=assignment_type
@@ -212,11 +212,11 @@ class AutomanageConfiguration(
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instant_rp_retention_range_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#instant_rp_retention_range_in_days AutomanageConfiguration#instant_rp_retention_range_in_days}.
-        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#policy_name AutomanageConfiguration#policy_name}.
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_policy AutomanageConfiguration#retention_policy}
-        :param schedule_policy: schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_policy AutomanageConfiguration#schedule_policy}
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#time_zone AutomanageConfiguration#time_zone}.
+        :param instant_rp_retention_range_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#instant_rp_retention_range_in_days AutomanageConfiguration#instant_rp_retention_range_in_days}.
+        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#policy_name AutomanageConfiguration#policy_name}.
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_policy AutomanageConfiguration#retention_policy}
+        :param schedule_policy: schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_policy AutomanageConfiguration#schedule_policy}
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#time_zone AutomanageConfiguration#time_zone}.
         '''
         value = AutomanageConfigurationBackup(
             instant_rp_retention_range_in_days=instant_rp_retention_range_in_days,
@@ -238,10 +238,10 @@ class AutomanageConfiguration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#create AutomanageConfiguration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#delete AutomanageConfiguration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#read AutomanageConfiguration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#update AutomanageConfiguration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#create AutomanageConfiguration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#delete AutomanageConfiguration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#read AutomanageConfiguration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#update AutomanageConfiguration#update}.
         '''
         value = AutomanageConfigurationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -612,12 +612,12 @@ class AutomanageConfigurationAntimalware:
         scheduled_scan_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exclusions: exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#exclusions AutomanageConfiguration#exclusions}
-        :param real_time_protection_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#real_time_protection_enabled AutomanageConfiguration#real_time_protection_enabled}.
-        :param scheduled_scan_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_day AutomanageConfiguration#scheduled_scan_day}.
-        :param scheduled_scan_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_enabled AutomanageConfiguration#scheduled_scan_enabled}.
-        :param scheduled_scan_time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_time_in_minutes AutomanageConfiguration#scheduled_scan_time_in_minutes}.
-        :param scheduled_scan_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_type AutomanageConfiguration#scheduled_scan_type}.
+        :param exclusions: exclusions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#exclusions AutomanageConfiguration#exclusions}
+        :param real_time_protection_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#real_time_protection_enabled AutomanageConfiguration#real_time_protection_enabled}.
+        :param scheduled_scan_day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_day AutomanageConfiguration#scheduled_scan_day}.
+        :param scheduled_scan_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_enabled AutomanageConfiguration#scheduled_scan_enabled}.
+        :param scheduled_scan_time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_time_in_minutes AutomanageConfiguration#scheduled_scan_time_in_minutes}.
+        :param scheduled_scan_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_type AutomanageConfiguration#scheduled_scan_type}.
         '''
         if isinstance(exclusions, dict):
             exclusions = AutomanageConfigurationAntimalwareExclusions(**exclusions)
@@ -649,7 +649,7 @@ class AutomanageConfigurationAntimalware:
     ) -> typing.Optional["AutomanageConfigurationAntimalwareExclusions"]:
         '''exclusions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#exclusions AutomanageConfiguration#exclusions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#exclusions AutomanageConfiguration#exclusions}
         '''
         result = self._values.get("exclusions")
         return typing.cast(typing.Optional["AutomanageConfigurationAntimalwareExclusions"], result)
@@ -658,13 +658,13 @@ class AutomanageConfigurationAntimalware:
     def real_time_protection_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#real_time_protection_enabled AutomanageConfiguration#real_time_protection_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#real_time_protection_enabled AutomanageConfiguration#real_time_protection_enabled}.'''
         result = self._values.get("real_time_protection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def scheduled_scan_day(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_day AutomanageConfiguration#scheduled_scan_day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_day AutomanageConfiguration#scheduled_scan_day}.'''
         result = self._values.get("scheduled_scan_day")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -672,19 +672,19 @@ class AutomanageConfigurationAntimalware:
     def scheduled_scan_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_enabled AutomanageConfiguration#scheduled_scan_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_enabled AutomanageConfiguration#scheduled_scan_enabled}.'''
         result = self._values.get("scheduled_scan_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def scheduled_scan_time_in_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_time_in_minutes AutomanageConfiguration#scheduled_scan_time_in_minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_time_in_minutes AutomanageConfiguration#scheduled_scan_time_in_minutes}.'''
         result = self._values.get("scheduled_scan_time_in_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def scheduled_scan_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#scheduled_scan_type AutomanageConfiguration#scheduled_scan_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#scheduled_scan_type AutomanageConfiguration#scheduled_scan_type}.'''
         result = self._values.get("scheduled_scan_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -718,9 +718,9 @@ class AutomanageConfigurationAntimalwareExclusions:
         processes: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param extensions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#extensions AutomanageConfiguration#extensions}.
-        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#paths AutomanageConfiguration#paths}.
-        :param processes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#processes AutomanageConfiguration#processes}.
+        :param extensions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#extensions AutomanageConfiguration#extensions}.
+        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#paths AutomanageConfiguration#paths}.
+        :param processes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#processes AutomanageConfiguration#processes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__548b30bc103376491ebe1d5621ebe2a2cd65d44589abc7ea451955e0d9db7ede)
@@ -737,19 +737,19 @@ class AutomanageConfigurationAntimalwareExclusions:
 
     @builtins.property
     def extensions(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#extensions AutomanageConfiguration#extensions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#extensions AutomanageConfiguration#extensions}.'''
         result = self._values.get("extensions")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def paths(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#paths AutomanageConfiguration#paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#paths AutomanageConfiguration#paths}.'''
         result = self._values.get("paths")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def processes(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#processes AutomanageConfiguration#processes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#processes AutomanageConfiguration#processes}.'''
         result = self._values.get("processes")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -895,9 +895,9 @@ class AutomanageConfigurationAntimalwareOutputReference(
         processes: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param extensions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#extensions AutomanageConfiguration#extensions}.
-        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#paths AutomanageConfiguration#paths}.
-        :param processes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#processes AutomanageConfiguration#processes}.
+        :param extensions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#extensions AutomanageConfiguration#extensions}.
+        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#paths AutomanageConfiguration#paths}.
+        :param processes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#processes AutomanageConfiguration#processes}.
         '''
         value = AutomanageConfigurationAntimalwareExclusions(
             extensions=extensions, paths=paths, processes=processes
@@ -1068,7 +1068,7 @@ class AutomanageConfigurationAzureSecurityBaseline:
         assignment_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param assignment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#assignment_type AutomanageConfiguration#assignment_type}.
+        :param assignment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#assignment_type AutomanageConfiguration#assignment_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__75ac1994442bc83c581b22ffcdb1ec4d9c50c4b63ef5b12576d9ec38da1ae047)
@@ -1079,7 +1079,7 @@ class AutomanageConfigurationAzureSecurityBaseline:
 
     @builtins.property
     def assignment_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#assignment_type AutomanageConfiguration#assignment_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#assignment_type AutomanageConfiguration#assignment_type}.'''
         result = self._values.get("assignment_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1176,11 +1176,11 @@ class AutomanageConfigurationBackup:
         time_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instant_rp_retention_range_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#instant_rp_retention_range_in_days AutomanageConfiguration#instant_rp_retention_range_in_days}.
-        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#policy_name AutomanageConfiguration#policy_name}.
-        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_policy AutomanageConfiguration#retention_policy}
-        :param schedule_policy: schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_policy AutomanageConfiguration#schedule_policy}
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#time_zone AutomanageConfiguration#time_zone}.
+        :param instant_rp_retention_range_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#instant_rp_retention_range_in_days AutomanageConfiguration#instant_rp_retention_range_in_days}.
+        :param policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#policy_name AutomanageConfiguration#policy_name}.
+        :param retention_policy: retention_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_policy AutomanageConfiguration#retention_policy}
+        :param schedule_policy: schedule_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_policy AutomanageConfiguration#schedule_policy}
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#time_zone AutomanageConfiguration#time_zone}.
         '''
         if isinstance(retention_policy, dict):
             retention_policy = AutomanageConfigurationBackupRetentionPolicy(**retention_policy)
@@ -1207,13 +1207,13 @@ class AutomanageConfigurationBackup:
 
     @builtins.property
     def instant_rp_retention_range_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#instant_rp_retention_range_in_days AutomanageConfiguration#instant_rp_retention_range_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#instant_rp_retention_range_in_days AutomanageConfiguration#instant_rp_retention_range_in_days}.'''
         result = self._values.get("instant_rp_retention_range_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def policy_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#policy_name AutomanageConfiguration#policy_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#policy_name AutomanageConfiguration#policy_name}.'''
         result = self._values.get("policy_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1223,7 +1223,7 @@ class AutomanageConfigurationBackup:
     ) -> typing.Optional["AutomanageConfigurationBackupRetentionPolicy"]:
         '''retention_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_policy AutomanageConfiguration#retention_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_policy AutomanageConfiguration#retention_policy}
         '''
         result = self._values.get("retention_policy")
         return typing.cast(typing.Optional["AutomanageConfigurationBackupRetentionPolicy"], result)
@@ -1234,14 +1234,14 @@ class AutomanageConfigurationBackup:
     ) -> typing.Optional["AutomanageConfigurationBackupSchedulePolicy"]:
         '''schedule_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_policy AutomanageConfiguration#schedule_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_policy AutomanageConfiguration#schedule_policy}
         '''
         result = self._values.get("schedule_policy")
         return typing.cast(typing.Optional["AutomanageConfigurationBackupSchedulePolicy"], result)
 
     @builtins.property
     def time_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#time_zone AutomanageConfiguration#time_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#time_zone AutomanageConfiguration#time_zone}.'''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1286,9 +1286,9 @@ class AutomanageConfigurationBackupOutputReference(
         weekly_schedule: typing.Optional[typing.Union["AutomanageConfigurationBackupRetentionPolicyWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#daily_schedule AutomanageConfiguration#daily_schedule}
-        :param retention_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_policy_type AutomanageConfiguration#retention_policy_type}.
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#weekly_schedule AutomanageConfiguration#weekly_schedule}
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#daily_schedule AutomanageConfiguration#daily_schedule}
+        :param retention_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_policy_type AutomanageConfiguration#retention_policy_type}.
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#weekly_schedule AutomanageConfiguration#weekly_schedule}
         '''
         value = AutomanageConfigurationBackupRetentionPolicy(
             daily_schedule=daily_schedule,
@@ -1308,10 +1308,10 @@ class AutomanageConfigurationBackupOutputReference(
         schedule_run_times: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param schedule_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_policy_type AutomanageConfiguration#schedule_policy_type}.
-        :param schedule_run_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_run_days AutomanageConfiguration#schedule_run_days}.
-        :param schedule_run_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_run_frequency AutomanageConfiguration#schedule_run_frequency}.
-        :param schedule_run_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_run_times AutomanageConfiguration#schedule_run_times}.
+        :param schedule_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_policy_type AutomanageConfiguration#schedule_policy_type}.
+        :param schedule_run_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_run_days AutomanageConfiguration#schedule_run_days}.
+        :param schedule_run_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_run_frequency AutomanageConfiguration#schedule_run_frequency}.
+        :param schedule_run_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_run_times AutomanageConfiguration#schedule_run_times}.
         '''
         value = AutomanageConfigurationBackupSchedulePolicy(
             schedule_policy_type=schedule_policy_type,
@@ -1455,9 +1455,9 @@ class AutomanageConfigurationBackupRetentionPolicy:
         weekly_schedule: typing.Optional[typing.Union["AutomanageConfigurationBackupRetentionPolicyWeeklySchedule", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#daily_schedule AutomanageConfiguration#daily_schedule}
-        :param retention_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_policy_type AutomanageConfiguration#retention_policy_type}.
-        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#weekly_schedule AutomanageConfiguration#weekly_schedule}
+        :param daily_schedule: daily_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#daily_schedule AutomanageConfiguration#daily_schedule}
+        :param retention_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_policy_type AutomanageConfiguration#retention_policy_type}.
+        :param weekly_schedule: weekly_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#weekly_schedule AutomanageConfiguration#weekly_schedule}
         '''
         if isinstance(daily_schedule, dict):
             daily_schedule = AutomanageConfigurationBackupRetentionPolicyDailySchedule(**daily_schedule)
@@ -1482,14 +1482,14 @@ class AutomanageConfigurationBackupRetentionPolicy:
     ) -> typing.Optional["AutomanageConfigurationBackupRetentionPolicyDailySchedule"]:
         '''daily_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#daily_schedule AutomanageConfiguration#daily_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#daily_schedule AutomanageConfiguration#daily_schedule}
         '''
         result = self._values.get("daily_schedule")
         return typing.cast(typing.Optional["AutomanageConfigurationBackupRetentionPolicyDailySchedule"], result)
 
     @builtins.property
     def retention_policy_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_policy_type AutomanageConfiguration#retention_policy_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_policy_type AutomanageConfiguration#retention_policy_type}.'''
         result = self._values.get("retention_policy_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1499,7 +1499,7 @@ class AutomanageConfigurationBackupRetentionPolicy:
     ) -> typing.Optional["AutomanageConfigurationBackupRetentionPolicyWeeklySchedule"]:
         '''weekly_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#weekly_schedule AutomanageConfiguration#weekly_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#weekly_schedule AutomanageConfiguration#weekly_schedule}
         '''
         result = self._values.get("weekly_schedule")
         return typing.cast(typing.Optional["AutomanageConfigurationBackupRetentionPolicyWeeklySchedule"], result)
@@ -1532,8 +1532,8 @@ class AutomanageConfigurationBackupRetentionPolicyDailySchedule:
         retention_times: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param retention_duration: retention_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
-        :param retention_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.
+        :param retention_duration: retention_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
+        :param retention_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.
         '''
         if isinstance(retention_duration, dict):
             retention_duration = AutomanageConfigurationBackupRetentionPolicyDailyScheduleRetentionDuration(**retention_duration)
@@ -1553,14 +1553,14 @@ class AutomanageConfigurationBackupRetentionPolicyDailySchedule:
     ) -> typing.Optional["AutomanageConfigurationBackupRetentionPolicyDailyScheduleRetentionDuration"]:
         '''retention_duration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
         '''
         result = self._values.get("retention_duration")
         return typing.cast(typing.Optional["AutomanageConfigurationBackupRetentionPolicyDailyScheduleRetentionDuration"], result)
 
     @builtins.property
     def retention_times(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.'''
         result = self._values.get("retention_times")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1604,8 +1604,8 @@ class AutomanageConfigurationBackupRetentionPolicyDailyScheduleOutputReference(
         duration_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.
-        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.
+        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.
         '''
         value = AutomanageConfigurationBackupRetentionPolicyDailyScheduleRetentionDuration(
             count=count, duration_type=duration_type
@@ -1683,8 +1683,8 @@ class AutomanageConfigurationBackupRetentionPolicyDailyScheduleRetentionDuration
         duration_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.
-        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.
+        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1f70c65f224b72f8ea594bfbf06792aa4af0dadf04f109238c2587b579ac90a)
@@ -1698,13 +1698,13 @@ class AutomanageConfigurationBackupRetentionPolicyDailyScheduleRetentionDuration
 
     @builtins.property
     def count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.'''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def duration_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.'''
         result = self._values.get("duration_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1828,8 +1828,8 @@ class AutomanageConfigurationBackupRetentionPolicyOutputReference(
         retention_times: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param retention_duration: retention_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
-        :param retention_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.
+        :param retention_duration: retention_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
+        :param retention_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.
         '''
         value = AutomanageConfigurationBackupRetentionPolicyDailySchedule(
             retention_duration=retention_duration, retention_times=retention_times
@@ -1845,8 +1845,8 @@ class AutomanageConfigurationBackupRetentionPolicyOutputReference(
         retention_times: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param retention_duration: retention_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
-        :param retention_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.
+        :param retention_duration: retention_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
+        :param retention_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.
         '''
         value = AutomanageConfigurationBackupRetentionPolicyWeeklySchedule(
             retention_duration=retention_duration, retention_times=retention_times
@@ -1945,8 +1945,8 @@ class AutomanageConfigurationBackupRetentionPolicyWeeklySchedule:
         retention_times: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param retention_duration: retention_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
-        :param retention_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.
+        :param retention_duration: retention_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
+        :param retention_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.
         '''
         if isinstance(retention_duration, dict):
             retention_duration = AutomanageConfigurationBackupRetentionPolicyWeeklyScheduleRetentionDuration(**retention_duration)
@@ -1966,14 +1966,14 @@ class AutomanageConfigurationBackupRetentionPolicyWeeklySchedule:
     ) -> typing.Optional["AutomanageConfigurationBackupRetentionPolicyWeeklyScheduleRetentionDuration"]:
         '''retention_duration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_duration AutomanageConfiguration#retention_duration}
         '''
         result = self._values.get("retention_duration")
         return typing.cast(typing.Optional["AutomanageConfigurationBackupRetentionPolicyWeeklyScheduleRetentionDuration"], result)
 
     @builtins.property
     def retention_times(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#retention_times AutomanageConfiguration#retention_times}.'''
         result = self._values.get("retention_times")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2017,8 +2017,8 @@ class AutomanageConfigurationBackupRetentionPolicyWeeklyScheduleOutputReference(
         duration_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.
-        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.
+        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.
         '''
         value = AutomanageConfigurationBackupRetentionPolicyWeeklyScheduleRetentionDuration(
             count=count, duration_type=duration_type
@@ -2096,8 +2096,8 @@ class AutomanageConfigurationBackupRetentionPolicyWeeklyScheduleRetentionDuratio
         duration_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.
-        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.
+        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4cc2636b42f253415563f6ea2bf83b631910676dadb238989dee85e44bc029f0)
@@ -2111,13 +2111,13 @@ class AutomanageConfigurationBackupRetentionPolicyWeeklyScheduleRetentionDuratio
 
     @builtins.property
     def count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#count AutomanageConfiguration#count}.'''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def duration_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#duration_type AutomanageConfiguration#duration_type}.'''
         result = self._values.get("duration_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2233,10 +2233,10 @@ class AutomanageConfigurationBackupSchedulePolicy:
         schedule_run_times: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param schedule_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_policy_type AutomanageConfiguration#schedule_policy_type}.
-        :param schedule_run_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_run_days AutomanageConfiguration#schedule_run_days}.
-        :param schedule_run_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_run_frequency AutomanageConfiguration#schedule_run_frequency}.
-        :param schedule_run_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_run_times AutomanageConfiguration#schedule_run_times}.
+        :param schedule_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_policy_type AutomanageConfiguration#schedule_policy_type}.
+        :param schedule_run_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_run_days AutomanageConfiguration#schedule_run_days}.
+        :param schedule_run_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_run_frequency AutomanageConfiguration#schedule_run_frequency}.
+        :param schedule_run_times: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_run_times AutomanageConfiguration#schedule_run_times}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__91323e5462197be72339cf521a28ea5b7888fb4dfce19adbcb19b0c19475905b)
@@ -2256,25 +2256,25 @@ class AutomanageConfigurationBackupSchedulePolicy:
 
     @builtins.property
     def schedule_policy_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_policy_type AutomanageConfiguration#schedule_policy_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_policy_type AutomanageConfiguration#schedule_policy_type}.'''
         result = self._values.get("schedule_policy_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schedule_run_days(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_run_days AutomanageConfiguration#schedule_run_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_run_days AutomanageConfiguration#schedule_run_days}.'''
         result = self._values.get("schedule_run_days")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def schedule_run_frequency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_run_frequency AutomanageConfiguration#schedule_run_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_run_frequency AutomanageConfiguration#schedule_run_frequency}.'''
         result = self._values.get("schedule_run_frequency")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def schedule_run_times(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#schedule_run_times AutomanageConfiguration#schedule_run_times}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#schedule_run_times AutomanageConfiguration#schedule_run_times}.'''
         result = self._values.get("schedule_run_times")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2475,21 +2475,21 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#location AutomanageConfiguration#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#name AutomanageConfiguration#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#resource_group_name AutomanageConfiguration#resource_group_name}.
-        :param antimalware: antimalware block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#antimalware AutomanageConfiguration#antimalware}
-        :param automation_account_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#automation_account_enabled AutomanageConfiguration#automation_account_enabled}.
-        :param azure_security_baseline: azure_security_baseline block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#azure_security_baseline AutomanageConfiguration#azure_security_baseline}
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#backup AutomanageConfiguration#backup}
-        :param boot_diagnostics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#boot_diagnostics_enabled AutomanageConfiguration#boot_diagnostics_enabled}.
-        :param defender_for_cloud_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#defender_for_cloud_enabled AutomanageConfiguration#defender_for_cloud_enabled}.
-        :param guest_configuration_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#guest_configuration_enabled AutomanageConfiguration#guest_configuration_enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#id AutomanageConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_analytics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#log_analytics_enabled AutomanageConfiguration#log_analytics_enabled}.
-        :param status_change_alert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#status_change_alert_enabled AutomanageConfiguration#status_change_alert_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#tags AutomanageConfiguration#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#timeouts AutomanageConfiguration#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#location AutomanageConfiguration#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#name AutomanageConfiguration#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#resource_group_name AutomanageConfiguration#resource_group_name}.
+        :param antimalware: antimalware block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#antimalware AutomanageConfiguration#antimalware}
+        :param automation_account_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#automation_account_enabled AutomanageConfiguration#automation_account_enabled}.
+        :param azure_security_baseline: azure_security_baseline block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#azure_security_baseline AutomanageConfiguration#azure_security_baseline}
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#backup AutomanageConfiguration#backup}
+        :param boot_diagnostics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#boot_diagnostics_enabled AutomanageConfiguration#boot_diagnostics_enabled}.
+        :param defender_for_cloud_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#defender_for_cloud_enabled AutomanageConfiguration#defender_for_cloud_enabled}.
+        :param guest_configuration_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#guest_configuration_enabled AutomanageConfiguration#guest_configuration_enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#id AutomanageConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_analytics_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#log_analytics_enabled AutomanageConfiguration#log_analytics_enabled}.
+        :param status_change_alert_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#status_change_alert_enabled AutomanageConfiguration#status_change_alert_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#tags AutomanageConfiguration#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#timeouts AutomanageConfiguration#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2635,21 +2635,21 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#location AutomanageConfiguration#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#location AutomanageConfiguration#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#name AutomanageConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#name AutomanageConfiguration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#resource_group_name AutomanageConfiguration#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#resource_group_name AutomanageConfiguration#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2658,7 +2658,7 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def antimalware(self) -> typing.Optional[AutomanageConfigurationAntimalware]:
         '''antimalware block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#antimalware AutomanageConfiguration#antimalware}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#antimalware AutomanageConfiguration#antimalware}
         '''
         result = self._values.get("antimalware")
         return typing.cast(typing.Optional[AutomanageConfigurationAntimalware], result)
@@ -2667,7 +2667,7 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def automation_account_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#automation_account_enabled AutomanageConfiguration#automation_account_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#automation_account_enabled AutomanageConfiguration#automation_account_enabled}.'''
         result = self._values.get("automation_account_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2677,7 +2677,7 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[AutomanageConfigurationAzureSecurityBaseline]:
         '''azure_security_baseline block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#azure_security_baseline AutomanageConfiguration#azure_security_baseline}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#azure_security_baseline AutomanageConfiguration#azure_security_baseline}
         '''
         result = self._values.get("azure_security_baseline")
         return typing.cast(typing.Optional[AutomanageConfigurationAzureSecurityBaseline], result)
@@ -2686,7 +2686,7 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup(self) -> typing.Optional[AutomanageConfigurationBackup]:
         '''backup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#backup AutomanageConfiguration#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#backup AutomanageConfiguration#backup}
         '''
         result = self._values.get("backup")
         return typing.cast(typing.Optional[AutomanageConfigurationBackup], result)
@@ -2695,7 +2695,7 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def boot_diagnostics_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#boot_diagnostics_enabled AutomanageConfiguration#boot_diagnostics_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#boot_diagnostics_enabled AutomanageConfiguration#boot_diagnostics_enabled}.'''
         result = self._values.get("boot_diagnostics_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2703,7 +2703,7 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def defender_for_cloud_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#defender_for_cloud_enabled AutomanageConfiguration#defender_for_cloud_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#defender_for_cloud_enabled AutomanageConfiguration#defender_for_cloud_enabled}.'''
         result = self._values.get("defender_for_cloud_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2711,13 +2711,13 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def guest_configuration_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#guest_configuration_enabled AutomanageConfiguration#guest_configuration_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#guest_configuration_enabled AutomanageConfiguration#guest_configuration_enabled}.'''
         result = self._values.get("guest_configuration_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#id AutomanageConfiguration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#id AutomanageConfiguration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2729,7 +2729,7 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_analytics_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#log_analytics_enabled AutomanageConfiguration#log_analytics_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#log_analytics_enabled AutomanageConfiguration#log_analytics_enabled}.'''
         result = self._values.get("log_analytics_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2737,13 +2737,13 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def status_change_alert_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#status_change_alert_enabled AutomanageConfiguration#status_change_alert_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#status_change_alert_enabled AutomanageConfiguration#status_change_alert_enabled}.'''
         result = self._values.get("status_change_alert_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#tags AutomanageConfiguration#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#tags AutomanageConfiguration#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2751,7 +2751,7 @@ class AutomanageConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AutomanageConfigurationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#timeouts AutomanageConfiguration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#timeouts AutomanageConfiguration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AutomanageConfigurationTimeouts"], result)
@@ -2788,10 +2788,10 @@ class AutomanageConfigurationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#create AutomanageConfiguration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#delete AutomanageConfiguration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#read AutomanageConfiguration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#update AutomanageConfiguration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#create AutomanageConfiguration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#delete AutomanageConfiguration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#read AutomanageConfiguration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#update AutomanageConfiguration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e77a667f22aa911ab67e937b8d6577f12dcf272418a3bb5e2c9bc6d8cc73f577)
@@ -2811,25 +2811,25 @@ class AutomanageConfigurationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#create AutomanageConfiguration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#create AutomanageConfiguration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#delete AutomanageConfiguration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#delete AutomanageConfiguration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#read AutomanageConfiguration#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#read AutomanageConfiguration#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automanage_configuration#update AutomanageConfiguration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automanage_configuration#update AutomanageConfiguration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

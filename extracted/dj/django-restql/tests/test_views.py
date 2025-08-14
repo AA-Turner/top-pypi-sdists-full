@@ -1,18 +1,9 @@
 from django.urls import reverse_lazy
 from rest_framework.test import APITestCase
 
+from tests.testapp.serializers import WritableCourseSerializer, WritableStudentSerializer
 from tests.testapp.models import (
-    Book,
-    Instructor,
-    Course,
-    Phone,
-    Student,
-    Post,
-    Attachment,
-)
-from tests.testapp.serializers import (
-    WritableCourseSerializer,
-    WritableStudentSerializer,
+    Book, Post, Phone, Course, Student, Attachment, Instructor
 )
 
 
@@ -1241,7 +1232,7 @@ class DataQueryingTests(APITestCase):
     def test_list_on_arguments_with_no_quoted_values(self):
         url = reverse_lazy("student-list")
         response = self.client.get(
-            url + '?query=(name: "Yezy", age: 20){name, age, course{name}}',
+            url + "?query=(name: 'Yezy', age: 20){name, age, course{name}}",
             format="json",
         )
 
@@ -1268,7 +1259,7 @@ class DataQueryingTests(APITestCase):
     def test_list_with_nested_arguments(self):
         url = reverse_lazy("student-list")
         response = self.client.get(
-            url + '?query={name, age, course(code: "CS50"){name}}', format="json"
+            url + "?query={name, age, course(code: 'CS50'){name}}", format="json"
         )
 
         self.assertEqual(response.data, [])
@@ -1276,7 +1267,7 @@ class DataQueryingTests(APITestCase):
     def test_list_with_applied_filter_on_nested_aliased_field(self):
         url = reverse_lazy("student-list")
         response = self.client.get(
-            url + '?query={name, age, programme: course(code: "CS015"){code}}',
+            url + "?query={name, age, programme: course(code: 'CS015'){code}}",
             format="json",
         )
 
@@ -1286,7 +1277,7 @@ class DataQueryingTests(APITestCase):
         url = reverse_lazy("student-list")
         response = self.client.get(
             url
-            + '?query={name, age, program: course{readings: books(author: "Y.Mobit"){author}}}',
+            + "?query={name, age, program: course{readings: books(author: 'Y.Mobit'){author}}}",
             format="json",
         )
 
@@ -2187,6 +2178,24 @@ class DataMutationTests(APITestCase):
             },
         )
 
+    def test_put_with_delete_operation(self):
+        url = reverse_lazy("wcourse-detail", args=[self.course2.id])
+        data = {"name": "Data Structures", "code": "CS410", "books": {"delete": [1]}}
+        response = self.client.put(url, data, format="json")
+
+        self.assertEqual(
+            response.data,
+            {
+                "name": "Data Structures",
+                "code": "CS410",
+                "books": [],
+                "instructor": None,
+            },
+        )
+
+        # Check if nested objs have been actually deleted and not just removed
+        self.assertEqual(Book.objects.filter(id=1).count(), 0)
+
     def test_put_with_create_operation(self):
         url = reverse_lazy("wcourse-detail", args=[self.course2.id])
         data = {
@@ -2371,6 +2380,39 @@ class DataMutationTests(APITestCase):
                 "phone_numbers": [],
             },
         )
+
+    def test_put_with__all__as_delete_operation_value(self):
+        url = reverse_lazy("wstudent-detail", args=[self.student.id])
+        data = {
+            "name": "Davinci",
+            "age": 23,
+            "course": {
+                "name": "Programming",
+                "code": "CS50",
+                "books": {"delete": "__all__"},
+            },
+            "phone_numbers": {"delete": "__all__"},
+        }
+        response = self.client.put(url, data, format="json")
+
+        self.assertEqual(
+            response.data,
+            {
+                "name": "Davinci",
+                "age": 23,
+                "course": {
+                    "name": "Programming",
+                    "code": "CS50",
+                    "books": [],
+                    "instructor": None,
+                },
+                "phone_numbers": [],
+            },
+        )
+
+        # Check if nested objs have been actually deleted and not just removed
+        self.assertEqual(Book.objects.filter(id__in=[1, 2]).count(), 0)
+        self.assertEqual(Phone.objects.filter(id__in=[1, 2]).count(), 0)
 
     # **************** PATCH Tests ********************* #
 
@@ -2679,6 +2721,24 @@ class DataMutationTests(APITestCase):
             },
         )
 
+    def test_patch_with_delete_operation(self):
+        url = reverse_lazy("wcourse-detail", args=[self.course2.id])
+        data = {"name": "Data Structures", "code": "CS410", "books": {"delete": [1]}}
+        response = self.client.patch(url, data, format="json")
+
+        self.assertEqual(
+            response.data,
+            {
+                "name": "Data Structures",
+                "code": "CS410",
+                "books": [],
+                "instructor": None,
+            },
+        )
+
+        # Check if nested objs have been actually deleted and not just removed
+        self.assertEqual(Book.objects.filter(id__in=[1]).count(), 0)
+
     def test_patch_with_create_operation(self):
         url = reverse_lazy("wcourse-detail", args=[self.course2.id])
         data = {
@@ -2923,6 +2983,39 @@ class DataMutationTests(APITestCase):
             },
         )
 
+    def test_patch_with__all__as_delete_operation_value(self):
+        url = reverse_lazy("wstudent-detail", args=[self.student.id])
+        data = {
+            "name": "Davinci",
+            "age": 33,
+            "course": {
+                "name": "Programming",
+                "code": "CS50",
+                "books": {"delete": "__all__"},
+            },
+            "phone_numbers": {"delete": "__all__"},
+        }
+        response = self.client.patch(url, data, format="json")
+
+        self.assertEqual(
+            response.data,
+            {
+                "name": "Davinci",
+                "age": 33,
+                "course": {
+                    "name": "Programming",
+                    "code": "CS50",
+                    "books": [],
+                    "instructor": None,
+                },
+                "phone_numbers": [],
+            },
+        )
+
+        # Check if nested objs have been actually deleted and not just removed
+        self.assertEqual(Book.objects.filter(id__in=[1, 2]).count(), 0)
+        self.assertEqual(Phone.objects.filter(id__in=[1, 2]).count(), 0)
+
     def test_patch_with_mixed_operations_on_generic_relation(self):
         post = Post.objects.create()
         attachment = Attachment.objects.create(document=post)
@@ -2940,12 +3033,13 @@ class DataMutationTests(APITestCase):
                         {"content": "new attachment"},
                     ],
                     "update": {str(attachment.pk): {"content": "old attachment"}},
-                    "remove": [removed_attachment.pk],
+                    "delete": [removed_attachment.pk],
                     "add": [attachment_to_add.pk],
                 }
             },
             format="json",
         )
+
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Attachment.objects.filter(post=post).count(), 3)
         attachment.refresh_from_db()

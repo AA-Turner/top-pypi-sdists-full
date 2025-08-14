@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4065"
+__version__ = "1.1.4077"
 
 # Define package exports
 __all__ = [
@@ -105,11 +105,22 @@ __all__ = [
     "CustomFieldNumberTypeDto",
     "CustomFieldTextTypeDto",
     "CustomFieldType",
+    "CustomerFacingIssueActionDto",
     "CustomerFacingIssueDto",
-    "CustomerFacingIssueSourceDto",
+    "CustomerFacingIssueToActionHistoryDto",
+    "CustomerFacingIssueToAdditionalDataDto",
+    "CustomerFacingIssueToCommentsDto",
+    "CustomerFacingIssueToRemediationDto",
+    "CustomerFacingIssueToTagsDto",
+    "CustomerFacingIssueToTicketsDto",
+    "CustomerFacingIssueToVulnerabilityDto",
+    "CustomerFacingIssueVulnerabilityDto",
     "CustomerFacingIssuesPageDto",
+    "CveSeverity",
     "DastConfidenceLevel",
+    "DastDataDto",
     "DependencyFixType",
+    "DependencyVulnerabilityDataDto",
     "DetailedSdlcAssetInformationDto",
     "DiscoveredSdlcAssetDto",
     "DiscoveryConnectionEvidenceType",
@@ -125,6 +136,7 @@ __all__ = [
     "IntegrationManagementDto",
     "IntegrationStatus",
     "IntegrationType",
+    "IssueActionType",
     "IssueAssignment",
     "IssueClosingLocationDto",
     "IssueCommentDto",
@@ -188,6 +200,7 @@ __all__ = [
     "SdlcAssetMetaType",
     "SdlcAssetType",
     "SecretIssueValidityStatus",
+    "SecretesDataDto",
     "Severity",
     "SnoozedType",
     "TagDto",
@@ -195,6 +208,7 @@ __all__ = [
     "UserDto",
     "UserPermission",
     "UserRole",
+    "VulnerabilityType",
     "WorkspaceCreatedDto",
     "WorkspaceDto",
     "WorkspaceGroupDto",
@@ -296,11 +310,22 @@ from legit_api_client.models.custom_field_identity_type_dto import CustomFieldId
 from legit_api_client.models.custom_field_number_type_dto import CustomFieldNumberTypeDto as CustomFieldNumberTypeDto
 from legit_api_client.models.custom_field_text_type_dto import CustomFieldTextTypeDto as CustomFieldTextTypeDto
 from legit_api_client.models.custom_field_type import CustomFieldType as CustomFieldType
+from legit_api_client.models.customer_facing_issue_action_dto import CustomerFacingIssueActionDto as CustomerFacingIssueActionDto
 from legit_api_client.models.customer_facing_issue_dto import CustomerFacingIssueDto as CustomerFacingIssueDto
-from legit_api_client.models.customer_facing_issue_source_dto import CustomerFacingIssueSourceDto as CustomerFacingIssueSourceDto
+from legit_api_client.models.customer_facing_issue_to_action_history_dto import CustomerFacingIssueToActionHistoryDto as CustomerFacingIssueToActionHistoryDto
+from legit_api_client.models.customer_facing_issue_to_additional_data_dto import CustomerFacingIssueToAdditionalDataDto as CustomerFacingIssueToAdditionalDataDto
+from legit_api_client.models.customer_facing_issue_to_comments_dto import CustomerFacingIssueToCommentsDto as CustomerFacingIssueToCommentsDto
+from legit_api_client.models.customer_facing_issue_to_remediation_dto import CustomerFacingIssueToRemediationDto as CustomerFacingIssueToRemediationDto
+from legit_api_client.models.customer_facing_issue_to_tags_dto import CustomerFacingIssueToTagsDto as CustomerFacingIssueToTagsDto
+from legit_api_client.models.customer_facing_issue_to_tickets_dto import CustomerFacingIssueToTicketsDto as CustomerFacingIssueToTicketsDto
+from legit_api_client.models.customer_facing_issue_to_vulnerability_dto import CustomerFacingIssueToVulnerabilityDto as CustomerFacingIssueToVulnerabilityDto
+from legit_api_client.models.customer_facing_issue_vulnerability_dto import CustomerFacingIssueVulnerabilityDto as CustomerFacingIssueVulnerabilityDto
 from legit_api_client.models.customer_facing_issues_page_dto import CustomerFacingIssuesPageDto as CustomerFacingIssuesPageDto
+from legit_api_client.models.cve_severity import CveSeverity as CveSeverity
 from legit_api_client.models.dast_confidence_level import DastConfidenceLevel as DastConfidenceLevel
+from legit_api_client.models.dast_data_dto import DastDataDto as DastDataDto
 from legit_api_client.models.dependency_fix_type import DependencyFixType as DependencyFixType
+from legit_api_client.models.dependency_vulnerability_data_dto import DependencyVulnerabilityDataDto as DependencyVulnerabilityDataDto
 from legit_api_client.models.detailed_sdlc_asset_information_dto import DetailedSdlcAssetInformationDto as DetailedSdlcAssetInformationDto
 from legit_api_client.models.discovered_sdlc_asset_dto import DiscoveredSdlcAssetDto as DiscoveredSdlcAssetDto
 from legit_api_client.models.discovery_connection_evidence_type import DiscoveryConnectionEvidenceType as DiscoveryConnectionEvidenceType
@@ -316,6 +341,7 @@ from legit_api_client.models.integration_failing_reason import IntegrationFailin
 from legit_api_client.models.integration_management_dto import IntegrationManagementDto as IntegrationManagementDto
 from legit_api_client.models.integration_status import IntegrationStatus as IntegrationStatus
 from legit_api_client.models.integration_type import IntegrationType as IntegrationType
+from legit_api_client.models.issue_action_type import IssueActionType as IssueActionType
 from legit_api_client.models.issue_assignment import IssueAssignment as IssueAssignment
 from legit_api_client.models.issue_closing_location_dto import IssueClosingLocationDto as IssueClosingLocationDto
 from legit_api_client.models.issue_comment_dto import IssueCommentDto as IssueCommentDto
@@ -379,6 +405,7 @@ from legit_api_client.models.sdlc_asset_graph_link_dto_evidences import SdlcAsse
 from legit_api_client.models.sdlc_asset_meta_type import SdlcAssetMetaType as SdlcAssetMetaType
 from legit_api_client.models.sdlc_asset_type import SdlcAssetType as SdlcAssetType
 from legit_api_client.models.secret_issue_validity_status import SecretIssueValidityStatus as SecretIssueValidityStatus
+from legit_api_client.models.secretes_data_dto import SecretesDataDto as SecretesDataDto
 from legit_api_client.models.severity import Severity as Severity
 from legit_api_client.models.snoozed_type import SnoozedType as SnoozedType
 from legit_api_client.models.tag_dto import TagDto as TagDto
@@ -386,6 +413,7 @@ from legit_api_client.models.tag_source import TagSource as TagSource
 from legit_api_client.models.user_dto import UserDto as UserDto
 from legit_api_client.models.user_permission import UserPermission as UserPermission
 from legit_api_client.models.user_role import UserRole as UserRole
+from legit_api_client.models.vulnerability_type import VulnerabilityType as VulnerabilityType
 from legit_api_client.models.workspace_created_dto import WorkspaceCreatedDto as WorkspaceCreatedDto
 from legit_api_client.models.workspace_dto import WorkspaceDto as WorkspaceDto
 from legit_api_client.models.workspace_group_dto import WorkspaceGroupDto as WorkspaceGroupDto

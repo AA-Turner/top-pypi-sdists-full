@@ -481,10 +481,20 @@ class BigQuery(Dialect):
         exp.BitwiseOrAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
         exp.BitwiseXorAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
         exp.BitwiseCountAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
+        exp.ByteLength: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
+        exp.ByteString: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
+        exp.CodePointsToString: lambda self, e: self._annotate_with_type(
+            e, exp.DataType.Type.VARCHAR
+        ),
         exp.Concat: _annotate_concat,
         exp.Corr: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
         exp.CovarPop: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
         exp.CovarSamp: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
+        exp.DateFromUnixDate: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DATE),
+        exp.DateTrunc: lambda self, e: self._annotate_by_args(e, "this"),
+        exp.GenerateTimestampArray: lambda self, e: self._annotate_with_type(
+            e, exp.DataType.build("ARRAY<TIMESTAMP>", dialect="bigquery")
+        ),
         exp.JSONArray: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.JSON),
         exp.JSONExtractScalar: lambda self, e: self._annotate_with_type(
             e, exp.DataType.Type.VARCHAR
@@ -494,6 +504,9 @@ class BigQuery(Dialect):
         ),
         exp.JSONType: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.VARCHAR),
         exp.Lag: lambda self, e: self._annotate_by_args(e, "this", "default"),
+        exp.ParseTime: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TIME),
+        exp.ParseDatetime: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DATETIME),
+        exp.Reverse: lambda self, e: self._annotate_by_args(e, "this"),
         exp.SHA: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
         exp.SHA2: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
         exp.Sign: lambda self, e: self._annotate_by_args(e, "this"),
@@ -501,6 +514,10 @@ class BigQuery(Dialect):
         exp.TimestampFromParts: lambda self, e: self._annotate_with_type(
             e, exp.DataType.Type.DATETIME
         ),
+        exp.TimestampTrunc: lambda self, e: self._annotate_by_args(e, "this"),
+        exp.TimeFromParts: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TIME),
+        exp.TsOrDsToTime: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TIME),
+        exp.TimeTrunc: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.TIME),
         exp.Unicode: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
     }
 
@@ -621,7 +638,13 @@ class BigQuery(Dialect):
             "PARSE_DATE": lambda args: build_formatted_time(exp.StrToDate, "bigquery")(
                 [seq_get(args, 1), seq_get(args, 0)]
             ),
+            "PARSE_TIME": lambda args: build_formatted_time(exp.ParseTime, "bigquery")(
+                [seq_get(args, 1), seq_get(args, 0)]
+            ),
             "PARSE_TIMESTAMP": _build_parse_timestamp,
+            "PARSE_DATETIME": lambda args: build_formatted_time(exp.ParseDatetime, "bigquery")(
+                [seq_get(args, 1), seq_get(args, 0)]
+            ),
             "REGEXP_CONTAINS": exp.RegexpLike.from_arg_list,
             "REGEXP_EXTRACT": _build_regexp_extract(exp.RegexpExtract),
             "REGEXP_SUBSTR": _build_regexp_extract(exp.RegexpExtract),
@@ -652,6 +675,8 @@ class BigQuery(Dialect):
             "TO_JSON_STRING": exp.JSONFormat.from_arg_list,
             "FORMAT_DATETIME": _build_format_time(exp.TsOrDsToDatetime),
             "FORMAT_TIMESTAMP": _build_format_time(exp.TsOrDsToTimestamp),
+            "FORMAT_TIME": _build_format_time(exp.TsOrDsToTime),
+            "WEEK": lambda args: exp.WeekStart(this=exp.var(seq_get(args, 0))),
         }
 
         FUNCTION_PARSERS = {
@@ -994,6 +1019,13 @@ class BigQuery(Dialect):
         EXCEPT_INTERSECT_SUPPORT_ALL_CLAUSE = False
         SUPPORTS_UNIX_SECONDS = True
 
+        TS_OR_DS_TYPES = (
+            exp.TsOrDsToDatetime,
+            exp.TsOrDsToTimestamp,
+            exp.TsOrDsToTime,
+            exp.TsOrDsToDate,
+        )
+
         TRANSFORMS = {
             **generator.Generator.TRANSFORMS,
             exp.ApproxDistinct: rename_func("APPROX_COUNT_DISTINCT"),
@@ -1022,6 +1054,7 @@ class BigQuery(Dialect):
             exp.DateSub: date_add_interval_sql("DATE", "SUB"),
             exp.DatetimeAdd: date_add_interval_sql("DATETIME", "ADD"),
             exp.DatetimeSub: date_add_interval_sql("DATETIME", "SUB"),
+            exp.DateFromUnixDate: rename_func("DATE_FROM_UNIX_DATE"),
             exp.FromTimeZone: lambda self, e: self.func(
                 "DATETIME", self.func("TIMESTAMP", e.this, e.args.get("zone")), "'UTC'"
             ),
@@ -1059,6 +1092,10 @@ class BigQuery(Dialect):
             exp.RegexpLike: rename_func("REGEXP_CONTAINS"),
             exp.ReturnsProperty: _returnsproperty_sql,
             exp.Rollback: lambda *_: "ROLLBACK TRANSACTION",
+            exp.ParseTime: lambda self, e: self.func("PARSE_TIME", self.format_time(e), e.this),
+            exp.ParseDatetime: lambda self, e: self.func(
+                "PARSE_DATETIME", self.format_time(e), e.this
+            ),
             exp.Select: transforms.preprocess(
                 [
                     transforms.explode_projection_to_unnest(),
@@ -1297,14 +1334,12 @@ class BigQuery(Dialect):
                 func_name = "FORMAT_DATETIME"
             elif isinstance(this, exp.TsOrDsToTimestamp):
                 func_name = "FORMAT_TIMESTAMP"
+            elif isinstance(this, exp.TsOrDsToTime):
+                func_name = "FORMAT_TIME"
             else:
                 func_name = "FORMAT_DATE"
 
-            time_expr = (
-                this
-                if isinstance(this, (exp.TsOrDsToDatetime, exp.TsOrDsToTimestamp, exp.TsOrDsToDate))
-                else expression
-            )
+            time_expr = this if isinstance(this, self.TS_OR_DS_TYPES) else expression
             return self.func(
                 func_name, self.format_time(expression), time_expr.this, expression.args.get("zone")
             )

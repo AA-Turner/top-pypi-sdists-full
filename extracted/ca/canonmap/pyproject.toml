@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "canonmap"
-version = "0.4.54"
+version = "0.4.78"
 description = "A data matching and canonicalization library with multipl database connector support"
 readme = "README.md"
 license = {text = "MIT"}
@@ -48,6 +48,9 @@ dependencies = [
     "SQLAlchemy>=2.0",
     "openpyxl>=3.1"
 ]
+
+[project.scripts]
+cm = "canonmap.cli:main"
 
 [project.optional-dependencies]
 dev = [

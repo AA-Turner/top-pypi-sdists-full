@@ -192,6 +192,8 @@ def _combine_group_contents(
 
 H = TypeVar("H", bound="Histogram")
 
+NO_METADATA = object()
+
 
 # We currently do not cast *to* a histogram, but this is consistent
 # and could be used later.
@@ -203,7 +205,8 @@ class Histogram:
         "_hist",
         "axes",
     )
-    # .metadata and ._variance_known are part of the dict
+    # .metadata and ._variance_known are part of the dict.
+    # .metadata will not be placed in the dict if not passed.
 
     _family: ClassVar[object] = boost_histogram
 
@@ -223,13 +226,19 @@ class Histogram:
         cls._family = family if family is not None else object()
 
     @typing.overload
-    def __init__(self, arg: Histogram, /, *, metadata: Any = ...) -> None: ...
+    def __init__(
+        self, arg: Histogram, /, *, metadata: Any = ..., __dict__: Any = ...
+    ) -> None: ...
 
     @typing.overload
-    def __init__(self, arg: dict[str, Any], /, *, metadata: Any = ...) -> None: ...
+    def __init__(
+        self, arg: dict[str, Any], /, *, metadata: Any = ..., __dict__: Any = ...
+    ) -> None: ...
 
     @typing.overload
-    def __init__(self, arg: CppHistogram, /, *, metadata: Any = ...) -> None: ...
+    def __init__(
+        self, arg: CppHistogram, /, *, metadata: Any = ..., __dict__: Any = ...
+    ) -> None: ...
 
     @typing.overload
     def __init__(
@@ -237,13 +246,15 @@ class Histogram:
         *axes: Axis | CppAxis,
         storage: Storage = ...,
         metadata: Any = ...,
+        __dict__: Any = ...,
     ) -> None: ...
 
     def __init__(
         self,
         *axes: Axis | CppAxis | Histogram | CppHistogram | dict[str, Any],
         storage: Storage | None = None,
-        metadata: Any = None,
+        metadata: Any = NO_METADATA,
+        __dict__: Any = None,
     ) -> None:
         """
         Construct a new histogram.
@@ -259,17 +270,30 @@ class Histogram:
         storage : Storage = bh.storage.Double()
             Select a storage to use in the histogram
         metadata : Any = None
-            Data that is passed along if a new histogram is created
+            Data that is passed along if a new histogram is created. No not use
+            in new code; use ``__dict__`` instead.
+        __dict__ : Any = None
+            Better way to set metadata.
         """
         self._variance_known = True
         storage_err_msg = "storage= is not allowed with conversion constructor"
+
+        if metadata is not NO_METADATA and __dict__:
+            msg = (
+                "Can't set both metadata and __dict__. Set the 'metadata' key instead."
+            )
+            raise TypeError(msg)
+        if metadata is not NO_METADATA:
+            __dict__ = {"metadata": metadata}
+        if __dict__ is None:
+            __dict__ = {}
 
         # Allow construction from a raw histogram object (internal)
         if len(axes) == 1 and isinstance(axes[0], tuple(_histograms)):
             if storage is not None:
                 raise TypeError(storage_err_msg)
             cpp_hist: CppHistogram = axes[0]  # type: ignore[assignment]
-            self._from_histogram_cpp(cpp_hist, metadata=None)
+            self._from_histogram_cpp(cpp_hist, __dict__=__dict__)
             return
 
         # If we construct with another Histogram as the only positional argument,
@@ -277,7 +301,7 @@ class Histogram:
         if len(axes) == 1 and isinstance(axes[0], Histogram):
             if storage is not None:
                 raise TypeError(storage_err_msg)
-            self._from_histogram_object(axes[0], metadata=metadata)
+            self._from_histogram_object(axes[0], __dict__=__dict__)
             return
 
         # Support objects that provide a to_boost method, like Uproot
@@ -285,7 +309,7 @@ class Histogram:
             if storage is not None:
                 raise TypeError(storage_err_msg)
             self._from_histogram_object(
-                axes[0]._to_boost_histogram_(), metadata=metadata
+                axes[0]._to_boost_histogram_(), __dict__=__dict__
             )
             return
 
@@ -294,14 +318,14 @@ class Histogram:
             if storage is not None:
                 raise TypeError(storage_err_msg)
             self._from_histogram_object(
-                serialization.from_uhi(axes[0]), metadata=metadata
+                serialization.from_uhi(axes[0]), __dict__=__dict__
             )
             return
 
         if storage is None:
             storage = Double()
 
-        self.metadata = metadata
+        self.__dict__.update(__dict__)
 
         # Check for missed parenthesis or incorrect types
         if not isinstance(storage, Storage):
@@ -342,7 +366,7 @@ class Histogram:
 
         self = cls.__new__(cls)
         if isinstance(_hist, tuple(_histograms)):
-            self._from_histogram_cpp(_hist)  # type: ignore[arg-type]
+            self._from_histogram_cpp(_hist, __dict__={})  # type: ignore[arg-type]
             if other is not None:
                 return cls._clone(self, other=other, memo=memo)
             return self
@@ -352,18 +376,19 @@ class Histogram:
         if other is None:
             other = _hist
 
-        self._from_histogram_object(_hist)
-
         if memo is NOTHING:
-            self.__dict__ = copy.copy(other.__dict__)
+            dict_copy = copy.copy(other.__dict__)
         else:
-            self.__dict__ = copy.deepcopy(other.__dict__, memo)
+            dict_copy = copy.deepcopy(other.__dict__, memo)
+
+        self._from_histogram_object(_hist, __dict__=dict_copy)
 
         for ax in self.axes:
             if memo is NOTHING:
-                ax.__dict__ = copy.copy(ax._ax.raw_metadata)
+                ax._ax.raw_metadata = copy.copy(ax._ax.raw_metadata)
             else:
-                ax.__dict__ = copy.deepcopy(ax._ax.raw_metadata, memo)
+                ax._ax.raw_metadata = copy.deepcopy(ax._ax.raw_metadata, memo)
+            ax.__dict__ = ax._ax.raw_metadata
         return self
 
     def _new_hist(self, _hist: CppHistogram, memo: Any = NOTHING) -> Self:
@@ -372,16 +397,20 @@ class Histogram:
         """
         return self.__class__._clone(_hist, other=self, memo=memo)
 
-    def _from_histogram_cpp(self, other: CppHistogram, *, metadata: Any = None) -> None:
+    def _from_histogram_cpp(
+        self, other: CppHistogram, *, __dict__: dict[str, Any]
+    ) -> None:
         """
         Import a Cpp histogram.
         """
         self._variance_known = True
         self._hist = other
-        self.metadata = metadata
+        self.__dict__.update(__dict__)
         self.axes = self._generate_axes_()
 
-    def _from_histogram_object(self, other: Histogram, *, metadata: Any = None) -> None:
+    def _from_histogram_object(
+        self, other: Histogram, *, __dict__: dict[str, Any]
+    ) -> None:
         """
         Convert self into a new histogram object based on another, possibly
         converting from a different subclass.
@@ -390,8 +419,9 @@ class Histogram:
         self.__dict__ = copy.copy(other.__dict__)
         self.axes = self._generate_axes_()
         for ax in self.axes:
-            ax.__dict__ = copy.copy(ax._ax.raw_metadata)
-        self.metadata = other.metadata if metadata is None else metadata
+            ax.__dict__.update(ax._ax.raw_metadata)
+        self.__dict__.update(other.__dict__)
+        self.__dict__.update(__dict__)
 
         # Allow custom behavior on either "from" or "to"
         other._export_bh_(self)
@@ -419,6 +449,14 @@ class Histogram:
         """
 
         return AxesTuple(self._axis(i) for i in range(self.ndim))
+
+    # Backward compat for metadata default
+    def __getattr__(self, name: str) -> Any:
+        if name == "metadata":
+            msg = ".metadata was not set, returning None instead of Attribute error, boost-histogram 1.7+ will error."
+            warnings.warn(msg, FutureWarning, stacklevel=2)
+            return None
+        return super().__getattribute__(name)
 
     def _to_uhi_(self) -> dict[str, Any]:
         """
@@ -695,7 +733,7 @@ class Histogram:
     def _storage_type(self) -> type[Storage]:
         warnings.warn(
             "Accessing storage type has changed from _storage_type to storage_type, and will be removed in future.",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return cast(self, self._hist._storage_type, Storage)  # type: ignore[return-value]
@@ -1029,7 +1067,7 @@ class Histogram:
                     new_j_base = 0
 
                     if old_axis.traits_underflow and axes[i].traits_underflow:
-                        groups.insert(0, 1)
+                        groups = [1, *groups]
                     elif axes[i].traits_underflow:
                         new_j_base = 1
 
@@ -1212,7 +1250,7 @@ class Histogram:
                     pass
 
                 else:
-                    msg = f"Mismatched shapes in dimension {n}"
+                    msg = f"Mismatched shapes {value_shape} in dimension {n}"
                     msg += f", {value_shape[n]} != {request_len}"
                     if use_underflow or use_overflow:
                         msg += f" or {request_len + use_underflow + use_overflow}"

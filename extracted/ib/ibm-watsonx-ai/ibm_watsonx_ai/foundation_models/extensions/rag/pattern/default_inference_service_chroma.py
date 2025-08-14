@@ -38,10 +38,9 @@ def inference_service(context):
     }
     """
     from ibm_watsonx_ai import APIClient, Credentials
-    from ibm_watsonx_ai.helpers.connections import DataConnection
+    from ibm_watsonx_ai.data_loaders.datasets.documents import DocumentsIterableDataset
     from ibm_watsonx_ai.foundation_models import ModelInference
     from ibm_watsonx_ai.foundation_models.extensions.rag import Retriever, VectorStore
-    from ibm_watsonx_ai.data_loaders.datasets.documents import DocumentsIterableDataset
     from ibm_watsonx_ai.foundation_models.extensions.rag.chunker.langchain_chunker import (
         LangChainChunker,
     )
@@ -51,6 +50,7 @@ def inference_service(context):
     from ibm_watsonx_ai.foundation_models.extensions.rag.utils import (
         get_max_input_tokens,
     )
+    from ibm_watsonx_ai.helpers.connections import DataConnection
 
     client = APIClient(
         credentials=Credentials(
@@ -248,7 +248,6 @@ def inference_service(context):
         yield chunk_response
 
         for chunk in response_stream:
-
             message = {
                 "content": chunk["results"][0]["generated_text"],
             }

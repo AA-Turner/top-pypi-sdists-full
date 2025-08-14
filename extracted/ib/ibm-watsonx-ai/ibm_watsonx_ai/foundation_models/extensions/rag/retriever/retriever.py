@@ -3,8 +3,9 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from enum import Enum
-from typing import Any
 from functools import partial
+from typing import Any
+
 from ibm_watsonx_ai.foundation_models.extensions.rag.retriever.base_retriever import (
     BaseRetriever,
 )
@@ -15,8 +16,8 @@ from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 try:
     from langchain_core.documents import Document
-    from langchain_core.tools.simple import Tool
     from langchain_core.tools import RetrieverInput
+    from langchain_core.tools.simple import Tool
 
 except ImportError:
     raise MissingExtension("langchain-core")
@@ -186,7 +187,6 @@ def _get_relevant_documents(
     document_prompt: str,
     **retriever_kwargs: Any,
 ) -> str:
-
     docs = retriever.retrieve(query, **retriever_kwargs)
     return document_separator.join(
         document_prompt.format(document=doc.page_content) for doc in docs

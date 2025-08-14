@@ -1582,6 +1582,7 @@ class CfnCluster(
         from aws_cdk import aws_sagemaker as sagemaker
         
         cfn_cluster = sagemaker.CfnCluster(self, "MyCfnCluster",
+            cluster_name="clusterName",
             instance_groups=[sagemaker.CfnCluster.ClusterInstanceGroupProperty(
                 execution_role="executionRole",
                 instance_count=123,
@@ -1604,17 +1605,42 @@ class CfnCluster(
                     security_group_ids=["securityGroupIds"],
                     subnets=["subnets"]
                 ),
-                threads_per_core=123
+                threads_per_core=123,
+                training_plan_arn="trainingPlanArn"
             )],
-        
-            # the properties below are optional
-            cluster_name="clusterName",
             node_recovery="nodeRecovery",
             orchestrator=sagemaker.CfnCluster.OrchestratorProperty(
                 eks=sagemaker.CfnCluster.ClusterOrchestratorEksConfigProperty(
                     cluster_arn="clusterArn"
                 )
             ),
+            restricted_instance_groups=[sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty(
+                environment_config=sagemaker.CfnCluster.EnvironmentConfigProperty(
+                    f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                        per_unit_storage_throughput=123,
+                        size_in_gi_b=123
+                    )
+                ),
+                execution_role="executionRole",
+                instance_count=123,
+                instance_group_name="instanceGroupName",
+                instance_type="instanceType",
+        
+                # the properties below are optional
+                current_count=123,
+                instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
+                    ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
+                        volume_size_in_gb=123
+                    )
+                )],
+                on_start_deep_health_checks=["onStartDeepHealthChecks"],
+                override_vpc_config=sagemaker.CfnCluster.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnets=["subnets"]
+                ),
+                threads_per_core=123,
+                training_plan_arn="trainingPlanArn"
+            )],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1631,20 +1657,22 @@ class CfnCluster(
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        instance_groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterInstanceGroupProperty", typing.Dict[builtins.str, typing.Any]]]]],
         cluster_name: typing.Optional[builtins.str] = None,
+        instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterInstanceGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         node_recovery: typing.Optional[builtins.str] = None,
         orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.OrchestratorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterRestrictedInstanceGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param instance_groups: The instance groups of the SageMaker HyperPod cluster. To delete an instance group, remove it from the array.
         :param cluster_name: The name of the SageMaker HyperPod cluster.
+        :param instance_groups: The instance groups of the SageMaker HyperPod cluster. To delete an instance group, remove it from the array.
         :param node_recovery: Specifies whether to enable or disable the automatic node recovery feature of SageMaker HyperPod. Available values are ``Automatic`` for enabling and ``None`` for disabling.
         :param orchestrator: The orchestrator type for the SageMaker HyperPod cluster. Currently, ``'eks'`` is the only available option.
+        :param restricted_instance_groups: The restricted instance groups of the SageMaker HyperPod cluster.
         :param tags: A tag object that consists of a key and an optional value, used to manage metadata for SageMaker AWS resources. You can add tags to notebook instances, training jobs, hyperparameter tuning jobs, batch transform jobs, models, labeling jobs, work teams, endpoint configurations, and endpoints. For more information on adding tags to SageMaker resources, see `AddTags <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AddTags.html>`_ . For more information on adding metadata to your AWS resources with tagging, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ . For advice on best practices for managing AWS resources with tagging, see `Tagging Best Practices: Implement an Effective AWS Resource Tagging Strategy <https://docs.aws.amazon.com/https://d1.awsstatic.com/whitepapers/aws-tagging-best-practices.pdf>`_ .
         :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC. For more information, see `Give SageMaker Access to Resources in your Amazon VPC <https://docs.aws.amazon.com/sagemaker/latest/dg/infrastructure-give-access.html>`_ .
         '''
@@ -1653,10 +1681,11 @@ class CfnCluster(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnClusterProps(
-            instance_groups=instance_groups,
             cluster_name=cluster_name,
+            instance_groups=instance_groups,
             node_recovery=node_recovery,
             orchestrator=orchestrator,
+            restricted_instance_groups=restricted_instance_groups,
             tags=tags,
             vpc_config=vpc_config,
         )
@@ -1741,24 +1770,6 @@ class CfnCluster(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
-    @jsii.member(jsii_name="instanceGroups")
-    def instance_groups(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterInstanceGroupProperty"]]]:
-        '''The instance groups of the SageMaker HyperPod cluster.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterInstanceGroupProperty"]]], jsii.get(self, "instanceGroups"))
-
-    @instance_groups.setter
-    def instance_groups(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterInstanceGroupProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e78b567f109d38ee1f8221168fe230f3c378e24d69dab4b08d88a01e417dae5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceGroups", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="clusterName")
     def cluster_name(self) -> typing.Optional[builtins.str]:
         '''The name of the SageMaker HyperPod cluster.'''
@@ -1770,6 +1781,24 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__8c72731c4fb9d1b248db78e05e403c022229ea39aa9884e7da88a1c9dd345bfb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceGroups")
+    def instance_groups(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterInstanceGroupProperty"]]]]:
+        '''The instance groups of the SageMaker HyperPod cluster.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterInstanceGroupProperty"]]]], jsii.get(self, "instanceGroups"))
+
+    @instance_groups.setter
+    def instance_groups(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterInstanceGroupProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e78b567f109d38ee1f8221168fe230f3c378e24d69dab4b08d88a01e417dae5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceGroups", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="nodeRecovery")
@@ -1801,6 +1830,24 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__b28b5799cdd1c859107ae372c1215ec60b0e0936d622ea46ffde5ae876779722)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "orchestrator", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedInstanceGroups")
+    def restricted_instance_groups(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterRestrictedInstanceGroupProperty"]]]]:
+        '''The restricted instance groups of the SageMaker HyperPod cluster.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterRestrictedInstanceGroupProperty"]]]], jsii.get(self, "restrictedInstanceGroups"))
+
+    @restricted_instance_groups.setter
+    def restricted_instance_groups(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterRestrictedInstanceGroupProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb098436cfb738855f83865dfef39e1aa3903e59cbc86da6e0a424615a383a95)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restrictedInstanceGroups", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1906,6 +1953,7 @@ class CfnCluster(
             "on_start_deep_health_checks": "onStartDeepHealthChecks",
             "override_vpc_config": "overrideVpcConfig",
             "threads_per_core": "threadsPerCore",
+            "training_plan_arn": "trainingPlanArn",
         },
     )
     class ClusterInstanceGroupProperty:
@@ -1922,6 +1970,7 @@ class CfnCluster(
             on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
             override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             threads_per_core: typing.Optional[jsii.Number] = None,
+            training_plan_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration information of the instance group within the HyperPod cluster.
 
@@ -1935,6 +1984,7 @@ class CfnCluster(
             :param on_start_deep_health_checks: A flag indicating whether deep health checks should be performed when the HyperPod cluster instance group is created or updated. Deep health checks are comprehensive, invasive tests that validate the health of the underlying hardware and infrastructure components.
             :param override_vpc_config: The customized Amazon VPC configuration at the instance group level that overrides the default Amazon VPC configuration of the SageMaker HyperPod cluster.
             :param threads_per_core: The number of threads per CPU core you specified under ``CreateCluster`` .
+            :param training_plan_arn: The Amazon Resource Name (ARN) of the training plan to use for this cluster instance group. For more information about how to reserve GPU capacity for your SageMaker HyperPod clusters using Amazon SageMaker Training Plan, see CreateTrainingPlan.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html
             :exampleMetadata: fixture=_generated
@@ -1967,7 +2017,8 @@ class CfnCluster(
                         security_group_ids=["securityGroupIds"],
                         subnets=["subnets"]
                     ),
-                    threads_per_core=123
+                    threads_per_core=123,
+                    training_plan_arn="trainingPlanArn"
                 )
             '''
             if __debug__:
@@ -1982,6 +2033,7 @@ class CfnCluster(
                 check_type(argname="argument on_start_deep_health_checks", value=on_start_deep_health_checks, expected_type=type_hints["on_start_deep_health_checks"])
                 check_type(argname="argument override_vpc_config", value=override_vpc_config, expected_type=type_hints["override_vpc_config"])
                 check_type(argname="argument threads_per_core", value=threads_per_core, expected_type=type_hints["threads_per_core"])
+                check_type(argname="argument training_plan_arn", value=training_plan_arn, expected_type=type_hints["training_plan_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "execution_role": execution_role,
                 "instance_count": instance_count,
@@ -1999,6 +2051,8 @@ class CfnCluster(
                 self._values["override_vpc_config"] = override_vpc_config
             if threads_per_core is not None:
                 self._values["threads_per_core"] = threads_per_core
+            if training_plan_arn is not None:
+                self._values["training_plan_arn"] = training_plan_arn
 
         @builtins.property
         def execution_role(self) -> builtins.str:
@@ -2104,6 +2158,17 @@ class CfnCluster(
             '''
             result = self._values.get("threads_per_core")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def training_plan_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the training plan to use for this cluster instance group.
+
+            For more information about how to reserve GPU capacity for your SageMaker HyperPod clusters using Amazon SageMaker Training Plan, see CreateTrainingPlan.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-trainingplanarn
+            '''
+            result = self._values.get("training_plan_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2311,6 +2376,386 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "environment_config": "environmentConfig",
+            "execution_role": "executionRole",
+            "instance_count": "instanceCount",
+            "instance_group_name": "instanceGroupName",
+            "instance_type": "instanceType",
+            "current_count": "currentCount",
+            "instance_storage_configs": "instanceStorageConfigs",
+            "on_start_deep_health_checks": "onStartDeepHealthChecks",
+            "override_vpc_config": "overrideVpcConfig",
+            "threads_per_core": "threadsPerCore",
+            "training_plan_arn": "trainingPlanArn",
+        },
+    )
+    class ClusterRestrictedInstanceGroupProperty:
+        def __init__(
+            self,
+            *,
+            environment_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.EnvironmentConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            execution_role: builtins.str,
+            instance_count: jsii.Number,
+            instance_group_name: builtins.str,
+            instance_type: builtins.str,
+            current_count: typing.Optional[jsii.Number] = None,
+            instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterInstanceStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
+            override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            threads_per_core: typing.Optional[jsii.Number] = None,
+            training_plan_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details of a restricted instance group in a SageMaker HyperPod cluster.
+
+            :param environment_config: The configuration for the restricted instance groups (RIG) environment.
+            :param execution_role: The execution role for the instance group to assume.
+            :param instance_count: The number of instances you specified to add to the restricted instance group of a SageMaker HyperPod cluster.
+            :param instance_group_name: The name of the instance group of a SageMaker HyperPod cluster.
+            :param instance_type: The instance type of the instance group of a SageMaker HyperPod cluster.
+            :param current_count: The number of instances that are currently in the restricted instance group of a SageMaker HyperPod cluster.
+            :param instance_storage_configs: The instance storage configuration for the instance group.
+            :param on_start_deep_health_checks: Nodes will undergo advanced stress test to detect and replace faulty instances, based on the type of deep health check(s) passed in.
+            :param override_vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC.
+            :param threads_per_core: The number you specified to TreadsPerCore in CreateCluster for enabling or disabling multithreading. For instance types that support multithreading, you can specify 1 for disabling multithreading and 2 for enabling multithreading.
+            :param training_plan_arn: The Amazon Resource Name (ARN) of the training plan to use for this cluster restricted instance group. For more information about how to reserve GPU capacity for your SageMaker HyperPod clusters using Amazon SageMaker Training Plan, see CreateTrainingPlan.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                cluster_restricted_instance_group_property = sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty(
+                    environment_config=sagemaker.CfnCluster.EnvironmentConfigProperty(
+                        f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                            per_unit_storage_throughput=123,
+                            size_in_gi_b=123
+                        )
+                    ),
+                    execution_role="executionRole",
+                    instance_count=123,
+                    instance_group_name="instanceGroupName",
+                    instance_type="instanceType",
+                
+                    # the properties below are optional
+                    current_count=123,
+                    instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
+                        ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
+                            volume_size_in_gb=123
+                        )
+                    )],
+                    on_start_deep_health_checks=["onStartDeepHealthChecks"],
+                    override_vpc_config=sagemaker.CfnCluster.VpcConfigProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnets=["subnets"]
+                    ),
+                    threads_per_core=123,
+                    training_plan_arn="trainingPlanArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b93ff4f69c672c7cfa634445653e3f5eacc520b4a55f74e9e45bbbb13341f9df)
+                check_type(argname="argument environment_config", value=environment_config, expected_type=type_hints["environment_config"])
+                check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+                check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
+                check_type(argname="argument instance_group_name", value=instance_group_name, expected_type=type_hints["instance_group_name"])
+                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+                check_type(argname="argument current_count", value=current_count, expected_type=type_hints["current_count"])
+                check_type(argname="argument instance_storage_configs", value=instance_storage_configs, expected_type=type_hints["instance_storage_configs"])
+                check_type(argname="argument on_start_deep_health_checks", value=on_start_deep_health_checks, expected_type=type_hints["on_start_deep_health_checks"])
+                check_type(argname="argument override_vpc_config", value=override_vpc_config, expected_type=type_hints["override_vpc_config"])
+                check_type(argname="argument threads_per_core", value=threads_per_core, expected_type=type_hints["threads_per_core"])
+                check_type(argname="argument training_plan_arn", value=training_plan_arn, expected_type=type_hints["training_plan_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "environment_config": environment_config,
+                "execution_role": execution_role,
+                "instance_count": instance_count,
+                "instance_group_name": instance_group_name,
+                "instance_type": instance_type,
+            }
+            if current_count is not None:
+                self._values["current_count"] = current_count
+            if instance_storage_configs is not None:
+                self._values["instance_storage_configs"] = instance_storage_configs
+            if on_start_deep_health_checks is not None:
+                self._values["on_start_deep_health_checks"] = on_start_deep_health_checks
+            if override_vpc_config is not None:
+                self._values["override_vpc_config"] = override_vpc_config
+            if threads_per_core is not None:
+                self._values["threads_per_core"] = threads_per_core
+            if training_plan_arn is not None:
+                self._values["training_plan_arn"] = training_plan_arn
+
+        @builtins.property
+        def environment_config(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnCluster.EnvironmentConfigProperty"]:
+            '''The configuration for the restricted instance groups (RIG) environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-environmentconfig
+            '''
+            result = self._values.get("environment_config")
+            assert result is not None, "Required property 'environment_config' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCluster.EnvironmentConfigProperty"], result)
+
+        @builtins.property
+        def execution_role(self) -> builtins.str:
+            '''The execution role for the instance group to assume.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-executionrole
+            '''
+            result = self._values.get("execution_role")
+            assert result is not None, "Required property 'execution_role' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def instance_count(self) -> jsii.Number:
+            '''The number of instances you specified to add to the restricted instance group of a SageMaker HyperPod cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-instancecount
+            '''
+            result = self._values.get("instance_count")
+            assert result is not None, "Required property 'instance_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def instance_group_name(self) -> builtins.str:
+            '''The name of the instance group of a SageMaker HyperPod cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-instancegroupname
+            '''
+            result = self._values.get("instance_group_name")
+            assert result is not None, "Required property 'instance_group_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def instance_type(self) -> builtins.str:
+            '''The instance type of the instance group of a SageMaker HyperPod cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-instancetype
+            '''
+            result = self._values.get("instance_type")
+            assert result is not None, "Required property 'instance_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def current_count(self) -> typing.Optional[jsii.Number]:
+            '''The number of instances that are currently in the restricted instance group of a SageMaker HyperPod cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-currentcount
+            '''
+            result = self._values.get("current_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def instance_storage_configs(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterInstanceStorageConfigProperty"]]]]:
+            '''The instance storage configuration for the instance group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-instancestorageconfigs
+            '''
+            result = self._values.get("instance_storage_configs")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCluster.ClusterInstanceStorageConfigProperty"]]]], result)
+
+        @builtins.property
+        def on_start_deep_health_checks(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''Nodes will undergo advanced stress test to detect and replace faulty instances, based on the type of deep health check(s) passed in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-onstartdeephealthchecks
+            '''
+            result = self._values.get("on_start_deep_health_checks")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def override_vpc_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.VpcConfigProperty"]]:
+            '''Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to.
+
+            You can control access to and from your resources by configuring a VPC.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-overridevpcconfig
+            '''
+            result = self._values.get("override_vpc_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.VpcConfigProperty"]], result)
+
+        @builtins.property
+        def threads_per_core(self) -> typing.Optional[jsii.Number]:
+            '''The number you specified to TreadsPerCore in CreateCluster for enabling or disabling multithreading.
+
+            For instance types that support multithreading, you can specify 1 for disabling multithreading and 2 for enabling multithreading.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-threadspercore
+            '''
+            result = self._values.get("threads_per_core")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def training_plan_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the training plan to use for this cluster restricted instance group.
+
+            For more information about how to reserve GPU capacity for your SageMaker HyperPod clusters using Amazon SageMaker Training Plan, see CreateTrainingPlan.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterrestrictedinstancegroup.html#cfn-sagemaker-cluster-clusterrestrictedinstancegroup-trainingplanarn
+            '''
+            result = self._values.get("training_plan_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusterRestrictedInstanceGroupProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.EnvironmentConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"f_sx_lustre_config": "fSxLustreConfig"},
+    )
+    class EnvironmentConfigProperty:
+        def __init__(
+            self,
+            *,
+            f_sx_lustre_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.FSxLustreConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration for the restricted instance groups (RIG) environment.
+
+            :param f_sx_lustre_config: Configuration settings for an Amazon FSx for Lustre file system to be used with the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-environmentconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                environment_config_property = sagemaker.CfnCluster.EnvironmentConfigProperty(
+                    f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                        per_unit_storage_throughput=123,
+                        size_in_gi_b=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cc27d48d9ce12a3a8b77600174f3c178fb77c02533f3f57c2bb456bb3ae5b159)
+                check_type(argname="argument f_sx_lustre_config", value=f_sx_lustre_config, expected_type=type_hints["f_sx_lustre_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if f_sx_lustre_config is not None:
+                self._values["f_sx_lustre_config"] = f_sx_lustre_config
+
+        @builtins.property
+        def f_sx_lustre_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.FSxLustreConfigProperty"]]:
+            '''Configuration settings for an Amazon FSx for Lustre file system to be used with the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-environmentconfig.html#cfn-sagemaker-cluster-environmentconfig-fsxlustreconfig
+            '''
+            result = self._values.get("f_sx_lustre_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.FSxLustreConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EnvironmentConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.FSxLustreConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "per_unit_storage_throughput": "perUnitStorageThroughput",
+            "size_in_gib": "sizeInGiB",
+        },
+    )
+    class FSxLustreConfigProperty:
+        def __init__(
+            self,
+            *,
+            per_unit_storage_throughput: jsii.Number,
+            size_in_gib: jsii.Number,
+        ) -> None:
+            '''Configuration settings for an Amazon FSx for Lustre file system to be used with the cluster.
+
+            :param per_unit_storage_throughput: The throughput capacity of the Amazon FSx for Lustre file system, measured in MB/s per TiB of storage.
+            :param size_in_gib: The storage capacity of the Amazon FSx for Lustre file system, specified in gibibytes (GiB).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-fsxlustreconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                f_sx_lustre_config_property = sagemaker.CfnCluster.FSxLustreConfigProperty(
+                    per_unit_storage_throughput=123,
+                    size_in_gi_b=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__899364a165a53139f902fa4a999dd968cdc29639285dacf831f16633b3f6765d)
+                check_type(argname="argument per_unit_storage_throughput", value=per_unit_storage_throughput, expected_type=type_hints["per_unit_storage_throughput"])
+                check_type(argname="argument size_in_gib", value=size_in_gib, expected_type=type_hints["size_in_gib"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "per_unit_storage_throughput": per_unit_storage_throughput,
+                "size_in_gib": size_in_gib,
+            }
+
+        @builtins.property
+        def per_unit_storage_throughput(self) -> jsii.Number:
+            '''The throughput capacity of the Amazon FSx for Lustre file system, measured in MB/s per TiB of storage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-fsxlustreconfig.html#cfn-sagemaker-cluster-fsxlustreconfig-perunitstoragethroughput
+            '''
+            result = self._values.get("per_unit_storage_throughput")
+            assert result is not None, "Required property 'per_unit_storage_throughput' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def size_in_gib(self) -> jsii.Number:
+            '''The storage capacity of the Amazon FSx for Lustre file system, specified in gibibytes (GiB).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-fsxlustreconfig.html#cfn-sagemaker-cluster-fsxlustreconfig-sizeingib
+            '''
+            result = self._values.get("size_in_gib")
+            assert result is not None, "Required property 'size_in_gib' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FSxLustreConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.OrchestratorProperty",
         jsii_struct_bases=[],
         name_mapping={"eks": "eks"},
@@ -2452,10 +2897,11 @@ class CfnCluster(
     jsii_type="aws-cdk-lib.aws_sagemaker.CfnClusterProps",
     jsii_struct_bases=[],
     name_mapping={
-        "instance_groups": "instanceGroups",
         "cluster_name": "clusterName",
+        "instance_groups": "instanceGroups",
         "node_recovery": "nodeRecovery",
         "orchestrator": "orchestrator",
+        "restricted_instance_groups": "restrictedInstanceGroups",
         "tags": "tags",
         "vpc_config": "vpcConfig",
     },
@@ -2464,19 +2910,21 @@ class CfnClusterProps:
     def __init__(
         self,
         *,
-        instance_groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]],
         cluster_name: typing.Optional[builtins.str] = None,
+        instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         node_recovery: typing.Optional[builtins.str] = None,
         orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OrchestratorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterRestrictedInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCluster``.
 
-        :param instance_groups: The instance groups of the SageMaker HyperPod cluster. To delete an instance group, remove it from the array.
         :param cluster_name: The name of the SageMaker HyperPod cluster.
+        :param instance_groups: The instance groups of the SageMaker HyperPod cluster. To delete an instance group, remove it from the array.
         :param node_recovery: Specifies whether to enable or disable the automatic node recovery feature of SageMaker HyperPod. Available values are ``Automatic`` for enabling and ``None`` for disabling.
         :param orchestrator: The orchestrator type for the SageMaker HyperPod cluster. Currently, ``'eks'`` is the only available option.
+        :param restricted_instance_groups: The restricted instance groups of the SageMaker HyperPod cluster.
         :param tags: A tag object that consists of a key and an optional value, used to manage metadata for SageMaker AWS resources. You can add tags to notebook instances, training jobs, hyperparameter tuning jobs, batch transform jobs, models, labeling jobs, work teams, endpoint configurations, and endpoints. For more information on adding tags to SageMaker resources, see `AddTags <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AddTags.html>`_ . For more information on adding metadata to your AWS resources with tagging, see `Tagging AWS resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ . For advice on best practices for managing AWS resources with tagging, see `Tagging Best Practices: Implement an Effective AWS Resource Tagging Strategy <https://docs.aws.amazon.com/https://d1.awsstatic.com/whitepapers/aws-tagging-best-practices.pdf>`_ .
         :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC. For more information, see `Give SageMaker Access to Resources in your Amazon VPC <https://docs.aws.amazon.com/sagemaker/latest/dg/infrastructure-give-access.html>`_ .
 
@@ -2490,6 +2938,7 @@ class CfnClusterProps:
             from aws_cdk import aws_sagemaker as sagemaker
             
             cfn_cluster_props = sagemaker.CfnClusterProps(
+                cluster_name="clusterName",
                 instance_groups=[sagemaker.CfnCluster.ClusterInstanceGroupProperty(
                     execution_role="executionRole",
                     instance_count=123,
@@ -2512,17 +2961,42 @@ class CfnClusterProps:
                         security_group_ids=["securityGroupIds"],
                         subnets=["subnets"]
                     ),
-                    threads_per_core=123
+                    threads_per_core=123,
+                    training_plan_arn="trainingPlanArn"
                 )],
-            
-                # the properties below are optional
-                cluster_name="clusterName",
                 node_recovery="nodeRecovery",
                 orchestrator=sagemaker.CfnCluster.OrchestratorProperty(
                     eks=sagemaker.CfnCluster.ClusterOrchestratorEksConfigProperty(
                         cluster_arn="clusterArn"
                     )
                 ),
+                restricted_instance_groups=[sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty(
+                    environment_config=sagemaker.CfnCluster.EnvironmentConfigProperty(
+                        f_sx_lustre_config=sagemaker.CfnCluster.FSxLustreConfigProperty(
+                            per_unit_storage_throughput=123,
+                            size_in_gi_b=123
+                        )
+                    ),
+                    execution_role="executionRole",
+                    instance_count=123,
+                    instance_group_name="instanceGroupName",
+                    instance_type="instanceType",
+            
+                    # the properties below are optional
+                    current_count=123,
+                    instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
+                        ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
+                            volume_size_in_gb=123
+                        )
+                    )],
+                    on_start_deep_health_checks=["onStartDeepHealthChecks"],
+                    override_vpc_config=sagemaker.CfnCluster.VpcConfigProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnets=["subnets"]
+                    ),
+                    threads_per_core=123,
+                    training_plan_arn="trainingPlanArn"
+                )],
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -2535,39 +3009,28 @@ class CfnClusterProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8126a53dc1741a2edde75d8d4eca79c53a2294746ea237dfba0097a758522ce)
-            check_type(argname="argument instance_groups", value=instance_groups, expected_type=type_hints["instance_groups"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument instance_groups", value=instance_groups, expected_type=type_hints["instance_groups"])
             check_type(argname="argument node_recovery", value=node_recovery, expected_type=type_hints["node_recovery"])
             check_type(argname="argument orchestrator", value=orchestrator, expected_type=type_hints["orchestrator"])
+            check_type(argname="argument restricted_instance_groups", value=restricted_instance_groups, expected_type=type_hints["restricted_instance_groups"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_groups": instance_groups,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if cluster_name is not None:
             self._values["cluster_name"] = cluster_name
+        if instance_groups is not None:
+            self._values["instance_groups"] = instance_groups
         if node_recovery is not None:
             self._values["node_recovery"] = node_recovery
         if orchestrator is not None:
             self._values["orchestrator"] = orchestrator
+        if restricted_instance_groups is not None:
+            self._values["restricted_instance_groups"] = restricted_instance_groups
         if tags is not None:
             self._values["tags"] = tags
         if vpc_config is not None:
             self._values["vpc_config"] = vpc_config
-
-    @builtins.property
-    def instance_groups(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterInstanceGroupProperty]]]:
-        '''The instance groups of the SageMaker HyperPod cluster.
-
-        To delete an instance group, remove it from the array.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-cluster.html#cfn-sagemaker-cluster-instancegroups
-        '''
-        result = self._values.get("instance_groups")
-        assert result is not None, "Required property 'instance_groups' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterInstanceGroupProperty]]], result)
 
     @builtins.property
     def cluster_name(self) -> typing.Optional[builtins.str]:
@@ -2577,6 +3040,19 @@ class CfnClusterProps:
         '''
         result = self._values.get("cluster_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_groups(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterInstanceGroupProperty]]]]:
+        '''The instance groups of the SageMaker HyperPod cluster.
+
+        To delete an instance group, remove it from the array.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-cluster.html#cfn-sagemaker-cluster-instancegroups
+        '''
+        result = self._values.get("instance_groups")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterInstanceGroupProperty]]]], result)
 
     @builtins.property
     def node_recovery(self) -> typing.Optional[builtins.str]:
@@ -2601,6 +3077,17 @@ class CfnClusterProps:
         '''
         result = self._values.get("orchestrator")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.OrchestratorProperty]], result)
+
+    @builtins.property
+    def restricted_instance_groups(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterRestrictedInstanceGroupProperty]]]]:
+        '''The restricted instance groups of the SageMaker HyperPod cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-cluster.html#cfn-sagemaker-cluster-restrictedinstancegroups
+        '''
+        result = self._values.get("restricted_instance_groups")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterRestrictedInstanceGroupProperty]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -6184,6 +6671,10 @@ class CfnDomain(
         
                         # the properties below are optional
                         file_system_path="fileSystemPath"
+                    ),
+                    s3_file_system_config=sagemaker.CfnDomain.S3FileSystemConfigProperty(
+                        mount_path="mountPath",
+                        s3_uri="s3Uri"
                     )
                 )],
                 custom_posix_user_config=sagemaker.CfnDomain.CustomPosixUserConfigProperty(
@@ -6307,6 +6798,10 @@ class CfnDomain(
         
                         # the properties below are optional
                         file_system_path="fileSystemPath"
+                    ),
+                    s3_file_system_config=sagemaker.CfnDomain.S3FileSystemConfigProperty(
+                        mount_path="mountPath",
+                        s3_uri="s3Uri"
                     )
                 )],
                 custom_posix_user_config=sagemaker.CfnDomain.CustomPosixUserConfigProperty(
@@ -7023,6 +7518,7 @@ class CfnDomain(
         name_mapping={
             "efs_file_system_config": "efsFileSystemConfig",
             "f_sx_lustre_file_system_config": "fSxLustreFileSystemConfig",
+            "s3_file_system_config": "s3FileSystemConfig",
         },
     )
     class CustomFileSystemConfigProperty:
@@ -7031,6 +7527,7 @@ class CfnDomain(
             *,
             efs_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.EFSFileSystemConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             f_sx_lustre_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.FSxLustreFileSystemConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.S3FileSystemConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for assigning a custom file system to a user profile or space for an Amazon SageMaker AI Domain.
 
@@ -7038,6 +7535,7 @@ class CfnDomain(
 
             :param efs_file_system_config: The settings for a custom Amazon EFS file system.
             :param f_sx_lustre_file_system_config: The settings for a custom Amazon FSx for Lustre file system.
+            :param s3_file_system_config: Configuration settings for a custom Amazon S3 file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-customfilesystemconfig.html
             :exampleMetadata: fixture=_generated
@@ -7060,6 +7558,10 @@ class CfnDomain(
                 
                         # the properties below are optional
                         file_system_path="fileSystemPath"
+                    ),
+                    s3_file_system_config=sagemaker.CfnDomain.S3FileSystemConfigProperty(
+                        mount_path="mountPath",
+                        s3_uri="s3Uri"
                     )
                 )
             '''
@@ -7067,11 +7569,14 @@ class CfnDomain(
                 type_hints = typing.get_type_hints(_typecheckingstub__acb2194c11b5367f9afdacac546d8288c9357d3ca5f49b7d828264eb239b24c8)
                 check_type(argname="argument efs_file_system_config", value=efs_file_system_config, expected_type=type_hints["efs_file_system_config"])
                 check_type(argname="argument f_sx_lustre_file_system_config", value=f_sx_lustre_file_system_config, expected_type=type_hints["f_sx_lustre_file_system_config"])
+                check_type(argname="argument s3_file_system_config", value=s3_file_system_config, expected_type=type_hints["s3_file_system_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if efs_file_system_config is not None:
                 self._values["efs_file_system_config"] = efs_file_system_config
             if f_sx_lustre_file_system_config is not None:
                 self._values["f_sx_lustre_file_system_config"] = f_sx_lustre_file_system_config
+            if s3_file_system_config is not None:
+                self._values["s3_file_system_config"] = s3_file_system_config
 
         @builtins.property
         def efs_file_system_config(
@@ -7094,6 +7599,17 @@ class CfnDomain(
             '''
             result = self._values.get("f_sx_lustre_file_system_config")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.FSxLustreFileSystemConfigProperty"]], result)
+
+        @builtins.property
+        def s3_file_system_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.S3FileSystemConfigProperty"]]:
+            '''Configuration settings for a custom Amazon S3 file system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-customfilesystemconfig.html#cfn-sagemaker-domain-customfilesystemconfig-s3filesystemconfig
+            '''
+            result = self._values.get("s3_file_system_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.S3FileSystemConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7407,6 +7923,10 @@ class CfnDomain(
                 
                             # the properties below are optional
                             file_system_path="fileSystemPath"
+                        ),
+                        s3_file_system_config=sagemaker.CfnDomain.S3FileSystemConfigProperty(
+                            mount_path="mountPath",
+                            s3_uri="s3Uri"
                         )
                     )],
                     custom_posix_user_config=sagemaker.CfnDomain.CustomPosixUserConfigProperty(
@@ -8989,6 +9509,76 @@ class CfnDomain(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnDomain.S3FileSystemConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"mount_path": "mountPath", "s3_uri": "s3Uri"},
+    )
+    class S3FileSystemConfigProperty:
+        def __init__(
+            self,
+            *,
+            mount_path: typing.Optional[builtins.str] = None,
+            s3_uri: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for the custom Amazon S3 file system.
+
+            :param mount_path: The file system path where the Amazon S3 storage location will be mounted within the Amazon SageMaker Studio environment.
+            :param s3_uri: The Amazon S3 URI of the S3 file system configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-s3filesystemconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                s3_file_system_config_property = sagemaker.CfnDomain.S3FileSystemConfigProperty(
+                    mount_path="mountPath",
+                    s3_uri="s3Uri"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cc968f8eba86423c0ab4b9c5d9c941726191bb6435a3e257ee5d2e94c8880bc8)
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if mount_path is not None:
+                self._values["mount_path"] = mount_path
+            if s3_uri is not None:
+                self._values["s3_uri"] = s3_uri
+
+        @builtins.property
+        def mount_path(self) -> typing.Optional[builtins.str]:
+            '''The file system path where the Amazon S3 storage location will be mounted within the Amazon SageMaker Studio environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-s3filesystemconfig.html#cfn-sagemaker-domain-s3filesystemconfig-mountpath
+            '''
+            result = self._values.get("mount_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_uri(self) -> typing.Optional[builtins.str]:
+            '''The Amazon S3 URI of the S3 file system configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-s3filesystemconfig.html#cfn-sagemaker-domain-s3filesystemconfig-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3FileSystemConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnDomain.SharingSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -9228,7 +9818,7 @@ class CfnDomain(
             :param environment_id: The ID of the environment that Amazon SageMaker Unified Studio associates with the domain.
             :param project_id: The ID of the Amazon SageMaker Unified Studio project that corresponds to the domain.
             :param project_s3_path: The location where Amazon S3 stores temporary execution data and other artifacts for the project that corresponds to the domain.
-            :param single_sign_on_application_arn: The ARN of the application managed by SageMaker AI and SageMaker Unified Studio in the AWS IAM Identity Center.
+            :param single_sign_on_application_arn: The ARN of the Amazon DataZone application managed by Amazon SageMaker Unified Studio in the AWS IAM Identity Center.
             :param studio_web_portal_access: Sets whether you can access the domain in Amazon SageMaker Studio:. - **ENABLED** - You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces. - **DISABLED** - You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface. To migrate a domain to Amazon SageMaker Unified Studio, you specify the UnifiedStudioSettings data type when you use the UpdateDomain action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html
@@ -9339,7 +9929,7 @@ class CfnDomain(
 
         @builtins.property
         def single_sign_on_application_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the application managed by SageMaker AI and SageMaker Unified Studio in the AWS IAM Identity Center.
+            '''The ARN of the Amazon DataZone application managed by Amazon SageMaker Unified Studio in the AWS IAM Identity Center.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-singlesignonapplicationarn
             '''
@@ -9488,6 +10078,10 @@ class CfnDomain(
                 
                             # the properties below are optional
                             file_system_path="fileSystemPath"
+                        ),
+                        s3_file_system_config=sagemaker.CfnDomain.S3FileSystemConfigProperty(
+                            mount_path="mountPath",
+                            s3_uri="s3Uri"
                         )
                     )],
                     custom_posix_user_config=sagemaker.CfnDomain.CustomPosixUserConfigProperty(
@@ -9958,6 +10552,10 @@ class CfnDomainProps:
             
                             # the properties below are optional
                             file_system_path="fileSystemPath"
+                        ),
+                        s3_file_system_config=sagemaker.CfnDomain.S3FileSystemConfigProperty(
+                            mount_path="mountPath",
+                            s3_uri="s3Uri"
                         )
                     )],
                     custom_posix_user_config=sagemaker.CfnDomain.CustomPosixUserConfigProperty(
@@ -10081,6 +10679,10 @@ class CfnDomainProps:
             
                             # the properties below are optional
                             file_system_path="fileSystemPath"
+                        ),
+                        s3_file_system_config=sagemaker.CfnDomain.S3FileSystemConfigProperty(
+                            mount_path="mountPath",
+                            s3_uri="s3Uri"
                         )
                     )],
                     custom_posix_user_config=sagemaker.CfnDomain.CustomPosixUserConfigProperty(
@@ -43813,6 +44415,2691 @@ class CfnPipelineProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnProcessingJob(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob",
+):
+    '''An Amazon SageMaker processing job that is used to analyze data and evaluate models.
+
+    For more information, see `Process Data and Evaluate Models <https://docs.aws.amazon.com/sagemaker/latest/dg/processing-job.html>`_ .
+
+    Also, note the following details specific to processing jobs created using CloudFormation stacks:
+
+    - When you delete a CloudFormation stack with a processing job resource, the processing job is stopped using the `StopProcessingJob <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_StopProcessingJob.html>`_ API but not deleted. Any tags associated with the processing job are deleted using the `DeleteTags <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DeleteTags.html>`_ API.
+    - If any part of your CloudFormation stack deployment fails and a rollback initiates, processing jobs with a specified ``ProcessingJobName`` value might cause the stack to become stuck in a failed state. This occurs because during a rollback, CloudFormation attempts to recreate the stack resources. Processing job names must be unique, so when CloudFormation attempts to recreate a processing job using the already defined name, this results in an ``AlreadyExists`` error. To prevent this, we recommend that you don't specify the optional ``ProcessingJobName`` property, thereby allowing SageMaker to auto-generate a unique name for your processing job. This ensures successful stack rollbacks when necessary. If you must use custom job names, you have to manually modify the ``ProcessingJobName`` and redeploy the stack to recover from a failed rollback.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html
+    :cloudformationResource: AWS::SageMaker::ProcessingJob
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sagemaker as sagemaker
+        
+        cfn_processing_job = sagemaker.CfnProcessingJob(self, "MyCfnProcessingJob",
+            app_specification=sagemaker.CfnProcessingJob.AppSpecificationProperty(
+                image_uri="imageUri",
+        
+                # the properties below are optional
+                container_arguments=["containerArguments"],
+                container_entrypoint=["containerEntrypoint"]
+            ),
+            processing_resources=sagemaker.CfnProcessingJob.ProcessingResourcesProperty(
+                cluster_config=sagemaker.CfnProcessingJob.ClusterConfigProperty(
+                    instance_count=123,
+                    instance_type="instanceType",
+                    volume_size_in_gb=123,
+        
+                    # the properties below are optional
+                    volume_kms_key_id="volumeKmsKeyId"
+                )
+            ),
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            environment={
+                "environment_key": "environment"
+            },
+            experiment_config=sagemaker.CfnProcessingJob.ExperimentConfigProperty(
+                experiment_name="experimentName",
+                run_name="runName",
+                trial_component_display_name="trialComponentDisplayName",
+                trial_name="trialName"
+            ),
+            network_config=sagemaker.CfnProcessingJob.NetworkConfigProperty(
+                enable_inter_container_traffic_encryption=False,
+                enable_network_isolation=False,
+                vpc_config=sagemaker.CfnProcessingJob.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnets=["subnets"]
+                )
+            ),
+            processing_inputs=[sagemaker.CfnProcessingJob.ProcessingInputsObjectProperty(
+                input_name="inputName",
+        
+                # the properties below are optional
+                app_managed=False,
+                dataset_definition=sagemaker.CfnProcessingJob.DatasetDefinitionProperty(
+                    athena_dataset_definition=sagemaker.CfnProcessingJob.AthenaDatasetDefinitionProperty(
+                        catalog="catalog",
+                        database="database",
+                        output_format="outputFormat",
+                        output_s3_uri="outputS3Uri",
+                        query_string="queryString",
+        
+                        # the properties below are optional
+                        kms_key_id="kmsKeyId",
+                        output_compression="outputCompression",
+                        work_group="workGroup"
+                    ),
+                    data_distribution_type="dataDistributionType",
+                    input_mode="inputMode",
+                    local_path="localPath",
+                    redshift_dataset_definition=sagemaker.CfnProcessingJob.RedshiftDatasetDefinitionProperty(
+                        cluster_id="clusterId",
+                        cluster_role_arn="clusterRoleArn",
+                        database="database",
+                        db_user="dbUser",
+                        output_format="outputFormat",
+                        output_s3_uri="outputS3Uri",
+                        query_string="queryString",
+        
+                        # the properties below are optional
+                        kms_key_id="kmsKeyId",
+                        output_compression="outputCompression"
+                    )
+                ),
+                s3_input=sagemaker.CfnProcessingJob.S3InputProperty(
+                    s3_data_type="s3DataType",
+                    s3_uri="s3Uri",
+        
+                    # the properties below are optional
+                    local_path="localPath",
+                    s3_compression_type="s3CompressionType",
+                    s3_data_distribution_type="s3DataDistributionType",
+                    s3_input_mode="s3InputMode"
+                )
+            )],
+            processing_job_name="processingJobName",
+            processing_output_config=sagemaker.CfnProcessingJob.ProcessingOutputConfigProperty(
+                outputs=[sagemaker.CfnProcessingJob.ProcessingOutputsObjectProperty(
+                    output_name="outputName",
+        
+                    # the properties below are optional
+                    app_managed=False,
+                    feature_store_output=sagemaker.CfnProcessingJob.FeatureStoreOutputProperty(
+                        feature_group_name="featureGroupName"
+                    ),
+                    s3_output=sagemaker.CfnProcessingJob.S3OutputProperty(
+                        s3_upload_mode="s3UploadMode",
+                        s3_uri="s3Uri",
+        
+                        # the properties below are optional
+                        local_path="localPath"
+                    )
+                )],
+        
+                # the properties below are optional
+                kms_key_id="kmsKeyId"
+            ),
+            stopping_condition=sagemaker.CfnProcessingJob.StoppingConditionProperty(
+                max_runtime_in_seconds=123
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        app_specification: typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.AppSpecificationProperty", typing.Dict[builtins.str, typing.Any]]],
+        processing_resources: typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.ProcessingResourcesProperty", typing.Dict[builtins.str, typing.Any]]],
+        role_arn: builtins.str,
+        environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        experiment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.ExperimentConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.NetworkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        processing_inputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.ProcessingInputsObjectProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        processing_job_name: typing.Optional[builtins.str] = None,
+        processing_output_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.ProcessingOutputConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stopping_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.StoppingConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param app_specification: Configuration to run a processing job in a specified container image.
+        :param processing_resources: Identifies the resources, ML compute instances, and ML storage volumes to deploy for a processing job. In distributed training, you specify more than one instance.
+        :param role_arn: The ARN of the role used to create the processing job.
+        :param environment: Sets the environment variables in the Docker container.
+        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and trial. Specified when you call the `CreateProcessingJob <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateProcessingJob.html>`_ API.
+        :param network_config: Networking options for a job, such as network traffic encryption between containers, whether to allow inbound and outbound network calls to and from containers, and the VPC subnets and security groups to use for VPC-enabled jobs.
+        :param processing_inputs: List of input configurations for the processing job.
+        :param processing_job_name: The name of the processing job. If you don't provide a job name, then a unique name is automatically created for the job.
+        :param processing_output_config: Contains information about the output location for the compiled model and the target device that the model runs on. ``TargetDevice`` and ``TargetPlatform`` are mutually exclusive, so you need to choose one between the two to specify your target device or platform. If you cannot find your device you want to use from the ``TargetDevice`` list, use ``TargetPlatform`` to describe the platform of your edge device and ``CompilerOptions`` if there are specific settings that are required or recommended to use for particular TargetPlatform.
+        :param stopping_condition: Configures conditions under which the processing job should be stopped, such as how long the processing job has been running. After the condition is met, the processing job is stopped.
+        :param tags: An array of key-value pairs. For more information, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html#allocation-whatURL>`_ in the *AWS Billing and Cost Management User Guide* .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f5caa0fb2646fa1f3ce1e3bdbe163fb26bd7b3e5aa7475ce61a509e9a2b38852)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnProcessingJobProps(
+            app_specification=app_specification,
+            processing_resources=processing_resources,
+            role_arn=role_arn,
+            environment=environment,
+            experiment_config=experiment_config,
+            network_config=network_config,
+            processing_inputs=processing_inputs,
+            processing_job_name=processing_job_name,
+            processing_output_config=processing_output_config,
+            stopping_condition=stopping_condition,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6276bcd796187eee94eba8fb0db067d484b9e6c5a0b4e8c01bf0fbf1ed1d317)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57ec9199479048c018fda37cee809646d2aaef02f96cb34693ce9537aadc50e1)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAutoMlJobArn")
+    def attr_auto_ml_job_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the AutoML job associated with this processing job.
+
+        :cloudformationAttribute: AutoMLJobArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAutoMlJobArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The time the processing job was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExitMessage")
+    def attr_exit_message(self) -> builtins.str:
+        '''A string, up to one KB in size, that contains metadata from the processing container when the processing job exits.
+
+        :cloudformationAttribute: ExitMessage
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExitMessage"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFailureReason")
+    def attr_failure_reason(self) -> builtins.str:
+        '''A string, up to one KB in size, that contains the reason a processing job failed, if it failed.
+
+        :cloudformationAttribute: FailureReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFailureReason"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The time the processing job was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMonitoringScheduleArn")
+    def attr_monitoring_schedule_arn(self) -> builtins.str:
+        '''The ARN of a monitoring schedule for an endpoint associated with this processing job.
+
+        :cloudformationAttribute: MonitoringScheduleArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMonitoringScheduleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProcessingEndTime")
+    def attr_processing_end_time(self) -> builtins.str:
+        '''The time that the processing job ended.
+
+        :cloudformationAttribute: ProcessingEndTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProcessingEndTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProcessingJobArn")
+    def attr_processing_job_arn(self) -> builtins.str:
+        '''The ARN of the processing job.
+
+        :cloudformationAttribute: ProcessingJobArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProcessingJobArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProcessingJobStatus")
+    def attr_processing_job_status(self) -> builtins.str:
+        '''The status of the processing job.
+
+        :cloudformationAttribute: ProcessingJobStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProcessingJobStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProcessingStartTime")
+    def attr_processing_start_time(self) -> builtins.str:
+        '''The time that the processing job started.
+
+        :cloudformationAttribute: ProcessingStartTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProcessingStartTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTrainingJobArn")
+    def attr_training_job_arn(self) -> builtins.str:
+        '''The ARN of the training job associated with this processing job.
+
+        :cloudformationAttribute: TrainingJobArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTrainingJobArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appSpecification")
+    def app_specification(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.AppSpecificationProperty"]:
+        '''Configuration to run a processing job in a specified container image.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.AppSpecificationProperty"], jsii.get(self, "appSpecification"))
+
+    @app_specification.setter
+    def app_specification(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.AppSpecificationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d03969d9803c9b2dda1bd2da0cdd086b6c3a8512727b2dab4ec33670d70b59e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "appSpecification", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="processingResources")
+    def processing_resources(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingResourcesProperty"]:
+        '''Identifies the resources, ML compute instances, and ML storage volumes to deploy for a processing job.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingResourcesProperty"], jsii.get(self, "processingResources"))
+
+    @processing_resources.setter
+    def processing_resources(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingResourcesProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__babb3dc1d8efedda6ab90fffbab4c8438a591fd9d607051010237dd55621dac3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "processingResources", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the role used to create the processing job.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1bb0eb733cee7c27b86719b27a5d2c98a44d3b3fa07e8072aaeaa3fe34c814d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environment")
+    def environment(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Sets the environment variables in the Docker container.'''
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "environment"))
+
+    @environment.setter
+    def environment(
+        self,
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ec6c36462db4fd0a2763426765966dac6280d9738112bf9ea87574c6222b751)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environment", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="experimentConfig")
+    def experiment_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ExperimentConfigProperty"]]:
+        '''Associates a SageMaker job as a trial component with an experiment and trial.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ExperimentConfigProperty"]], jsii.get(self, "experimentConfig"))
+
+    @experiment_config.setter
+    def experiment_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ExperimentConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a51e6b5fcfc8150a3b2ea94755d05ee278a35573344f287167c60153611c4783)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "experimentConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="networkConfig")
+    def network_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.NetworkConfigProperty"]]:
+        '''Networking options for a job, such as network traffic encryption between containers, whether to allow inbound and outbound network calls to and from containers, and the VPC subnets and security groups to use for VPC-enabled jobs.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.NetworkConfigProperty"]], jsii.get(self, "networkConfig"))
+
+    @network_config.setter
+    def network_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.NetworkConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e14f0eb1968224ebf2c06774224136441a67f2ed46d3cc2bab4804d2073c2865)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="processingInputs")
+    def processing_inputs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingInputsObjectProperty"]]]]:
+        '''List of input configurations for the processing job.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingInputsObjectProperty"]]]], jsii.get(self, "processingInputs"))
+
+    @processing_inputs.setter
+    def processing_inputs(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingInputsObjectProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__34ae1308160a03fb54e1475d36f6c92c354fb62ab6ce8023457008607ef9eb3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "processingInputs", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="processingJobName")
+    def processing_job_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the processing job.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "processingJobName"))
+
+    @processing_job_name.setter
+    def processing_job_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ded4e00a9af1ff08b13a1ebd6d233c9c92b282a3141cc069c1fa1438d6be659)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "processingJobName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="processingOutputConfig")
+    def processing_output_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingOutputConfigProperty"]]:
+        '''Contains information about the output location for the compiled model and the target device that the model runs on.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingOutputConfigProperty"]], jsii.get(self, "processingOutputConfig"))
+
+    @processing_output_config.setter
+    def processing_output_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingOutputConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa93d17f6cbfc13f185aca1b9eee163797cac6efb41991f4834196bb4b999ab0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "processingOutputConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stoppingCondition")
+    def stopping_condition(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.StoppingConditionProperty"]]:
+        '''Configures conditions under which the processing job should be stopped, such as how long the processing job has been running.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.StoppingConditionProperty"]], jsii.get(self, "stoppingCondition"))
+
+    @stopping_condition.setter
+    def stopping_condition(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.StoppingConditionProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__461c982f969a59a8459253bb180a54e79e972b6d6ed7157abb18b2b8b2c8e639)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stoppingCondition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a4dab12440697fbda4e9de872b507e99c9084c5ef56d57ee0a9980e1dd4618d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.AppSpecificationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "image_uri": "imageUri",
+            "container_arguments": "containerArguments",
+            "container_entrypoint": "containerEntrypoint",
+        },
+    )
+    class AppSpecificationProperty:
+        def __init__(
+            self,
+            *,
+            image_uri: builtins.str,
+            container_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
+            container_entrypoint: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Configuration to run a processing job in a specified container image.
+
+            :param image_uri: The container image to be run by the processing job.
+            :param container_arguments: The arguments for a container used to run a processing job.
+            :param container_entrypoint: The entrypoint for a container used to run a processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-appspecification.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                app_specification_property = sagemaker.CfnProcessingJob.AppSpecificationProperty(
+                    image_uri="imageUri",
+                
+                    # the properties below are optional
+                    container_arguments=["containerArguments"],
+                    container_entrypoint=["containerEntrypoint"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0d22629d168fddd999ddabe63169f27b86ccc9bc490cf680a0a756e1d813d7a4)
+                check_type(argname="argument image_uri", value=image_uri, expected_type=type_hints["image_uri"])
+                check_type(argname="argument container_arguments", value=container_arguments, expected_type=type_hints["container_arguments"])
+                check_type(argname="argument container_entrypoint", value=container_entrypoint, expected_type=type_hints["container_entrypoint"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "image_uri": image_uri,
+            }
+            if container_arguments is not None:
+                self._values["container_arguments"] = container_arguments
+            if container_entrypoint is not None:
+                self._values["container_entrypoint"] = container_entrypoint
+
+        @builtins.property
+        def image_uri(self) -> builtins.str:
+            '''The container image to be run by the processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-appspecification.html#cfn-sagemaker-processingjob-appspecification-imageuri
+            '''
+            result = self._values.get("image_uri")
+            assert result is not None, "Required property 'image_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def container_arguments(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The arguments for a container used to run a processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-appspecification.html#cfn-sagemaker-processingjob-appspecification-containerarguments
+            '''
+            result = self._values.get("container_arguments")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def container_entrypoint(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The entrypoint for a container used to run a processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-appspecification.html#cfn-sagemaker-processingjob-appspecification-containerentrypoint
+            '''
+            result = self._values.get("container_entrypoint")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AppSpecificationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.AthenaDatasetDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "catalog": "catalog",
+            "database": "database",
+            "output_format": "outputFormat",
+            "output_s3_uri": "outputS3Uri",
+            "query_string": "queryString",
+            "kms_key_id": "kmsKeyId",
+            "output_compression": "outputCompression",
+            "work_group": "workGroup",
+        },
+    )
+    class AthenaDatasetDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            catalog: builtins.str,
+            database: builtins.str,
+            output_format: builtins.str,
+            output_s3_uri: builtins.str,
+            query_string: builtins.str,
+            kms_key_id: typing.Optional[builtins.str] = None,
+            output_compression: typing.Optional[builtins.str] = None,
+            work_group: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for Athena Dataset Definition input.
+
+            :param catalog: The name of the data catalog used in Athena query execution.
+            :param database: The name of the database used in the Athena query execution.
+            :param output_format: The data storage format for Athena query results.
+            :param output_s3_uri: The location in Amazon S3 where Athena query results are stored.
+            :param query_string: The SQL query statements, to be executed.
+            :param kms_key_id: The AWS Key Management Service ( AWS KMS) key that Amazon SageMaker uses to encrypt data generated from an Athena query execution.
+            :param output_compression: The compression used for Athena query results.
+            :param work_group: The name of the workgroup in which the Athena query is being started.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                athena_dataset_definition_property = sagemaker.CfnProcessingJob.AthenaDatasetDefinitionProperty(
+                    catalog="catalog",
+                    database="database",
+                    output_format="outputFormat",
+                    output_s3_uri="outputS3Uri",
+                    query_string="queryString",
+                
+                    # the properties below are optional
+                    kms_key_id="kmsKeyId",
+                    output_compression="outputCompression",
+                    work_group="workGroup"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__601269090cf6404d63189cc17d8f5549dd3e2bb2ec163bb5a91469596cfb1c92)
+                check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
+                check_type(argname="argument database", value=database, expected_type=type_hints["database"])
+                check_type(argname="argument output_format", value=output_format, expected_type=type_hints["output_format"])
+                check_type(argname="argument output_s3_uri", value=output_s3_uri, expected_type=type_hints["output_s3_uri"])
+                check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+                check_type(argname="argument output_compression", value=output_compression, expected_type=type_hints["output_compression"])
+                check_type(argname="argument work_group", value=work_group, expected_type=type_hints["work_group"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "catalog": catalog,
+                "database": database,
+                "output_format": output_format,
+                "output_s3_uri": output_s3_uri,
+                "query_string": query_string,
+            }
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+            if output_compression is not None:
+                self._values["output_compression"] = output_compression
+            if work_group is not None:
+                self._values["work_group"] = work_group
+
+        @builtins.property
+        def catalog(self) -> builtins.str:
+            '''The name of the data catalog used in Athena query execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html#cfn-sagemaker-processingjob-athenadatasetdefinition-catalog
+            '''
+            result = self._values.get("catalog")
+            assert result is not None, "Required property 'catalog' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def database(self) -> builtins.str:
+            '''The name of the database used in the Athena query execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html#cfn-sagemaker-processingjob-athenadatasetdefinition-database
+            '''
+            result = self._values.get("database")
+            assert result is not None, "Required property 'database' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def output_format(self) -> builtins.str:
+            '''The data storage format for Athena query results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html#cfn-sagemaker-processingjob-athenadatasetdefinition-outputformat
+            '''
+            result = self._values.get("output_format")
+            assert result is not None, "Required property 'output_format' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def output_s3_uri(self) -> builtins.str:
+            '''The location in Amazon S3 where Athena query results are stored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html#cfn-sagemaker-processingjob-athenadatasetdefinition-outputs3uri
+            '''
+            result = self._values.get("output_s3_uri")
+            assert result is not None, "Required property 'output_s3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def query_string(self) -> builtins.str:
+            '''The SQL query statements, to be executed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html#cfn-sagemaker-processingjob-athenadatasetdefinition-querystring
+            '''
+            result = self._values.get("query_string")
+            assert result is not None, "Required property 'query_string' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The AWS Key Management Service ( AWS KMS) key that Amazon SageMaker uses to encrypt data generated from an Athena query execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html#cfn-sagemaker-processingjob-athenadatasetdefinition-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def output_compression(self) -> typing.Optional[builtins.str]:
+            '''The compression used for Athena query results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html#cfn-sagemaker-processingjob-athenadatasetdefinition-outputcompression
+            '''
+            result = self._values.get("output_compression")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def work_group(self) -> typing.Optional[builtins.str]:
+            '''The name of the workgroup in which the Athena query is being started.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-athenadatasetdefinition.html#cfn-sagemaker-processingjob-athenadatasetdefinition-workgroup
+            '''
+            result = self._values.get("work_group")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AthenaDatasetDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.ClusterConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "instance_count": "instanceCount",
+            "instance_type": "instanceType",
+            "volume_size_in_gb": "volumeSizeInGb",
+            "volume_kms_key_id": "volumeKmsKeyId",
+        },
+    )
+    class ClusterConfigProperty:
+        def __init__(
+            self,
+            *,
+            instance_count: jsii.Number,
+            instance_type: builtins.str,
+            volume_size_in_gb: jsii.Number,
+            volume_kms_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for the cluster used to run a processing job.
+
+            :param instance_count: The number of ML compute instances to use in the processing job. For distributed processing jobs, specify a value greater than 1. The default value is 1.
+            :param instance_type: The ML compute instance type for the processing job.
+            :param volume_size_in_gb: The size of the ML storage volume in gigabytes that you want to provision. You must specify sufficient ML storage for your scenario. .. epigraph:: Certain Nitro-based instances include local storage with a fixed total size, dependent on the instance type. When using these instances for processing, Amazon SageMaker mounts the local instance storage instead of Amazon EBS gp2 storage. You can't request a ``VolumeSizeInGB`` greater than the total size of the local instance storage. For a list of instance types that support local instance storage, including the total size per instance type, see `Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html#instance-store-volumes>`_ .
+            :param volume_kms_key_id: The AWS Key Management Service ( AWS KMS) key that Amazon SageMaker uses to encrypt data on the storage volume attached to the ML compute instance(s) that run the processing job. .. epigraph:: Certain Nitro-based instances include local storage, dependent on the instance type. Local storage volumes are encrypted using a hardware module on the instance. You can't request a ``VolumeKmsKeyId`` when using an instance type with local storage. For a list of instance types that support local instance storage, see `Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html#instance-store-volumes>`_ . For more information about local instance storage encryption, see `SSD Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ssd-instance-store.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-clusterconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                cluster_config_property = sagemaker.CfnProcessingJob.ClusterConfigProperty(
+                    instance_count=123,
+                    instance_type="instanceType",
+                    volume_size_in_gb=123,
+                
+                    # the properties below are optional
+                    volume_kms_key_id="volumeKmsKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__59f0c74dd2f24d28ee1c4558ea7bffa837521c4821188aa77044d296498bef12)
+                check_type(argname="argument instance_count", value=instance_count, expected_type=type_hints["instance_count"])
+                check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+                check_type(argname="argument volume_size_in_gb", value=volume_size_in_gb, expected_type=type_hints["volume_size_in_gb"])
+                check_type(argname="argument volume_kms_key_id", value=volume_kms_key_id, expected_type=type_hints["volume_kms_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "instance_count": instance_count,
+                "instance_type": instance_type,
+                "volume_size_in_gb": volume_size_in_gb,
+            }
+            if volume_kms_key_id is not None:
+                self._values["volume_kms_key_id"] = volume_kms_key_id
+
+        @builtins.property
+        def instance_count(self) -> jsii.Number:
+            '''The number of ML compute instances to use in the processing job.
+
+            For distributed processing jobs, specify a value greater than 1. The default value is 1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-clusterconfig.html#cfn-sagemaker-processingjob-clusterconfig-instancecount
+            '''
+            result = self._values.get("instance_count")
+            assert result is not None, "Required property 'instance_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def instance_type(self) -> builtins.str:
+            '''The ML compute instance type for the processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-clusterconfig.html#cfn-sagemaker-processingjob-clusterconfig-instancetype
+            '''
+            result = self._values.get("instance_type")
+            assert result is not None, "Required property 'instance_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def volume_size_in_gb(self) -> jsii.Number:
+            '''The size of the ML storage volume in gigabytes that you want to provision.
+
+            You must specify sufficient ML storage for your scenario.
+            .. epigraph::
+
+               Certain Nitro-based instances include local storage with a fixed total size, dependent on the instance type. When using these instances for processing, Amazon SageMaker mounts the local instance storage instead of Amazon EBS gp2 storage. You can't request a ``VolumeSizeInGB`` greater than the total size of the local instance storage.
+
+               For a list of instance types that support local instance storage, including the total size per instance type, see `Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html#instance-store-volumes>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-clusterconfig.html#cfn-sagemaker-processingjob-clusterconfig-volumesizeingb
+            '''
+            result = self._values.get("volume_size_in_gb")
+            assert result is not None, "Required property 'volume_size_in_gb' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def volume_kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The AWS Key Management Service ( AWS KMS) key that Amazon SageMaker uses to encrypt data on the storage volume attached to the ML compute instance(s) that run the processing job.
+
+            .. epigraph::
+
+               Certain Nitro-based instances include local storage, dependent on the instance type. Local storage volumes are encrypted using a hardware module on the instance. You can't request a ``VolumeKmsKeyId`` when using an instance type with local storage.
+
+               For a list of instance types that support local instance storage, see `Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/InstanceStorage.html#instance-store-volumes>`_ .
+
+               For more information about local instance storage encryption, see `SSD Instance Store Volumes <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ssd-instance-store.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-clusterconfig.html#cfn-sagemaker-processingjob-clusterconfig-volumekmskeyid
+            '''
+            result = self._values.get("volume_kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusterConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.DatasetDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "athena_dataset_definition": "athenaDatasetDefinition",
+            "data_distribution_type": "dataDistributionType",
+            "input_mode": "inputMode",
+            "local_path": "localPath",
+            "redshift_dataset_definition": "redshiftDatasetDefinition",
+        },
+    )
+    class DatasetDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            athena_dataset_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.AthenaDatasetDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            data_distribution_type: typing.Optional[builtins.str] = None,
+            input_mode: typing.Optional[builtins.str] = None,
+            local_path: typing.Optional[builtins.str] = None,
+            redshift_dataset_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.RedshiftDatasetDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for Dataset Definition inputs.
+
+            The Dataset Definition input must specify exactly one of either ``AthenaDatasetDefinition`` or ``RedshiftDatasetDefinition`` types.
+
+            :param athena_dataset_definition: Configuration for Athena Dataset Definition input.
+            :param data_distribution_type: Whether the generated dataset is ``FullyReplicated`` or ``ShardedByS3Key`` (default).
+            :param input_mode: Whether to use ``File`` or ``Pipe`` input mode. In ``File`` (default) mode, Amazon SageMaker copies the data from the input source onto the local Amazon Elastic Block Store (Amazon EBS) volumes before starting your training algorithm. This is the most commonly used input mode. In ``Pipe`` mode, Amazon SageMaker streams input data from the source directly to your algorithm without using the EBS volume.
+            :param local_path: The local path where you want Amazon SageMaker to download the Dataset Definition inputs to run a processing job. ``LocalPath`` is an absolute path to the input data. This is a required parameter when ``AppManaged`` is ``False`` (default).
+            :param redshift_dataset_definition: Configuration for Redshift Dataset Definition input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-datasetdefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                dataset_definition_property = sagemaker.CfnProcessingJob.DatasetDefinitionProperty(
+                    athena_dataset_definition=sagemaker.CfnProcessingJob.AthenaDatasetDefinitionProperty(
+                        catalog="catalog",
+                        database="database",
+                        output_format="outputFormat",
+                        output_s3_uri="outputS3Uri",
+                        query_string="queryString",
+                
+                        # the properties below are optional
+                        kms_key_id="kmsKeyId",
+                        output_compression="outputCompression",
+                        work_group="workGroup"
+                    ),
+                    data_distribution_type="dataDistributionType",
+                    input_mode="inputMode",
+                    local_path="localPath",
+                    redshift_dataset_definition=sagemaker.CfnProcessingJob.RedshiftDatasetDefinitionProperty(
+                        cluster_id="clusterId",
+                        cluster_role_arn="clusterRoleArn",
+                        database="database",
+                        db_user="dbUser",
+                        output_format="outputFormat",
+                        output_s3_uri="outputS3Uri",
+                        query_string="queryString",
+                
+                        # the properties below are optional
+                        kms_key_id="kmsKeyId",
+                        output_compression="outputCompression"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__49c209bd437766640ba9f36c5f916347ab0aac3871e0a24580f41a569f8d5238)
+                check_type(argname="argument athena_dataset_definition", value=athena_dataset_definition, expected_type=type_hints["athena_dataset_definition"])
+                check_type(argname="argument data_distribution_type", value=data_distribution_type, expected_type=type_hints["data_distribution_type"])
+                check_type(argname="argument input_mode", value=input_mode, expected_type=type_hints["input_mode"])
+                check_type(argname="argument local_path", value=local_path, expected_type=type_hints["local_path"])
+                check_type(argname="argument redshift_dataset_definition", value=redshift_dataset_definition, expected_type=type_hints["redshift_dataset_definition"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if athena_dataset_definition is not None:
+                self._values["athena_dataset_definition"] = athena_dataset_definition
+            if data_distribution_type is not None:
+                self._values["data_distribution_type"] = data_distribution_type
+            if input_mode is not None:
+                self._values["input_mode"] = input_mode
+            if local_path is not None:
+                self._values["local_path"] = local_path
+            if redshift_dataset_definition is not None:
+                self._values["redshift_dataset_definition"] = redshift_dataset_definition
+
+        @builtins.property
+        def athena_dataset_definition(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.AthenaDatasetDefinitionProperty"]]:
+            '''Configuration for Athena Dataset Definition input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-datasetdefinition.html#cfn-sagemaker-processingjob-datasetdefinition-athenadatasetdefinition
+            '''
+            result = self._values.get("athena_dataset_definition")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.AthenaDatasetDefinitionProperty"]], result)
+
+        @builtins.property
+        def data_distribution_type(self) -> typing.Optional[builtins.str]:
+            '''Whether the generated dataset is ``FullyReplicated`` or ``ShardedByS3Key`` (default).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-datasetdefinition.html#cfn-sagemaker-processingjob-datasetdefinition-datadistributiontype
+            '''
+            result = self._values.get("data_distribution_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def input_mode(self) -> typing.Optional[builtins.str]:
+            '''Whether to use ``File`` or ``Pipe`` input mode.
+
+            In ``File`` (default) mode, Amazon SageMaker copies the data from the input source onto the local Amazon Elastic Block Store (Amazon EBS) volumes before starting your training algorithm. This is the most commonly used input mode. In ``Pipe`` mode, Amazon SageMaker streams input data from the source directly to your algorithm without using the EBS volume.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-datasetdefinition.html#cfn-sagemaker-processingjob-datasetdefinition-inputmode
+            '''
+            result = self._values.get("input_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def local_path(self) -> typing.Optional[builtins.str]:
+            '''The local path where you want Amazon SageMaker to download the Dataset Definition inputs to run a processing job.
+
+            ``LocalPath`` is an absolute path to the input data. This is a required parameter when ``AppManaged`` is ``False`` (default).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-datasetdefinition.html#cfn-sagemaker-processingjob-datasetdefinition-localpath
+            '''
+            result = self._values.get("local_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def redshift_dataset_definition(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.RedshiftDatasetDefinitionProperty"]]:
+            '''Configuration for Redshift Dataset Definition input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-datasetdefinition.html#cfn-sagemaker-processingjob-datasetdefinition-redshiftdatasetdefinition
+            '''
+            result = self._values.get("redshift_dataset_definition")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.RedshiftDatasetDefinitionProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DatasetDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.ExperimentConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "experiment_name": "experimentName",
+            "run_name": "runName",
+            "trial_component_display_name": "trialComponentDisplayName",
+            "trial_name": "trialName",
+        },
+    )
+    class ExperimentConfigProperty:
+        def __init__(
+            self,
+            *,
+            experiment_name: typing.Optional[builtins.str] = None,
+            run_name: typing.Optional[builtins.str] = None,
+            trial_component_display_name: typing.Optional[builtins.str] = None,
+            trial_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Associates a SageMaker job as a trial component with an experiment and trial.
+
+            Specified when you call the `CreateProcessingJob <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateProcessingJob.html>`_ API.
+
+            :param experiment_name: The name of an existing experiment to associate with the trial component.
+            :param run_name: The name of the experiment run to associate with the trial component.
+            :param trial_component_display_name: The display name for the trial component. If this key isn't specified, the display name is the trial component name.
+            :param trial_name: The name of an existing trial to associate the trial component with. If not specified, a new trial is created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-experimentconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                experiment_config_property = sagemaker.CfnProcessingJob.ExperimentConfigProperty(
+                    experiment_name="experimentName",
+                    run_name="runName",
+                    trial_component_display_name="trialComponentDisplayName",
+                    trial_name="trialName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ee64af4e88ff8f0afb9a539c254f73bfa440af7dcf577fa56bd968762336e1d2)
+                check_type(argname="argument experiment_name", value=experiment_name, expected_type=type_hints["experiment_name"])
+                check_type(argname="argument run_name", value=run_name, expected_type=type_hints["run_name"])
+                check_type(argname="argument trial_component_display_name", value=trial_component_display_name, expected_type=type_hints["trial_component_display_name"])
+                check_type(argname="argument trial_name", value=trial_name, expected_type=type_hints["trial_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if experiment_name is not None:
+                self._values["experiment_name"] = experiment_name
+            if run_name is not None:
+                self._values["run_name"] = run_name
+            if trial_component_display_name is not None:
+                self._values["trial_component_display_name"] = trial_component_display_name
+            if trial_name is not None:
+                self._values["trial_name"] = trial_name
+
+        @builtins.property
+        def experiment_name(self) -> typing.Optional[builtins.str]:
+            '''The name of an existing experiment to associate with the trial component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-experimentconfig.html#cfn-sagemaker-processingjob-experimentconfig-experimentname
+            '''
+            result = self._values.get("experiment_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def run_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the experiment run to associate with the trial component.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-experimentconfig.html#cfn-sagemaker-processingjob-experimentconfig-runname
+            '''
+            result = self._values.get("run_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def trial_component_display_name(self) -> typing.Optional[builtins.str]:
+            '''The display name for the trial component.
+
+            If this key isn't specified, the display name is the trial component name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-experimentconfig.html#cfn-sagemaker-processingjob-experimentconfig-trialcomponentdisplayname
+            '''
+            result = self._values.get("trial_component_display_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def trial_name(self) -> typing.Optional[builtins.str]:
+            '''The name of an existing trial to associate the trial component with.
+
+            If not specified, a new trial is created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-experimentconfig.html#cfn-sagemaker-processingjob-experimentconfig-trialname
+            '''
+            result = self._values.get("trial_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExperimentConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.FeatureStoreOutputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"feature_group_name": "featureGroupName"},
+    )
+    class FeatureStoreOutputProperty:
+        def __init__(self, *, feature_group_name: builtins.str) -> None:
+            '''Configuration for processing job outputs in Amazon SageMaker Feature Store.
+
+            :param feature_group_name: The name of the Amazon SageMaker FeatureGroup to use as the destination for processing job output. Note that your processing script is responsible for putting records into your Feature Store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-featurestoreoutput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                feature_store_output_property = sagemaker.CfnProcessingJob.FeatureStoreOutputProperty(
+                    feature_group_name="featureGroupName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a5d17149a5b3e1cfef33c729e767b6c6bfb8109d5016a5e9f0e7786887fa8593)
+                check_type(argname="argument feature_group_name", value=feature_group_name, expected_type=type_hints["feature_group_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "feature_group_name": feature_group_name,
+            }
+
+        @builtins.property
+        def feature_group_name(self) -> builtins.str:
+            '''The name of the Amazon SageMaker FeatureGroup to use as the destination for processing job output.
+
+            Note that your processing script is responsible for putting records into your Feature Store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-featurestoreoutput.html#cfn-sagemaker-processingjob-featurestoreoutput-featuregroupname
+            '''
+            result = self._values.get("feature_group_name")
+            assert result is not None, "Required property 'feature_group_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FeatureStoreOutputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.NetworkConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enable_inter_container_traffic_encryption": "enableInterContainerTrafficEncryption",
+            "enable_network_isolation": "enableNetworkIsolation",
+            "vpc_config": "vpcConfig",
+        },
+    )
+    class NetworkConfigProperty:
+        def __init__(
+            self,
+            *,
+            enable_inter_container_traffic_encryption: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            enable_network_isolation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Networking options for a job, such as network traffic encryption between containers, whether to allow inbound and outbound network calls to and from containers, and the VPC subnets and security groups to use for VPC-enabled jobs.
+
+            :param enable_inter_container_traffic_encryption: Whether to encrypt all communications between distributed processing jobs. Choose ``True`` to encrypt communications. Encryption provides greater security for distributed processing jobs, but the processing might take longer.
+            :param enable_network_isolation: Whether to allow inbound and outbound network calls to and from the containers used for the processing job.
+            :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to. You can control access to and from your resources by configuring a VPC. For more information, see `Give SageMaker Access to Resources in your Amazon VPC <https://docs.aws.amazon.com/sagemaker/latest/dg/infrastructure-give-access.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-networkconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                network_config_property = sagemaker.CfnProcessingJob.NetworkConfigProperty(
+                    enable_inter_container_traffic_encryption=False,
+                    enable_network_isolation=False,
+                    vpc_config=sagemaker.CfnProcessingJob.VpcConfigProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnets=["subnets"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__088c8829a92719c1a9cb46fe91642d2d6487e71fe399b645a4b747c3dba47a4e)
+                check_type(argname="argument enable_inter_container_traffic_encryption", value=enable_inter_container_traffic_encryption, expected_type=type_hints["enable_inter_container_traffic_encryption"])
+                check_type(argname="argument enable_network_isolation", value=enable_network_isolation, expected_type=type_hints["enable_network_isolation"])
+                check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable_inter_container_traffic_encryption is not None:
+                self._values["enable_inter_container_traffic_encryption"] = enable_inter_container_traffic_encryption
+            if enable_network_isolation is not None:
+                self._values["enable_network_isolation"] = enable_network_isolation
+            if vpc_config is not None:
+                self._values["vpc_config"] = vpc_config
+
+        @builtins.property
+        def enable_inter_container_traffic_encryption(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Whether to encrypt all communications between distributed processing jobs.
+
+            Choose ``True`` to encrypt communications. Encryption provides greater security for distributed processing jobs, but the processing might take longer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-networkconfig.html#cfn-sagemaker-processingjob-networkconfig-enableintercontainertrafficencryption
+            '''
+            result = self._values.get("enable_inter_container_traffic_encryption")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def enable_network_isolation(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Whether to allow inbound and outbound network calls to and from the containers used for the processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-networkconfig.html#cfn-sagemaker-processingjob-networkconfig-enablenetworkisolation
+            '''
+            result = self._values.get("enable_network_isolation")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def vpc_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.VpcConfigProperty"]]:
+            '''Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to.
+
+            You can control access to and from your resources by configuring a VPC. For more information, see `Give SageMaker Access to Resources in your Amazon VPC <https://docs.aws.amazon.com/sagemaker/latest/dg/infrastructure-give-access.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-networkconfig.html#cfn-sagemaker-processingjob-networkconfig-vpcconfig
+            '''
+            result = self._values.get("vpc_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.VpcConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NetworkConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.ProcessingInputsObjectProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "input_name": "inputName",
+            "app_managed": "appManaged",
+            "dataset_definition": "datasetDefinition",
+            "s3_input": "s3Input",
+        },
+    )
+    class ProcessingInputsObjectProperty:
+        def __init__(
+            self,
+            *,
+            input_name: builtins.str,
+            app_managed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            dataset_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.DatasetDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.S3InputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The inputs for a processing job.
+
+            The processing input must specify exactly one of either ``S3Input`` or ``DatasetDefinition`` types.
+
+            :param input_name: The name for the processing job input.
+            :param app_managed: When ``True`` , input operations such as data download are managed natively by the processing job application. When ``False`` (default), input operations are managed by Amazon SageMaker.
+            :param dataset_definition: Configuration for Dataset Definition inputs. The Dataset Definition input must specify exactly one of either ``AthenaDatasetDefinition`` or ``RedshiftDatasetDefinition`` types.
+            :param s3_input: Configuration for downloading input data from Amazon S3 into the processing container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processinginputsobject.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                processing_inputs_object_property = sagemaker.CfnProcessingJob.ProcessingInputsObjectProperty(
+                    input_name="inputName",
+                
+                    # the properties below are optional
+                    app_managed=False,
+                    dataset_definition=sagemaker.CfnProcessingJob.DatasetDefinitionProperty(
+                        athena_dataset_definition=sagemaker.CfnProcessingJob.AthenaDatasetDefinitionProperty(
+                            catalog="catalog",
+                            database="database",
+                            output_format="outputFormat",
+                            output_s3_uri="outputS3Uri",
+                            query_string="queryString",
+                
+                            # the properties below are optional
+                            kms_key_id="kmsKeyId",
+                            output_compression="outputCompression",
+                            work_group="workGroup"
+                        ),
+                        data_distribution_type="dataDistributionType",
+                        input_mode="inputMode",
+                        local_path="localPath",
+                        redshift_dataset_definition=sagemaker.CfnProcessingJob.RedshiftDatasetDefinitionProperty(
+                            cluster_id="clusterId",
+                            cluster_role_arn="clusterRoleArn",
+                            database="database",
+                            db_user="dbUser",
+                            output_format="outputFormat",
+                            output_s3_uri="outputS3Uri",
+                            query_string="queryString",
+                
+                            # the properties below are optional
+                            kms_key_id="kmsKeyId",
+                            output_compression="outputCompression"
+                        )
+                    ),
+                    s3_input=sagemaker.CfnProcessingJob.S3InputProperty(
+                        s3_data_type="s3DataType",
+                        s3_uri="s3Uri",
+                
+                        # the properties below are optional
+                        local_path="localPath",
+                        s3_compression_type="s3CompressionType",
+                        s3_data_distribution_type="s3DataDistributionType",
+                        s3_input_mode="s3InputMode"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__93263a55dc28aa3c5be994254c6b8eb4dfed30cfd2096d14160e04cdd1d8a290)
+                check_type(argname="argument input_name", value=input_name, expected_type=type_hints["input_name"])
+                check_type(argname="argument app_managed", value=app_managed, expected_type=type_hints["app_managed"])
+                check_type(argname="argument dataset_definition", value=dataset_definition, expected_type=type_hints["dataset_definition"])
+                check_type(argname="argument s3_input", value=s3_input, expected_type=type_hints["s3_input"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "input_name": input_name,
+            }
+            if app_managed is not None:
+                self._values["app_managed"] = app_managed
+            if dataset_definition is not None:
+                self._values["dataset_definition"] = dataset_definition
+            if s3_input is not None:
+                self._values["s3_input"] = s3_input
+
+        @builtins.property
+        def input_name(self) -> builtins.str:
+            '''The name for the processing job input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processinginputsobject.html#cfn-sagemaker-processingjob-processinginputsobject-inputname
+            '''
+            result = self._values.get("input_name")
+            assert result is not None, "Required property 'input_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def app_managed(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''When ``True`` , input operations such as data download are managed natively by the processing job application.
+
+            When ``False`` (default), input operations are managed by Amazon SageMaker.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processinginputsobject.html#cfn-sagemaker-processingjob-processinginputsobject-appmanaged
+            '''
+            result = self._values.get("app_managed")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def dataset_definition(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.DatasetDefinitionProperty"]]:
+            '''Configuration for Dataset Definition inputs.
+
+            The Dataset Definition input must specify exactly one of either ``AthenaDatasetDefinition`` or ``RedshiftDatasetDefinition`` types.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processinginputsobject.html#cfn-sagemaker-processingjob-processinginputsobject-datasetdefinition
+            '''
+            result = self._values.get("dataset_definition")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.DatasetDefinitionProperty"]], result)
+
+        @builtins.property
+        def s3_input(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.S3InputProperty"]]:
+            '''Configuration for downloading input data from Amazon S3 into the processing container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processinginputsobject.html#cfn-sagemaker-processingjob-processinginputsobject-s3input
+            '''
+            result = self._values.get("s3_input")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.S3InputProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProcessingInputsObjectProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.ProcessingOutputConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"outputs": "outputs", "kms_key_id": "kmsKeyId"},
+    )
+    class ProcessingOutputConfigProperty:
+        def __init__(
+            self,
+            *,
+            outputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.ProcessingOutputsObjectProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            kms_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for uploading output from the processing container.
+
+            :param outputs: An array of outputs configuring the data to upload from the processing container.
+            :param kms_key_id: The AWS Key Management Service ( AWS KMS) key that Amazon SageMaker uses to encrypt the processing job output. ``KmsKeyId`` can be an ID of a KMS key, ARN of a KMS key, or alias of a KMS key. The ``KmsKeyId`` is applied to all outputs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                processing_output_config_property = sagemaker.CfnProcessingJob.ProcessingOutputConfigProperty(
+                    outputs=[sagemaker.CfnProcessingJob.ProcessingOutputsObjectProperty(
+                        output_name="outputName",
+                
+                        # the properties below are optional
+                        app_managed=False,
+                        feature_store_output=sagemaker.CfnProcessingJob.FeatureStoreOutputProperty(
+                            feature_group_name="featureGroupName"
+                        ),
+                        s3_output=sagemaker.CfnProcessingJob.S3OutputProperty(
+                            s3_upload_mode="s3UploadMode",
+                            s3_uri="s3Uri",
+                
+                            # the properties below are optional
+                            local_path="localPath"
+                        )
+                    )],
+                
+                    # the properties below are optional
+                    kms_key_id="kmsKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__15cca93c14468ad297710005474bb09ba13853a7a225ce22c2e86c2f03ca3b29)
+                check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "outputs": outputs,
+            }
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+
+        @builtins.property
+        def outputs(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingOutputsObjectProperty"]]]:
+            '''An array of outputs configuring the data to upload from the processing container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputconfig.html#cfn-sagemaker-processingjob-processingoutputconfig-outputs
+            '''
+            result = self._values.get("outputs")
+            assert result is not None, "Required property 'outputs' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ProcessingOutputsObjectProperty"]]], result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The AWS Key Management Service ( AWS KMS) key that Amazon SageMaker uses to encrypt the processing job output.
+
+            ``KmsKeyId`` can be an ID of a KMS key, ARN of a KMS key, or alias of a KMS key. The ``KmsKeyId`` is applied to all outputs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputconfig.html#cfn-sagemaker-processingjob-processingoutputconfig-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProcessingOutputConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.ProcessingOutputsObjectProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "output_name": "outputName",
+            "app_managed": "appManaged",
+            "feature_store_output": "featureStoreOutput",
+            "s3_output": "s3Output",
+        },
+    )
+    class ProcessingOutputsObjectProperty:
+        def __init__(
+            self,
+            *,
+            output_name: builtins.str,
+            app_managed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            feature_store_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.FeatureStoreOutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.S3OutputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Describes the results of a processing job.
+
+            The processing output must specify exactly one of either ``S3Output`` or ``FeatureStoreOutput`` types.
+
+            :param output_name: The name for the processing job output.
+            :param app_managed: When ``True`` , output operations such as data upload are managed natively by the processing job application. When ``False`` (default), output operations are managed by Amazon SageMaker.
+            :param feature_store_output: Configuration for processing job outputs in Amazon SageMaker Feature Store.
+            :param s3_output: Configuration for uploading output data to Amazon S3 from the processing container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputsobject.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                processing_outputs_object_property = sagemaker.CfnProcessingJob.ProcessingOutputsObjectProperty(
+                    output_name="outputName",
+                
+                    # the properties below are optional
+                    app_managed=False,
+                    feature_store_output=sagemaker.CfnProcessingJob.FeatureStoreOutputProperty(
+                        feature_group_name="featureGroupName"
+                    ),
+                    s3_output=sagemaker.CfnProcessingJob.S3OutputProperty(
+                        s3_upload_mode="s3UploadMode",
+                        s3_uri="s3Uri",
+                
+                        # the properties below are optional
+                        local_path="localPath"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b6cbb3af6f59a8656a62613193609086817d4cb1794c9ba948fd6f146b006acd)
+                check_type(argname="argument output_name", value=output_name, expected_type=type_hints["output_name"])
+                check_type(argname="argument app_managed", value=app_managed, expected_type=type_hints["app_managed"])
+                check_type(argname="argument feature_store_output", value=feature_store_output, expected_type=type_hints["feature_store_output"])
+                check_type(argname="argument s3_output", value=s3_output, expected_type=type_hints["s3_output"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "output_name": output_name,
+            }
+            if app_managed is not None:
+                self._values["app_managed"] = app_managed
+            if feature_store_output is not None:
+                self._values["feature_store_output"] = feature_store_output
+            if s3_output is not None:
+                self._values["s3_output"] = s3_output
+
+        @builtins.property
+        def output_name(self) -> builtins.str:
+            '''The name for the processing job output.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputsobject.html#cfn-sagemaker-processingjob-processingoutputsobject-outputname
+            '''
+            result = self._values.get("output_name")
+            assert result is not None, "Required property 'output_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def app_managed(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''When ``True`` , output operations such as data upload are managed natively by the processing job application.
+
+            When ``False`` (default), output operations are managed by Amazon SageMaker.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputsobject.html#cfn-sagemaker-processingjob-processingoutputsobject-appmanaged
+            '''
+            result = self._values.get("app_managed")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def feature_store_output(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.FeatureStoreOutputProperty"]]:
+            '''Configuration for processing job outputs in Amazon SageMaker Feature Store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputsobject.html#cfn-sagemaker-processingjob-processingoutputsobject-featurestoreoutput
+            '''
+            result = self._values.get("feature_store_output")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.FeatureStoreOutputProperty"]], result)
+
+        @builtins.property
+        def s3_output(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.S3OutputProperty"]]:
+            '''Configuration for uploading output data to Amazon S3 from the processing container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingoutputsobject.html#cfn-sagemaker-processingjob-processingoutputsobject-s3output
+            '''
+            result = self._values.get("s3_output")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.S3OutputProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProcessingOutputsObjectProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.ProcessingResourcesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cluster_config": "clusterConfig"},
+    )
+    class ProcessingResourcesProperty:
+        def __init__(
+            self,
+            *,
+            cluster_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnProcessingJob.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Identifies the resources, ML compute instances, and ML storage volumes to deploy for a processing job.
+
+            In distributed training, you specify more than one instance.
+
+            :param cluster_config: The configuration for the resources in a cluster used to run the processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingresources.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                processing_resources_property = sagemaker.CfnProcessingJob.ProcessingResourcesProperty(
+                    cluster_config=sagemaker.CfnProcessingJob.ClusterConfigProperty(
+                        instance_count=123,
+                        instance_type="instanceType",
+                        volume_size_in_gb=123,
+                
+                        # the properties below are optional
+                        volume_kms_key_id="volumeKmsKeyId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f8f1e48dfa894835957026000dd3cedb8bafb1f9284b91c22f55e4f4f063bb4b)
+                check_type(argname="argument cluster_config", value=cluster_config, expected_type=type_hints["cluster_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cluster_config": cluster_config,
+            }
+
+        @builtins.property
+        def cluster_config(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ClusterConfigProperty"]:
+            '''The configuration for the resources in a cluster used to run the processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-processingresources.html#cfn-sagemaker-processingjob-processingresources-clusterconfig
+            '''
+            result = self._values.get("cluster_config")
+            assert result is not None, "Required property 'cluster_config' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnProcessingJob.ClusterConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProcessingResourcesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.RedshiftDatasetDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cluster_id": "clusterId",
+            "cluster_role_arn": "clusterRoleArn",
+            "database": "database",
+            "db_user": "dbUser",
+            "output_format": "outputFormat",
+            "output_s3_uri": "outputS3Uri",
+            "query_string": "queryString",
+            "kms_key_id": "kmsKeyId",
+            "output_compression": "outputCompression",
+        },
+    )
+    class RedshiftDatasetDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            cluster_id: builtins.str,
+            cluster_role_arn: builtins.str,
+            database: builtins.str,
+            db_user: builtins.str,
+            output_format: builtins.str,
+            output_s3_uri: builtins.str,
+            query_string: builtins.str,
+            kms_key_id: typing.Optional[builtins.str] = None,
+            output_compression: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for Redshift Dataset Definition input.
+
+            :param cluster_id: The Redshift cluster Identifier.
+            :param cluster_role_arn: The IAM role attached to your Redshift cluster that Amazon SageMaker uses to generate datasets.
+            :param database: The name of the Redshift database used in Redshift query execution.
+            :param db_user: The database user name used in Redshift query execution.
+            :param output_format: The data storage format for Redshift query results.
+            :param output_s3_uri: The location in Amazon S3 where the Redshift query results are stored.
+            :param query_string: The SQL query statements to be executed.
+            :param kms_key_id: The AWS Key Management Service ( AWS KMS) key that Amazon SageMaker uses to encrypt data from a Redshift execution.
+            :param output_compression: The compression used for Redshift query results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                redshift_dataset_definition_property = sagemaker.CfnProcessingJob.RedshiftDatasetDefinitionProperty(
+                    cluster_id="clusterId",
+                    cluster_role_arn="clusterRoleArn",
+                    database="database",
+                    db_user="dbUser",
+                    output_format="outputFormat",
+                    output_s3_uri="outputS3Uri",
+                    query_string="queryString",
+                
+                    # the properties below are optional
+                    kms_key_id="kmsKeyId",
+                    output_compression="outputCompression"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6b2dc21cea02d8b03ff23a05d65dad90d926b87a3065fe60082f44cbb54f2fe2)
+                check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+                check_type(argname="argument cluster_role_arn", value=cluster_role_arn, expected_type=type_hints["cluster_role_arn"])
+                check_type(argname="argument database", value=database, expected_type=type_hints["database"])
+                check_type(argname="argument db_user", value=db_user, expected_type=type_hints["db_user"])
+                check_type(argname="argument output_format", value=output_format, expected_type=type_hints["output_format"])
+                check_type(argname="argument output_s3_uri", value=output_s3_uri, expected_type=type_hints["output_s3_uri"])
+                check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+                check_type(argname="argument output_compression", value=output_compression, expected_type=type_hints["output_compression"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cluster_id": cluster_id,
+                "cluster_role_arn": cluster_role_arn,
+                "database": database,
+                "db_user": db_user,
+                "output_format": output_format,
+                "output_s3_uri": output_s3_uri,
+                "query_string": query_string,
+            }
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
+            if output_compression is not None:
+                self._values["output_compression"] = output_compression
+
+        @builtins.property
+        def cluster_id(self) -> builtins.str:
+            '''The Redshift cluster Identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html#cfn-sagemaker-processingjob-redshiftdatasetdefinition-clusterid
+            '''
+            result = self._values.get("cluster_id")
+            assert result is not None, "Required property 'cluster_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def cluster_role_arn(self) -> builtins.str:
+            '''The IAM role attached to your Redshift cluster that Amazon SageMaker uses to generate datasets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html#cfn-sagemaker-processingjob-redshiftdatasetdefinition-clusterrolearn
+            '''
+            result = self._values.get("cluster_role_arn")
+            assert result is not None, "Required property 'cluster_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def database(self) -> builtins.str:
+            '''The name of the Redshift database used in Redshift query execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html#cfn-sagemaker-processingjob-redshiftdatasetdefinition-database
+            '''
+            result = self._values.get("database")
+            assert result is not None, "Required property 'database' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def db_user(self) -> builtins.str:
+            '''The database user name used in Redshift query execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html#cfn-sagemaker-processingjob-redshiftdatasetdefinition-dbuser
+            '''
+            result = self._values.get("db_user")
+            assert result is not None, "Required property 'db_user' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def output_format(self) -> builtins.str:
+            '''The data storage format for Redshift query results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html#cfn-sagemaker-processingjob-redshiftdatasetdefinition-outputformat
+            '''
+            result = self._values.get("output_format")
+            assert result is not None, "Required property 'output_format' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def output_s3_uri(self) -> builtins.str:
+            '''The location in Amazon S3 where the Redshift query results are stored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html#cfn-sagemaker-processingjob-redshiftdatasetdefinition-outputs3uri
+            '''
+            result = self._values.get("output_s3_uri")
+            assert result is not None, "Required property 'output_s3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def query_string(self) -> builtins.str:
+            '''The SQL query statements to be executed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html#cfn-sagemaker-processingjob-redshiftdatasetdefinition-querystring
+            '''
+            result = self._values.get("query_string")
+            assert result is not None, "Required property 'query_string' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The AWS Key Management Service ( AWS KMS) key that Amazon SageMaker uses to encrypt data from a Redshift execution.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html#cfn-sagemaker-processingjob-redshiftdatasetdefinition-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def output_compression(self) -> typing.Optional[builtins.str]:
+            '''The compression used for Redshift query results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-redshiftdatasetdefinition.html#cfn-sagemaker-processingjob-redshiftdatasetdefinition-outputcompression
+            '''
+            result = self._values.get("output_compression")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RedshiftDatasetDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.S3InputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "s3_data_type": "s3DataType",
+            "s3_uri": "s3Uri",
+            "local_path": "localPath",
+            "s3_compression_type": "s3CompressionType",
+            "s3_data_distribution_type": "s3DataDistributionType",
+            "s3_input_mode": "s3InputMode",
+        },
+    )
+    class S3InputProperty:
+        def __init__(
+            self,
+            *,
+            s3_data_type: builtins.str,
+            s3_uri: builtins.str,
+            local_path: typing.Optional[builtins.str] = None,
+            s3_compression_type: typing.Optional[builtins.str] = None,
+            s3_data_distribution_type: typing.Optional[builtins.str] = None,
+            s3_input_mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for downloading input data from Amazon S3 into the processing container.
+
+            :param s3_data_type: Whether you use an ``S3Prefix`` or a ``ManifestFile`` for the data type. If you choose ``S3Prefix`` , ``S3Uri`` identifies a key name prefix. Amazon SageMaker uses all objects with the specified key name prefix for the processing job. If you choose ``ManifestFile`` , ``S3Uri`` identifies an object that is a manifest file containing a list of object keys that you want Amazon SageMaker to use for the processing job.
+            :param s3_uri: The URI of the Amazon S3 prefix Amazon SageMaker downloads data required to run a processing job.
+            :param local_path: The local path in your container where you want Amazon SageMaker to write input data to. ``LocalPath`` is an absolute path to the input data and must begin with ``/opt/ml/processing/`` . ``LocalPath`` is a required parameter when ``AppManaged`` is ``False`` (default).
+            :param s3_compression_type: Whether to GZIP-decompress the data in Amazon S3 as it is streamed into the processing container. ``Gzip`` can only be used when ``Pipe`` mode is specified as the ``S3InputMode`` . In ``Pipe`` mode, Amazon SageMaker streams input data from the source directly to your container without using the EBS volume.
+            :param s3_data_distribution_type: Whether to distribute the data from Amazon S3 to all processing instances with ``FullyReplicated`` , or whether the data from Amazon S3 is shared by Amazon S3 key, downloading one shard of data to each processing instance.
+            :param s3_input_mode: Whether to use ``File`` or ``Pipe`` input mode. In File mode, Amazon SageMaker copies the data from the input source onto the local ML storage volume before starting your processing container. This is the most commonly used input mode. In ``Pipe`` mode, Amazon SageMaker streams input data from the source directly to your processing container into named pipes without using the ML storage volume.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3input.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                s3_input_property = sagemaker.CfnProcessingJob.S3InputProperty(
+                    s3_data_type="s3DataType",
+                    s3_uri="s3Uri",
+                
+                    # the properties below are optional
+                    local_path="localPath",
+                    s3_compression_type="s3CompressionType",
+                    s3_data_distribution_type="s3DataDistributionType",
+                    s3_input_mode="s3InputMode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b5846608b145b8ed6f717a82be7debd841b09219f0e379ba826323359e1524f9)
+                check_type(argname="argument s3_data_type", value=s3_data_type, expected_type=type_hints["s3_data_type"])
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+                check_type(argname="argument local_path", value=local_path, expected_type=type_hints["local_path"])
+                check_type(argname="argument s3_compression_type", value=s3_compression_type, expected_type=type_hints["s3_compression_type"])
+                check_type(argname="argument s3_data_distribution_type", value=s3_data_distribution_type, expected_type=type_hints["s3_data_distribution_type"])
+                check_type(argname="argument s3_input_mode", value=s3_input_mode, expected_type=type_hints["s3_input_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_data_type": s3_data_type,
+                "s3_uri": s3_uri,
+            }
+            if local_path is not None:
+                self._values["local_path"] = local_path
+            if s3_compression_type is not None:
+                self._values["s3_compression_type"] = s3_compression_type
+            if s3_data_distribution_type is not None:
+                self._values["s3_data_distribution_type"] = s3_data_distribution_type
+            if s3_input_mode is not None:
+                self._values["s3_input_mode"] = s3_input_mode
+
+        @builtins.property
+        def s3_data_type(self) -> builtins.str:
+            '''Whether you use an ``S3Prefix`` or a ``ManifestFile`` for the data type.
+
+            If you choose ``S3Prefix`` , ``S3Uri`` identifies a key name prefix. Amazon SageMaker uses all objects with the specified key name prefix for the processing job. If you choose ``ManifestFile`` , ``S3Uri`` identifies an object that is a manifest file containing a list of object keys that you want Amazon SageMaker to use for the processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3input.html#cfn-sagemaker-processingjob-s3input-s3datatype
+            '''
+            result = self._values.get("s3_data_type")
+            assert result is not None, "Required property 's3_data_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_uri(self) -> builtins.str:
+            '''The URI of the Amazon S3 prefix Amazon SageMaker downloads data required to run a processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3input.html#cfn-sagemaker-processingjob-s3input-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            assert result is not None, "Required property 's3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def local_path(self) -> typing.Optional[builtins.str]:
+            '''The local path in your container where you want Amazon SageMaker to write input data to.
+
+            ``LocalPath`` is an absolute path to the input data and must begin with ``/opt/ml/processing/`` . ``LocalPath`` is a required parameter when ``AppManaged`` is ``False`` (default).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3input.html#cfn-sagemaker-processingjob-s3input-localpath
+            '''
+            result = self._values.get("local_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_compression_type(self) -> typing.Optional[builtins.str]:
+            '''Whether to GZIP-decompress the data in Amazon S3 as it is streamed into the processing container.
+
+            ``Gzip`` can only be used when ``Pipe`` mode is specified as the ``S3InputMode`` . In ``Pipe`` mode, Amazon SageMaker streams input data from the source directly to your container without using the EBS volume.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3input.html#cfn-sagemaker-processingjob-s3input-s3compressiontype
+            '''
+            result = self._values.get("s3_compression_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_data_distribution_type(self) -> typing.Optional[builtins.str]:
+            '''Whether to distribute the data from Amazon S3 to all processing instances with ``FullyReplicated`` , or whether the data from Amazon S3 is shared by Amazon S3 key, downloading one shard of data to each processing instance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3input.html#cfn-sagemaker-processingjob-s3input-s3datadistributiontype
+            '''
+            result = self._values.get("s3_data_distribution_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_input_mode(self) -> typing.Optional[builtins.str]:
+            '''Whether to use ``File`` or ``Pipe`` input mode.
+
+            In File mode, Amazon SageMaker copies the data from the input source onto the local ML storage volume before starting your processing container. This is the most commonly used input mode. In ``Pipe`` mode, Amazon SageMaker streams input data from the source directly to your processing container into named pipes without using the ML storage volume.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3input.html#cfn-sagemaker-processingjob-s3input-s3inputmode
+            '''
+            result = self._values.get("s3_input_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3InputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.S3OutputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "s3_upload_mode": "s3UploadMode",
+            "s3_uri": "s3Uri",
+            "local_path": "localPath",
+        },
+    )
+    class S3OutputProperty:
+        def __init__(
+            self,
+            *,
+            s3_upload_mode: builtins.str,
+            s3_uri: builtins.str,
+            local_path: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for uploading output data to Amazon S3 from the processing container.
+
+            :param s3_upload_mode: Whether to upload the results of the processing job continuously or after the job completes.
+            :param s3_uri: The URI of the Amazon S3 prefix Amazon SageMaker downloads data required to run a processing job.
+            :param local_path: The local path of a directory where you want Amazon SageMaker to upload its contents to Amazon S3. ``LocalPath`` is an absolute path to a directory containing output files. This directory will be created by the platform and exist when your container's entrypoint is invoked.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3output.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                s3_output_property = sagemaker.CfnProcessingJob.S3OutputProperty(
+                    s3_upload_mode="s3UploadMode",
+                    s3_uri="s3Uri",
+                
+                    # the properties below are optional
+                    local_path="localPath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1ef0ba6aa55ad91dbfb6a65940c01d700330a66e4dc329cfde9cfeabe1a59066)
+                check_type(argname="argument s3_upload_mode", value=s3_upload_mode, expected_type=type_hints["s3_upload_mode"])
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+                check_type(argname="argument local_path", value=local_path, expected_type=type_hints["local_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_upload_mode": s3_upload_mode,
+                "s3_uri": s3_uri,
+            }
+            if local_path is not None:
+                self._values["local_path"] = local_path
+
+        @builtins.property
+        def s3_upload_mode(self) -> builtins.str:
+            '''Whether to upload the results of the processing job continuously or after the job completes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3output.html#cfn-sagemaker-processingjob-s3output-s3uploadmode
+            '''
+            result = self._values.get("s3_upload_mode")
+            assert result is not None, "Required property 's3_upload_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_uri(self) -> builtins.str:
+            '''The URI of the Amazon S3 prefix Amazon SageMaker downloads data required to run a processing job.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3output.html#cfn-sagemaker-processingjob-s3output-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            assert result is not None, "Required property 's3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def local_path(self) -> typing.Optional[builtins.str]:
+            '''The local path of a directory where you want Amazon SageMaker to upload its contents to Amazon S3.
+
+            ``LocalPath`` is an absolute path to a directory containing output files. This directory will be created by the platform and exist when your container's entrypoint is invoked.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-s3output.html#cfn-sagemaker-processingjob-s3output-localpath
+            '''
+            result = self._values.get("local_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3OutputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.StoppingConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_runtime_in_seconds": "maxRuntimeInSeconds"},
+    )
+    class StoppingConditionProperty:
+        def __init__(self, *, max_runtime_in_seconds: jsii.Number) -> None:
+            '''Configures conditions under which the processing job should be stopped, such as how long the processing job has been running.
+
+            After the condition is met, the processing job is stopped.
+
+            :param max_runtime_in_seconds: The maximum length of time, in seconds, that a training or compilation job can run before it is stopped. For compilation jobs, if the job does not complete during this time, a ``TimeOut`` error is generated. We recommend starting with 900 seconds and increasing as necessary based on your model. For all other jobs, if the job does not complete during this time, SageMaker ends the job. When ``RetryStrategy`` is specified in the job request, ``MaxRuntimeInSeconds`` specifies the maximum time for all of the attempts in total, not each individual attempt. The default value is 1 day. The maximum value is 28 days. The maximum time that a ``TrainingJob`` can run in total, including any time spent publishing metrics or archiving and uploading models after it has been stopped, is 30 days.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-stoppingcondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                stopping_condition_property = sagemaker.CfnProcessingJob.StoppingConditionProperty(
+                    max_runtime_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d86a3902cd37b277b50d89615d44873a9557876c9605827de6dc16c5e7c924d8)
+                check_type(argname="argument max_runtime_in_seconds", value=max_runtime_in_seconds, expected_type=type_hints["max_runtime_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "max_runtime_in_seconds": max_runtime_in_seconds,
+            }
+
+        @builtins.property
+        def max_runtime_in_seconds(self) -> jsii.Number:
+            '''The maximum length of time, in seconds, that a training or compilation job can run before it is stopped.
+
+            For compilation jobs, if the job does not complete during this time, a ``TimeOut`` error is generated. We recommend starting with 900 seconds and increasing as necessary based on your model.
+
+            For all other jobs, if the job does not complete during this time, SageMaker ends the job. When ``RetryStrategy`` is specified in the job request, ``MaxRuntimeInSeconds`` specifies the maximum time for all of the attempts in total, not each individual attempt. The default value is 1 day. The maximum value is 28 days.
+
+            The maximum time that a ``TrainingJob`` can run in total, including any time spent publishing metrics or archiving and uploading models after it has been stopped, is 30 days.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-stoppingcondition.html#cfn-sagemaker-processingjob-stoppingcondition-maxruntimeinseconds
+            '''
+            result = self._values.get("max_runtime_in_seconds")
+            assert result is not None, "Required property 'max_runtime_in_seconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StoppingConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJob.VpcConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"security_group_ids": "securityGroupIds", "subnets": "subnets"},
+    )
+    class VpcConfigProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Sequence[builtins.str],
+            subnets: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker jobs, hosted models, and compute resources have access to.
+
+            You can control access to and from your resources by configuring a VPC. For more information, see `Give SageMaker Access to Resources in your Amazon VPC <https://docs.aws.amazon.com/sagemaker/latest/dg/infrastructure-give-access.html>`_ .
+
+            :param security_group_ids: The VPC security group IDs, in the form ``sg-xxxxxxxx`` . Specify the security groups for the VPC that is specified in the ``Subnets`` field.
+            :param subnets: The ID of the subnets in the VPC to which you want to connect your training job or model. For information about the availability of specific instance types, see `Supported Instance Types and Availability Zones <https://docs.aws.amazon.com/sagemaker/latest/dg/instance-types-az.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-vpcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                vpc_config_property = sagemaker.CfnProcessingJob.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnets=["subnets"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a47c8f6528ea9779b151d35d3bb96f1c43388e2916c0c25af3937d605d17427c)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "security_group_ids": security_group_ids,
+                "subnets": subnets,
+            }
+
+        @builtins.property
+        def security_group_ids(self) -> typing.List[builtins.str]:
+            '''The VPC security group IDs, in the form ``sg-xxxxxxxx`` .
+
+            Specify the security groups for the VPC that is specified in the ``Subnets`` field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-vpcconfig.html#cfn-sagemaker-processingjob-vpcconfig-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            assert result is not None, "Required property 'security_group_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def subnets(self) -> typing.List[builtins.str]:
+            '''The ID of the subnets in the VPC to which you want to connect your training job or model.
+
+            For information about the availability of specific instance types, see `Supported Instance Types and Availability Zones <https://docs.aws.amazon.com/sagemaker/latest/dg/instance-types-az.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-processingjob-vpcconfig.html#cfn-sagemaker-processingjob-vpcconfig-subnets
+            '''
+            result = self._values.get("subnets")
+            assert result is not None, "Required property 'subnets' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnProcessingJobProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "app_specification": "appSpecification",
+        "processing_resources": "processingResources",
+        "role_arn": "roleArn",
+        "environment": "environment",
+        "experiment_config": "experimentConfig",
+        "network_config": "networkConfig",
+        "processing_inputs": "processingInputs",
+        "processing_job_name": "processingJobName",
+        "processing_output_config": "processingOutputConfig",
+        "stopping_condition": "stoppingCondition",
+        "tags": "tags",
+    },
+)
+class CfnProcessingJobProps:
+    def __init__(
+        self,
+        *,
+        app_specification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.AppSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
+        processing_resources: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingResourcesProperty, typing.Dict[builtins.str, typing.Any]]],
+        role_arn: builtins.str,
+        environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        experiment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ExperimentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.NetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        processing_inputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingInputsObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        processing_job_name: typing.Optional[builtins.str] = None,
+        processing_output_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingOutputConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        stopping_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.StoppingConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProcessingJob``.
+
+        :param app_specification: Configuration to run a processing job in a specified container image.
+        :param processing_resources: Identifies the resources, ML compute instances, and ML storage volumes to deploy for a processing job. In distributed training, you specify more than one instance.
+        :param role_arn: The ARN of the role used to create the processing job.
+        :param environment: Sets the environment variables in the Docker container.
+        :param experiment_config: Associates a SageMaker job as a trial component with an experiment and trial. Specified when you call the `CreateProcessingJob <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateProcessingJob.html>`_ API.
+        :param network_config: Networking options for a job, such as network traffic encryption between containers, whether to allow inbound and outbound network calls to and from containers, and the VPC subnets and security groups to use for VPC-enabled jobs.
+        :param processing_inputs: List of input configurations for the processing job.
+        :param processing_job_name: The name of the processing job. If you don't provide a job name, then a unique name is automatically created for the job.
+        :param processing_output_config: Contains information about the output location for the compiled model and the target device that the model runs on. ``TargetDevice`` and ``TargetPlatform`` are mutually exclusive, so you need to choose one between the two to specify your target device or platform. If you cannot find your device you want to use from the ``TargetDevice`` list, use ``TargetPlatform`` to describe the platform of your edge device and ``CompilerOptions`` if there are specific settings that are required or recommended to use for particular TargetPlatform.
+        :param stopping_condition: Configures conditions under which the processing job should be stopped, such as how long the processing job has been running. After the condition is met, the processing job is stopped.
+        :param tags: An array of key-value pairs. For more information, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html#allocation-whatURL>`_ in the *AWS Billing and Cost Management User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sagemaker as sagemaker
+            
+            cfn_processing_job_props = sagemaker.CfnProcessingJobProps(
+                app_specification=sagemaker.CfnProcessingJob.AppSpecificationProperty(
+                    image_uri="imageUri",
+            
+                    # the properties below are optional
+                    container_arguments=["containerArguments"],
+                    container_entrypoint=["containerEntrypoint"]
+                ),
+                processing_resources=sagemaker.CfnProcessingJob.ProcessingResourcesProperty(
+                    cluster_config=sagemaker.CfnProcessingJob.ClusterConfigProperty(
+                        instance_count=123,
+                        instance_type="instanceType",
+                        volume_size_in_gb=123,
+            
+                        # the properties below are optional
+                        volume_kms_key_id="volumeKmsKeyId"
+                    )
+                ),
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                environment={
+                    "environment_key": "environment"
+                },
+                experiment_config=sagemaker.CfnProcessingJob.ExperimentConfigProperty(
+                    experiment_name="experimentName",
+                    run_name="runName",
+                    trial_component_display_name="trialComponentDisplayName",
+                    trial_name="trialName"
+                ),
+                network_config=sagemaker.CfnProcessingJob.NetworkConfigProperty(
+                    enable_inter_container_traffic_encryption=False,
+                    enable_network_isolation=False,
+                    vpc_config=sagemaker.CfnProcessingJob.VpcConfigProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnets=["subnets"]
+                    )
+                ),
+                processing_inputs=[sagemaker.CfnProcessingJob.ProcessingInputsObjectProperty(
+                    input_name="inputName",
+            
+                    # the properties below are optional
+                    app_managed=False,
+                    dataset_definition=sagemaker.CfnProcessingJob.DatasetDefinitionProperty(
+                        athena_dataset_definition=sagemaker.CfnProcessingJob.AthenaDatasetDefinitionProperty(
+                            catalog="catalog",
+                            database="database",
+                            output_format="outputFormat",
+                            output_s3_uri="outputS3Uri",
+                            query_string="queryString",
+            
+                            # the properties below are optional
+                            kms_key_id="kmsKeyId",
+                            output_compression="outputCompression",
+                            work_group="workGroup"
+                        ),
+                        data_distribution_type="dataDistributionType",
+                        input_mode="inputMode",
+                        local_path="localPath",
+                        redshift_dataset_definition=sagemaker.CfnProcessingJob.RedshiftDatasetDefinitionProperty(
+                            cluster_id="clusterId",
+                            cluster_role_arn="clusterRoleArn",
+                            database="database",
+                            db_user="dbUser",
+                            output_format="outputFormat",
+                            output_s3_uri="outputS3Uri",
+                            query_string="queryString",
+            
+                            # the properties below are optional
+                            kms_key_id="kmsKeyId",
+                            output_compression="outputCompression"
+                        )
+                    ),
+                    s3_input=sagemaker.CfnProcessingJob.S3InputProperty(
+                        s3_data_type="s3DataType",
+                        s3_uri="s3Uri",
+            
+                        # the properties below are optional
+                        local_path="localPath",
+                        s3_compression_type="s3CompressionType",
+                        s3_data_distribution_type="s3DataDistributionType",
+                        s3_input_mode="s3InputMode"
+                    )
+                )],
+                processing_job_name="processingJobName",
+                processing_output_config=sagemaker.CfnProcessingJob.ProcessingOutputConfigProperty(
+                    outputs=[sagemaker.CfnProcessingJob.ProcessingOutputsObjectProperty(
+                        output_name="outputName",
+            
+                        # the properties below are optional
+                        app_managed=False,
+                        feature_store_output=sagemaker.CfnProcessingJob.FeatureStoreOutputProperty(
+                            feature_group_name="featureGroupName"
+                        ),
+                        s3_output=sagemaker.CfnProcessingJob.S3OutputProperty(
+                            s3_upload_mode="s3UploadMode",
+                            s3_uri="s3Uri",
+            
+                            # the properties below are optional
+                            local_path="localPath"
+                        )
+                    )],
+            
+                    # the properties below are optional
+                    kms_key_id="kmsKeyId"
+                ),
+                stopping_condition=sagemaker.CfnProcessingJob.StoppingConditionProperty(
+                    max_runtime_in_seconds=123
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c841bdeabe6eb0f21694d7661b9f6116b0889d3f055cd152271dc4be31d3368)
+            check_type(argname="argument app_specification", value=app_specification, expected_type=type_hints["app_specification"])
+            check_type(argname="argument processing_resources", value=processing_resources, expected_type=type_hints["processing_resources"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+            check_type(argname="argument experiment_config", value=experiment_config, expected_type=type_hints["experiment_config"])
+            check_type(argname="argument network_config", value=network_config, expected_type=type_hints["network_config"])
+            check_type(argname="argument processing_inputs", value=processing_inputs, expected_type=type_hints["processing_inputs"])
+            check_type(argname="argument processing_job_name", value=processing_job_name, expected_type=type_hints["processing_job_name"])
+            check_type(argname="argument processing_output_config", value=processing_output_config, expected_type=type_hints["processing_output_config"])
+            check_type(argname="argument stopping_condition", value=stopping_condition, expected_type=type_hints["stopping_condition"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "app_specification": app_specification,
+            "processing_resources": processing_resources,
+            "role_arn": role_arn,
+        }
+        if environment is not None:
+            self._values["environment"] = environment
+        if experiment_config is not None:
+            self._values["experiment_config"] = experiment_config
+        if network_config is not None:
+            self._values["network_config"] = network_config
+        if processing_inputs is not None:
+            self._values["processing_inputs"] = processing_inputs
+        if processing_job_name is not None:
+            self._values["processing_job_name"] = processing_job_name
+        if processing_output_config is not None:
+            self._values["processing_output_config"] = processing_output_config
+        if stopping_condition is not None:
+            self._values["stopping_condition"] = stopping_condition
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def app_specification(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, CfnProcessingJob.AppSpecificationProperty]:
+        '''Configuration to run a processing job in a specified container image.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-appspecification
+        '''
+        result = self._values.get("app_specification")
+        assert result is not None, "Required property 'app_specification' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnProcessingJob.AppSpecificationProperty], result)
+
+    @builtins.property
+    def processing_resources(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ProcessingResourcesProperty]:
+        '''Identifies the resources, ML compute instances, and ML storage volumes to deploy for a processing job.
+
+        In distributed training, you specify more than one instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-processingresources
+        '''
+        result = self._values.get("processing_resources")
+        assert result is not None, "Required property 'processing_resources' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ProcessingResourcesProperty], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the role used to create the processing job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def environment(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''Sets the environment variables in the Docker container.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-environment
+        '''
+        result = self._values.get("environment")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def experiment_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ExperimentConfigProperty]]:
+        '''Associates a SageMaker job as a trial component with an experiment and trial.
+
+        Specified when you call the `CreateProcessingJob <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateProcessingJob.html>`_ API.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-experimentconfig
+        '''
+        result = self._values.get("experiment_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ExperimentConfigProperty]], result)
+
+    @builtins.property
+    def network_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.NetworkConfigProperty]]:
+        '''Networking options for a job, such as network traffic encryption between containers, whether to allow inbound and outbound network calls to and from containers, and the VPC subnets and security groups to use for VPC-enabled jobs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-networkconfig
+        '''
+        result = self._values.get("network_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.NetworkConfigProperty]], result)
+
+    @builtins.property
+    def processing_inputs(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ProcessingInputsObjectProperty]]]]:
+        '''List of input configurations for the processing job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-processinginputs
+        '''
+        result = self._values.get("processing_inputs")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ProcessingInputsObjectProperty]]]], result)
+
+    @builtins.property
+    def processing_job_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the processing job.
+
+        If you don't provide a job name, then a unique name is automatically created for the job.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-processingjobname
+        '''
+        result = self._values.get("processing_job_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def processing_output_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ProcessingOutputConfigProperty]]:
+        '''Contains information about the output location for the compiled model and the target device that the model runs on.
+
+        ``TargetDevice`` and ``TargetPlatform`` are mutually exclusive, so you need to choose one between the two to specify your target device or platform. If you cannot find your device you want to use from the ``TargetDevice`` list, use ``TargetPlatform`` to describe the platform of your edge device and ``CompilerOptions`` if there are specific settings that are required or recommended to use for particular TargetPlatform.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-processingoutputconfig
+        '''
+        result = self._values.get("processing_output_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ProcessingOutputConfigProperty]], result)
+
+    @builtins.property
+    def stopping_condition(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.StoppingConditionProperty]]:
+        '''Configures conditions under which the processing job should be stopped, such as how long the processing job has been running.
+
+        After the condition is met, the processing job is stopped.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-stoppingcondition
+        '''
+        result = self._values.get("stopping_condition")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.StoppingConditionProperty]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs.
+
+        For more information, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html#allocation-whatURL>`_ in the *AWS Billing and Cost Management User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-processingjob.html#cfn-sagemaker-processingjob-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProcessingJobProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
 class CfnProject(
     _CfnResource_9df397a6,
@@ -44800,6 +48087,9 @@ class CfnSpace(
                     ),
                     f_sx_lustre_file_system=sagemaker.CfnSpace.FSxLustreFileSystemProperty(
                         file_system_id="fileSystemId"
+                    ),
+                    s3_file_system=sagemaker.CfnSpace.S3FileSystemProperty(
+                        s3_uri="s3Uri"
                     )
                 )],
                 jupyter_lab_app_settings=sagemaker.CfnSpace.SpaceJupyterLabAppSettingsProperty(
@@ -45132,6 +48422,7 @@ class CfnSpace(
         name_mapping={
             "efs_file_system": "efsFileSystem",
             "f_sx_lustre_file_system": "fSxLustreFileSystem",
+            "s3_file_system": "s3FileSystem",
         },
     )
     class CustomFileSystemProperty:
@@ -45140,6 +48431,7 @@ class CfnSpace(
             *,
             efs_file_system: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSpace.EFSFileSystemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             f_sx_lustre_file_system: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSpace.FSxLustreFileSystemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_file_system: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSpace.S3FileSystemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A file system, created by you, that you assign to a user profile or space for an Amazon SageMaker AI Domain.
 
@@ -45147,6 +48439,7 @@ class CfnSpace(
 
             :param efs_file_system: A custom file system in Amazon EFS.
             :param f_sx_lustre_file_system: A custom file system in Amazon FSx for Lustre.
+            :param s3_file_system: A custom file system in Amazon S3. This is only supported in Amazon SageMaker Unified Studio.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-space-customfilesystem.html
             :exampleMetadata: fixture=_generated
@@ -45163,6 +48456,9 @@ class CfnSpace(
                     ),
                     f_sx_lustre_file_system=sagemaker.CfnSpace.FSxLustreFileSystemProperty(
                         file_system_id="fileSystemId"
+                    ),
+                    s3_file_system=sagemaker.CfnSpace.S3FileSystemProperty(
+                        s3_uri="s3Uri"
                     )
                 )
             '''
@@ -45170,11 +48466,14 @@ class CfnSpace(
                 type_hints = typing.get_type_hints(_typecheckingstub__176823f1400da84e6a74d99732efcbf76ba89110f7c5a78a8ea1c95faec9ef80)
                 check_type(argname="argument efs_file_system", value=efs_file_system, expected_type=type_hints["efs_file_system"])
                 check_type(argname="argument f_sx_lustre_file_system", value=f_sx_lustre_file_system, expected_type=type_hints["f_sx_lustre_file_system"])
+                check_type(argname="argument s3_file_system", value=s3_file_system, expected_type=type_hints["s3_file_system"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if efs_file_system is not None:
                 self._values["efs_file_system"] = efs_file_system
             if f_sx_lustre_file_system is not None:
                 self._values["f_sx_lustre_file_system"] = f_sx_lustre_file_system
+            if s3_file_system is not None:
+                self._values["s3_file_system"] = s3_file_system
 
         @builtins.property
         def efs_file_system(
@@ -45197,6 +48496,19 @@ class CfnSpace(
             '''
             result = self._values.get("f_sx_lustre_file_system")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSpace.FSxLustreFileSystemProperty"]], result)
+
+        @builtins.property
+        def s3_file_system(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSpace.S3FileSystemProperty"]]:
+            '''A custom file system in Amazon S3.
+
+            This is only supported in Amazon SageMaker Unified Studio.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-space-customfilesystem.html#cfn-sagemaker-space-customfilesystem-s3filesystem
+            '''
+            result = self._values.get("s3_file_system")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSpace.S3FileSystemProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -45838,6 +49150,61 @@ class CfnSpace(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnSpace.S3FileSystemProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_uri": "s3Uri"},
+    )
+    class S3FileSystemProperty:
+        def __init__(self, *, s3_uri: typing.Optional[builtins.str] = None) -> None:
+            '''A custom file system in Amazon S3.
+
+            This is only supported in Amazon SageMaker Unified Studio.
+
+            :param s3_uri: The Amazon S3 URI that specifies the location in S3 where files are stored, which is mounted within the Studio environment. For example: ``s3://<bucket-name>/<prefix>/`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-space-s3filesystem.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                s3_file_system_property = sagemaker.CfnSpace.S3FileSystemProperty(
+                    s3_uri="s3Uri"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fcfa63b737c3f25d46143be1e1fdb5a5014fe3771aa30c1275d9490e296c6c17)
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if s3_uri is not None:
+                self._values["s3_uri"] = s3_uri
+
+        @builtins.property
+        def s3_uri(self) -> typing.Optional[builtins.str]:
+            '''The Amazon S3 URI that specifies the location in S3 where files are stored, which is mounted within the Studio environment.
+
+            For example: ``s3://<bucket-name>/<prefix>/`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-space-s3filesystem.html#cfn-sagemaker-space-s3filesystem-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3FileSystemProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnSpace.SpaceAppLifecycleManagementProperty",
         jsii_struct_bases=[],
         name_mapping={"idle_settings": "idleSettings"},
@@ -46214,6 +49581,9 @@ class CfnSpace(
                         ),
                         f_sx_lustre_file_system=sagemaker.CfnSpace.FSxLustreFileSystemProperty(
                             file_system_id="fileSystemId"
+                        ),
+                        s3_file_system=sagemaker.CfnSpace.S3FileSystemProperty(
+                            s3_uri="s3Uri"
                         )
                     )],
                     jupyter_lab_app_settings=sagemaker.CfnSpace.SpaceJupyterLabAppSettingsProperty(
@@ -46596,6 +49966,9 @@ class CfnSpaceProps:
                         ),
                         f_sx_lustre_file_system=sagemaker.CfnSpace.FSxLustreFileSystemProperty(
                             file_system_id="fileSystemId"
+                        ),
+                        s3_file_system=sagemaker.CfnSpace.S3FileSystemProperty(
+                            s3_uri="s3Uri"
                         )
                     )],
                     jupyter_lab_app_settings=sagemaker.CfnSpace.SpaceJupyterLabAppSettingsProperty(
@@ -47119,6 +50492,10 @@ class CfnUserProfile(
         
                         # the properties below are optional
                         file_system_path="fileSystemPath"
+                    ),
+                    s3_file_system_config=sagemaker.CfnUserProfile.S3FileSystemConfigProperty(
+                        mount_path="mountPath",
+                        s3_uri="s3Uri"
                     )
                 )],
                 custom_posix_user_config=sagemaker.CfnUserProfile.CustomPosixUserConfigProperty(
@@ -47652,6 +51029,7 @@ class CfnUserProfile(
         name_mapping={
             "efs_file_system_config": "efsFileSystemConfig",
             "f_sx_lustre_file_system_config": "fSxLustreFileSystemConfig",
+            "s3_file_system_config": "s3FileSystemConfig",
         },
     )
     class CustomFileSystemConfigProperty:
@@ -47660,6 +51038,7 @@ class CfnUserProfile(
             *,
             efs_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.EFSFileSystemConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             f_sx_lustre_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.FSxLustreFileSystemConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.S3FileSystemConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The settings for assigning a custom file system to a user profile or space for an Amazon SageMaker AI Domain.
 
@@ -47667,6 +51046,7 @@ class CfnUserProfile(
 
             :param efs_file_system_config: The settings for a custom Amazon EFS file system.
             :param f_sx_lustre_file_system_config: The settings for a custom Amazon FSx for Lustre file system.
+            :param s3_file_system_config: Configuration settings for a custom Amazon S3 file system.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-customfilesystemconfig.html
             :exampleMetadata: fixture=_generated
@@ -47689,6 +51069,10 @@ class CfnUserProfile(
                 
                         # the properties below are optional
                         file_system_path="fileSystemPath"
+                    ),
+                    s3_file_system_config=sagemaker.CfnUserProfile.S3FileSystemConfigProperty(
+                        mount_path="mountPath",
+                        s3_uri="s3Uri"
                     )
                 )
             '''
@@ -47696,11 +51080,14 @@ class CfnUserProfile(
                 type_hints = typing.get_type_hints(_typecheckingstub__f9203bac8296e14f4fd4a11939d2779a8f543105b9af12bf358b4053c4256e4d)
                 check_type(argname="argument efs_file_system_config", value=efs_file_system_config, expected_type=type_hints["efs_file_system_config"])
                 check_type(argname="argument f_sx_lustre_file_system_config", value=f_sx_lustre_file_system_config, expected_type=type_hints["f_sx_lustre_file_system_config"])
+                check_type(argname="argument s3_file_system_config", value=s3_file_system_config, expected_type=type_hints["s3_file_system_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if efs_file_system_config is not None:
                 self._values["efs_file_system_config"] = efs_file_system_config
             if f_sx_lustre_file_system_config is not None:
                 self._values["f_sx_lustre_file_system_config"] = f_sx_lustre_file_system_config
+            if s3_file_system_config is not None:
+                self._values["s3_file_system_config"] = s3_file_system_config
 
         @builtins.property
         def efs_file_system_config(
@@ -47723,6 +51110,17 @@ class CfnUserProfile(
             '''
             result = self._values.get("f_sx_lustre_file_system_config")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserProfile.FSxLustreFileSystemConfigProperty"]], result)
+
+        @builtins.property
+        def s3_file_system_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserProfile.S3FileSystemConfigProperty"]]:
+            '''Configuration settings for a custom Amazon S3 file system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-customfilesystemconfig.html#cfn-sagemaker-userprofile-customfilesystemconfig-s3filesystemconfig
+            '''
+            result = self._values.get("s3_file_system_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserProfile.S3FileSystemConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -48929,6 +52327,76 @@ class CfnUserProfile(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnUserProfile.S3FileSystemConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"mount_path": "mountPath", "s3_uri": "s3Uri"},
+    )
+    class S3FileSystemConfigProperty:
+        def __init__(
+            self,
+            *,
+            mount_path: typing.Optional[builtins.str] = None,
+            s3_uri: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for the custom Amazon S3 file system.
+
+            :param mount_path: The file system path where the Amazon S3 storage location will be mounted within the Amazon SageMaker Studio environment.
+            :param s3_uri: The Amazon S3 URI of the S3 file system configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-s3filesystemconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                s3_file_system_config_property = sagemaker.CfnUserProfile.S3FileSystemConfigProperty(
+                    mount_path="mountPath",
+                    s3_uri="s3Uri"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__67a6547863fea4f8b6ea47a3a49a0708995437ec24a00c23a733bf75a11ee278)
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if mount_path is not None:
+                self._values["mount_path"] = mount_path
+            if s3_uri is not None:
+                self._values["s3_uri"] = s3_uri
+
+        @builtins.property
+        def mount_path(self) -> typing.Optional[builtins.str]:
+            '''The file system path where the Amazon S3 storage location will be mounted within the Amazon SageMaker Studio environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-s3filesystemconfig.html#cfn-sagemaker-userprofile-s3filesystemconfig-mountpath
+            '''
+            result = self._values.get("mount_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_uri(self) -> typing.Optional[builtins.str]:
+            '''The Amazon S3 URI of the S3 file system configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-s3filesystemconfig.html#cfn-sagemaker-userprofile-s3filesystemconfig-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3FileSystemConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnUserProfile.SharingSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -49244,6 +52712,10 @@ class CfnUserProfile(
                 
                             # the properties below are optional
                             file_system_path="fileSystemPath"
+                        ),
+                        s3_file_system_config=sagemaker.CfnUserProfile.S3FileSystemConfigProperty(
+                            mount_path="mountPath",
+                            s3_uri="s3Uri"
                         )
                     )],
                     custom_posix_user_config=sagemaker.CfnUserProfile.CustomPosixUserConfigProperty(
@@ -49673,6 +53145,10 @@ class CfnUserProfileProps:
             
                             # the properties below are optional
                             file_system_path="fileSystemPath"
+                        ),
+                        s3_file_system_config=sagemaker.CfnUserProfile.S3FileSystemConfigProperty(
+                            mount_path="mountPath",
+                            s3_uri="s3Uri"
                         )
                     )],
                     custom_posix_user_config=sagemaker.CfnUserProfile.CustomPosixUserConfigProperty(
@@ -50741,6 +54217,8 @@ __all__ = [
     "CfnPartnerAppProps",
     "CfnPipeline",
     "CfnPipelineProps",
+    "CfnProcessingJob",
+    "CfnProcessingJobProps",
     "CfnProject",
     "CfnProjectProps",
     "CfnSpace",
@@ -50975,10 +54453,11 @@ def _typecheckingstub__b1441bbec1bb60460bda62b43765e140885fbb36e13b090ded31c919b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    instance_groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]],
     cluster_name: typing.Optional[builtins.str] = None,
+    instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     node_recovery: typing.Optional[builtins.str] = None,
     orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OrchestratorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterRestrictedInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -50997,14 +54476,14 @@ def _typecheckingstub__23ff930ab861d82c5316349d3cb92e229dc76252f7fe321a81296dd80
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4e78b567f109d38ee1f8221168fe230f3c378e24d69dab4b08d88a01e417dae5(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterInstanceGroupProperty]]],
+def _typecheckingstub__8c72731c4fb9d1b248db78e05e403c022229ea39aa9884e7da88a1c9dd345bfb(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__8c72731c4fb9d1b248db78e05e403c022229ea39aa9884e7da88a1c9dd345bfb(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__4e78b567f109d38ee1f8221168fe230f3c378e24d69dab4b08d88a01e417dae5(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterInstanceGroupProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -51017,6 +54496,12 @@ def _typecheckingstub__4fbe65936cd747930256e6fb03ae406dcd4ea78b463b13ed47a475b84
 
 def _typecheckingstub__b28b5799cdd1c859107ae372c1215ec60b0e0936d622ea46ffde5ae876779722(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.OrchestratorProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb098436cfb738855f83865dfef39e1aa3903e59cbc86da6e0a424615a383a95(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterRestrictedInstanceGroupProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -51052,6 +54537,7 @@ def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd
     on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
     override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     threads_per_core: typing.Optional[jsii.Number] = None,
+    training_plan_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -51078,6 +54564,38 @@ def _typecheckingstub__3b374679c88beb50318d8d8daa787c0b2f669d656010f29c3a5f6b1e4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b93ff4f69c672c7cfa634445653e3f5eacc520b4a55f74e9e45bbbb13341f9df(
+    *,
+    environment_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EnvironmentConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    execution_role: builtins.str,
+    instance_count: jsii.Number,
+    instance_group_name: builtins.str,
+    instance_type: builtins.str,
+    current_count: typing.Optional[jsii.Number] = None,
+    instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
+    override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    threads_per_core: typing.Optional[jsii.Number] = None,
+    training_plan_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc27d48d9ce12a3a8b77600174f3c178fb77c02533f3f57c2bb456bb3ae5b159(
+    *,
+    f_sx_lustre_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.FSxLustreConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__899364a165a53139f902fa4a999dd968cdc29639285dacf831f16633b3f6765d(
+    *,
+    per_unit_storage_throughput: jsii.Number,
+    size_in_gib: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bd76c8323d4b86bae18d24faa04bdbae1945db1d8ba5ca351b2ce27ff07f8aa6(
     *,
     eks: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterOrchestratorEksConfigProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -51095,10 +54613,11 @@ def _typecheckingstub__c25c63e6108b86a8b4d868c1bea98ca33c486d394309500187dda4d53
 
 def _typecheckingstub__c8126a53dc1741a2edde75d8d4eca79c53a2294746ea237dfba0097a758522ce(
     *,
-    instance_groups: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]],
     cluster_name: typing.Optional[builtins.str] = None,
+    instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     node_recovery: typing.Optional[builtins.str] = None,
     orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OrchestratorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterRestrictedInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -51698,6 +55217,7 @@ def _typecheckingstub__acb2194c11b5367f9afdacac546d8288c9357d3ca5f49b7d828264eb2
     *,
     efs_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.EFSFileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     f_sx_lustre_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.FSxLustreFileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.S3FileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -51862,6 +55382,14 @@ def _typecheckingstub__a15c1a8a4f296645dbaf164af882f41bb1cf89c7585a52dc9b76a9ade
     lifecycle_config_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_version_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc968f8eba86423c0ab4b9c5d9c941726191bb6435a3e257ee5d2e94c8880bc8(
+    *,
+    mount_path: typing.Optional[builtins.str] = None,
+    s3_uri: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -55849,6 +59377,276 @@ def _typecheckingstub__ee8df4c15293c04f73c46e2e5fee2d90e75d42f64c79bb1242363ef89
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f5caa0fb2646fa1f3ce1e3bdbe163fb26bd7b3e5aa7475ce61a509e9a2b38852(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    app_specification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.AppSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
+    processing_resources: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingResourcesProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: builtins.str,
+    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    experiment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ExperimentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.NetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_inputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingInputsObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    processing_job_name: typing.Optional[builtins.str] = None,
+    processing_output_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingOutputConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stopping_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.StoppingConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6276bcd796187eee94eba8fb0db067d484b9e6c5a0b4e8c01bf0fbf1ed1d317(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57ec9199479048c018fda37cee809646d2aaef02f96cb34693ce9537aadc50e1(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d03969d9803c9b2dda1bd2da0cdd086b6c3a8512727b2dab4ec33670d70b59e(
+    value: typing.Union[_IResolvable_da3f097b, CfnProcessingJob.AppSpecificationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__babb3dc1d8efedda6ab90fffbab4c8438a591fd9d607051010237dd55621dac3(
+    value: typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ProcessingResourcesProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1bb0eb733cee7c27b86719b27a5d2c98a44d3b3fa07e8072aaeaa3fe34c814d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ec6c36462db4fd0a2763426765966dac6280d9738112bf9ea87574c6222b751(
+    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a51e6b5fcfc8150a3b2ea94755d05ee278a35573344f287167c60153611c4783(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ExperimentConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e14f0eb1968224ebf2c06774224136441a67f2ed46d3cc2bab4804d2073c2865(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.NetworkConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34ae1308160a03fb54e1475d36f6c92c354fb62ab6ce8023457008607ef9eb3b(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ProcessingInputsObjectProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ded4e00a9af1ff08b13a1ebd6d233c9c92b282a3141cc069c1fa1438d6be659(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa93d17f6cbfc13f185aca1b9eee163797cac6efb41991f4834196bb4b999ab0(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.ProcessingOutputConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__461c982f969a59a8459253bb180a54e79e972b6d6ed7157abb18b2b8b2c8e639(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProcessingJob.StoppingConditionProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a4dab12440697fbda4e9de872b507e99c9084c5ef56d57ee0a9980e1dd4618d(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d22629d168fddd999ddabe63169f27b86ccc9bc490cf680a0a756e1d813d7a4(
+    *,
+    image_uri: builtins.str,
+    container_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
+    container_entrypoint: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__601269090cf6404d63189cc17d8f5549dd3e2bb2ec163bb5a91469596cfb1c92(
+    *,
+    catalog: builtins.str,
+    database: builtins.str,
+    output_format: builtins.str,
+    output_s3_uri: builtins.str,
+    query_string: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    output_compression: typing.Optional[builtins.str] = None,
+    work_group: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59f0c74dd2f24d28ee1c4558ea7bffa837521c4821188aa77044d296498bef12(
+    *,
+    instance_count: jsii.Number,
+    instance_type: builtins.str,
+    volume_size_in_gb: jsii.Number,
+    volume_kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49c209bd437766640ba9f36c5f916347ab0aac3871e0a24580f41a569f8d5238(
+    *,
+    athena_dataset_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.AthenaDatasetDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    data_distribution_type: typing.Optional[builtins.str] = None,
+    input_mode: typing.Optional[builtins.str] = None,
+    local_path: typing.Optional[builtins.str] = None,
+    redshift_dataset_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.RedshiftDatasetDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee64af4e88ff8f0afb9a539c254f73bfa440af7dcf577fa56bd968762336e1d2(
+    *,
+    experiment_name: typing.Optional[builtins.str] = None,
+    run_name: typing.Optional[builtins.str] = None,
+    trial_component_display_name: typing.Optional[builtins.str] = None,
+    trial_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5d17149a5b3e1cfef33c729e767b6c6bfb8109d5016a5e9f0e7786887fa8593(
+    *,
+    feature_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__088c8829a92719c1a9cb46fe91642d2d6487e71fe399b645a4b747c3dba47a4e(
+    *,
+    enable_inter_container_traffic_encryption: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_network_isolation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93263a55dc28aa3c5be994254c6b8eb4dfed30cfd2096d14160e04cdd1d8a290(
+    *,
+    input_name: builtins.str,
+    app_managed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    dataset_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.DatasetDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.S3InputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15cca93c14468ad297710005474bb09ba13853a7a225ce22c2e86c2f03ca3b29(
+    *,
+    outputs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingOutputsObjectProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6cbb3af6f59a8656a62613193609086817d4cb1794c9ba948fd6f146b006acd(
+    *,
+    output_name: builtins.str,
+    app_managed: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    feature_store_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.FeatureStoreOutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_output: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.S3OutputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8f1e48dfa894835957026000dd3cedb8bafb1f9284b91c22f55e4f4f063bb4b(
+    *,
+    cluster_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b2dc21cea02d8b03ff23a05d65dad90d926b87a3065fe60082f44cbb54f2fe2(
+    *,
+    cluster_id: builtins.str,
+    cluster_role_arn: builtins.str,
+    database: builtins.str,
+    db_user: builtins.str,
+    output_format: builtins.str,
+    output_s3_uri: builtins.str,
+    query_string: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    output_compression: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5846608b145b8ed6f717a82be7debd841b09219f0e379ba826323359e1524f9(
+    *,
+    s3_data_type: builtins.str,
+    s3_uri: builtins.str,
+    local_path: typing.Optional[builtins.str] = None,
+    s3_compression_type: typing.Optional[builtins.str] = None,
+    s3_data_distribution_type: typing.Optional[builtins.str] = None,
+    s3_input_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ef0ba6aa55ad91dbfb6a65940c01d700330a66e4dc329cfde9cfeabe1a59066(
+    *,
+    s3_upload_mode: builtins.str,
+    s3_uri: builtins.str,
+    local_path: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d86a3902cd37b277b50d89615d44873a9557876c9605827de6dc16c5e7c924d8(
+    *,
+    max_runtime_in_seconds: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a47c8f6528ea9779b151d35d3bb96f1c43388e2916c0c25af3937d605d17427c(
+    *,
+    security_group_ids: typing.Sequence[builtins.str],
+    subnets: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c841bdeabe6eb0f21694d7661b9f6116b0889d3f055cd152271dc4be31d3368(
+    *,
+    app_specification: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.AppSpecificationProperty, typing.Dict[builtins.str, typing.Any]]],
+    processing_resources: typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingResourcesProperty, typing.Dict[builtins.str, typing.Any]]],
+    role_arn: builtins.str,
+    environment: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    experiment_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ExperimentConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.NetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    processing_inputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingInputsObjectProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    processing_job_name: typing.Optional[builtins.str] = None,
+    processing_output_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.ProcessingOutputConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stopping_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProcessingJob.StoppingConditionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__36d90c8a4de3ec6cd6aac98e8b78ab8d07ed4eaab37e59bd5a481048e098a352(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -56054,6 +59852,7 @@ def _typecheckingstub__176823f1400da84e6a74d99732efcbf76ba89110f7c5a78a8ea1c95fa
     *,
     efs_file_system: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSpace.EFSFileSystemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     f_sx_lustre_file_system: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSpace.FSxLustreFileSystemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_file_system: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSpace.S3FileSystemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -56118,6 +59917,13 @@ def _typecheckingstub__79b889d20ec4ee307fedce4172f7c39782dc99bf76625acfdf5b00983
     lifecycle_config_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_version_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcfa63b737c3f25d46143be1e1fdb5a5014fe3771aa30c1275d9490e296c6c17(
+    *,
+    s3_uri: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -56344,6 +60150,7 @@ def _typecheckingstub__f9203bac8296e14f4fd4a11939d2779a8f543105b9af12bf358b4053c
     *,
     efs_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.EFSFileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     f_sx_lustre_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.FSxLustreFileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    s3_file_system_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.S3FileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -56457,6 +60264,14 @@ def _typecheckingstub__cc1ee3123b0a892e07425456edfc4f4741a2535f730ca4bea63aade70
     lifecycle_config_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_arn: typing.Optional[builtins.str] = None,
     sage_maker_image_version_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67a6547863fea4f8b6ea47a3a49a0708995437ec24a00c23a733bf75a11ee278(
+    *,
+    mount_path: typing.Optional[builtins.str] = None,
+    s3_uri: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

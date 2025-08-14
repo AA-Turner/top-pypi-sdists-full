@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.38.1
+# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.39.0
 
-This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform azurerm provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1)
+* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -181,6 +181,7 @@ __all__ = [
     "api_management_product_policy",
     "api_management_product_tag",
     "api_management_redis_cache",
+    "api_management_standalone_gateway",
     "api_management_subscription",
     "api_management_tag",
     "api_management_user",
@@ -497,6 +498,7 @@ __all__ = [
     "data_azurerm_elastic_san_volume_snapshot",
     "data_azurerm_eventgrid_domain",
     "data_azurerm_eventgrid_domain_topic",
+    "data_azurerm_eventgrid_partner_namespace",
     "data_azurerm_eventgrid_partner_registration",
     "data_azurerm_eventgrid_system_topic",
     "data_azurerm_eventgrid_topic",
@@ -891,6 +893,7 @@ __all__ = [
     "eventgrid_event_subscription",
     "eventgrid_namespace",
     "eventgrid_partner_configuration",
+    "eventgrid_partner_namespace",
     "eventgrid_partner_registration",
     "eventgrid_system_topic",
     "eventgrid_system_topic_event_subscription",
@@ -1251,6 +1254,7 @@ __all__ = [
     "postgresql_firewall_rule",
     "postgresql_flexible_server",
     "postgresql_flexible_server_active_directory_administrator",
+    "postgresql_flexible_server_backup",
     "postgresql_flexible_server_configuration",
     "postgresql_flexible_server_database",
     "postgresql_flexible_server_firewall_rule",
@@ -1680,6 +1684,7 @@ from . import api_management_product_group
 from . import api_management_product_policy
 from . import api_management_product_tag
 from . import api_management_redis_cache
+from . import api_management_standalone_gateway
 from . import api_management_subscription
 from . import api_management_tag
 from . import api_management_user
@@ -1996,6 +2001,7 @@ from . import data_azurerm_elastic_san_volume_group
 from . import data_azurerm_elastic_san_volume_snapshot
 from . import data_azurerm_eventgrid_domain
 from . import data_azurerm_eventgrid_domain_topic
+from . import data_azurerm_eventgrid_partner_namespace
 from . import data_azurerm_eventgrid_partner_registration
 from . import data_azurerm_eventgrid_system_topic
 from . import data_azurerm_eventgrid_topic
@@ -2390,6 +2396,7 @@ from . import eventgrid_domain_topic
 from . import eventgrid_event_subscription
 from . import eventgrid_namespace
 from . import eventgrid_partner_configuration
+from . import eventgrid_partner_namespace
 from . import eventgrid_partner_registration
 from . import eventgrid_system_topic
 from . import eventgrid_system_topic_event_subscription
@@ -2750,6 +2757,7 @@ from . import postgresql_database
 from . import postgresql_firewall_rule
 from . import postgresql_flexible_server
 from . import postgresql_flexible_server_active_directory_administrator
+from . import postgresql_flexible_server_backup
 from . import postgresql_flexible_server_configuration
 from . import postgresql_flexible_server_database
 from . import postgresql_flexible_server_firewall_rule

@@ -212,7 +212,6 @@ from .payment_required_error_body import PaymentRequiredErrorBody
 from .pip_requirement import PipRequirement
 from .provider import Provider
 from .provider_category import ProviderCategory
-from .provider_check import ProviderCheck
 from .provider_trace import ProviderTrace
 from .provider_type import ProviderType
 from .reasoning_content import ReasoningContent
@@ -246,6 +245,7 @@ from .sse_server_config import SseServerConfig
 from .stdio_server_config import StdioServerConfig
 from .step import Step
 from .step_feedback import StepFeedback
+from .step_metrics import StepMetrics
 from .step_status import StepStatus
 from .stop_reason_type import StopReasonType
 from .streamable_http_server_config import StreamableHttpServerConfig
@@ -498,7 +498,6 @@ __all__ = [
     "PipRequirement",
     "Provider",
     "ProviderCategory",
-    "ProviderCheck",
     "ProviderTrace",
     "ProviderType",
     "ReasoningContent",
@@ -532,6 +531,7 @@ __all__ = [
     "StdioServerConfig",
     "Step",
     "StepFeedback",
+    "StepMetrics",
     "StepStatus",
     "StopReasonType",
     "StreamableHttpServerConfig",

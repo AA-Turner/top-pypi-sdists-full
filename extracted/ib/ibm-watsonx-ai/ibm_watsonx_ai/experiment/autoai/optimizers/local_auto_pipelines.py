@@ -9,43 +9,46 @@ import uuid
 from contextlib import redirect_stdout
 from inspect import signature
 from time import gmtime, strftime
-from typing import Union, List, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Tuple, Union
 from warnings import filterwarnings
 
 from numpy import ndarray
-from pandas import DataFrame
-from pandas import Series
+from pandas import DataFrame, Series
+
 from ibm_watsonx_ai.utils.autoai.enums import (
-    PredictionType,
     Directions,
     MetricsToDirections,
     PipelineTypes,
+    PredictionType,
 )
 from ibm_watsonx_ai.utils.autoai.errors import FitNeeded
 from ibm_watsonx_ai.utils.autoai.local_training_message_handler import (
     LocalTrainingMessageHandler,
 )
 from ibm_watsonx_ai.utils.autoai.utils import (
-    try_import_lale,
     create_summary,
     download_experiment_details_from_file,
     prepare_model_location_path,
     try_import_joblib,
+    try_import_lale,
 )
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 from .base_auto_pipelines import BaseAutoPipelines
 
 if TYPE_CHECKING:
+    from ai4ml.joint_optimizers.prep_daub_cog_opt import PrepDaubCogOptEstimator
+    from ibm_boto3 import resource
+    from lale.operators import TrainablePipeline
+    from sklearn.pipeline import Pipeline
+
+    from ibm_watsonx_ai.helpers import DataConnection
     from ibm_watsonx_ai.utils.autoai.enums import (
-        Metrics,
         ClassificationAlgorithms,
+        Metrics,
         RegressionAlgorithms,
         Transformers,
     )
-    from ibm_watsonx_ai.helpers import DataConnection
-    from sklearn.pipeline import Pipeline
-    from ibm_boto3 import resource
 
 __all__ = ["LocalAutoPipelines"]
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -119,7 +122,6 @@ class LocalAutoPipelines(BaseAutoPipelines):
         _force_local_scenario: bool = False,
         **_additional_params,
     ):
-
         self._force_local_scenario = _force_local_scenario
         self._training_data_reference = None
         self._training_result_reference = None
@@ -135,10 +137,12 @@ class LocalAutoPipelines(BaseAutoPipelines):
             # Disable printing to suppress warnings from ai4ml
             with redirect_stdout(open(os.devnull, "w")):
                 try:
-                    from ai4ml.joint_optimizers.prep_daub_cog_opt import (
-                        PrepDaubCogOptEstimator,
+                    from ai4ml.joint_optimizers.prep_daub_cog_opt import (  # noqa: E402
+                        PrepDaubCogOptEstimator,  # noqa: F401
                     )
-                    from ai4ml.utils.ai4ml_status import StatusMessageHandler
+                    from ai4ml.utils.ai4ml_status import (
+                        StatusMessageHandler,  # noqa: E402, F401
+                    )
 
                 except ModuleNotFoundError:
                     raise ModuleNotFoundError(

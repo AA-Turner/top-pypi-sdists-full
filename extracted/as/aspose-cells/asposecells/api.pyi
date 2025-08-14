@@ -6826,6 +6826,49 @@ class ChartCollection:
         raise NotImplementedError()
 
 
+class ChartColorPaletteType:
+    '''Enumerates all Monochromatic Palettes used in Excel chart.'''
+
+    MONOCHROMATIC_PALETTE_1 : ChartColorPaletteType
+    '''accent1 theme color gradient, dark to light.'''
+
+    MONOCHROMATIC_PALETTE_2 : ChartColorPaletteType
+    '''accent2 theme color gradient, dark to light.'''
+
+    MONOCHROMATIC_PALETTE_3 : ChartColorPaletteType
+    '''accent3 theme color gradient, dark to light.'''
+
+    MONOCHROMATIC_PALETTE_4 : ChartColorPaletteType
+    '''accent4 theme color gradient, dark to light.'''
+
+    MONOCHROMATIC_PALETTE_5 : ChartColorPaletteType
+    '''accent5 theme color gradient, dark to light.'''
+
+    MONOCHROMATIC_PALETTE_6 : ChartColorPaletteType
+    '''accent6 theme color gradient, dark to light.'''
+
+    MONOCHROMATIC_PALETTE_7 : ChartColorPaletteType
+    '''accent7 theme color gradient.'''
+
+    MONOCHROMATIC_PALETTE_8 : ChartColorPaletteType
+    '''accent1 theme color gradient, light to dark.'''
+
+    MONOCHROMATIC_PALETTE_9 : ChartColorPaletteType
+    '''accent2 theme color gradient, light to dark.'''
+
+    MONOCHROMATIC_PALETTE_10 : ChartColorPaletteType
+    '''accent3 theme color gradient, light to dark.'''
+
+    MONOCHROMATIC_PALETTE_11 : ChartColorPaletteType
+    '''accent4 theme color gradient, light to dark.'''
+
+    MONOCHROMATIC_PALETTE_12 : ChartColorPaletteType
+    '''accent5 theme color gradient, light to dark.'''
+
+    MONOCHROMATIC_PALETTE_13 : ChartColorPaletteType
+    '''accent6 theme color gradient, light to dark.'''
+
+
 class ChartDataTable:
     '''Represents a chart data table.'''
 
@@ -12114,7 +12157,7 @@ class DefaultStyleSettings:
         raise NotImplementedError()
 
     def getBuiltInPreference(self) -> bool:
-        '''Indicates whether property for number format is preferrable when the style defines both built-in number and custom pattern.
+        '''Indicates whether property for number format is preferable when the style defines both built-in number and custom pattern.
         Default value is false, that means by default custom pattern will be used to format values as long as it is not empty for one style.'''
         raise NotImplementedError()
 
@@ -12124,7 +12167,7 @@ class DefaultStyleSettings:
         raise NotImplementedError()
 
     def setBuiltInPreference(self, value : bool) -> None:
-        '''Indicates whether property for number format is preferrable when the style defines both built-in number and custom pattern.
+        '''Indicates whether property for number format is preferable when the style defines both built-in number and custom pattern.
         Default value is false, that means by default custom pattern will be used to format values as long as it is not empty for one style.
         :param value: '''
         raise NotImplementedError()
@@ -22125,7 +22168,7 @@ class LoadOptions:
         raise NotImplementedError()
 
     def setMemorySetting(self, value : int) -> None:
-        '''Sets the memory usage options.
+        '''Sets the memory mode for loaded workbook.
         See :class:`MemorySetting`
         :param value: '''
         raise NotImplementedError()
@@ -22215,7 +22258,7 @@ class LoadOptions:
         raise NotImplementedError()
 
     def getMemorySetting(self) -> int:
-        '''Gets the memory usage options.
+        '''Gets the memory mode for loaded workbook.
         See :class:`MemorySetting`'''
         raise NotImplementedError()
 
@@ -22852,16 +22895,30 @@ class MapChartRegionType:
     '''World.'''
 
 
+class MarkdownLoadOptions:
+    '''Represents the options for loading markdown document.'''
+
+    def setHasFormula(self, value : bool) -> None:
+        '''Indicates whether the text is formula if it starts with "=".
+        :param value: '''
+        raise NotImplementedError()
+
+    def hasFormula(self) -> bool:
+        '''Indicates whether the text is formula if it starts with "=".'''
+        raise NotImplementedError()
+
+
 class MarkdownSaveOptions:
     '''Represents the save options for markdown.'''
 
     def setExportImagesAsBase64(self, value : bool) -> None:
         '''Specifies whether images are saved in Base64 format to Markdown.
+        The default value is true.
         :param value: '''
         raise NotImplementedError()
 
     def getCalculateFormula(self) -> bool:
-        '''Indicates whether to calculate formulas before saving html file.'''
+        '''Indicates whether to calculate formulas before saving markdown file.'''
         raise NotImplementedError()
 
     def getEncoding(self) -> Encoding:
@@ -22879,7 +22936,7 @@ class MarkdownSaveOptions:
         raise NotImplementedError()
 
     def setCalculateFormula(self, value : bool) -> None:
-        '''Indicates whether to calculate formulas before saving html file.
+        '''Indicates whether to calculate formulas before saving markdown file.
         :param value: '''
         raise NotImplementedError()
 
@@ -22910,7 +22967,8 @@ class MarkdownSaveOptions:
         raise NotImplementedError()
 
     def getExportImagesAsBase64(self) -> bool:
-        '''Specifies whether images are saved in Base64 format to Markdown.'''
+        '''Specifies whether images are saved in Base64 format to Markdown.
+        The default value is true.'''
         raise NotImplementedError()
 
     def getImageOptions(self) -> ImageOrPrintOptions:
@@ -22932,11 +22990,13 @@ class MarkdownSaveOptions:
         raise NotImplementedError()
 
     def getStreamProvider(self) -> IStreamProvider:
-        '''Gets the IStreamProvider for exporting objects.'''
+        '''Gets the IStreamProvider for exporting objects.
+        If <code>null</code>, the exported objects will be saved to the same directory as the output file.'''
         raise NotImplementedError()
 
     def setStreamProvider(self, value : IStreamProvider) -> None:
         '''Sets the IStreamProvider for exporting objects.
+        If <code>null</code>, the exported objects will be saved to the same directory as the output file.
         :param value: '''
         raise NotImplementedError()
 
@@ -23097,10 +23157,10 @@ class MemorySetting:
     '''Default mode for cells model.'''
 
     MEMORY_PREFERENCE : MemorySetting
-    '''Memory performance preferrable.'''
+    '''Memory performance preferable.'''
 
     FILE_CACHE : MemorySetting
-    '''Memory performance preferrable and using file instead of memory
+    '''Memory performance preferable and using file instead of memory
     to maintain the cells data.'''
 
 
@@ -26537,6 +26597,11 @@ class PasteOptions:
         :param value: '''
         raise NotImplementedError()
 
+    def setKeepOldTables(self, value : bool) -> None:
+        '''Keeps the tables in the destination range.
+        :param value: '''
+        raise NotImplementedError()
+
     def getPasteType(self) -> int:
         '''The paste special type.
         See :class:`PasteType`'''
@@ -26564,6 +26629,10 @@ class PasteOptions:
     def setOnlyVisibleCells(self, value : bool) -> None:
         '''True means only copying visible cells.
         :param value: '''
+        raise NotImplementedError()
+
+    def getKeepOldTables(self) -> bool:
+        '''Keeps the tables in the destination range.'''
         raise NotImplementedError()
 
 
@@ -33877,7 +33946,7 @@ class Row:
         '''Gets an enumerator that iterates cells through this row.
         :param reversed: whether enumerate cells in reversed order
         :param sync: whether the returned enumerator should check the modification of cells in this row
-        :returns: The cell enumerator'''
+        :returns: The cells enumerator which will traverse all existing cells in this row.'''
         raise NotImplementedError()
 
     def getLastCell(self) -> Cell:
@@ -33947,7 +34016,7 @@ class RowCollection:
         '''Gets an enumerator that iterates rows through this collection
         :param reversed: whether enumerate rows in reversed order
         :param sync: whether the returned enumerator should check the modification of row collection
-        :returns: The row enumerator'''
+        :returns: The row enumerator which will traverse all existing rows in this collection.'''
         raise NotImplementedError()
 
 
@@ -34994,6 +35063,11 @@ class SeriesCollection:
         '''Gets the :class:`Series` element at the specified index.
         :param index: The zero based index of the element.
         :returns: The element at the specified index.'''
+        raise NotImplementedError()
+
+    def changeColors(self, type : int) -> None:
+        '''Set Monochromatic Palette for chart series.
+        :param type: :class:`ChartColorPaletteType`. The Monochromatic Type.'''
         raise NotImplementedError()
 
     def changeSeriesOrder(self, sourceIndex : int, destIndex : int) -> None:
@@ -37198,7 +37272,7 @@ class ShapePath:
 
     def lineTo(self, x : float, y : float) -> None:
         '''Appends a line segment to the current figure.
-        The starting point is the end point of the current figure.
+        The starting point is the end point of the current figure.Unit: Pixel.
         :param x: The x-coordinate of the endpoint of the line segment(Unit: Pixel).
         :param y: The y-coordinate of the endpoint of the line segment(Unit: Pixel).'''
         raise NotImplementedError()
@@ -37211,12 +37285,12 @@ class ShapePath:
         '''Appends an elliptical arc to the current figure. The starting point is the end point of the current figure.
         :param wR: The half-width of the rectangular area of 鈥嬧€媡he ellipse that draws the arc(Unit: Pixel).
         :param hR: The half-height of the rectangular area of 鈥嬧€媡he ellipse that draws the arc(Unit: Pixel).
-        :param stAng: The starting angle of the arc, measured in degrees clockwise from the x-axis(Unit: Degree).
-        :param swAng: The angle between startAngle and the end of the arc.(Unit: Degree)'''
+        :param stAng: The starting angle of the arc, measured in degrees clockwise from the x-axis(Unit: Degree). This angle will specify what angle along the supposed circle path will be used as the start position for drawing the arc. This start angle will be locked to the last known pen position in the shape path. Thus guaranteeing a continuos shape path.
+        :param swAng: The swing angle for an arc. This angle will specify how far angle-wise along the supposed cicle path the arc will be extended. The extension from the start angle will always be in the clockwise direction around the supposed circle.(Unit: Degree)'''
         raise NotImplementedError()
 
     def cubicBezierTo(self, ctrX1 : float, ctrY1 : float, ctrX2 : float, ctrY2 : float, endX : float, endY : float) -> None:
-        '''Appends a cubic B茅zier curve to the current figure. The starting point is the end point of the current figure.
+        '''Appends a cubic B茅zier curve to the current figure. The starting point is the end point of the current figure.Unit: Pixel.
         :param ctrX1: The x-coordinate of the first control point for the curve(Unit: Pixel).
         :param ctrY1: The y-coordinate of the first control point for the curve(Unit: Pixel).
         :param ctrX2: The x-coordinate of the second control point for the curve(Unit: Pixel).
@@ -37240,7 +37314,7 @@ class ShapePath:
         raise NotImplementedError()
 
     def moveTo(self, x : float, y : float) -> None:
-        '''Starts a new figure from the specified point without closing the current figure. All subsequent points added to the path are added to this new figure.
+        '''Starts a new figure from the specified point without closing the current figure. All subsequent points added to the path are added to this new figure.Unit: Pixel.
         :param x: The x-coordinate of the starting point of the figure(Unit: Pixel).
         :param y: The y-coordinate of the starting point of the figure(Unit: Pixel).'''
         raise NotImplementedError()
@@ -37269,23 +37343,64 @@ class ShapePathCollection:
 
 
 class ShapePathPoint:
-    '''Represents an x-y coordinate within the path coordinate space.'''
+    '''Specify position coordinates or angle markers.
+    Position coordinates represent the coordinates of a path in a coordinate space (e.g. X/Y).
+    Angle markers indicate angular changes in a path (e.g. the start and swing angles of an arc).'''
 
-    def getY(self) -> int:
-        '''Gets y coordinate for this position coordinate.'''
+    def getXPixel(self) -> int:
+        '''When the object is a position coordinate, get or set the x coordinate in pixels.'''
         raise NotImplementedError()
 
-    def getX(self) -> int:
-        '''Gets x coordinate for this position coordinate.'''
+    def getXAngle(self) -> int:
+        '''When the object is an angle marker, get or set the first angle in degrees.'''
         raise NotImplementedError()
 
-    def setY(self, value : int) -> None:
-        '''Gets y coordinate for this position coordinate.
+    def setXPixel(self, value : int) -> None:
+        '''When the object is a position coordinate, get or set the x coordinate in pixels.
         :param value: '''
         raise NotImplementedError()
 
+    def getYPixel(self) -> int:
+        '''When the object is a position coordinate, get or set the y coordinate in pixels.'''
+        raise NotImplementedError()
+
+    def setXAngle(self, value : int) -> None:
+        '''When the object is an angle marker, get or set the first angle in degrees.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getType(self) -> int:
+        '''Specifies the value type of the current object.
+        See :class:`ShapePathPointValueType`'''
+        raise NotImplementedError()
+
+    def getYAngle(self) -> int:
+        '''When the object is an angle marker, get or set the second angle in degrees.'''
+        raise NotImplementedError()
+
+    def setY(self, value : int) -> None:
+        ''':deprecated: Use ShapePathPoint.YPixel and ShapePathPoint.YAngle properties instead.'''
+        raise NotImplementedError()
+
     def setX(self, value : int) -> None:
-        '''Sets x coordinate for this position coordinate.
+        ''':deprecated: Use ShapePathPoint.XPixel and ShapePathPoint.XAngle properties instead.'''
+        raise NotImplementedError()
+
+    def setYPixel(self, value : int) -> None:
+        '''When the object is a position coordinate, get or set the y coordinate in pixels.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getY(self) -> int:
+        ''':deprecated: Use ShapePathPoint.YPixel and ShapePathPoint.YAngle properties instead.'''
+        raise NotImplementedError()
+
+    def getX(self) -> int:
+        ''':deprecated: Use ShapePathPoint.XPixel and ShapePathPoint.XAngle properties instead.'''
+        raise NotImplementedError()
+
+    def setYAngle(self, value : int) -> None:
+        '''When the object is an angle marker, get or set the second angle in degrees.
         :param value: '''
         raise NotImplementedError()
 
@@ -37300,10 +37415,20 @@ class ShapePathPointCollection:
         raise NotImplementedError()
 
     def add(self, x : int, y : int) -> int:
-        '''Adds a path point.
-        :param x: The x coordinate.
-        :param y: The y coordinate.'''
+        ''':deprecated: Use the MoveTo,LineTo,CubicBezierTo and ArcTo methods in ShapePath instead.'''
         raise NotImplementedError()
+
+
+class ShapePathPointValueType:
+    '''Specifies the value type of :class:`ShapePathPoint` object'''
+
+    POSITION : ShapePathPointValueType
+    '''Specifies the type of the object is location coordinates.
+    The :class:`ShapePathPoint` object stores the coordinate values of a point.'''
+
+    ANGLE : ShapePathPointValueType
+    '''Specifies the type of the object is angle markers.
+    The :class:`ShapePathPoint` object stores the start and end angles of the arc.'''
 
 
 class ShapePathType:
@@ -46210,14 +46335,14 @@ class WorkbookDesigner:
         '''Indicates whether formulas should be calculated.'''
         raise NotImplementedError()
 
-    def setJsonDataSource(self, variable : str, data : str) -> None:
-        '''
-        :param variable: 
-        :param data: '''
+    def setJsonDataSource(self, name : str, json : str) -> None:
+        '''Set json string value as data source of smart markers.
+        :param name: The name of the table.
+        :param json: The value of Json string.'''
         raise NotImplementedError()
 
     def getLineByLine(self) -> bool:
-        '''Indicates whether processing the smart marker line by line.'''
+        ''':deprecated: Use range smart markers instead.'''
         raise NotImplementedError()
 
     def clearDataSource(self) -> None:
@@ -46265,8 +46390,7 @@ class WorkbookDesigner:
         raise NotImplementedError()
 
     def setLineByLine(self, value : bool) -> None:
-        '''Indicates whether processing the smart marker line by line.
-        :param value: '''
+        ''':deprecated: Use range smart markers instead.'''
         raise NotImplementedError()
 
     def getWorkbook(self) -> Workbook:
@@ -46290,6 +46414,11 @@ class WorkbookDesigner:
         '''Gets callback interface of processing smartmarker.'''
         raise NotImplementedError()
 
+    def setSortDataSource(self, value : bool) -> None:
+        '''Indicates whether sorting data source.
+        :param value: '''
+        raise NotImplementedError()
+
     def setWorkbook(self, value : Workbook) -> None:
         '''Sets the :class:`Workbook` object.
         :param value: '''
@@ -46301,9 +46430,7 @@ class WorkbookDesigner:
 
     @overload
     def process(self, range : Range, isPreserved : bool) -> None:
-        '''Processes the smart markers and populates the data source values.
-        :param range: The range to be processed
-        :param isPreserved: True if the unrecognized smart marker is preserved.'''
+        ''':deprecated: Use Range smart markers instead.'''
         raise NotImplementedError()
 
     @overload
@@ -46346,6 +46473,10 @@ class WorkbookDesigner:
 
     def containsVariables(self) -> bool:
         '''Indicates whether the first worksheet contains custom variables.'''
+        raise NotImplementedError()
+
+    def getSortDataSource(self) -> bool:
+        '''Indicates whether sorting data source.'''
         raise NotImplementedError()
 
 
@@ -46579,6 +46710,10 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
+    def getSmartTagOptions(self) -> SmartTagOptions:
+        '''Gets the options of the smart tag.'''
+        raise NotImplementedError()
+
     def getRegion(self) -> int:
         '''Gets the regional settings for workbook.
         See :class:`CountryCode`'''
@@ -46800,12 +46935,12 @@ class WorkbookSettings:
         :param value: '''
         raise NotImplementedError()
 
-    def isEncrypted(self) -> bool:
-        '''Gets a value that indicates whether a password is required to open this workbook.'''
-        raise NotImplementedError()
-
     def getWindowTop(self) -> int:
         '''The distance from the top edge of the client area to the top edge of the window, in unit of point.'''
+        raise NotImplementedError()
+
+    def isEncrypted(self) -> bool:
+        '''Gets a value that indicates whether a password is required to open this workbook.'''
         raise NotImplementedError()
 
     def getNumberDecimalSeparator(self) -> str:

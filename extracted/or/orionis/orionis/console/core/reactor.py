@@ -7,8 +7,8 @@ from orionis.app import Orionis
 from orionis.console.args.argument import CLIArgument
 from orionis.console.base.command import BaseCommand
 from orionis.console.base.contracts.command import IBaseCommand
+from orionis.console.output.contracts.console import IConsole
 from orionis.console.output.contracts.executor import IExecutor
-from orionis.console.output.executor import Executor
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.introspection.modules.reflection import ReflectionModule
 import re
@@ -65,6 +65,9 @@ class Reactor:
 
         # Initialize the executor for command output management
         self.__executer: IExecutor = self.__app.make('x-orionis.console.output.executor')
+
+        # Initialize the console for command output
+        self.__console: IConsole = self.__app.make('x-orionis.console.output.console')
 
     def __loadCommands(self, commands_path: str, root_path: str) -> None:
         """
@@ -401,9 +404,18 @@ class Reactor:
         try:
 
             # Create an instance of the command class and execute it
-            command_instance: IBaseCommand = command_class()
-            command_instance._args = vars(parsed_args) if parsed_args else {}
-            output =  command_instance.handle(self.__app.make('x-orionis.services.inspirational.inspire'))
+            command_instance: IBaseCommand = self.__app.make(command_class)
+
+            # If arguments were parsed, set them on the command instance
+            if isinstance(parsed_args, argparse.Namespace):
+                command_instance._args = vars(parsed_args)
+            elif isinstance(parsed_args, dict):
+                command_instance._args = parsed_args
+            else:
+                command_instance._args = {}
+
+            # Call the handle method of the command instance
+            output =  self.__app.call(command_instance, 'handle')
 
             # Log the command execution completion with DONE state
             if timestamps:
@@ -415,6 +427,9 @@ class Reactor:
                 return output
 
         except Exception as e:
+
+            # Display the error message in the console
+            self.__console.error(f"An error occurred while executing command '{signature}': {e}", timestamp=False)
 
             # Log the command execution failure with ERROR state
             if timestamps:

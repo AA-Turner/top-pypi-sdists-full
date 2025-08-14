@@ -3,6 +3,8 @@ from typing import List
 from urllib.parse import quote
 
 import click
+from loguru import logger
+
 from gable.api.client import GableAPIClient
 from gable.cli.commands.asset_plugins.avro import AvroAssetPlugin
 from gable.cli.commands.asset_plugins.baseclass import (
@@ -31,7 +33,6 @@ from gable.openapi import (
     ResolvedDataAsset,
     SourceType,
 )
-from loguru import logger
 
 GENERIC_REGISTER_OPTION_KEYS = set(["dry_run"])
 

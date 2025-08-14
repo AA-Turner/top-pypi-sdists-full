@@ -54,6 +54,15 @@ class StandardCapabilityName(str, Enum):
     TRANSFER_DATA = 'transfer_data'
     RELEASE_RESOURCES = 'release_resources'
     DOWNGRADE_LICENSE = 'downgrade_license'
+    ASSIGN_APPLICATION = 'assign_application'
+    GET_APPLICATION = 'get_application'
+    GET_APPLICATION_ACCOUNT = 'get_application_account'
+    LIST_APPLICATIONS = 'list_applications'
+    LIST_APPLICATIONS_ACCOUNTS = 'list_applications_accounts'
+    LIST_APPLICATIONS_ACTIVITY_RECORDS = 'list_applications_activity_records'
+    LIST_APPLICATIONS_ENTITLEMENTS = 'list_applications_entitlements'
+    LIST_APPLICATIONS_RESOURCES = 'list_applications_resources'
+    UNASSIGN_APPLICATION = 'unassign_application'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

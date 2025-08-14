@@ -1,7 +1,7 @@
 r'''
 # `data_azuread_application_template`
 
-Refer to the Terraform Registry for docs: [`data_azuread_application_template`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template).
+Refer to the Terraform Registry for docs: [`data_azuread_application_template`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzureadApplicationTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.dataAzureadApplicationTemplate.DataAzureadApplicationTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template azuread_application_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template azuread_application_template}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataAzureadApplicationTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template azuread_application_template} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template azuread_application_template} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The display name for the application template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#display_name DataAzureadApplicationTemplate#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#id DataAzureadApplicationTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param template_id: The application template's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#template_id DataAzureadApplicationTemplate#template_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#timeouts DataAzureadApplicationTemplate#timeouts}
+        :param display_name: The display name for the application template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#display_name DataAzureadApplicationTemplate#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#id DataAzureadApplicationTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param template_id: The application template's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#template_id DataAzureadApplicationTemplate#template_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#timeouts DataAzureadApplicationTemplate#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataAzureadApplicationTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzureadApplicationTemplate to import.
-        :param import_from_id: The id of the existing DataAzureadApplicationTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzureadApplicationTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzureadApplicationTemplate to import is found.
         '''
         if __debug__:
@@ -126,7 +126,7 @@ class DataAzureadApplicationTemplate(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#read DataAzureadApplicationTemplate#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#read DataAzureadApplicationTemplate#read}.
         '''
         value = DataAzureadApplicationTemplateTimeouts(read=read)
 
@@ -296,10 +296,10 @@ class DataAzureadApplicationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The display name for the application template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#display_name DataAzureadApplicationTemplate#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#id DataAzureadApplicationTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param template_id: The application template's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#template_id DataAzureadApplicationTemplate#template_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#timeouts DataAzureadApplicationTemplate#timeouts}
+        :param display_name: The display name for the application template. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#display_name DataAzureadApplicationTemplate#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#id DataAzureadApplicationTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param template_id: The application template's ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#template_id DataAzureadApplicationTemplate#template_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#timeouts DataAzureadApplicationTemplate#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -410,14 +410,14 @@ class DataAzureadApplicationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name for the application template.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#display_name DataAzureadApplicationTemplate#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#display_name DataAzureadApplicationTemplate#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#id DataAzureadApplicationTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#id DataAzureadApplicationTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -429,7 +429,7 @@ class DataAzureadApplicationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def template_id(self) -> typing.Optional[builtins.str]:
         '''The application template's ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#template_id DataAzureadApplicationTemplate#template_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#template_id DataAzureadApplicationTemplate#template_id}
         '''
         result = self._values.get("template_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -438,7 +438,7 @@ class DataAzureadApplicationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["DataAzureadApplicationTemplateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#timeouts DataAzureadApplicationTemplate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#timeouts DataAzureadApplicationTemplate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzureadApplicationTemplateTimeouts"], result)
@@ -463,7 +463,7 @@ class DataAzureadApplicationTemplateConfig(_cdktf_9a9027ec.TerraformMetaArgument
 class DataAzureadApplicationTemplateTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#read DataAzureadApplicationTemplate#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#read DataAzureadApplicationTemplate#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61a922a2c2f5fe31a0ae08fb2c412160050d7c9b9ae9d228c7155aae506c7882)
@@ -474,7 +474,7 @@ class DataAzureadApplicationTemplateTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/application_template#read DataAzureadApplicationTemplate#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/application_template#read DataAzureadApplicationTemplate#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

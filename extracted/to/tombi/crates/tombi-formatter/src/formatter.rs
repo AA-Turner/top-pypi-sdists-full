@@ -48,7 +48,7 @@ impl<'a> Formatter<'a> {
 
     /// Format a TOML document and return the result as a string
     pub async fn format(mut self, source: &str) -> Result<String, Vec<Diagnostic>> {
-        let (source_schema, root_comment_directive) = if let Some(parsed) =
+        let (source_schema, document_tombi_comment_directive) = if let Some(parsed) =
             tombi_parser::parse_document_header_comments(source).cast::<tombi_ast::Root>()
         {
             let root = parsed.tree();
@@ -58,13 +58,13 @@ impl<'a> Formatter<'a> {
                     .await
                     .ok()
                     .flatten(),
-                tombi_comment_directive::get_root_comment_directive(&root).await,
+                tombi_comment_directive::get_document_tombi_comment_directive(&root).await,
             )
         } else {
             (None, None)
         };
 
-        self.toml_version = root_comment_directive
+        self.toml_version = document_tombi_comment_directive
             .and_then(|directive| directive.toml_version)
             .unwrap_or_else(|| {
                 source_schema
@@ -89,8 +89,14 @@ impl<'a> Formatter<'a> {
                 diagnostics
             })?;
 
+        let source_path = self.source_url_or_path.and_then(|path| match path {
+            Either::Left(url) => url.to_file_path().ok(),
+            Either::Right(path) => Some(path.to_path_buf()),
+        });
+
         let root = tombi_ast_editor::Editor::new(
             root,
+            source_path.as_deref(),
             &tombi_schema_store::SchemaContext {
                 toml_version: self.toml_version,
                 root_schema: source_schema

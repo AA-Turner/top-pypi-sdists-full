@@ -3,13 +3,14 @@ from typing import Optional, Union
 
 import mysql.connector
 import mysql.connector.errors
+from loguru import logger
+from mysql.connector.conversion import MySQLConverter
+from mysql.connector.custom_types import HexLiteral
+
 from gable.cli.readers.constants import (
     PROXY_DB_CONNECTION_RETIRES,
     PROXY_DB_CONNECTION_TIMEOUT_SECONDS,
 )
-from loguru import logger
-from mysql.connector.conversion import MySQLConverter
-from mysql.connector.custom_types import HexLiteral
 
 
 def create_mysql_connection(

@@ -34,9 +34,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-solutions-constructs/aws-iot-lambda",
-    "2.90.4",
+    "2.91.0",
     __name__[0:-6],
-    "aws-iot-lambda@2.90.4.jsii.tgz",
+    "aws-iot-lambda@2.91.0.jsii.tgz",
 )
 
 __all__ = [

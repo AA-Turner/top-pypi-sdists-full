@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sphinx-prompt
-Version: 1.10.0
+Version: 1.10.1
 Summary: Sphinx directive to add unselectable prompt
 License: BSD-3-Clause
 Keywords: sphinx,shell,prompt

@@ -22,7 +22,6 @@ import System.Text.RegularExpressions
 import System.Threading
 
 QuantConnect_Util_MarketHoursDatabaseJsonConverter_MarketHoursDatabaseJson = typing.Any
-IsoDateTimeConverter = typing.Any
 JsonConverter = typing.Any
 Expression = typing.Any
 
@@ -596,15 +595,59 @@ class BusyCollection(typing.Generic[QuantConnect_Util_BusyCollection_T], System.
         ...
 
 
-class DateTimeJsonConverter(IsoDateTimeConverter):
+class DateTimeJsonConverter(JsonConverter):
     """Provides a json converter that allows defining the date time format used"""
 
+    @property
+    def can_read(self) -> bool:
+        """True, can read a json into a date time"""
+        ...
+
+    @property
+    def can_write(self) -> bool:
+        """True, can write a datetime to json"""
+        ...
+
+    @overload
     def __init__(self, format: str) -> None:
         """
         Initializes a new instance of the DateTimeJsonConverter class
         
-        :param format: The date time format
+        :param format: >The date time format
         """
+        ...
+
+    @overload
+    def __init__(self, format: str, format_2: str) -> None:
+        """
+        Initializes a new instance of the DateTimeJsonConverter class
+        
+        :param format: >The date time format
+        :param format_2: Other format for backwards compatibility
+        """
+        ...
+
+    @overload
+    def __init__(self, format: str, format_2: str, format_3: str) -> None:
+        """
+        Initializes a new instance of the DateTimeJsonConverter class
+        
+        :param format: >The date time format
+        :param format_2: Other format for backwards compatibility
+        :param format_3: Other format for backwards compatibility
+        """
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """True if can convert the given object type"""
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Converts the given value"""
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Writes the given value to json"""
         ...
 
 

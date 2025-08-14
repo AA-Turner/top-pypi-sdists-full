@@ -1,8 +1,10 @@
-from pathlib import Path
 import threading
+from pathlib import Path
+from typing import Any, Optional, Union
+
 import duckdb
-from typing import Optional, Any, Union
 from loguru import logger
+
 from gable.cli.helpers.data_asset_s3.logger import log_debug
 
 _thread_local = threading.local()
@@ -18,7 +20,12 @@ class ResilientDuckDB:
     health management and provides a safe, predictable interface.
     """
 
-    def __init__(self, db_path: Optional[Union[str, Path]] = None, max_retries: int = 2, retry_delay: float = 0.1):
+    def __init__(
+        self,
+        db_path: Optional[Union[str, Path]] = None,
+        max_retries: int = 2,
+        retry_delay: float = 0.1,
+    ):
         """
         Initialize a resilient DuckDB connection wrapper.
 
@@ -143,7 +150,9 @@ class ResilientDuckDB:
         return self._conn
 
 
-def get_resilient_duckdb(is_shared_thread: bool = True, db_path: Optional[Union[str, Path]] = None) -> ResilientDuckDB:
+def get_resilient_duckdb(
+    is_shared_thread: bool = True, db_path: Optional[Union[str, Path]] = None
+) -> ResilientDuckDB:
     """
     Get a thread-local resilient DuckDB wrapper.
 

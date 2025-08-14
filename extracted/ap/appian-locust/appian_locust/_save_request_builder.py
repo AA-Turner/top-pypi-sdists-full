@@ -47,7 +47,7 @@ class _SaveRequestBuilder:
             raise Exception("context not set")
 
         if self._value is None:
-            self._value = self._component["value"]
+            self._value = self._component.get("value", "")
 
         if 'saveInto' not in self._component:
             # Support onSubmitSaveInto

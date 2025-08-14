@@ -1,4 +1,6 @@
 import pandas as pd
+from loguru import logger
+
 from gable.api.client import GableAPIClient
 from gable.cli.helpers.data_asset import (
     darn_to_string,
@@ -12,7 +14,6 @@ from gable.openapi import (
     RegisterDataAssetsRequest,
     ResponseType,
 )
-from loguru import logger
 
 
 class GableDataFrameDataAsset:

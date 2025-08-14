@@ -3,13 +3,12 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import Literal, Sequence, Any, Iterable
+from typing import Any, Iterable, Literal, Sequence
 
 from langchain.text_splitter import TextSplitter
 from langchain_core.documents import Document
 
 from .base_chunker import BaseChunker
-
 
 __all__ = [
     "LangChainChunker",

@@ -5,26 +5,28 @@
 
 from __future__ import annotations
 
-from pandas import DataFrame
 from typing import TYPE_CHECKING, Any, cast
 from warnings import warn
-from ibm_watsonx_ai.metanames import RAGOptimizerConfigurationMetaNames
+
+from pandas import DataFrame
+
+from ibm_watsonx_ai.foundation_models.schema import BaseSchema
 from ibm_watsonx_ai.helpers.connections import (
-    S3Location,
-    FSLocation,
     ContainerLocation,
     DataConnection,
+    FSLocation,
+    S3Location,
 )
+from ibm_watsonx_ai.metanames import RAGOptimizerConfigurationMetaNames
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai.foundation_models.schema import BaseSchema
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai.experiment.autoai.engines import RAGEngine
     from ibm_watsonx_ai.foundation_models.extensions.rag.pattern import RAGPattern
     from ibm_watsonx_ai.foundation_models.schema import (
-        AutoAIRAGModelConfig,
         AutoAIRAGCustomModelConfig,
+        AutoAIRAGModelConfig,
         AutoAIRAGRetrievalConfig,
     )
 
@@ -278,7 +280,6 @@ class RAGOptimizer:
                 location = FSLocation()
                 client = self._engine._client
                 if self._engine._client.default_project_id is None:
-
                     location.path = location.path.format(
                         option="spaces", id=client.default_space_id
                     )
@@ -304,6 +305,8 @@ class RAGOptimizer:
                         option="projects", id=client.default_project_id
                     )
                 )
+
+        results_reference._update_location_path_with_container_id(self._engine._client)
 
         if not isinstance(
             results_reference.location,

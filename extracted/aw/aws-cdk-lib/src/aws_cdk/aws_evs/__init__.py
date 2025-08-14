@@ -85,11 +85,7 @@ class CfnEnvironment(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_evs.CfnEnvironment",
 ):
-    '''.. epigraph::
-
-   Amazon EVS is in public preview release and is subject to change.
-
-    Creates an Amazon EVS environment that runs VCF software, such as SDDC Manager, NSX Manager, and vCenter Server.
+    '''Creates an Amazon EVS environment that runs VCF software, such as SDDC Manager, NSX Manager, and vCenter Server.
 
     During environment creation, Amazon EVS performs validations on DNS settings, provisions VLAN subnets and hosts, and deploys the supplied version of VCF.
 
@@ -214,7 +210,7 @@ class CfnEnvironment(
         :param license_info: The license information that Amazon EVS requires to create an environment. Amazon EVS requires two license keys: a VCF solution key and a vSAN license key. The VCF solution key must cover a minimum of 256 cores. The vSAN license key must provide at least 110 TiB of vSAN capacity.
         :param service_access_subnet_id: The subnet that is used to establish connectivity between the Amazon EVS control plane and VPC. Amazon EVS uses this subnet to perform validations and create the environment.
         :param site_id: The Broadcom Site ID that is associated with your Amazon EVS environment. Amazon EVS uses the Broadcom Site ID that you provide to meet Broadcom VCF license usage reporting requirements for Amazon EVS.
-        :param terms_accepted: Customer confirmation that the customer has purchased and will continue to maintain the required number of VCF software licenses to cover all physical processor cores in the Amazon EVS environment. Information about your VCF software in Amazon EVS will be shared with Broadcom to verify license compliance.
+        :param terms_accepted: Customer confirmation that the customer has purchased and will continue to maintain the required number of VCF software licenses to cover all physical processor cores in the Amazon EVS environment. Information about your VCF software in Amazon EVS will be shared with Broadcom to verify license compliance. Amazon EVS does not validate license keys. To validate license keys, visit the Broadcom support portal.
         :param vcf_hostnames: The DNS hostnames to be used by the VCF management appliances in your environment. For environment creation to be successful, each hostname entry must resolve to a domain name that you've registered in your DNS service of choice and configured in the DHCP option set of your VPC. DNS hostnames cannot be changed after environment creation has started.
         :param vcf_version: The VCF version of the environment.
         :param vpc_id: The VPC associated with the environment.
@@ -613,11 +609,7 @@ class CfnEnvironment(
             type: builtins.str,
             impaired_since: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''.. epigraph::
-
-   Amazon EVS is in public preview release and is subject to change.
-
-            A check on the environment to identify environment health and validate VMware VCF licensing compliance.
+            '''A check on the environment to identify environment health and validate VMware VCF licensing compliance.
 
             :param result: The check result.
             :param type: The check type. Amazon EVS performs the following checks. - ``KEY_REUSE`` : checks that the VCF license key is not used by another Amazon EVS environment. This check fails if a used license is added to the environment. - ``KEY_COVERAGE`` : checks that your VCF license key allocates sufficient vCPU cores for all deployed hosts. The check fails when any assigned hosts in the EVS environment are not covered by license keys, or when any unassigned hosts cannot be covered by available vCPU cores in keys. - ``REACHABILITY`` : checks that the Amazon EVS control plane has a persistent connection to SDDC Manager. If Amazon EVS cannot reach the environment, this check fails. - ``HOST_COUNT`` : Checks that your environment has a minimum of 4 hosts, which is a requirement for VCF 5.2.1. If this check fails, you will need to add hosts so that your environment meets this minimum requirement. Amazon EVS only supports environments with 4-16 hosts.
@@ -710,11 +702,9 @@ class CfnEnvironment(
             *,
             private_route_server_peerings: typing.Sequence[builtins.str],
         ) -> None:
-            '''.. epigraph::
+            '''The connectivity configuration for the environment.
 
-   Amazon EVS is in public preview release and is subject to change.
-
-            The connectivity configuration for the environment. Amazon EVS requires that you specify two route server peer IDs. During environment creation, the route server endpoints peer with the NSX uplink VLAN for connectivity to the NSX overlay network.
+            Amazon EVS requires that you specify two route server peer IDs. During environment creation, the route server endpoints peer with the NSX uplink VLAN for connectivity to the NSX overlay network.
 
             :param private_route_server_peerings: The unique IDs for private route server peers.
 
@@ -780,11 +770,8 @@ class CfnEnvironment(
             dedicated_host_id: typing.Optional[builtins.str] = None,
             placement_group_id: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''.. epigraph::
+            '''An object that represents a host.
 
-   Amazon EVS is in public preview release and is subject to change.
-
-            An object that represents a host.
             .. epigraph::
 
                You cannot use ``dedicatedHostId`` and ``placementGroupId`` together in the same ``HostInfoForCreate`` object. This results in a ``ValidationException`` response.
@@ -899,11 +886,9 @@ class CfnEnvironment(
     )
     class InitialVlanInfoProperty:
         def __init__(self, *, cidr: builtins.str) -> None:
-            '''.. epigraph::
+            '''An object that represents an initial VLAN subnet for the Amazon EVS environment.
 
-   Amazon EVS is in public preview release and is subject to change.
-
-            An object that represents an initial VLAN subnet for the Amazon EVS environment. Amazon EVS creates initial VLAN subnets when you first create the environment. Amazon EVS creates the following 10 VLAN subnets: host management VLAN, vMotion VLAN, vSAN VLAN, VTEP VLAN, Edge VTEP VLAN, Management VM VLAN, HCX uplink VLAN, NSX uplink VLAN, expansion VLAN 1, expansion VLAN 2.
+            Amazon EVS creates initial VLAN subnets when you first create the environment. Amazon EVS creates the following 10 VLAN subnets: host management VLAN, vMotion VLAN, vSAN VLAN, VTEP VLAN, Edge VTEP VLAN, Management VM VLAN, HCX uplink VLAN, NSX uplink VLAN, expansion VLAN 1, expansion VLAN 2.
             .. epigraph::
 
                For each Amazon EVS VLAN subnet, you must specify a non-overlapping CIDR block. Amazon EVS VLAN subnets have a minimum CIDR block size of /28 and a maximum size of /24.
@@ -984,11 +969,9 @@ class CfnEnvironment(
             v_san: typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
             v_tep: typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.InitialVlanInfoProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
-            '''.. epigraph::
+            '''The initial VLAN subnets for the environment.
 
-   Amazon EVS is in public preview release and is subject to change.
-
-            The initial VLAN subnets for the environment. Amazon EVS VLAN subnets have a minimum CIDR block size of /28 and a maximum size of /24. Amazon EVS VLAN subnet CIDR blocks must not overlap with other subnets in the VPC.
+            Amazon EVS VLAN subnets have a minimum CIDR block size of /28 and a maximum size of /24. Amazon EVS VLAN subnet CIDR blocks must not overlap with other subnets in the VPC.
 
             :param edge_v_tep: The edge VTEP VLAN subnet. This VLAN subnet manages traffic flowing between the internal network and external networks, including internet access and other site connections.
             :param expansion_vlan1: An additional VLAN subnet that can be used to extend VCF capabilities once configured. For example, you can configure an expansion VLAN subnet to use NSX Federation for centralized management and synchronization of multiple NSX deployments across different locations.
@@ -1231,11 +1214,9 @@ class CfnEnvironment(
             solution_key: builtins.str,
             vsan_key: builtins.str,
         ) -> None:
-            '''.. epigraph::
+            '''The license information that Amazon EVS requires to create an environment.
 
-   Amazon EVS is in public preview release and is subject to change.
-
-            The license information that Amazon EVS requires to create an environment. Amazon EVS requires two license keys: a VCF solution key and a vSAN license key.
+            Amazon EVS requires two license keys: a VCF solution key and a vSAN license key.
 
             :param solution_key: The VCF solution key. This license unlocks VMware VCF product features, including vSphere, NSX, SDDC Manager, and vCenter Server. The VCF solution key must cover a minimum of 256 cores.
             :param vsan_key: The VSAN license key. This license unlocks vSAN features. The vSAN license key must provide at least 110 TiB of vSAN capacity.
@@ -1305,11 +1286,9 @@ class CfnEnvironment(
     )
     class SecretProperty:
         def __init__(self, *, secret_arn: typing.Optional[builtins.str] = None) -> None:
-            '''.. epigraph::
+            '''A managed secret that contains the credentials for installing vCenter Server, NSX, and SDDC Manager.
 
-   Amazon EVS is in public preview release and is subject to change.
-
-            A managed secret that contains the credentials for installing vCenter Server, NSX, and SDDC Manager. During environment creation, the Amazon EVS control plane uses AWS Secrets Manager to create, encrypt, validate, and store secrets. If you choose to delete your environment, Amazon EVS also deletes the secrets that are associated with your environment. Amazon EVS does not provide managed rotation of secrets. We recommend that you rotate secrets regularly to ensure that secrets are not long-lived.
+            During environment creation, the Amazon EVS control plane uses AWS Secrets Manager to create, encrypt, validate, and store secrets. If you choose to delete your environment, Amazon EVS also deletes the secrets that are associated with your environment. Amazon EVS does not provide managed rotation of secrets. We recommend that you rotate secrets regularly to ensure that secrets are not long-lived.
 
             :param secret_arn: The Amazon Resource Name (ARN) of the secret.
 
@@ -1364,11 +1343,9 @@ class CfnEnvironment(
             *,
             security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''.. epigraph::
+            '''The security groups that allow traffic between the Amazon EVS control plane and your VPC for Amazon EVS service access.
 
-   Amazon EVS is in public preview release and is subject to change.
-
-            The security groups that allow traffic between the Amazon EVS control plane and your VPC for Amazon EVS service access. If a security group is not specified, Amazon EVS uses the default security group in your account for service access.
+            If a security group is not specified, Amazon EVS uses the default security group in your account for service access.
 
             :param security_groups: The security groups that allow service access.
 
@@ -1441,11 +1418,9 @@ class CfnEnvironment(
             sddc_manager: builtins.str,
             v_center: builtins.str,
         ) -> None:
-            '''.. epigraph::
+            '''The DNS hostnames that Amazon EVS uses to install VMware vCenter Server, NSX, SDDC Manager, and Cloud Builder.
 
-   Amazon EVS is in public preview release and is subject to change.
-
-            The DNS hostnames that Amazon EVS uses to install VMware vCenter Server, NSX, SDDC Manager, and Cloud Builder. Each hostname must be unique, and resolve to a domain name that you've registered in your DNS service of choice. Hostnames cannot be changed.
+            Each hostname must be unique, and resolve to a domain name that you've registered in your DNS service of choice. Hostnames cannot be changed.
 
             VMware VCF requires the deployment of two NSX Edge nodes, and three NSX Manager virtual machines.
 
@@ -1650,7 +1625,7 @@ class CfnEnvironmentProps:
         :param license_info: The license information that Amazon EVS requires to create an environment. Amazon EVS requires two license keys: a VCF solution key and a vSAN license key. The VCF solution key must cover a minimum of 256 cores. The vSAN license key must provide at least 110 TiB of vSAN capacity.
         :param service_access_subnet_id: The subnet that is used to establish connectivity between the Amazon EVS control plane and VPC. Amazon EVS uses this subnet to perform validations and create the environment.
         :param site_id: The Broadcom Site ID that is associated with your Amazon EVS environment. Amazon EVS uses the Broadcom Site ID that you provide to meet Broadcom VCF license usage reporting requirements for Amazon EVS.
-        :param terms_accepted: Customer confirmation that the customer has purchased and will continue to maintain the required number of VCF software licenses to cover all physical processor cores in the Amazon EVS environment. Information about your VCF software in Amazon EVS will be shared with Broadcom to verify license compliance.
+        :param terms_accepted: Customer confirmation that the customer has purchased and will continue to maintain the required number of VCF software licenses to cover all physical processor cores in the Amazon EVS environment. Information about your VCF software in Amazon EVS will be shared with Broadcom to verify license compliance. Amazon EVS does not validate license keys. To validate license keys, visit the Broadcom support portal.
         :param vcf_hostnames: The DNS hostnames to be used by the VCF management appliances in your environment. For environment creation to be successful, each hostname entry must resolve to a domain name that you've registered in your DNS service of choice and configured in the DHCP option set of your VPC. DNS hostnames cannot be changed after environment creation has started.
         :param vcf_version: The VCF version of the environment.
         :param vpc_id: The VPC associated with the environment.
@@ -1843,7 +1818,7 @@ class CfnEnvironmentProps:
     def terms_accepted(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
         '''Customer confirmation that the customer has purchased and will continue to maintain the required number of VCF software licenses to cover all physical processor cores in the Amazon EVS environment.
 
-        Information about your VCF software in Amazon EVS will be shared with Broadcom to verify license compliance.
+        Information about your VCF software in Amazon EVS will be shared with Broadcom to verify license compliance. Amazon EVS does not validate license keys. To validate license keys, visit the Broadcom support portal.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-evs-environment.html#cfn-evs-environment-termsaccepted
         '''

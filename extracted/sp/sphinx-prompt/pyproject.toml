@@ -6,6 +6,12 @@ line-length = 110
 convention = "numpy"
 
 [tool.poetry]
+packages = [
+    { include = "sphinx-prompt" },
+    { include = "sphinx-prompt/py.typed" },
+    { include = "sphinx_prompt" },
+    { include = "sphinx_prompt/py.typed" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
@@ -14,12 +20,12 @@ pygments = "2.19.2"
 docutils = "0.21.2"
 idna = "3.10"
 urllib3 = "2.5.0"
-certifi = "2025.6.15"
+certifi = "2025.8.3"
 jinja2 = "3.1.6"
 
 [tool.poetry.group.dev.dependencies]
 prospector = { version = "1.17.2", extras = ["with_bandit", "with_mypy", "with_pyroma", "with_ruff"] }
-prospector-profile-utils = "1.23.0"
+prospector-profile-utils = "1.25.0"
 prospector-profile-duplicated = "1.10.5"
 pytest = "8.4.1"
 types-docutils = "0.21.0.20250604"
@@ -70,15 +76,9 @@ classifiers = [
     'Typing :: Typed',
 ]
 authors = [{name = "Stéphane Brunner",email = "stephane.brunner@gmail.com"}]
-packages = [
-    { include = "sphinx-prompt" },
-    { include = "sphinx-prompt/py.typed" },
-    { include = "sphinx_prompt" },
-    { include = "sphinx_prompt/py.typed" }
-]
 requires-python = ">=3.11"
 dependencies = ["Sphinx", "pygments", "docutils", "idna", "urllib3", "certifi", "jinja2", "requests==2.32.4"]
-version = "1.10.0"
+version = "1.10.1"
 
 [project.urls]
 repository = "https://github.com/sbrunner/sphinx-prompt"

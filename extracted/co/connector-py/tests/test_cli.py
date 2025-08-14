@@ -132,7 +132,7 @@ class TestCli:
         assert original_obj["password"] == "secret"
         assert original_obj["normal"] == "value"
 
-    def test_build_loggable_args_without_json(self):
+    def test_build_loggable_args_without_json(self) -> None:
         # Create a mock Integration with no secret fields
         class MockSettings(BaseModel):
             normal_field: str = Field(json_schema_extra={})

@@ -3,7 +3,6 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import datetime
-from typing import Literal
 
 import pandas as pd
 

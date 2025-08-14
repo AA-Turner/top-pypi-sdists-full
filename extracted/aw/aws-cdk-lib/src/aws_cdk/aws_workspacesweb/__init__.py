@@ -2461,6 +2461,7 @@ class CfnPortal(
             ip_access_settings_arn="ipAccessSettingsArn",
             max_concurrent_sessions=123,
             network_settings_arn="networkSettingsArn",
+            session_logger_arn="sessionLoggerArn",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -2486,6 +2487,7 @@ class CfnPortal(
         ip_access_settings_arn: typing.Optional[builtins.str] = None,
         max_concurrent_sessions: typing.Optional[jsii.Number] = None,
         network_settings_arn: typing.Optional[builtins.str] = None,
+        session_logger_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_store_arn: typing.Optional[builtins.str] = None,
         user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
@@ -2504,6 +2506,7 @@ class CfnPortal(
         :param ip_access_settings_arn: The ARN of the IP access settings that is associated with the web portal.
         :param max_concurrent_sessions: The maximum number of concurrent sessions for the portal.
         :param network_settings_arn: The ARN of the network settings that is associated with the web portal.
+        :param session_logger_arn: 
         :param tags: The tags to add to the web portal. A tag is a key-value pair.
         :param trust_store_arn: The ARN of the trust store that is associated with the web portal.
         :param user_access_logging_settings_arn: The ARN of the user access logging settings that is associated with the web portal.
@@ -2524,6 +2527,7 @@ class CfnPortal(
             ip_access_settings_arn=ip_access_settings_arn,
             max_concurrent_sessions=max_concurrent_sessions,
             network_settings_arn=network_settings_arn,
+            session_logger_arn=session_logger_arn,
             tags=tags,
             trust_store_arn=trust_store_arn,
             user_access_logging_settings_arn=user_access_logging_settings_arn,
@@ -2787,6 +2791,18 @@ class CfnPortal(
         jsii.set(self, "networkSettingsArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="sessionLoggerArn")
+    def session_logger_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sessionLoggerArn"))
+
+    @session_logger_arn.setter
+    def session_logger_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__799f778b7f3d528d4330acec14db7800e1877f11411b658cf7b11ad8463a43b6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sessionLoggerArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
         '''The tags to add to the web portal.'''
@@ -2856,6 +2872,7 @@ class CfnPortal(
         "ip_access_settings_arn": "ipAccessSettingsArn",
         "max_concurrent_sessions": "maxConcurrentSessions",
         "network_settings_arn": "networkSettingsArn",
+        "session_logger_arn": "sessionLoggerArn",
         "tags": "tags",
         "trust_store_arn": "trustStoreArn",
         "user_access_logging_settings_arn": "userAccessLoggingSettingsArn",
@@ -2876,6 +2893,7 @@ class CfnPortalProps:
         ip_access_settings_arn: typing.Optional[builtins.str] = None,
         max_concurrent_sessions: typing.Optional[jsii.Number] = None,
         network_settings_arn: typing.Optional[builtins.str] = None,
+        session_logger_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_store_arn: typing.Optional[builtins.str] = None,
         user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
@@ -2893,6 +2911,7 @@ class CfnPortalProps:
         :param ip_access_settings_arn: The ARN of the IP access settings that is associated with the web portal.
         :param max_concurrent_sessions: The maximum number of concurrent sessions for the portal.
         :param network_settings_arn: The ARN of the network settings that is associated with the web portal.
+        :param session_logger_arn: 
         :param tags: The tags to add to the web portal. A tag is a key-value pair.
         :param trust_store_arn: The ARN of the trust store that is associated with the web portal.
         :param user_access_logging_settings_arn: The ARN of the user access logging settings that is associated with the web portal.
@@ -2920,6 +2939,7 @@ class CfnPortalProps:
                 ip_access_settings_arn="ipAccessSettingsArn",
                 max_concurrent_sessions=123,
                 network_settings_arn="networkSettingsArn",
+                session_logger_arn="sessionLoggerArn",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -2941,6 +2961,7 @@ class CfnPortalProps:
             check_type(argname="argument ip_access_settings_arn", value=ip_access_settings_arn, expected_type=type_hints["ip_access_settings_arn"])
             check_type(argname="argument max_concurrent_sessions", value=max_concurrent_sessions, expected_type=type_hints["max_concurrent_sessions"])
             check_type(argname="argument network_settings_arn", value=network_settings_arn, expected_type=type_hints["network_settings_arn"])
+            check_type(argname="argument session_logger_arn", value=session_logger_arn, expected_type=type_hints["session_logger_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
             check_type(argname="argument user_access_logging_settings_arn", value=user_access_logging_settings_arn, expected_type=type_hints["user_access_logging_settings_arn"])
@@ -2966,6 +2987,8 @@ class CfnPortalProps:
             self._values["max_concurrent_sessions"] = max_concurrent_sessions
         if network_settings_arn is not None:
             self._values["network_settings_arn"] = network_settings_arn
+        if session_logger_arn is not None:
+            self._values["session_logger_arn"] = session_logger_arn
         if tags is not None:
             self._values["tags"] = tags
         if trust_store_arn is not None:
@@ -3079,6 +3102,14 @@ class CfnPortalProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def session_logger_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-sessionloggerarn
+        '''
+        result = self._values.get("session_logger_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
         '''The tags to add to the web portal.
 
@@ -3124,6 +3155,657 @@ class CfnPortalProps:
 
     def __repr__(self) -> str:
         return "CfnPortalProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnSessionLogger(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnSessionLogger",
+):
+    '''Definition of AWS::WorkSpacesWeb::SessionLogger Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html
+    :cloudformationResource: AWS::WorkSpacesWeb::SessionLogger
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_workspacesweb as workspacesweb
+        
+        # all: Any
+        
+        cfn_session_logger = workspacesweb.CfnSessionLogger(self, "MyCfnSessionLogger",
+            event_filter=workspacesweb.CfnSessionLogger.EventFilterProperty(
+                all=all,
+                include=["include"]
+            ),
+            log_configuration=workspacesweb.CfnSessionLogger.LogConfigurationProperty(
+                s3=workspacesweb.CfnSessionLogger.S3LogConfigurationProperty(
+                    bucket="bucket",
+                    folder_structure="folderStructure",
+                    log_file_format="logFileFormat",
+        
+                    # the properties below are optional
+                    bucket_owner="bucketOwner",
+                    key_prefix="keyPrefix"
+                )
+            ),
+        
+            # the properties below are optional
+            additional_encryption_context={
+                "additional_encryption_context_key": "additionalEncryptionContext"
+            },
+            customer_managed_key="customerManagedKey",
+            display_name="displayName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        event_filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSessionLogger.EventFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSessionLogger.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        customer_managed_key: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param event_filter: 
+        :param log_configuration: 
+        :param additional_encryption_context: 
+        :param customer_managed_key: 
+        :param display_name: 
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ecda6b775e0aad6e840315c150daa1cae407a534f747e34d2336449d0085a29)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSessionLoggerProps(
+            event_filter=event_filter,
+            log_configuration=log_configuration,
+            additional_encryption_context=additional_encryption_context,
+            customer_managed_key=customer_managed_key,
+            display_name=display_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32c2901f06899b3e8b2aed11d0479e80af4ae3bd2497852311c46da6edf80e41)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02821e951e1a7ebffab0cee338cb22e018833b70a4b8b4db79eadb9491b74956)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAssociatedPortalArns")
+    def attr_associated_portal_arns(self) -> typing.List[builtins.str]:
+        '''
+        :cloudformationAttribute: AssociatedPortalArns
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrAssociatedPortalArns"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDate")
+    def attr_creation_date(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreationDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSessionLoggerArn")
+    def attr_session_logger_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: SessionLoggerArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSessionLoggerArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventFilter")
+    def event_filter(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.EventFilterProperty"]:
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.EventFilterProperty"], jsii.get(self, "eventFilter"))
+
+    @event_filter.setter
+    def event_filter(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.EventFilterProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f797a952eee0e5ef3c6c4e74102d30901b3a261e47539149a187359b0273935)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventFilter", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="logConfiguration")
+    def log_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.LogConfigurationProperty"]:
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.LogConfigurationProperty"], jsii.get(self, "logConfiguration"))
+
+    @log_configuration.setter
+    def log_configuration(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.LogConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e28c4c53e5ee42bd3a2b3077ae66818ce670fc07686e11ffa703be889c6aa901)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalEncryptionContext")
+    def additional_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], jsii.get(self, "additionalEncryptionContext"))
+
+    @additional_encryption_context.setter
+    def additional_encryption_context(
+        self,
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__537d3e1f1f27dd421a4b648f2d1cfd2cafc17c6a94f1210fd5389a3d16c72bf0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="customerManagedKey")
+    def customer_managed_key(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "customerManagedKey"))
+
+    @customer_managed_key.setter
+    def customer_managed_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6669ab733027174f86b8134ac28a12b3e8ce058fc6bb771f3ca2e6a1aa4a1ba0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customerManagedKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae9fd345c1425b64f964d35fc511958d77a0f8f2e8685f0e6c4fca88750edc68)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85de43da52ead721682621ad8e0ec6970bf253d4dc82e6a8b363fb44db534497)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspacesweb.CfnSessionLogger.EventFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"all": "all", "include": "include"},
+    )
+    class EventFilterProperty:
+        def __init__(
+            self,
+            *,
+            all: typing.Any = None,
+            include: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param all: 
+            :param include: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-eventfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspacesweb as workspacesweb
+                
+                # all: Any
+                
+                event_filter_property = workspacesweb.CfnSessionLogger.EventFilterProperty(
+                    all=all,
+                    include=["include"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2f1530e33fd800f934515849e7a6b073e430e992de682bef2cf8a8e5c89aa2d7)
+                check_type(argname="argument all", value=all, expected_type=type_hints["all"])
+                check_type(argname="argument include", value=include, expected_type=type_hints["include"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if all is not None:
+                self._values["all"] = all
+            if include is not None:
+                self._values["include"] = include
+
+        @builtins.property
+        def all(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-eventfilter.html#cfn-workspacesweb-sessionlogger-eventfilter-all
+            '''
+            result = self._values.get("all")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def include(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-eventfilter.html#cfn-workspacesweb-sessionlogger-eventfilter-include
+            '''
+            result = self._values.get("include")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EventFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspacesweb.CfnSessionLogger.LogConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3": "s3"},
+    )
+    class LogConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSessionLogger.S3LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param s3: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-logconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspacesweb as workspacesweb
+                
+                log_configuration_property = workspacesweb.CfnSessionLogger.LogConfigurationProperty(
+                    s3=workspacesweb.CfnSessionLogger.S3LogConfigurationProperty(
+                        bucket="bucket",
+                        folder_structure="folderStructure",
+                        log_file_format="logFileFormat",
+                
+                        # the properties below are optional
+                        bucket_owner="bucketOwner",
+                        key_prefix="keyPrefix"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5e673953fb604a5eaf695974e9bd912f04871f2cb0d15f4408568306f9d8913e)
+                check_type(argname="argument s3", value=s3, expected_type=type_hints["s3"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if s3 is not None:
+                self._values["s3"] = s3
+
+        @builtins.property
+        def s3(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.S3LogConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-logconfiguration.html#cfn-workspacesweb-sessionlogger-logconfiguration-s3
+            '''
+            result = self._values.get("s3")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSessionLogger.S3LogConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspacesweb.CfnSessionLogger.S3LogConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bucket": "bucket",
+            "folder_structure": "folderStructure",
+            "log_file_format": "logFileFormat",
+            "bucket_owner": "bucketOwner",
+            "key_prefix": "keyPrefix",
+        },
+    )
+    class S3LogConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            bucket: builtins.str,
+            folder_structure: builtins.str,
+            log_file_format: builtins.str,
+            bucket_owner: typing.Optional[builtins.str] = None,
+            key_prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param bucket: 
+            :param folder_structure: 
+            :param log_file_format: 
+            :param bucket_owner: 
+            :param key_prefix: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspacesweb as workspacesweb
+                
+                s3_log_configuration_property = workspacesweb.CfnSessionLogger.S3LogConfigurationProperty(
+                    bucket="bucket",
+                    folder_structure="folderStructure",
+                    log_file_format="logFileFormat",
+                
+                    # the properties below are optional
+                    bucket_owner="bucketOwner",
+                    key_prefix="keyPrefix"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2932cde5c903e31aee5df2ddaf173b3b2d8262005b0e7a9387a82480cca35f4f)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument folder_structure", value=folder_structure, expected_type=type_hints["folder_structure"])
+                check_type(argname="argument log_file_format", value=log_file_format, expected_type=type_hints["log_file_format"])
+                check_type(argname="argument bucket_owner", value=bucket_owner, expected_type=type_hints["bucket_owner"])
+                check_type(argname="argument key_prefix", value=key_prefix, expected_type=type_hints["key_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket": bucket,
+                "folder_structure": folder_structure,
+                "log_file_format": log_file_format,
+            }
+            if bucket_owner is not None:
+                self._values["bucket_owner"] = bucket_owner
+            if key_prefix is not None:
+                self._values["key_prefix"] = key_prefix
+
+        @builtins.property
+        def bucket(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-bucket
+            '''
+            result = self._values.get("bucket")
+            assert result is not None, "Required property 'bucket' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def folder_structure(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-folderstructure
+            '''
+            result = self._values.get("folder_structure")
+            assert result is not None, "Required property 'folder_structure' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def log_file_format(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-logfileformat
+            '''
+            result = self._values.get("log_file_format")
+            assert result is not None, "Required property 'log_file_format' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def bucket_owner(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-bucketowner
+            '''
+            result = self._values.get("bucket_owner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def key_prefix(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesweb-sessionlogger-s3logconfiguration.html#cfn-workspacesweb-sessionlogger-s3logconfiguration-keyprefix
+            '''
+            result = self._values.get("key_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3LogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspacesweb.CfnSessionLoggerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "event_filter": "eventFilter",
+        "log_configuration": "logConfiguration",
+        "additional_encryption_context": "additionalEncryptionContext",
+        "customer_managed_key": "customerManagedKey",
+        "display_name": "displayName",
+        "tags": "tags",
+    },
+)
+class CfnSessionLoggerProps:
+    def __init__(
+        self,
+        *,
+        event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+        log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+        additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+        customer_managed_key: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSessionLogger``.
+
+        :param event_filter: 
+        :param log_configuration: 
+        :param additional_encryption_context: 
+        :param customer_managed_key: 
+        :param display_name: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspacesweb as workspacesweb
+            
+            # all: Any
+            
+            cfn_session_logger_props = workspacesweb.CfnSessionLoggerProps(
+                event_filter=workspacesweb.CfnSessionLogger.EventFilterProperty(
+                    all=all,
+                    include=["include"]
+                ),
+                log_configuration=workspacesweb.CfnSessionLogger.LogConfigurationProperty(
+                    s3=workspacesweb.CfnSessionLogger.S3LogConfigurationProperty(
+                        bucket="bucket",
+                        folder_structure="folderStructure",
+                        log_file_format="logFileFormat",
+            
+                        # the properties below are optional
+                        bucket_owner="bucketOwner",
+                        key_prefix="keyPrefix"
+                    )
+                ),
+            
+                # the properties below are optional
+                additional_encryption_context={
+                    "additional_encryption_context_key": "additionalEncryptionContext"
+                },
+                customer_managed_key="customerManagedKey",
+                display_name="displayName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a2dbf3d3)
+            check_type(argname="argument event_filter", value=event_filter, expected_type=type_hints["event_filter"])
+            check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
+            check_type(argname="argument additional_encryption_context", value=additional_encryption_context, expected_type=type_hints["additional_encryption_context"])
+            check_type(argname="argument customer_managed_key", value=customer_managed_key, expected_type=type_hints["customer_managed_key"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "event_filter": event_filter,
+            "log_configuration": log_configuration,
+        }
+        if additional_encryption_context is not None:
+            self._values["additional_encryption_context"] = additional_encryption_context
+        if customer_managed_key is not None:
+            self._values["customer_managed_key"] = customer_managed_key
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def event_filter(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, CfnSessionLogger.EventFilterProperty]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-eventfilter
+        '''
+        result = self._values.get("event_filter")
+        assert result is not None, "Required property 'event_filter' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSessionLogger.EventFilterProperty], result)
+
+    @builtins.property
+    def log_configuration(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, CfnSessionLogger.LogConfigurationProperty]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-logconfiguration
+        '''
+        result = self._values.get("log_configuration")
+        assert result is not None, "Required property 'log_configuration' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnSessionLogger.LogConfigurationProperty], result)
+
+    @builtins.property
+    def additional_encryption_context(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-additionalencryptioncontext
+        '''
+        result = self._values.get("additional_encryption_context")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def customer_managed_key(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-customermanagedkey
+        '''
+        result = self._values.get("customer_managed_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-sessionlogger.html#cfn-workspacesweb-sessionlogger-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSessionLoggerProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4531,6 +5213,8 @@ __all__ = [
     "CfnNetworkSettingsProps",
     "CfnPortal",
     "CfnPortalProps",
+    "CfnSessionLogger",
+    "CfnSessionLoggerProps",
     "CfnTrustStore",
     "CfnTrustStoreProps",
     "CfnUserAccessLoggingSettings",
@@ -4933,6 +5617,7 @@ def _typecheckingstub__239c61bc87a1a693f01a28198d2d3000f7ef790e9684279e807a890b0
     ip_access_settings_arn: typing.Optional[builtins.str] = None,
     max_concurrent_sessions: typing.Optional[jsii.Number] = None,
     network_settings_arn: typing.Optional[builtins.str] = None,
+    session_logger_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_store_arn: typing.Optional[builtins.str] = None,
     user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
@@ -5013,6 +5698,12 @@ def _typecheckingstub__beaa575cd54d9de94a0201b4213524db5df052dd0b9e1605b88d4487f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__799f778b7f3d528d4330acec14db7800e1877f11411b658cf7b11ad8463a43b6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__30535a8dcd75eba19481865deda3eac2505afe537e0650db0a95162feb2563e2(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -5049,10 +5740,111 @@ def _typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39
     ip_access_settings_arn: typing.Optional[builtins.str] = None,
     max_concurrent_sessions: typing.Optional[jsii.Number] = None,
     network_settings_arn: typing.Optional[builtins.str] = None,
+    session_logger_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_store_arn: typing.Optional[builtins.str] = None,
     user_access_logging_settings_arn: typing.Optional[builtins.str] = None,
     user_settings_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ecda6b775e0aad6e840315c150daa1cae407a534f747e34d2336449d0085a29(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+    log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    customer_managed_key: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32c2901f06899b3e8b2aed11d0479e80af4ae3bd2497852311c46da6edf80e41(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02821e951e1a7ebffab0cee338cb22e018833b70a4b8b4db79eadb9491b74956(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f797a952eee0e5ef3c6c4e74102d30901b3a261e47539149a187359b0273935(
+    value: typing.Union[_IResolvable_da3f097b, CfnSessionLogger.EventFilterProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e28c4c53e5ee42bd3a2b3077ae66818ce670fc07686e11ffa703be889c6aa901(
+    value: typing.Union[_IResolvable_da3f097b, CfnSessionLogger.LogConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__537d3e1f1f27dd421a4b648f2d1cfd2cafc17c6a94f1210fd5389a3d16c72bf0(
+    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6669ab733027174f86b8134ac28a12b3e8ce058fc6bb771f3ca2e6a1aa4a1ba0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae9fd345c1425b64f964d35fc511958d77a0f8f2e8685f0e6c4fca88750edc68(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85de43da52ead721682621ad8e0ec6970bf253d4dc82e6a8b363fb44db534497(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f1530e33fd800f934515849e7a6b073e430e992de682bef2cf8a8e5c89aa2d7(
+    *,
+    all: typing.Any = None,
+    include: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e673953fb604a5eaf695974e9bd912f04871f2cb0d15f4408568306f9d8913e(
+    *,
+    s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.S3LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2932cde5c903e31aee5df2ddaf173b3b2d8262005b0e7a9387a82480cca35f4f(
+    *,
+    bucket: builtins.str,
+    folder_structure: builtins.str,
+    log_file_format: builtins.str,
+    bucket_owner: typing.Optional[builtins.str] = None,
+    key_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__042e70be11dd83b286871d0bfa14e8054acd3b7c9dfd43fc0e770ee8a2dbf3d3(
+    *,
+    event_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.EventFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+    log_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSessionLogger.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    additional_encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    customer_managed_key: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

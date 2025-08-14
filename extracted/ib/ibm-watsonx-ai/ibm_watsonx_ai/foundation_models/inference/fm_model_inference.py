@@ -4,34 +4,36 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from enum import Enum
+
 from copy import deepcopy
+from enum import Enum
 from typing import (
-    Generator,
-    cast,
     TYPE_CHECKING,
-    overload,
-    Literal,
     AsyncGenerator,
+    Generator,
+    Literal,
+    cast,
+    overload,
 )
 from warnings import catch_warnings, simplefilter
 
 __all__ = ["FMModelInference"]
 
 
-from ibm_watsonx_ai.wml_client_error import WMLClientError
-from ibm_watsonx_ai.foundation_models.utils.enums import DecodingMethods
 from ibm_watsonx_ai.foundation_models.schema import (
-    TextChatParameters,
     BaseSchema,
+    TextChatParameters,
     TextGenParameters,
 )
+from ibm_watsonx_ai.foundation_models.utils.enums import DecodingMethods
 from ibm_watsonx_ai.foundation_models.utils.utils import (
     _check_model_state,
     get_model_specs,
 )
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+from ibm_watsonx_ai.wml_client_error import WMLClientError
+
 from .base_model_inference import BaseModelInference
 
 if TYPE_CHECKING:
@@ -132,7 +134,9 @@ class FMModelInference(BaseModelInference):
         :rtype: dict
         """
         if self._client._use_fm_ga_api:
-            return self._client.foundation_models.get_model_specs(self.model_id, tech_preview=self._tech_preview)  # type: ignore[return-value]
+            return self._client.foundation_models.get_model_specs(
+                self.model_id, tech_preview=self._tech_preview
+            )  # type: ignore[return-value]
         else:
             with catch_warnings():
                 simplefilter("ignore", category=DeprecationWarning)
@@ -147,7 +151,6 @@ class FMModelInference(BaseModelInference):
         tool_choice_option: Literal["none", "auto"] | None = None,
         context: str | None = None,
     ) -> dict:
-
         text_chat_url = self._client._href_definitions.get_fm_chat_href("chat")
 
         return self._send_chat_payload(
@@ -168,7 +171,6 @@ class FMModelInference(BaseModelInference):
         tool_choice_option: Literal["none", "auto"] | None = None,
         context: str | None = None,
     ) -> Generator:
-
         text_chat_stream_url = self._client._href_definitions.get_fm_chat_href(
             "chat_stream"
         )
@@ -191,7 +193,6 @@ class FMModelInference(BaseModelInference):
         tool_choice_option: Literal["none", "auto"] | None = None,
         context: str | None = None,
     ) -> dict:
-
         text_chat_url = self._client._href_definitions.get_fm_chat_href("chat")
 
         payload = self._prepare_chat_payload(
@@ -221,7 +222,6 @@ class FMModelInference(BaseModelInference):
         tool_choice_option: Literal["none", "auto"] | None = None,
         context: str | None = None,
     ) -> AsyncGenerator:
-
         text_chat_stream_url = self._client._href_definitions.get_fm_chat_href(
             "chat_stream"
         )
@@ -354,7 +354,6 @@ class FMModelInference(BaseModelInference):
         guardrails_granite_guardian_params: dict | None = None,
         validate_prompt_variables: bool = True,
     ) -> dict:
-
         if not validate_prompt_variables:
             raise ValueError(
                 "`validate_prompt_variables` is only applicable for Prompt Template Asset deployment. Do not change its value for other scenarios."
@@ -473,7 +472,7 @@ class FMModelInference(BaseModelInference):
             )
         else:
             generate_text_stream_url = (
-                self._client._href_definitions.get_fm_generation_href(f"text_stream")
+                self._client._href_definitions.get_fm_generation_href("text_stream")
             )  # Remove on CPD 5.0 release
         prompt = cast(str, prompt)
         return self._generate_stream_with_url(
@@ -562,18 +561,16 @@ class FMModelInference(BaseModelInference):
                 parameters = parameters.to_dict()
 
         elif self.params is not None:
-
             self.params = cast(dict | TextGenParameters, self.params)
             parameters = deepcopy(self.params)
+
+            if isinstance(parameters, BaseSchema):
+                parameters = parameters.to_dict()
 
             if isinstance(parameters, dict):
                 parameters = self._validate_and_overwrite_params(
                     parameters, TextGenParameters()
                 )
-
-            elif isinstance(parameters, BaseSchema):
-                parameters = parameters.to_dict()
-
         else:
             parameters = None
 
@@ -618,7 +615,6 @@ class FMModelInference(BaseModelInference):
         tool_choice: dict | None = None,
         tool_choice_option: str | None = None,
     ) -> dict:
-
         payload: dict = {
             "model_id": self.model_id,
             "messages": messages,
@@ -631,17 +627,16 @@ class FMModelInference(BaseModelInference):
                 parameters = parameters.to_dict()
 
         elif self.params is not None:
-
             self.params = cast(dict | TextChatParameters, self.params)
             parameters = deepcopy(self.params)
+
+            if isinstance(parameters, BaseSchema):
+                parameters = parameters.to_dict()
 
             if isinstance(parameters, dict):
                 parameters = self._validate_and_overwrite_params(
                     parameters, TextChatParameters()
                 )
-
-            elif isinstance(parameters, BaseSchema):
-                parameters = parameters.to_dict()
 
         else:
             parameters = None
@@ -702,17 +697,16 @@ class FMModelInference(BaseModelInference):
                 parameters = parameters.to_dict()
 
         elif self.params is not None:
-
             self.params = cast(dict | TextGenParameters, self.params)
             parameters = deepcopy(self.params)
+
+            if isinstance(parameters, BaseSchema):
+                parameters = parameters.to_dict()
 
             if isinstance(parameters, dict):
                 parameters = self._validate_and_overwrite_params(
                     parameters, TextGenParameters()
                 )
-
-            elif isinstance(parameters, BaseSchema):
-                parameters = parameters.to_dict()
 
         else:
             parameters = None

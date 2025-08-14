@@ -1,38 +1,49 @@
 # coding: UTF-8
 import sys
-bstack1ll11l_opy_ = sys.version_info [0] == 2
-bstack111111l_opy_ = 2048
-bstack111l1ll_opy_ = 7
-def bstack11l1_opy_ (bstack1llllll1_opy_):
-    global bstack1l11ll_opy_
-    bstack1ll111l_opy_ = ord (bstack1llllll1_opy_ [-1])
-    bstack1l1l1l1_opy_ = bstack1llllll1_opy_ [:-1]
-    bstack1l111_opy_ = bstack1ll111l_opy_ % len (bstack1l1l1l1_opy_)
-    bstack11ll1ll_opy_ = bstack1l1l1l1_opy_ [:bstack1l111_opy_] + bstack1l1l1l1_opy_ [bstack1l111_opy_:]
-    if bstack1ll11l_opy_:
-        bstack11l1ll_opy_ = unicode () .join ([unichr (ord (char) - bstack111111l_opy_ - (bstack11111ll_opy_ + bstack1ll111l_opy_) % bstack111l1ll_opy_) for bstack11111ll_opy_, char in enumerate (bstack11ll1ll_opy_)])
+bstack111_opy_ = sys.version_info [0] == 2
+bstack11l11l_opy_ = 2048
+bstack1llll1_opy_ = 7
+def bstack1l1l1ll_opy_ (bstack1l1llll_opy_):
+    global bstack11l1l11_opy_
+    bstack1l11ll1_opy_ = ord (bstack1l1llll_opy_ [-1])
+    bstack1l1l111_opy_ = bstack1l1llll_opy_ [:-1]
+    bstack1111l11_opy_ = bstack1l11ll1_opy_ % len (bstack1l1l111_opy_)
+    bstack11l11ll_opy_ = bstack1l1l111_opy_ [:bstack1111l11_opy_] + bstack1l1l111_opy_ [bstack1111l11_opy_:]
+    if bstack111_opy_:
+        bstack1lll1l1_opy_ = unicode () .join ([unichr (ord (char) - bstack11l11l_opy_ - (bstack11111l_opy_ + bstack1l11ll1_opy_) % bstack1llll1_opy_) for bstack11111l_opy_, char in enumerate (bstack11l11ll_opy_)])
     else:
-        bstack11l1ll_opy_ = str () .join ([chr (ord (char) - bstack111111l_opy_ - (bstack11111ll_opy_ + bstack1ll111l_opy_) % bstack111l1ll_opy_) for bstack11111ll_opy_, char in enumerate (bstack11ll1ll_opy_)])
-    return eval (bstack11l1ll_opy_)
-class bstack1ll1l1l1l_opy_:
-    def __init__(self, handler):
-        self._1llllll1lll1_opy_ = None
-        self.handler = handler
-        self._1llllll1ll1l_opy_ = self.bstack1llllll1ll11_opy_()
-        self.patch()
-    def patch(self):
-        self._1llllll1lll1_opy_ = self._1llllll1ll1l_opy_.execute
-        self._1llllll1ll1l_opy_.execute = self.bstack1llllll1llll_opy_()
-    def bstack1llllll1llll_opy_(self):
-        def execute(this, driver_command, *args, **kwargs):
-            self.handler(bstack11l1_opy_ (u"ࠦࡧ࡫ࡦࡰࡴࡨࠦῦ"), driver_command, None, this, args)
-            response = self._1llllll1lll1_opy_(this, driver_command, *args, **kwargs)
-            self.handler(bstack11l1_opy_ (u"ࠧࡧࡦࡵࡧࡵࠦῧ"), driver_command, response)
-            return response
-        return execute
-    def reset(self):
-        self._1llllll1ll1l_opy_.execute = self._1llllll1lll1_opy_
-    @staticmethod
-    def bstack1llllll1ll11_opy_():
-        from selenium.webdriver.remote.webdriver import WebDriver
-        return WebDriver
+        bstack1lll1l1_opy_ = str () .join ([chr (ord (char) - bstack11l11l_opy_ - (bstack11111l_opy_ + bstack1l11ll1_opy_) % bstack1llll1_opy_) for bstack11111l_opy_, char in enumerate (bstack11l11ll_opy_)])
+    return eval (bstack1lll1l1_opy_)
+from time import sleep
+from datetime import datetime
+from urllib.parse import urlencode
+from bstack_utils.bstack11ll11l1ll1_opy_ import bstack11ll11l1l1l_opy_
+from bstack_utils.constants import *
+import json
+class bstack111111111_opy_:
+    def __init__(self, bstack1llllllll1_opy_, bstack11ll11l11ll_opy_):
+        self.bstack1llllllll1_opy_ = bstack1llllllll1_opy_
+        self.bstack11ll11l11ll_opy_ = bstack11ll11l11ll_opy_
+        self.bstack11ll11l11l1_opy_ = None
+    def __call__(self):
+        bstack11ll11l1111_opy_ = {}
+        while True:
+            self.bstack11ll11l11l1_opy_ = bstack11ll11l1111_opy_.get(
+                bstack1l1l1ll_opy_ (u"ࠫࡳ࡫ࡸࡵࡡࡳࡳࡱࡲ࡟ࡵ࡫ࡰࡩࠬᝬ"),
+                int(datetime.now().timestamp() * 1000)
+            )
+            bstack11ll111llll_opy_ = self.bstack11ll11l11l1_opy_ - int(datetime.now().timestamp() * 1000)
+            if bstack11ll111llll_opy_ > 0:
+                sleep(bstack11ll111llll_opy_ / 1000)
+            params = {
+                bstack1l1l1ll_opy_ (u"ࠬࡺࡥࡴࡶࡢࡶࡺࡴ࡟ࡶࡷ࡬ࡨࠬ᝭"): self.bstack1llllllll1_opy_,
+                bstack1l1l1ll_opy_ (u"࠭ࡴࡪ࡯ࡨࡷࡹࡧ࡭ࡱࠩᝮ"): int(datetime.now().timestamp() * 1000)
+            }
+            bstack11ll111lll1_opy_ = bstack1l1l1ll_opy_ (u"ࠢࡩࡶࡷࡴࡸࡀ࠯࠰ࠤᝯ") + bstack11ll11l1l11_opy_ + bstack1l1l1ll_opy_ (u"ࠣ࠱ࡤࡹࡹࡵ࡭ࡢࡶࡨ࠳ࡦࡶࡩ࠰ࡸ࠴࠳ࠧᝰ")
+            if self.bstack11ll11l11ll_opy_.lower() == bstack1l1l1ll_opy_ (u"ࠤࡵࡩࡸࡻ࡬ࡵࡵࠥ᝱"):
+                bstack11ll11l1111_opy_ = bstack11ll11l1l1l_opy_.results(bstack11ll111lll1_opy_, params)
+            else:
+                bstack11ll11l1111_opy_ = bstack11ll11l1l1l_opy_.bstack11ll11l111l_opy_(bstack11ll111lll1_opy_, params)
+            if str(bstack11ll11l1111_opy_.get(bstack1l1l1ll_opy_ (u"ࠪࡷࡹࡧࡴࡶࡵࠪᝲ"), bstack1l1l1ll_opy_ (u"ࠫ࠷࠶࠰ࠨᝳ"))) != bstack1l1l1ll_opy_ (u"ࠬ࠺࠰࠵ࠩ᝴"):
+                break
+        return bstack11ll11l1111_opy_.get(bstack1l1l1ll_opy_ (u"࠭ࡤࡢࡶࡤࠫ᝵"), bstack11ll11l1111_opy_)

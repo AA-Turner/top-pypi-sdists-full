@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-pari
-Version: 10.6.3
+Version: 10.6.4
 Summary: passagemath: Computational Number Theory with PARI/GP
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -31,8 +31,8 @@ Description-Content-Type: text/x-rst
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator
-Requires-Dist: passagemath-environment~=10.6.3.0
-Requires-Dist: passagemath-categories~=10.6.3.0
+Requires-Dist: passagemath-environment~=10.6.4.0
+Requires-Dist: passagemath-categories~=10.6.4.0
 Requires-Dist: conway-polynomials>=0.8
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"
@@ -52,6 +52,14 @@ Provides-Extra: seadata-big
 Requires-Dist: passagemath-pari-seadata-big; extra == "seadata-big"
 Provides-Extra: seadata-small
 Requires-Dist: passagemath-pari-seadata-small; extra == "seadata-small"
+Provides-Extra: jupyterkernel
+Requires-Dist: ipykernel>=5.2.1; extra == "jupyterkernel"
+Provides-Extra: jupyterlab
+Requires-Dist: passagemath-pari[jupyterkernel]; extra == "jupyterlab"
+Requires-Dist: jupyterlab; extra == "jupyterlab"
+Provides-Extra: notebook
+Requires-Dist: passagemath-pari[jupyterkernel]; extra == "notebook"
+Requires-Dist: notebook>=6.1.1; extra == "notebook"
 Provides-Extra: standard
 Requires-Dist: passagemath-pari[galdata,seadata-small]; extra == "standard"
 
@@ -132,11 +140,13 @@ What is included
 
 - various other modules with dependencies on PARI/GP, see `MANIFEST <https://github.com/passagemath/passagemath/blob/main/pkgs/sagemath-pari/MANIFEST.in>`_
 
-- the ``cypari2`` API
+- the `cypari2 <https://pypi.org/project/cypari2/>`_ API
+
+- the `pari-jupyter kernel <https://github.com/passagemath/upstream-pari-jupyter>`__
 
 - the binary wheels on PyPI ship a prebuilt copy of PARI/GP
 
-- the binary wheels on PyPI ship XEUS-GP, a Jupyter kernel for PARI/GP
+- the binary wheels on PyPI ship XEUS-GP, another Jupyter kernel for PARI/GP
 
 
 Examples

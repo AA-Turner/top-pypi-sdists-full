@@ -22,6 +22,13 @@ from typing import Any, List, Optional, Union
 from typing_extensions import Annotated
 from legit_api_client.models.control_classification import ControlClassification
 from legit_api_client.models.customer_facing_issue_dto import CustomerFacingIssueDto
+from legit_api_client.models.customer_facing_issue_to_action_history_dto import CustomerFacingIssueToActionHistoryDto
+from legit_api_client.models.customer_facing_issue_to_additional_data_dto import CustomerFacingIssueToAdditionalDataDto
+from legit_api_client.models.customer_facing_issue_to_comments_dto import CustomerFacingIssueToCommentsDto
+from legit_api_client.models.customer_facing_issue_to_remediation_dto import CustomerFacingIssueToRemediationDto
+from legit_api_client.models.customer_facing_issue_to_tags_dto import CustomerFacingIssueToTagsDto
+from legit_api_client.models.customer_facing_issue_to_tickets_dto import CustomerFacingIssueToTicketsDto
+from legit_api_client.models.customer_facing_issue_to_vulnerability_dto import CustomerFacingIssueToVulnerabilityDto
 from legit_api_client.models.customer_facing_issues_page_dto import CustomerFacingIssuesPageDto
 from legit_api_client.models.dependency_fix_type import DependencyFixType
 from legit_api_client.models.issue_origin_params import IssueOriginParams
@@ -314,6 +321,538 @@ class IssuesV2Api:
 
 
     @validate_call
+    def get_extended_issues(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> CustomerFacingIssuesPageDto:
+        """Get extended data on issues
+
+        Get extended data on the provided issue ids. To get the ids that match certain filters use the \"Get issues\" API
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_extended_issues_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CustomerFacingIssuesPageDto",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_extended_issues_with_http_info(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[CustomerFacingIssuesPageDto]:
+        """Get extended data on issues
+
+        Get extended data on the provided issue ids. To get the ids that match certain filters use the \"Get issues\" API
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_extended_issues_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CustomerFacingIssuesPageDto",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_extended_issues_without_preload_content(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get extended data on issues
+
+        Get extended data on the provided issue ids. To get the ids that match certain filters use the \"Get issues\" API
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_extended_issues_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CustomerFacingIssuesPageDto",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_extended_issues_serialize(
+        self,
+        ids,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/issues/extended',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_issue_action_history(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[CustomerFacingIssueToActionHistoryDto]:
+        """Get the action history of issues
+
+        Get issue id to its action history, for the provided issue ids. Some issues may not have any history (if no action was performed on them)
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_action_history_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToActionHistoryDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_issue_action_history_with_http_info(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[CustomerFacingIssueToActionHistoryDto]]:
+        """Get the action history of issues
+
+        Get issue id to its action history, for the provided issue ids. Some issues may not have any history (if no action was performed on them)
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_action_history_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToActionHistoryDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_issue_action_history_without_preload_content(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the action history of issues
+
+        Get issue id to its action history, for the provided issue ids. Some issues may not have any history (if no action was performed on them)
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_action_history_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToActionHistoryDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_issue_action_history_serialize(
+        self,
+        ids,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/issues/action-history',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_issue_by_id_v2(
         self,
         id: StrictStr,
@@ -580,47 +1119,1377 @@ class IssuesV2Api:
 
 
     @validate_call
+    def get_issue_comments(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[CustomerFacingIssueToCommentsDto]:
+        """Get the comments on issues
+
+        Get issue id to the comments on it, for the provided issue ids. Some issues may not have comment
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_comments_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToCommentsDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_issue_comments_with_http_info(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[CustomerFacingIssueToCommentsDto]]:
+        """Get the comments on issues
+
+        Get issue id to the comments on it, for the provided issue ids. Some issues may not have comment
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_comments_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToCommentsDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_issue_comments_without_preload_content(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the comments on issues
+
+        Get issue id to the comments on it, for the provided issue ids. Some issues may not have comment
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_comments_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToCommentsDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_issue_comments_serialize(
+        self,
+        ids,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/issues/comments',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_issue_remediation(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[CustomerFacingIssueToRemediationDto]:
+        """Get the remediation steps of issues
+
+        Get issue id to its remediation steps, for the provided issue ids
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_remediation_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToRemediationDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_issue_remediation_with_http_info(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[CustomerFacingIssueToRemediationDto]]:
+        """Get the remediation steps of issues
+
+        Get issue id to its remediation steps, for the provided issue ids
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_remediation_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToRemediationDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_issue_remediation_without_preload_content(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the remediation steps of issues
+
+        Get issue id to its remediation steps, for the provided issue ids
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_remediation_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToRemediationDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_issue_remediation_serialize(
+        self,
+        ids,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/issues/remediation',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_issue_tags(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[CustomerFacingIssueToTagsDto]:
+        """Get the tags on issues
+
+        Get issue id to the tags on it, for the provided issue ids. Some issues may not have tags
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_tags_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToTagsDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_issue_tags_with_http_info(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[CustomerFacingIssueToTagsDto]]:
+        """Get the tags on issues
+
+        Get issue id to the tags on it, for the provided issue ids. Some issues may not have tags
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_tags_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToTagsDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_issue_tags_without_preload_content(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the tags on issues
+
+        Get issue id to the tags on it, for the provided issue ids. Some issues may not have tags
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_tags_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToTagsDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_issue_tags_serialize(
+        self,
+        ids,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/issues/tags',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_issue_tickets(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[CustomerFacingIssueToTicketsDto]:
+        """Get the tickets on issues
+
+        Get issue id to the tickets on it, for the provided issue ids. Some issues may not have tickets
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_tickets_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToTicketsDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_issue_tickets_with_http_info(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[CustomerFacingIssueToTicketsDto]]:
+        """Get the tickets on issues
+
+        Get issue id to the tickets on it, for the provided issue ids. Some issues may not have tickets
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_tickets_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToTicketsDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_issue_tickets_without_preload_content(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the tickets on issues
+
+        Get issue id to the tickets on it, for the provided issue ids. Some issues may not have tickets
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issue_tickets_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToTicketsDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_issue_tickets_serialize(
+        self,
+        ids,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/issues/tickets',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_issues_additional_data(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[CustomerFacingIssueToAdditionalDataDto]:
+        """Get additional data on issues by their ids
+
+        Get the issue ids to their specific data, response structure can change per issue. To get the ids that match certain filters use the \"Get issues\" API
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issues_additional_data_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToAdditionalDataDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_issues_additional_data_with_http_info(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[CustomerFacingIssueToAdditionalDataDto]]:
+        """Get additional data on issues by their ids
+
+        Get the issue ids to their specific data, response structure can change per issue. To get the ids that match certain filters use the \"Get issues\" API
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issues_additional_data_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToAdditionalDataDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_issues_additional_data_without_preload_content(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get additional data on issues by their ids
+
+        Get the issue ids to their specific data, response structure can change per issue. To get the ids that match certain filters use the \"Get issues\" API
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issues_additional_data_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToAdditionalDataDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_issues_additional_data_serialize(
+        self,
+        ids,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/issues/additional-data',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_issues_count(
         self,
-        title: Optional[StrictStr] = None,
+        title: Annotated[Optional[StrictStr], Field(description="Filter issues that their title equals to the given string")] = None,
         title_search: Annotated[Optional[StrictStr], Field(description="Filter issues that their title contains the given string")] = None,
         issue_types: Annotated[Optional[List[IssueType]], Field(description="Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone")] = None,
         severities: Annotated[Optional[List[Severity]], Field(description="Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone")] = None,
-        policy_severity: Optional[Any] = None,
+        policy_severity: Annotated[Optional[Any], Field(description="Filter issues by their policy severity")] = None,
         statuses: Annotated[Optional[List[IssueStatus]], Field(description="Filter issues that their status is in the given list. To filter for a specific status provide it here alone")] = None,
-        detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        opening_reason: Optional[Any] = None,
-        last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        closing_reason: Optional[Any] = None,
-        closing_location: Optional[Any] = None,
+        detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        opening_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last open")] = None,
+        last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        closing_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last closed")] = None,
+        closing_location: Annotated[Optional[Any], Field(description="Filter by their opening reason")] = None,
         workspace_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that their WorkspaceId is in the given list")] = None,
         vulnerable_file: Annotated[Optional[StrictStr], Field(description="Filter issues that originated from the given file")] = None,
-        cve_id: Optional[StrictStr] = None,
-        min_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        min_epss_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        dependency_fix_types: Optional[List[DependencyFixType]] = None,
-        product_ids: Optional[List[StrictStr]] = None,
-        has_ticket: Optional[StrictBool] = None,
+        cve_id: Annotated[Optional[StrictStr], Field(description="Filter issues that have the given CVE")] = None,
+        min_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their score (0-100)")] = None,
+        min_epss_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their apss score")] = None,
+        dependency_fix_types: Annotated[Optional[List[DependencyFixType]], Field(description="Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone")] = None,
+        product_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone")] = None,
+        has_ticket: Annotated[Optional[StrictBool], Field(description="Filter issues that have a ticket related to them")] = None,
         is_assigned: Annotated[Optional[StrictBool], Field(description="Filter issues that have a user assigned to them in the legit platform")] = None,
-        is_assigned_to_me: Optional[StrictBool] = None,
+        is_assigned_to_me: Annotated[Optional[StrictBool], Field(description="Filter issues that are assigned to the user using this API in the legit platform")] = None,
         is_triaged: Annotated[Optional[StrictBool], Field(description="Filter issues that have either a user or a ticket assigned to them in the legit platform")] = None,
-        assigned_user_id: Optional[StrictStr] = None,
-        origin_id: Optional[StrictStr] = None,
-        origin_origin_type: Optional[Any] = None,
-        origin_type: Optional[Any] = None,
+        assigned_user_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are assigned to the given user in the legit platform")] = None,
+        origin_id: Annotated[Optional[StrictStr], Field(description="The identifier of the origin")] = None,
+        origin_origin_type: Annotated[Optional[Any], Field(description="The type of the origin")] = None,
+        origin_type: Annotated[Optional[Any], Field(description="Filter issues that have specific origin type")] = None,
         origins: Annotated[Optional[List[IssueOriginParams]], Field(description="Filter issues that their origin is in the given list")] = None,
-        policy_name: Optional[StrictStr] = None,
+        policy_name: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given policy")] = None,
         action_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are part of the action with the given id")] = None,
-        tag: Optional[StrictStr] = None,
-        source_name: Optional[StrictStr] = None,
+        tag: Annotated[Optional[StrictStr], Field(description="Filter issues by tag name")] = None,
+        source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
         integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
         source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        ai_validation_result: Optional[Any] = None,
-        validity_status: Optional[Any] = None,
-        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
         file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
@@ -639,7 +2508,7 @@ class IssuesV2Api:
 
         Get the count of the issues matching the query params filters
 
-        :param title:
+        :param title: Filter issues that their title equals to the given string
         :type title: str
         :param title_search: Filter issues that their title contains the given string
         :type title_search: str
@@ -647,75 +2516,75 @@ class IssuesV2Api:
         :type issue_types: List[IssueType]
         :param severities: Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone
         :type severities: List[Severity]
-        :param policy_severity:
+        :param policy_severity: Filter issues by their policy severity
         :type policy_severity: Severity
         :param statuses: Filter issues that their status is in the given list. To filter for a specific status provide it here alone
         :type statuses: List[IssueStatus]
-        :param detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type detected_from_date: datetime
-        :param detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type detected_to_date: datetime
-        :param opening_reason:
+        :param opening_reason: Filter by the reason they were last open
         :type opening_reason: IssueOpeningReasonDto
-        :param last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type last_action_time_from_date: datetime
-        :param last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type last_action_time_to_date: datetime
-        :param closing_reason:
+        :param closing_reason: Filter by the reason they were last closed
         :type closing_reason: ClosingReason
-        :param closing_location:
+        :param closing_location: Filter by their opening reason
         :type closing_location: IssueClosingLocationDto
         :param workspace_ids: Filter issues that their WorkspaceId is in the given list
         :type workspace_ids: List[str]
         :param vulnerable_file: Filter issues that originated from the given file
         :type vulnerable_file: str
-        :param cve_id:
+        :param cve_id: Filter issues that have the given CVE
         :type cve_id: str
-        :param min_score:
+        :param min_score: Filter issues by their score (0-100)
         :type min_score: float
-        :param min_epss_score:
+        :param min_epss_score: Filter issues by their apss score
         :type min_epss_score: float
-        :param dependency_fix_types:
+        :param dependency_fix_types: Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone
         :type dependency_fix_types: List[DependencyFixType]
-        :param product_ids:
+        :param product_ids: Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone
         :type product_ids: List[str]
-        :param has_ticket:
+        :param has_ticket: Filter issues that have a ticket related to them
         :type has_ticket: bool
         :param is_assigned: Filter issues that have a user assigned to them in the legit platform
         :type is_assigned: bool
-        :param is_assigned_to_me:
+        :param is_assigned_to_me: Filter issues that are assigned to the user using this API in the legit platform
         :type is_assigned_to_me: bool
         :param is_triaged: Filter issues that have either a user or a ticket assigned to them in the legit platform
         :type is_triaged: bool
-        :param assigned_user_id:
+        :param assigned_user_id: Filter issues that are assigned to the given user in the legit platform
         :type assigned_user_id: str
-        :param origin_id:
+        :param origin_id: The identifier of the origin
         :type origin_id: str
-        :param origin_origin_type:
+        :param origin_origin_type: The type of the origin
         :type origin_origin_type: OriginType
-        :param origin_type:
+        :param origin_type: Filter issues that have specific origin type
         :type origin_type: OriginType
         :param origins: Filter issues that their origin is in the given list
         :type origins: List[IssueOriginParams]
-        :param policy_name:
+        :param policy_name: Filter issues that were detected by the given policy
         :type policy_name: str
         :param action_id: Filter issues that are part of the action with the given id
         :type action_id: str
-        :param tag:
+        :param tag: Filter issues by tag name
         :type tag: str
-        :param source_name:
+        :param source_name: Filter issues that have at least one source with the given name
         :type source_name: str
         :param integration_id: Filter issues that were detected by the given integration
         :type integration_id: str
         :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
         :type source_scanner_ids: List[ControlClassification]
-        :param ai_validation_result:
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
         :type ai_validation_result: AiValidationResult
-        :param validity_status:
+        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
         :type validity_status: SecretIssueValidityStatus
-        :param validity_check_from_date: Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_from_date: datetime
-        :param validity_check_to_date: Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_to_date: datetime
         :param file_path: Filter issues that their fila-path contains the given string
         :type file_path: str
@@ -805,45 +2674,45 @@ class IssuesV2Api:
     @validate_call
     def get_issues_count_with_http_info(
         self,
-        title: Optional[StrictStr] = None,
+        title: Annotated[Optional[StrictStr], Field(description="Filter issues that their title equals to the given string")] = None,
         title_search: Annotated[Optional[StrictStr], Field(description="Filter issues that their title contains the given string")] = None,
         issue_types: Annotated[Optional[List[IssueType]], Field(description="Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone")] = None,
         severities: Annotated[Optional[List[Severity]], Field(description="Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone")] = None,
-        policy_severity: Optional[Any] = None,
+        policy_severity: Annotated[Optional[Any], Field(description="Filter issues by their policy severity")] = None,
         statuses: Annotated[Optional[List[IssueStatus]], Field(description="Filter issues that their status is in the given list. To filter for a specific status provide it here alone")] = None,
-        detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        opening_reason: Optional[Any] = None,
-        last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        closing_reason: Optional[Any] = None,
-        closing_location: Optional[Any] = None,
+        detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        opening_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last open")] = None,
+        last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        closing_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last closed")] = None,
+        closing_location: Annotated[Optional[Any], Field(description="Filter by their opening reason")] = None,
         workspace_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that their WorkspaceId is in the given list")] = None,
         vulnerable_file: Annotated[Optional[StrictStr], Field(description="Filter issues that originated from the given file")] = None,
-        cve_id: Optional[StrictStr] = None,
-        min_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        min_epss_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        dependency_fix_types: Optional[List[DependencyFixType]] = None,
-        product_ids: Optional[List[StrictStr]] = None,
-        has_ticket: Optional[StrictBool] = None,
+        cve_id: Annotated[Optional[StrictStr], Field(description="Filter issues that have the given CVE")] = None,
+        min_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their score (0-100)")] = None,
+        min_epss_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their apss score")] = None,
+        dependency_fix_types: Annotated[Optional[List[DependencyFixType]], Field(description="Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone")] = None,
+        product_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone")] = None,
+        has_ticket: Annotated[Optional[StrictBool], Field(description="Filter issues that have a ticket related to them")] = None,
         is_assigned: Annotated[Optional[StrictBool], Field(description="Filter issues that have a user assigned to them in the legit platform")] = None,
-        is_assigned_to_me: Optional[StrictBool] = None,
+        is_assigned_to_me: Annotated[Optional[StrictBool], Field(description="Filter issues that are assigned to the user using this API in the legit platform")] = None,
         is_triaged: Annotated[Optional[StrictBool], Field(description="Filter issues that have either a user or a ticket assigned to them in the legit platform")] = None,
-        assigned_user_id: Optional[StrictStr] = None,
-        origin_id: Optional[StrictStr] = None,
-        origin_origin_type: Optional[Any] = None,
-        origin_type: Optional[Any] = None,
+        assigned_user_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are assigned to the given user in the legit platform")] = None,
+        origin_id: Annotated[Optional[StrictStr], Field(description="The identifier of the origin")] = None,
+        origin_origin_type: Annotated[Optional[Any], Field(description="The type of the origin")] = None,
+        origin_type: Annotated[Optional[Any], Field(description="Filter issues that have specific origin type")] = None,
         origins: Annotated[Optional[List[IssueOriginParams]], Field(description="Filter issues that their origin is in the given list")] = None,
-        policy_name: Optional[StrictStr] = None,
+        policy_name: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given policy")] = None,
         action_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are part of the action with the given id")] = None,
-        tag: Optional[StrictStr] = None,
-        source_name: Optional[StrictStr] = None,
+        tag: Annotated[Optional[StrictStr], Field(description="Filter issues by tag name")] = None,
+        source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
         integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
         source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        ai_validation_result: Optional[Any] = None,
-        validity_status: Optional[Any] = None,
-        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
         file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
@@ -862,7 +2731,7 @@ class IssuesV2Api:
 
         Get the count of the issues matching the query params filters
 
-        :param title:
+        :param title: Filter issues that their title equals to the given string
         :type title: str
         :param title_search: Filter issues that their title contains the given string
         :type title_search: str
@@ -870,75 +2739,75 @@ class IssuesV2Api:
         :type issue_types: List[IssueType]
         :param severities: Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone
         :type severities: List[Severity]
-        :param policy_severity:
+        :param policy_severity: Filter issues by their policy severity
         :type policy_severity: Severity
         :param statuses: Filter issues that their status is in the given list. To filter for a specific status provide it here alone
         :type statuses: List[IssueStatus]
-        :param detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type detected_from_date: datetime
-        :param detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type detected_to_date: datetime
-        :param opening_reason:
+        :param opening_reason: Filter by the reason they were last open
         :type opening_reason: IssueOpeningReasonDto
-        :param last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type last_action_time_from_date: datetime
-        :param last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type last_action_time_to_date: datetime
-        :param closing_reason:
+        :param closing_reason: Filter by the reason they were last closed
         :type closing_reason: ClosingReason
-        :param closing_location:
+        :param closing_location: Filter by their opening reason
         :type closing_location: IssueClosingLocationDto
         :param workspace_ids: Filter issues that their WorkspaceId is in the given list
         :type workspace_ids: List[str]
         :param vulnerable_file: Filter issues that originated from the given file
         :type vulnerable_file: str
-        :param cve_id:
+        :param cve_id: Filter issues that have the given CVE
         :type cve_id: str
-        :param min_score:
+        :param min_score: Filter issues by their score (0-100)
         :type min_score: float
-        :param min_epss_score:
+        :param min_epss_score: Filter issues by their apss score
         :type min_epss_score: float
-        :param dependency_fix_types:
+        :param dependency_fix_types: Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone
         :type dependency_fix_types: List[DependencyFixType]
-        :param product_ids:
+        :param product_ids: Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone
         :type product_ids: List[str]
-        :param has_ticket:
+        :param has_ticket: Filter issues that have a ticket related to them
         :type has_ticket: bool
         :param is_assigned: Filter issues that have a user assigned to them in the legit platform
         :type is_assigned: bool
-        :param is_assigned_to_me:
+        :param is_assigned_to_me: Filter issues that are assigned to the user using this API in the legit platform
         :type is_assigned_to_me: bool
         :param is_triaged: Filter issues that have either a user or a ticket assigned to them in the legit platform
         :type is_triaged: bool
-        :param assigned_user_id:
+        :param assigned_user_id: Filter issues that are assigned to the given user in the legit platform
         :type assigned_user_id: str
-        :param origin_id:
+        :param origin_id: The identifier of the origin
         :type origin_id: str
-        :param origin_origin_type:
+        :param origin_origin_type: The type of the origin
         :type origin_origin_type: OriginType
-        :param origin_type:
+        :param origin_type: Filter issues that have specific origin type
         :type origin_type: OriginType
         :param origins: Filter issues that their origin is in the given list
         :type origins: List[IssueOriginParams]
-        :param policy_name:
+        :param policy_name: Filter issues that were detected by the given policy
         :type policy_name: str
         :param action_id: Filter issues that are part of the action with the given id
         :type action_id: str
-        :param tag:
+        :param tag: Filter issues by tag name
         :type tag: str
-        :param source_name:
+        :param source_name: Filter issues that have at least one source with the given name
         :type source_name: str
         :param integration_id: Filter issues that were detected by the given integration
         :type integration_id: str
         :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
         :type source_scanner_ids: List[ControlClassification]
-        :param ai_validation_result:
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
         :type ai_validation_result: AiValidationResult
-        :param validity_status:
+        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
         :type validity_status: SecretIssueValidityStatus
-        :param validity_check_from_date: Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_from_date: datetime
-        :param validity_check_to_date: Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_to_date: datetime
         :param file_path: Filter issues that their fila-path contains the given string
         :type file_path: str
@@ -1028,45 +2897,45 @@ class IssuesV2Api:
     @validate_call
     def get_issues_count_without_preload_content(
         self,
-        title: Optional[StrictStr] = None,
+        title: Annotated[Optional[StrictStr], Field(description="Filter issues that their title equals to the given string")] = None,
         title_search: Annotated[Optional[StrictStr], Field(description="Filter issues that their title contains the given string")] = None,
         issue_types: Annotated[Optional[List[IssueType]], Field(description="Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone")] = None,
         severities: Annotated[Optional[List[Severity]], Field(description="Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone")] = None,
-        policy_severity: Optional[Any] = None,
+        policy_severity: Annotated[Optional[Any], Field(description="Filter issues by their policy severity")] = None,
         statuses: Annotated[Optional[List[IssueStatus]], Field(description="Filter issues that their status is in the given list. To filter for a specific status provide it here alone")] = None,
-        detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        opening_reason: Optional[Any] = None,
-        last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        closing_reason: Optional[Any] = None,
-        closing_location: Optional[Any] = None,
+        detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        opening_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last open")] = None,
+        last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        closing_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last closed")] = None,
+        closing_location: Annotated[Optional[Any], Field(description="Filter by their opening reason")] = None,
         workspace_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that their WorkspaceId is in the given list")] = None,
         vulnerable_file: Annotated[Optional[StrictStr], Field(description="Filter issues that originated from the given file")] = None,
-        cve_id: Optional[StrictStr] = None,
-        min_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        min_epss_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        dependency_fix_types: Optional[List[DependencyFixType]] = None,
-        product_ids: Optional[List[StrictStr]] = None,
-        has_ticket: Optional[StrictBool] = None,
+        cve_id: Annotated[Optional[StrictStr], Field(description="Filter issues that have the given CVE")] = None,
+        min_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their score (0-100)")] = None,
+        min_epss_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their apss score")] = None,
+        dependency_fix_types: Annotated[Optional[List[DependencyFixType]], Field(description="Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone")] = None,
+        product_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone")] = None,
+        has_ticket: Annotated[Optional[StrictBool], Field(description="Filter issues that have a ticket related to them")] = None,
         is_assigned: Annotated[Optional[StrictBool], Field(description="Filter issues that have a user assigned to them in the legit platform")] = None,
-        is_assigned_to_me: Optional[StrictBool] = None,
+        is_assigned_to_me: Annotated[Optional[StrictBool], Field(description="Filter issues that are assigned to the user using this API in the legit platform")] = None,
         is_triaged: Annotated[Optional[StrictBool], Field(description="Filter issues that have either a user or a ticket assigned to them in the legit platform")] = None,
-        assigned_user_id: Optional[StrictStr] = None,
-        origin_id: Optional[StrictStr] = None,
-        origin_origin_type: Optional[Any] = None,
-        origin_type: Optional[Any] = None,
+        assigned_user_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are assigned to the given user in the legit platform")] = None,
+        origin_id: Annotated[Optional[StrictStr], Field(description="The identifier of the origin")] = None,
+        origin_origin_type: Annotated[Optional[Any], Field(description="The type of the origin")] = None,
+        origin_type: Annotated[Optional[Any], Field(description="Filter issues that have specific origin type")] = None,
         origins: Annotated[Optional[List[IssueOriginParams]], Field(description="Filter issues that their origin is in the given list")] = None,
-        policy_name: Optional[StrictStr] = None,
+        policy_name: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given policy")] = None,
         action_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are part of the action with the given id")] = None,
-        tag: Optional[StrictStr] = None,
-        source_name: Optional[StrictStr] = None,
+        tag: Annotated[Optional[StrictStr], Field(description="Filter issues by tag name")] = None,
+        source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
         integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
         source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        ai_validation_result: Optional[Any] = None,
-        validity_status: Optional[Any] = None,
-        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
         file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
@@ -1085,7 +2954,7 @@ class IssuesV2Api:
 
         Get the count of the issues matching the query params filters
 
-        :param title:
+        :param title: Filter issues that their title equals to the given string
         :type title: str
         :param title_search: Filter issues that their title contains the given string
         :type title_search: str
@@ -1093,75 +2962,75 @@ class IssuesV2Api:
         :type issue_types: List[IssueType]
         :param severities: Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone
         :type severities: List[Severity]
-        :param policy_severity:
+        :param policy_severity: Filter issues by their policy severity
         :type policy_severity: Severity
         :param statuses: Filter issues that their status is in the given list. To filter for a specific status provide it here alone
         :type statuses: List[IssueStatus]
-        :param detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type detected_from_date: datetime
-        :param detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type detected_to_date: datetime
-        :param opening_reason:
+        :param opening_reason: Filter by the reason they were last open
         :type opening_reason: IssueOpeningReasonDto
-        :param last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type last_action_time_from_date: datetime
-        :param last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
         :type last_action_time_to_date: datetime
-        :param closing_reason:
+        :param closing_reason: Filter by the reason they were last closed
         :type closing_reason: ClosingReason
-        :param closing_location:
+        :param closing_location: Filter by their opening reason
         :type closing_location: IssueClosingLocationDto
         :param workspace_ids: Filter issues that their WorkspaceId is in the given list
         :type workspace_ids: List[str]
         :param vulnerable_file: Filter issues that originated from the given file
         :type vulnerable_file: str
-        :param cve_id:
+        :param cve_id: Filter issues that have the given CVE
         :type cve_id: str
-        :param min_score:
+        :param min_score: Filter issues by their score (0-100)
         :type min_score: float
-        :param min_epss_score:
+        :param min_epss_score: Filter issues by their apss score
         :type min_epss_score: float
-        :param dependency_fix_types:
+        :param dependency_fix_types: Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone
         :type dependency_fix_types: List[DependencyFixType]
-        :param product_ids:
+        :param product_ids: Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone
         :type product_ids: List[str]
-        :param has_ticket:
+        :param has_ticket: Filter issues that have a ticket related to them
         :type has_ticket: bool
         :param is_assigned: Filter issues that have a user assigned to them in the legit platform
         :type is_assigned: bool
-        :param is_assigned_to_me:
+        :param is_assigned_to_me: Filter issues that are assigned to the user using this API in the legit platform
         :type is_assigned_to_me: bool
         :param is_triaged: Filter issues that have either a user or a ticket assigned to them in the legit platform
         :type is_triaged: bool
-        :param assigned_user_id:
+        :param assigned_user_id: Filter issues that are assigned to the given user in the legit platform
         :type assigned_user_id: str
-        :param origin_id:
+        :param origin_id: The identifier of the origin
         :type origin_id: str
-        :param origin_origin_type:
+        :param origin_origin_type: The type of the origin
         :type origin_origin_type: OriginType
-        :param origin_type:
+        :param origin_type: Filter issues that have specific origin type
         :type origin_type: OriginType
         :param origins: Filter issues that their origin is in the given list
         :type origins: List[IssueOriginParams]
-        :param policy_name:
+        :param policy_name: Filter issues that were detected by the given policy
         :type policy_name: str
         :param action_id: Filter issues that are part of the action with the given id
         :type action_id: str
-        :param tag:
+        :param tag: Filter issues by tag name
         :type tag: str
-        :param source_name:
+        :param source_name: Filter issues that have at least one source with the given name
         :type source_name: str
         :param integration_id: Filter issues that were detected by the given integration
         :type integration_id: str
         :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
         :type source_scanner_ids: List[ControlClassification]
-        :param ai_validation_result:
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
         :type ai_validation_result: AiValidationResult
-        :param validity_status:
+        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
         :type validity_status: SecretIssueValidityStatus
-        :param validity_check_from_date: Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_from_date: datetime
-        :param validity_check_to_date: Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_to_date: datetime
         :param file_path: Filter issues that their fila-path contains the given string
         :type file_path: str
@@ -1572,50 +3441,50 @@ class IssuesV2Api:
     @validate_call
     def get_issues_v2(
         self,
-        issues_query_title: Optional[StrictStr] = None,
-        issues_query_title_search: Annotated[Optional[StrictStr], Field(description="Filter issues that their title contains the given string")] = None,
-        issues_query_issue_types: Annotated[Optional[List[IssueType]], Field(description="Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone")] = None,
-        issues_query_severities: Annotated[Optional[List[Severity]], Field(description="Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone")] = None,
-        issues_query_policy_severity: Optional[Any] = None,
-        issues_query_statuses: Annotated[Optional[List[IssueStatus]], Field(description="Filter issues that their status is in the given list. To filter for a specific status provide it here alone")] = None,
-        issues_query_detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_opening_reason: Optional[Any] = None,
-        issues_query_last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_closing_reason: Optional[Any] = None,
-        issues_query_closing_location: Optional[Any] = None,
-        issues_query_workspace_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that their WorkspaceId is in the given list")] = None,
-        issues_query_vulnerable_file: Annotated[Optional[StrictStr], Field(description="Filter issues that originated from the given file")] = None,
-        issues_query_cve_id: Optional[StrictStr] = None,
-        issues_query_min_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        issues_query_min_epss_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        issues_query_dependency_fix_types: Optional[List[DependencyFixType]] = None,
-        issues_query_product_ids: Optional[List[StrictStr]] = None,
-        issues_query_has_ticket: Optional[StrictBool] = None,
-        issues_query_is_assigned: Annotated[Optional[StrictBool], Field(description="Filter issues that have a user assigned to them in the legit platform")] = None,
-        issues_query_is_assigned_to_me: Optional[StrictBool] = None,
-        issues_query_is_triaged: Annotated[Optional[StrictBool], Field(description="Filter issues that have either a user or a ticket assigned to them in the legit platform")] = None,
-        issues_query_assigned_user_id: Optional[StrictStr] = None,
-        issues_query_origin_id: Optional[StrictStr] = None,
-        issues_query_origin_origin_type: Optional[Any] = None,
-        issues_query_origin_type: Optional[Any] = None,
-        issues_query_origins: Annotated[Optional[List[IssueOriginParams]], Field(description="Filter issues that their origin is in the given list")] = None,
-        issues_query_policy_name: Optional[StrictStr] = None,
-        issues_query_action_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are part of the action with the given id")] = None,
-        issues_query_tag: Optional[StrictStr] = None,
-        issues_query_source_name: Optional[StrictStr] = None,
-        issues_query_integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
-        issues_query_source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        issues_query_ai_validation_result: Optional[Any] = None,
-        issues_query_validity_status: Optional[Any] = None,
-        issues_query_validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
-        sort_column: Optional[Any] = None,
-        sort_direction: Optional[Any] = None,
+        sort_column: Annotated[Optional[Any], Field(description="Sort issues by the specified column")] = None,
+        sort_direction: Annotated[Optional[Any], Field(description="Sort direction for the results")] = None,
         token: Annotated[Optional[StrictStr], Field(description="Token from previous request (leave empty for first request)")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return (1-100)")] = None,
+        title: Annotated[Optional[StrictStr], Field(description="Filter issues that their title equals to the given string")] = None,
+        title_search: Annotated[Optional[StrictStr], Field(description="Filter issues that their title contains the given string")] = None,
+        issue_types: Annotated[Optional[List[IssueType]], Field(description="Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone")] = None,
+        severities: Annotated[Optional[List[Severity]], Field(description="Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone")] = None,
+        policy_severity: Annotated[Optional[Any], Field(description="Filter issues by their policy severity")] = None,
+        statuses: Annotated[Optional[List[IssueStatus]], Field(description="Filter issues that their status is in the given list. To filter for a specific status provide it here alone")] = None,
+        detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        opening_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last open")] = None,
+        last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        closing_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last closed")] = None,
+        closing_location: Annotated[Optional[Any], Field(description="Filter by their opening reason")] = None,
+        workspace_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that their WorkspaceId is in the given list")] = None,
+        vulnerable_file: Annotated[Optional[StrictStr], Field(description="Filter issues that originated from the given file")] = None,
+        cve_id: Annotated[Optional[StrictStr], Field(description="Filter issues that have the given CVE")] = None,
+        min_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their score (0-100)")] = None,
+        min_epss_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their apss score")] = None,
+        dependency_fix_types: Annotated[Optional[List[DependencyFixType]], Field(description="Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone")] = None,
+        product_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone")] = None,
+        has_ticket: Annotated[Optional[StrictBool], Field(description="Filter issues that have a ticket related to them")] = None,
+        is_assigned: Annotated[Optional[StrictBool], Field(description="Filter issues that have a user assigned to them in the legit platform")] = None,
+        is_assigned_to_me: Annotated[Optional[StrictBool], Field(description="Filter issues that are assigned to the user using this API in the legit platform")] = None,
+        is_triaged: Annotated[Optional[StrictBool], Field(description="Filter issues that have either a user or a ticket assigned to them in the legit platform")] = None,
+        assigned_user_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are assigned to the given user in the legit platform")] = None,
+        origin_id: Annotated[Optional[StrictStr], Field(description="The identifier of the origin")] = None,
+        origin_origin_type: Annotated[Optional[Any], Field(description="The type of the origin")] = None,
+        origin_type: Annotated[Optional[Any], Field(description="Filter issues that have specific origin type")] = None,
+        origins: Annotated[Optional[List[IssueOriginParams]], Field(description="Filter issues that their origin is in the given list")] = None,
+        policy_name: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given policy")] = None,
+        action_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are part of the action with the given id")] = None,
+        tag: Annotated[Optional[StrictStr], Field(description="Filter issues by tag name")] = None,
+        source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
+        integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
+        source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1629,98 +3498,98 @@ class IssuesV2Api:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> CustomerFacingIssuesPageDto:
-        """Get issue ids
+        """Get issues
 
-        Get ids of the issues matching the query params filters. To get more data on specific issues use the \"Get issue by id\" API with the issue id
+        Get basic data of the issues matching the query params filters. To get more data on the returned issues use the \"Get extended data on issues\" API with the issue ids
 
-        :param issues_query_title:
-        :type issues_query_title: str
-        :param issues_query_title_search: Filter issues that their title contains the given string
-        :type issues_query_title_search: str
-        :param issues_query_issue_types: Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone
-        :type issues_query_issue_types: List[IssueType]
-        :param issues_query_severities: Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone
-        :type issues_query_severities: List[Severity]
-        :param issues_query_policy_severity:
-        :type issues_query_policy_severity: Severity
-        :param issues_query_statuses: Filter issues that their status is in the given list. To filter for a specific status provide it here alone
-        :type issues_query_statuses: List[IssueStatus]
-        :param issues_query_detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_detected_from_date: datetime
-        :param issues_query_detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_detected_to_date: datetime
-        :param issues_query_opening_reason:
-        :type issues_query_opening_reason: IssueOpeningReasonDto
-        :param issues_query_last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_last_action_time_from_date: datetime
-        :param issues_query_last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_last_action_time_to_date: datetime
-        :param issues_query_closing_reason:
-        :type issues_query_closing_reason: ClosingReason
-        :param issues_query_closing_location:
-        :type issues_query_closing_location: IssueClosingLocationDto
-        :param issues_query_workspace_ids: Filter issues that their WorkspaceId is in the given list
-        :type issues_query_workspace_ids: List[str]
-        :param issues_query_vulnerable_file: Filter issues that originated from the given file
-        :type issues_query_vulnerable_file: str
-        :param issues_query_cve_id:
-        :type issues_query_cve_id: str
-        :param issues_query_min_score:
-        :type issues_query_min_score: float
-        :param issues_query_min_epss_score:
-        :type issues_query_min_epss_score: float
-        :param issues_query_dependency_fix_types:
-        :type issues_query_dependency_fix_types: List[DependencyFixType]
-        :param issues_query_product_ids:
-        :type issues_query_product_ids: List[str]
-        :param issues_query_has_ticket:
-        :type issues_query_has_ticket: bool
-        :param issues_query_is_assigned: Filter issues that have a user assigned to them in the legit platform
-        :type issues_query_is_assigned: bool
-        :param issues_query_is_assigned_to_me:
-        :type issues_query_is_assigned_to_me: bool
-        :param issues_query_is_triaged: Filter issues that have either a user or a ticket assigned to them in the legit platform
-        :type issues_query_is_triaged: bool
-        :param issues_query_assigned_user_id:
-        :type issues_query_assigned_user_id: str
-        :param issues_query_origin_id:
-        :type issues_query_origin_id: str
-        :param issues_query_origin_origin_type:
-        :type issues_query_origin_origin_type: OriginType
-        :param issues_query_origin_type:
-        :type issues_query_origin_type: OriginType
-        :param issues_query_origins: Filter issues that their origin is in the given list
-        :type issues_query_origins: List[IssueOriginParams]
-        :param issues_query_policy_name:
-        :type issues_query_policy_name: str
-        :param issues_query_action_id: Filter issues that are part of the action with the given id
-        :type issues_query_action_id: str
-        :param issues_query_tag:
-        :type issues_query_tag: str
-        :param issues_query_source_name:
-        :type issues_query_source_name: str
-        :param issues_query_integration_id: Filter issues that were detected by the given integration
-        :type issues_query_integration_id: str
-        :param issues_query_source_scanner_ids: Filter issues that their SourceScannerId is in the given list
-        :type issues_query_source_scanner_ids: List[ControlClassification]
-        :param issues_query_ai_validation_result:
-        :type issues_query_ai_validation_result: AiValidationResult
-        :param issues_query_validity_status:
-        :type issues_query_validity_status: SecretIssueValidityStatus
-        :param issues_query_validity_check_from_date: Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_validity_check_from_date: datetime
-        :param issues_query_validity_check_to_date: Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_validity_check_to_date: datetime
-        :param issues_query_file_path: Filter issues that their fila-path contains the given string
-        :type issues_query_file_path: str
-        :param sort_column:
+        :param sort_column: Sort issues by the specified column
         :type sort_column: IssueSortingColumn
-        :param sort_direction:
+        :param sort_direction: Sort direction for the results
         :type sort_direction: ListSortDirection
         :param token: Token from previous request (leave empty for first request)
         :type token: str
         :param limit: Number of items to return (1-100)
         :type limit: int
+        :param title: Filter issues that their title equals to the given string
+        :type title: str
+        :param title_search: Filter issues that their title contains the given string
+        :type title_search: str
+        :param issue_types: Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone
+        :type issue_types: List[IssueType]
+        :param severities: Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone
+        :type severities: List[Severity]
+        :param policy_severity: Filter issues by their policy severity
+        :type policy_severity: Severity
+        :param statuses: Filter issues that their status is in the given list. To filter for a specific status provide it here alone
+        :type statuses: List[IssueStatus]
+        :param detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type detected_from_date: datetime
+        :param detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type detected_to_date: datetime
+        :param opening_reason: Filter by the reason they were last open
+        :type opening_reason: IssueOpeningReasonDto
+        :param last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type last_action_time_from_date: datetime
+        :param last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type last_action_time_to_date: datetime
+        :param closing_reason: Filter by the reason they were last closed
+        :type closing_reason: ClosingReason
+        :param closing_location: Filter by their opening reason
+        :type closing_location: IssueClosingLocationDto
+        :param workspace_ids: Filter issues that their WorkspaceId is in the given list
+        :type workspace_ids: List[str]
+        :param vulnerable_file: Filter issues that originated from the given file
+        :type vulnerable_file: str
+        :param cve_id: Filter issues that have the given CVE
+        :type cve_id: str
+        :param min_score: Filter issues by their score (0-100)
+        :type min_score: float
+        :param min_epss_score: Filter issues by their apss score
+        :type min_epss_score: float
+        :param dependency_fix_types: Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone
+        :type dependency_fix_types: List[DependencyFixType]
+        :param product_ids: Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone
+        :type product_ids: List[str]
+        :param has_ticket: Filter issues that have a ticket related to them
+        :type has_ticket: bool
+        :param is_assigned: Filter issues that have a user assigned to them in the legit platform
+        :type is_assigned: bool
+        :param is_assigned_to_me: Filter issues that are assigned to the user using this API in the legit platform
+        :type is_assigned_to_me: bool
+        :param is_triaged: Filter issues that have either a user or a ticket assigned to them in the legit platform
+        :type is_triaged: bool
+        :param assigned_user_id: Filter issues that are assigned to the given user in the legit platform
+        :type assigned_user_id: str
+        :param origin_id: The identifier of the origin
+        :type origin_id: str
+        :param origin_origin_type: The type of the origin
+        :type origin_origin_type: OriginType
+        :param origin_type: Filter issues that have specific origin type
+        :type origin_type: OriginType
+        :param origins: Filter issues that their origin is in the given list
+        :type origins: List[IssueOriginParams]
+        :param policy_name: Filter issues that were detected by the given policy
+        :type policy_name: str
+        :param action_id: Filter issues that are part of the action with the given id
+        :type action_id: str
+        :param tag: Filter issues by tag name
+        :type tag: str
+        :param source_name: Filter issues that have at least one source with the given name
+        :type source_name: str
+        :param integration_id: Filter issues that were detected by the given integration
+        :type integration_id: str
+        :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
+        :type source_scanner_ids: List[ControlClassification]
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
+        :type ai_validation_result: AiValidationResult
+        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
+        :type validity_status: SecretIssueValidityStatus
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :type validity_check_from_date: datetime
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :type validity_check_to_date: datetime
+        :param file_path: Filter issues that their fila-path contains the given string
+        :type file_path: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1744,50 +3613,50 @@ class IssuesV2Api:
         """ # noqa: E501
 
         _param = self._get_issues_v2_serialize(
-            issues_query_title=issues_query_title,
-            issues_query_title_search=issues_query_title_search,
-            issues_query_issue_types=issues_query_issue_types,
-            issues_query_severities=issues_query_severities,
-            issues_query_policy_severity=issues_query_policy_severity,
-            issues_query_statuses=issues_query_statuses,
-            issues_query_detected_from_date=issues_query_detected_from_date,
-            issues_query_detected_to_date=issues_query_detected_to_date,
-            issues_query_opening_reason=issues_query_opening_reason,
-            issues_query_last_action_time_from_date=issues_query_last_action_time_from_date,
-            issues_query_last_action_time_to_date=issues_query_last_action_time_to_date,
-            issues_query_closing_reason=issues_query_closing_reason,
-            issues_query_closing_location=issues_query_closing_location,
-            issues_query_workspace_ids=issues_query_workspace_ids,
-            issues_query_vulnerable_file=issues_query_vulnerable_file,
-            issues_query_cve_id=issues_query_cve_id,
-            issues_query_min_score=issues_query_min_score,
-            issues_query_min_epss_score=issues_query_min_epss_score,
-            issues_query_dependency_fix_types=issues_query_dependency_fix_types,
-            issues_query_product_ids=issues_query_product_ids,
-            issues_query_has_ticket=issues_query_has_ticket,
-            issues_query_is_assigned=issues_query_is_assigned,
-            issues_query_is_assigned_to_me=issues_query_is_assigned_to_me,
-            issues_query_is_triaged=issues_query_is_triaged,
-            issues_query_assigned_user_id=issues_query_assigned_user_id,
-            issues_query_origin_id=issues_query_origin_id,
-            issues_query_origin_origin_type=issues_query_origin_origin_type,
-            issues_query_origin_type=issues_query_origin_type,
-            issues_query_origins=issues_query_origins,
-            issues_query_policy_name=issues_query_policy_name,
-            issues_query_action_id=issues_query_action_id,
-            issues_query_tag=issues_query_tag,
-            issues_query_source_name=issues_query_source_name,
-            issues_query_integration_id=issues_query_integration_id,
-            issues_query_source_scanner_ids=issues_query_source_scanner_ids,
-            issues_query_ai_validation_result=issues_query_ai_validation_result,
-            issues_query_validity_status=issues_query_validity_status,
-            issues_query_validity_check_from_date=issues_query_validity_check_from_date,
-            issues_query_validity_check_to_date=issues_query_validity_check_to_date,
-            issues_query_file_path=issues_query_file_path,
             sort_column=sort_column,
             sort_direction=sort_direction,
             token=token,
             limit=limit,
+            title=title,
+            title_search=title_search,
+            issue_types=issue_types,
+            severities=severities,
+            policy_severity=policy_severity,
+            statuses=statuses,
+            detected_from_date=detected_from_date,
+            detected_to_date=detected_to_date,
+            opening_reason=opening_reason,
+            last_action_time_from_date=last_action_time_from_date,
+            last_action_time_to_date=last_action_time_to_date,
+            closing_reason=closing_reason,
+            closing_location=closing_location,
+            workspace_ids=workspace_ids,
+            vulnerable_file=vulnerable_file,
+            cve_id=cve_id,
+            min_score=min_score,
+            min_epss_score=min_epss_score,
+            dependency_fix_types=dependency_fix_types,
+            product_ids=product_ids,
+            has_ticket=has_ticket,
+            is_assigned=is_assigned,
+            is_assigned_to_me=is_assigned_to_me,
+            is_triaged=is_triaged,
+            assigned_user_id=assigned_user_id,
+            origin_id=origin_id,
+            origin_origin_type=origin_origin_type,
+            origin_type=origin_type,
+            origins=origins,
+            policy_name=policy_name,
+            action_id=action_id,
+            tag=tag,
+            source_name=source_name,
+            integration_id=integration_id,
+            source_scanner_ids=source_scanner_ids,
+            ai_validation_result=ai_validation_result,
+            validity_status=validity_status,
+            validity_check_from_date=validity_check_from_date,
+            validity_check_to_date=validity_check_to_date,
+            file_path=file_path,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1811,50 +3680,50 @@ class IssuesV2Api:
     @validate_call
     def get_issues_v2_with_http_info(
         self,
-        issues_query_title: Optional[StrictStr] = None,
-        issues_query_title_search: Annotated[Optional[StrictStr], Field(description="Filter issues that their title contains the given string")] = None,
-        issues_query_issue_types: Annotated[Optional[List[IssueType]], Field(description="Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone")] = None,
-        issues_query_severities: Annotated[Optional[List[Severity]], Field(description="Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone")] = None,
-        issues_query_policy_severity: Optional[Any] = None,
-        issues_query_statuses: Annotated[Optional[List[IssueStatus]], Field(description="Filter issues that their status is in the given list. To filter for a specific status provide it here alone")] = None,
-        issues_query_detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_opening_reason: Optional[Any] = None,
-        issues_query_last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_closing_reason: Optional[Any] = None,
-        issues_query_closing_location: Optional[Any] = None,
-        issues_query_workspace_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that their WorkspaceId is in the given list")] = None,
-        issues_query_vulnerable_file: Annotated[Optional[StrictStr], Field(description="Filter issues that originated from the given file")] = None,
-        issues_query_cve_id: Optional[StrictStr] = None,
-        issues_query_min_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        issues_query_min_epss_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        issues_query_dependency_fix_types: Optional[List[DependencyFixType]] = None,
-        issues_query_product_ids: Optional[List[StrictStr]] = None,
-        issues_query_has_ticket: Optional[StrictBool] = None,
-        issues_query_is_assigned: Annotated[Optional[StrictBool], Field(description="Filter issues that have a user assigned to them in the legit platform")] = None,
-        issues_query_is_assigned_to_me: Optional[StrictBool] = None,
-        issues_query_is_triaged: Annotated[Optional[StrictBool], Field(description="Filter issues that have either a user or a ticket assigned to them in the legit platform")] = None,
-        issues_query_assigned_user_id: Optional[StrictStr] = None,
-        issues_query_origin_id: Optional[StrictStr] = None,
-        issues_query_origin_origin_type: Optional[Any] = None,
-        issues_query_origin_type: Optional[Any] = None,
-        issues_query_origins: Annotated[Optional[List[IssueOriginParams]], Field(description="Filter issues that their origin is in the given list")] = None,
-        issues_query_policy_name: Optional[StrictStr] = None,
-        issues_query_action_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are part of the action with the given id")] = None,
-        issues_query_tag: Optional[StrictStr] = None,
-        issues_query_source_name: Optional[StrictStr] = None,
-        issues_query_integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
-        issues_query_source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        issues_query_ai_validation_result: Optional[Any] = None,
-        issues_query_validity_status: Optional[Any] = None,
-        issues_query_validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
-        sort_column: Optional[Any] = None,
-        sort_direction: Optional[Any] = None,
+        sort_column: Annotated[Optional[Any], Field(description="Sort issues by the specified column")] = None,
+        sort_direction: Annotated[Optional[Any], Field(description="Sort direction for the results")] = None,
         token: Annotated[Optional[StrictStr], Field(description="Token from previous request (leave empty for first request)")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return (1-100)")] = None,
+        title: Annotated[Optional[StrictStr], Field(description="Filter issues that their title equals to the given string")] = None,
+        title_search: Annotated[Optional[StrictStr], Field(description="Filter issues that their title contains the given string")] = None,
+        issue_types: Annotated[Optional[List[IssueType]], Field(description="Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone")] = None,
+        severities: Annotated[Optional[List[Severity]], Field(description="Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone")] = None,
+        policy_severity: Annotated[Optional[Any], Field(description="Filter issues by their policy severity")] = None,
+        statuses: Annotated[Optional[List[IssueStatus]], Field(description="Filter issues that their status is in the given list. To filter for a specific status provide it here alone")] = None,
+        detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        opening_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last open")] = None,
+        last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        closing_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last closed")] = None,
+        closing_location: Annotated[Optional[Any], Field(description="Filter by their opening reason")] = None,
+        workspace_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that their WorkspaceId is in the given list")] = None,
+        vulnerable_file: Annotated[Optional[StrictStr], Field(description="Filter issues that originated from the given file")] = None,
+        cve_id: Annotated[Optional[StrictStr], Field(description="Filter issues that have the given CVE")] = None,
+        min_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their score (0-100)")] = None,
+        min_epss_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their apss score")] = None,
+        dependency_fix_types: Annotated[Optional[List[DependencyFixType]], Field(description="Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone")] = None,
+        product_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone")] = None,
+        has_ticket: Annotated[Optional[StrictBool], Field(description="Filter issues that have a ticket related to them")] = None,
+        is_assigned: Annotated[Optional[StrictBool], Field(description="Filter issues that have a user assigned to them in the legit platform")] = None,
+        is_assigned_to_me: Annotated[Optional[StrictBool], Field(description="Filter issues that are assigned to the user using this API in the legit platform")] = None,
+        is_triaged: Annotated[Optional[StrictBool], Field(description="Filter issues that have either a user or a ticket assigned to them in the legit platform")] = None,
+        assigned_user_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are assigned to the given user in the legit platform")] = None,
+        origin_id: Annotated[Optional[StrictStr], Field(description="The identifier of the origin")] = None,
+        origin_origin_type: Annotated[Optional[Any], Field(description="The type of the origin")] = None,
+        origin_type: Annotated[Optional[Any], Field(description="Filter issues that have specific origin type")] = None,
+        origins: Annotated[Optional[List[IssueOriginParams]], Field(description="Filter issues that their origin is in the given list")] = None,
+        policy_name: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given policy")] = None,
+        action_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are part of the action with the given id")] = None,
+        tag: Annotated[Optional[StrictStr], Field(description="Filter issues by tag name")] = None,
+        source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
+        integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
+        source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1868,98 +3737,98 @@ class IssuesV2Api:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[CustomerFacingIssuesPageDto]:
-        """Get issue ids
+        """Get issues
 
-        Get ids of the issues matching the query params filters. To get more data on specific issues use the \"Get issue by id\" API with the issue id
+        Get basic data of the issues matching the query params filters. To get more data on the returned issues use the \"Get extended data on issues\" API with the issue ids
 
-        :param issues_query_title:
-        :type issues_query_title: str
-        :param issues_query_title_search: Filter issues that their title contains the given string
-        :type issues_query_title_search: str
-        :param issues_query_issue_types: Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone
-        :type issues_query_issue_types: List[IssueType]
-        :param issues_query_severities: Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone
-        :type issues_query_severities: List[Severity]
-        :param issues_query_policy_severity:
-        :type issues_query_policy_severity: Severity
-        :param issues_query_statuses: Filter issues that their status is in the given list. To filter for a specific status provide it here alone
-        :type issues_query_statuses: List[IssueStatus]
-        :param issues_query_detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_detected_from_date: datetime
-        :param issues_query_detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_detected_to_date: datetime
-        :param issues_query_opening_reason:
-        :type issues_query_opening_reason: IssueOpeningReasonDto
-        :param issues_query_last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_last_action_time_from_date: datetime
-        :param issues_query_last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_last_action_time_to_date: datetime
-        :param issues_query_closing_reason:
-        :type issues_query_closing_reason: ClosingReason
-        :param issues_query_closing_location:
-        :type issues_query_closing_location: IssueClosingLocationDto
-        :param issues_query_workspace_ids: Filter issues that their WorkspaceId is in the given list
-        :type issues_query_workspace_ids: List[str]
-        :param issues_query_vulnerable_file: Filter issues that originated from the given file
-        :type issues_query_vulnerable_file: str
-        :param issues_query_cve_id:
-        :type issues_query_cve_id: str
-        :param issues_query_min_score:
-        :type issues_query_min_score: float
-        :param issues_query_min_epss_score:
-        :type issues_query_min_epss_score: float
-        :param issues_query_dependency_fix_types:
-        :type issues_query_dependency_fix_types: List[DependencyFixType]
-        :param issues_query_product_ids:
-        :type issues_query_product_ids: List[str]
-        :param issues_query_has_ticket:
-        :type issues_query_has_ticket: bool
-        :param issues_query_is_assigned: Filter issues that have a user assigned to them in the legit platform
-        :type issues_query_is_assigned: bool
-        :param issues_query_is_assigned_to_me:
-        :type issues_query_is_assigned_to_me: bool
-        :param issues_query_is_triaged: Filter issues that have either a user or a ticket assigned to them in the legit platform
-        :type issues_query_is_triaged: bool
-        :param issues_query_assigned_user_id:
-        :type issues_query_assigned_user_id: str
-        :param issues_query_origin_id:
-        :type issues_query_origin_id: str
-        :param issues_query_origin_origin_type:
-        :type issues_query_origin_origin_type: OriginType
-        :param issues_query_origin_type:
-        :type issues_query_origin_type: OriginType
-        :param issues_query_origins: Filter issues that their origin is in the given list
-        :type issues_query_origins: List[IssueOriginParams]
-        :param issues_query_policy_name:
-        :type issues_query_policy_name: str
-        :param issues_query_action_id: Filter issues that are part of the action with the given id
-        :type issues_query_action_id: str
-        :param issues_query_tag:
-        :type issues_query_tag: str
-        :param issues_query_source_name:
-        :type issues_query_source_name: str
-        :param issues_query_integration_id: Filter issues that were detected by the given integration
-        :type issues_query_integration_id: str
-        :param issues_query_source_scanner_ids: Filter issues that their SourceScannerId is in the given list
-        :type issues_query_source_scanner_ids: List[ControlClassification]
-        :param issues_query_ai_validation_result:
-        :type issues_query_ai_validation_result: AiValidationResult
-        :param issues_query_validity_status:
-        :type issues_query_validity_status: SecretIssueValidityStatus
-        :param issues_query_validity_check_from_date: Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_validity_check_from_date: datetime
-        :param issues_query_validity_check_to_date: Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_validity_check_to_date: datetime
-        :param issues_query_file_path: Filter issues that their fila-path contains the given string
-        :type issues_query_file_path: str
-        :param sort_column:
+        :param sort_column: Sort issues by the specified column
         :type sort_column: IssueSortingColumn
-        :param sort_direction:
+        :param sort_direction: Sort direction for the results
         :type sort_direction: ListSortDirection
         :param token: Token from previous request (leave empty for first request)
         :type token: str
         :param limit: Number of items to return (1-100)
         :type limit: int
+        :param title: Filter issues that their title equals to the given string
+        :type title: str
+        :param title_search: Filter issues that their title contains the given string
+        :type title_search: str
+        :param issue_types: Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone
+        :type issue_types: List[IssueType]
+        :param severities: Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone
+        :type severities: List[Severity]
+        :param policy_severity: Filter issues by their policy severity
+        :type policy_severity: Severity
+        :param statuses: Filter issues that their status is in the given list. To filter for a specific status provide it here alone
+        :type statuses: List[IssueStatus]
+        :param detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type detected_from_date: datetime
+        :param detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type detected_to_date: datetime
+        :param opening_reason: Filter by the reason they were last open
+        :type opening_reason: IssueOpeningReasonDto
+        :param last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type last_action_time_from_date: datetime
+        :param last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type last_action_time_to_date: datetime
+        :param closing_reason: Filter by the reason they were last closed
+        :type closing_reason: ClosingReason
+        :param closing_location: Filter by their opening reason
+        :type closing_location: IssueClosingLocationDto
+        :param workspace_ids: Filter issues that their WorkspaceId is in the given list
+        :type workspace_ids: List[str]
+        :param vulnerable_file: Filter issues that originated from the given file
+        :type vulnerable_file: str
+        :param cve_id: Filter issues that have the given CVE
+        :type cve_id: str
+        :param min_score: Filter issues by their score (0-100)
+        :type min_score: float
+        :param min_epss_score: Filter issues by their apss score
+        :type min_epss_score: float
+        :param dependency_fix_types: Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone
+        :type dependency_fix_types: List[DependencyFixType]
+        :param product_ids: Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone
+        :type product_ids: List[str]
+        :param has_ticket: Filter issues that have a ticket related to them
+        :type has_ticket: bool
+        :param is_assigned: Filter issues that have a user assigned to them in the legit platform
+        :type is_assigned: bool
+        :param is_assigned_to_me: Filter issues that are assigned to the user using this API in the legit platform
+        :type is_assigned_to_me: bool
+        :param is_triaged: Filter issues that have either a user or a ticket assigned to them in the legit platform
+        :type is_triaged: bool
+        :param assigned_user_id: Filter issues that are assigned to the given user in the legit platform
+        :type assigned_user_id: str
+        :param origin_id: The identifier of the origin
+        :type origin_id: str
+        :param origin_origin_type: The type of the origin
+        :type origin_origin_type: OriginType
+        :param origin_type: Filter issues that have specific origin type
+        :type origin_type: OriginType
+        :param origins: Filter issues that their origin is in the given list
+        :type origins: List[IssueOriginParams]
+        :param policy_name: Filter issues that were detected by the given policy
+        :type policy_name: str
+        :param action_id: Filter issues that are part of the action with the given id
+        :type action_id: str
+        :param tag: Filter issues by tag name
+        :type tag: str
+        :param source_name: Filter issues that have at least one source with the given name
+        :type source_name: str
+        :param integration_id: Filter issues that were detected by the given integration
+        :type integration_id: str
+        :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
+        :type source_scanner_ids: List[ControlClassification]
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
+        :type ai_validation_result: AiValidationResult
+        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
+        :type validity_status: SecretIssueValidityStatus
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :type validity_check_from_date: datetime
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :type validity_check_to_date: datetime
+        :param file_path: Filter issues that their fila-path contains the given string
+        :type file_path: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1983,50 +3852,50 @@ class IssuesV2Api:
         """ # noqa: E501
 
         _param = self._get_issues_v2_serialize(
-            issues_query_title=issues_query_title,
-            issues_query_title_search=issues_query_title_search,
-            issues_query_issue_types=issues_query_issue_types,
-            issues_query_severities=issues_query_severities,
-            issues_query_policy_severity=issues_query_policy_severity,
-            issues_query_statuses=issues_query_statuses,
-            issues_query_detected_from_date=issues_query_detected_from_date,
-            issues_query_detected_to_date=issues_query_detected_to_date,
-            issues_query_opening_reason=issues_query_opening_reason,
-            issues_query_last_action_time_from_date=issues_query_last_action_time_from_date,
-            issues_query_last_action_time_to_date=issues_query_last_action_time_to_date,
-            issues_query_closing_reason=issues_query_closing_reason,
-            issues_query_closing_location=issues_query_closing_location,
-            issues_query_workspace_ids=issues_query_workspace_ids,
-            issues_query_vulnerable_file=issues_query_vulnerable_file,
-            issues_query_cve_id=issues_query_cve_id,
-            issues_query_min_score=issues_query_min_score,
-            issues_query_min_epss_score=issues_query_min_epss_score,
-            issues_query_dependency_fix_types=issues_query_dependency_fix_types,
-            issues_query_product_ids=issues_query_product_ids,
-            issues_query_has_ticket=issues_query_has_ticket,
-            issues_query_is_assigned=issues_query_is_assigned,
-            issues_query_is_assigned_to_me=issues_query_is_assigned_to_me,
-            issues_query_is_triaged=issues_query_is_triaged,
-            issues_query_assigned_user_id=issues_query_assigned_user_id,
-            issues_query_origin_id=issues_query_origin_id,
-            issues_query_origin_origin_type=issues_query_origin_origin_type,
-            issues_query_origin_type=issues_query_origin_type,
-            issues_query_origins=issues_query_origins,
-            issues_query_policy_name=issues_query_policy_name,
-            issues_query_action_id=issues_query_action_id,
-            issues_query_tag=issues_query_tag,
-            issues_query_source_name=issues_query_source_name,
-            issues_query_integration_id=issues_query_integration_id,
-            issues_query_source_scanner_ids=issues_query_source_scanner_ids,
-            issues_query_ai_validation_result=issues_query_ai_validation_result,
-            issues_query_validity_status=issues_query_validity_status,
-            issues_query_validity_check_from_date=issues_query_validity_check_from_date,
-            issues_query_validity_check_to_date=issues_query_validity_check_to_date,
-            issues_query_file_path=issues_query_file_path,
             sort_column=sort_column,
             sort_direction=sort_direction,
             token=token,
             limit=limit,
+            title=title,
+            title_search=title_search,
+            issue_types=issue_types,
+            severities=severities,
+            policy_severity=policy_severity,
+            statuses=statuses,
+            detected_from_date=detected_from_date,
+            detected_to_date=detected_to_date,
+            opening_reason=opening_reason,
+            last_action_time_from_date=last_action_time_from_date,
+            last_action_time_to_date=last_action_time_to_date,
+            closing_reason=closing_reason,
+            closing_location=closing_location,
+            workspace_ids=workspace_ids,
+            vulnerable_file=vulnerable_file,
+            cve_id=cve_id,
+            min_score=min_score,
+            min_epss_score=min_epss_score,
+            dependency_fix_types=dependency_fix_types,
+            product_ids=product_ids,
+            has_ticket=has_ticket,
+            is_assigned=is_assigned,
+            is_assigned_to_me=is_assigned_to_me,
+            is_triaged=is_triaged,
+            assigned_user_id=assigned_user_id,
+            origin_id=origin_id,
+            origin_origin_type=origin_origin_type,
+            origin_type=origin_type,
+            origins=origins,
+            policy_name=policy_name,
+            action_id=action_id,
+            tag=tag,
+            source_name=source_name,
+            integration_id=integration_id,
+            source_scanner_ids=source_scanner_ids,
+            ai_validation_result=ai_validation_result,
+            validity_status=validity_status,
+            validity_check_from_date=validity_check_from_date,
+            validity_check_to_date=validity_check_to_date,
+            file_path=file_path,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2050,50 +3919,50 @@ class IssuesV2Api:
     @validate_call
     def get_issues_v2_without_preload_content(
         self,
-        issues_query_title: Optional[StrictStr] = None,
-        issues_query_title_search: Annotated[Optional[StrictStr], Field(description="Filter issues that their title contains the given string")] = None,
-        issues_query_issue_types: Annotated[Optional[List[IssueType]], Field(description="Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone")] = None,
-        issues_query_severities: Annotated[Optional[List[Severity]], Field(description="Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone")] = None,
-        issues_query_policy_severity: Optional[Any] = None,
-        issues_query_statuses: Annotated[Optional[List[IssueStatus]], Field(description="Filter issues that their status is in the given list. To filter for a specific status provide it here alone")] = None,
-        issues_query_detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_opening_reason: Optional[Any] = None,
-        issues_query_last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_closing_reason: Optional[Any] = None,
-        issues_query_closing_location: Optional[Any] = None,
-        issues_query_workspace_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that their WorkspaceId is in the given list")] = None,
-        issues_query_vulnerable_file: Annotated[Optional[StrictStr], Field(description="Filter issues that originated from the given file")] = None,
-        issues_query_cve_id: Optional[StrictStr] = None,
-        issues_query_min_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        issues_query_min_epss_score: Optional[Union[StrictFloat, StrictInt]] = None,
-        issues_query_dependency_fix_types: Optional[List[DependencyFixType]] = None,
-        issues_query_product_ids: Optional[List[StrictStr]] = None,
-        issues_query_has_ticket: Optional[StrictBool] = None,
-        issues_query_is_assigned: Annotated[Optional[StrictBool], Field(description="Filter issues that have a user assigned to them in the legit platform")] = None,
-        issues_query_is_assigned_to_me: Optional[StrictBool] = None,
-        issues_query_is_triaged: Annotated[Optional[StrictBool], Field(description="Filter issues that have either a user or a ticket assigned to them in the legit platform")] = None,
-        issues_query_assigned_user_id: Optional[StrictStr] = None,
-        issues_query_origin_id: Optional[StrictStr] = None,
-        issues_query_origin_origin_type: Optional[Any] = None,
-        issues_query_origin_type: Optional[Any] = None,
-        issues_query_origins: Annotated[Optional[List[IssueOriginParams]], Field(description="Filter issues that their origin is in the given list")] = None,
-        issues_query_policy_name: Optional[StrictStr] = None,
-        issues_query_action_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are part of the action with the given id")] = None,
-        issues_query_tag: Optional[StrictStr] = None,
-        issues_query_source_name: Optional[StrictStr] = None,
-        issues_query_integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
-        issues_query_source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        issues_query_ai_validation_result: Optional[Any] = None,
-        issues_query_validity_status: Optional[Any] = None,
-        issues_query_validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        issues_query_file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
-        sort_column: Optional[Any] = None,
-        sort_direction: Optional[Any] = None,
+        sort_column: Annotated[Optional[Any], Field(description="Sort issues by the specified column")] = None,
+        sort_direction: Annotated[Optional[Any], Field(description="Sort direction for the results")] = None,
         token: Annotated[Optional[StrictStr], Field(description="Token from previous request (leave empty for first request)")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return (1-100)")] = None,
+        title: Annotated[Optional[StrictStr], Field(description="Filter issues that their title equals to the given string")] = None,
+        title_search: Annotated[Optional[StrictStr], Field(description="Filter issues that their title contains the given string")] = None,
+        issue_types: Annotated[Optional[List[IssueType]], Field(description="Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone")] = None,
+        severities: Annotated[Optional[List[Severity]], Field(description="Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone")] = None,
+        policy_severity: Annotated[Optional[Any], Field(description="Filter issues by their policy severity")] = None,
+        statuses: Annotated[Optional[List[IssueStatus]], Field(description="Filter issues that their status is in the given list. To filter for a specific status provide it here alone")] = None,
+        detected_from_date: Annotated[Optional[datetime], Field(description="Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        detected_to_date: Annotated[Optional[datetime], Field(description="Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        opening_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last open")] = None,
+        last_action_time_from_date: Annotated[Optional[datetime], Field(description="Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        last_action_time_to_date: Annotated[Optional[datetime], Field(description="Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)")] = None,
+        closing_reason: Annotated[Optional[Any], Field(description="Filter by the reason they were last closed")] = None,
+        closing_location: Annotated[Optional[Any], Field(description="Filter by their opening reason")] = None,
+        workspace_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that their WorkspaceId is in the given list")] = None,
+        vulnerable_file: Annotated[Optional[StrictStr], Field(description="Filter issues that originated from the given file")] = None,
+        cve_id: Annotated[Optional[StrictStr], Field(description="Filter issues that have the given CVE")] = None,
+        min_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their score (0-100)")] = None,
+        min_epss_score: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="Filter issues by their apss score")] = None,
+        dependency_fix_types: Annotated[Optional[List[DependencyFixType]], Field(description="Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone")] = None,
+        product_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone")] = None,
+        has_ticket: Annotated[Optional[StrictBool], Field(description="Filter issues that have a ticket related to them")] = None,
+        is_assigned: Annotated[Optional[StrictBool], Field(description="Filter issues that have a user assigned to them in the legit platform")] = None,
+        is_assigned_to_me: Annotated[Optional[StrictBool], Field(description="Filter issues that are assigned to the user using this API in the legit platform")] = None,
+        is_triaged: Annotated[Optional[StrictBool], Field(description="Filter issues that have either a user or a ticket assigned to them in the legit platform")] = None,
+        assigned_user_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are assigned to the given user in the legit platform")] = None,
+        origin_id: Annotated[Optional[StrictStr], Field(description="The identifier of the origin")] = None,
+        origin_origin_type: Annotated[Optional[Any], Field(description="The type of the origin")] = None,
+        origin_type: Annotated[Optional[Any], Field(description="Filter issues that have specific origin type")] = None,
+        origins: Annotated[Optional[List[IssueOriginParams]], Field(description="Filter issues that their origin is in the given list")] = None,
+        policy_name: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given policy")] = None,
+        action_id: Annotated[Optional[StrictStr], Field(description="Filter issues that are part of the action with the given id")] = None,
+        tag: Annotated[Optional[StrictStr], Field(description="Filter issues by tag name")] = None,
+        source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
+        integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
+        source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2107,98 +3976,98 @@ class IssuesV2Api:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Get issue ids
+        """Get issues
 
-        Get ids of the issues matching the query params filters. To get more data on specific issues use the \"Get issue by id\" API with the issue id
+        Get basic data of the issues matching the query params filters. To get more data on the returned issues use the \"Get extended data on issues\" API with the issue ids
 
-        :param issues_query_title:
-        :type issues_query_title: str
-        :param issues_query_title_search: Filter issues that their title contains the given string
-        :type issues_query_title_search: str
-        :param issues_query_issue_types: Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone
-        :type issues_query_issue_types: List[IssueType]
-        :param issues_query_severities: Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone
-        :type issues_query_severities: List[Severity]
-        :param issues_query_policy_severity:
-        :type issues_query_policy_severity: Severity
-        :param issues_query_statuses: Filter issues that their status is in the given list. To filter for a specific status provide it here alone
-        :type issues_query_statuses: List[IssueStatus]
-        :param issues_query_detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_detected_from_date: datetime
-        :param issues_query_detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_detected_to_date: datetime
-        :param issues_query_opening_reason:
-        :type issues_query_opening_reason: IssueOpeningReasonDto
-        :param issues_query_last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_last_action_time_from_date: datetime
-        :param issues_query_last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_last_action_time_to_date: datetime
-        :param issues_query_closing_reason:
-        :type issues_query_closing_reason: ClosingReason
-        :param issues_query_closing_location:
-        :type issues_query_closing_location: IssueClosingLocationDto
-        :param issues_query_workspace_ids: Filter issues that their WorkspaceId is in the given list
-        :type issues_query_workspace_ids: List[str]
-        :param issues_query_vulnerable_file: Filter issues that originated from the given file
-        :type issues_query_vulnerable_file: str
-        :param issues_query_cve_id:
-        :type issues_query_cve_id: str
-        :param issues_query_min_score:
-        :type issues_query_min_score: float
-        :param issues_query_min_epss_score:
-        :type issues_query_min_epss_score: float
-        :param issues_query_dependency_fix_types:
-        :type issues_query_dependency_fix_types: List[DependencyFixType]
-        :param issues_query_product_ids:
-        :type issues_query_product_ids: List[str]
-        :param issues_query_has_ticket:
-        :type issues_query_has_ticket: bool
-        :param issues_query_is_assigned: Filter issues that have a user assigned to them in the legit platform
-        :type issues_query_is_assigned: bool
-        :param issues_query_is_assigned_to_me:
-        :type issues_query_is_assigned_to_me: bool
-        :param issues_query_is_triaged: Filter issues that have either a user or a ticket assigned to them in the legit platform
-        :type issues_query_is_triaged: bool
-        :param issues_query_assigned_user_id:
-        :type issues_query_assigned_user_id: str
-        :param issues_query_origin_id:
-        :type issues_query_origin_id: str
-        :param issues_query_origin_origin_type:
-        :type issues_query_origin_origin_type: OriginType
-        :param issues_query_origin_type:
-        :type issues_query_origin_type: OriginType
-        :param issues_query_origins: Filter issues that their origin is in the given list
-        :type issues_query_origins: List[IssueOriginParams]
-        :param issues_query_policy_name:
-        :type issues_query_policy_name: str
-        :param issues_query_action_id: Filter issues that are part of the action with the given id
-        :type issues_query_action_id: str
-        :param issues_query_tag:
-        :type issues_query_tag: str
-        :param issues_query_source_name:
-        :type issues_query_source_name: str
-        :param issues_query_integration_id: Filter issues that were detected by the given integration
-        :type issues_query_integration_id: str
-        :param issues_query_source_scanner_ids: Filter issues that their SourceScannerId is in the given list
-        :type issues_query_source_scanner_ids: List[ControlClassification]
-        :param issues_query_ai_validation_result:
-        :type issues_query_ai_validation_result: AiValidationResult
-        :param issues_query_validity_status:
-        :type issues_query_validity_status: SecretIssueValidityStatus
-        :param issues_query_validity_check_from_date: Filter issues validated after the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_validity_check_from_date: datetime
-        :param issues_query_validity_check_to_date: Filter issues validated up to the given date. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
-        :type issues_query_validity_check_to_date: datetime
-        :param issues_query_file_path: Filter issues that their fila-path contains the given string
-        :type issues_query_file_path: str
-        :param sort_column:
+        :param sort_column: Sort issues by the specified column
         :type sort_column: IssueSortingColumn
-        :param sort_direction:
+        :param sort_direction: Sort direction for the results
         :type sort_direction: ListSortDirection
         :param token: Token from previous request (leave empty for first request)
         :type token: str
         :param limit: Number of items to return (1-100)
         :type limit: int
+        :param title: Filter issues that their title equals to the given string
+        :type title: str
+        :param title_search: Filter issues that their title contains the given string
+        :type title_search: str
+        :param issue_types: Filter issues that their type is in the given list. To filter for a specific issue type provide it here alone
+        :type issue_types: List[IssueType]
+        :param severities: Filter issues that their severity is in the given list. To filter for a specific severity provide it here alone
+        :type severities: List[Severity]
+        :param policy_severity: Filter issues by their policy severity
+        :type policy_severity: Severity
+        :param statuses: Filter issues that their status is in the given list. To filter for a specific status provide it here alone
+        :type statuses: List[IssueStatus]
+        :param detected_from_date: Filter issues detected after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type detected_from_date: datetime
+        :param detected_to_date: Filter issues detected up to the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type detected_to_date: datetime
+        :param opening_reason: Filter by the reason they were last open
+        :type opening_reason: IssueOpeningReasonDto
+        :param last_action_time_from_date: Filter issues the last time an action was performed on them is after the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type last_action_time_from_date: datetime
+        :param last_action_time_to_date: Filter issues that the last time an action was performed on them is before the given date. Time should be in ISO 8601 format (e.g., 2024-05-01T15:00:00+00:00)
+        :type last_action_time_to_date: datetime
+        :param closing_reason: Filter by the reason they were last closed
+        :type closing_reason: ClosingReason
+        :param closing_location: Filter by their opening reason
+        :type closing_location: IssueClosingLocationDto
+        :param workspace_ids: Filter issues that their WorkspaceId is in the given list
+        :type workspace_ids: List[str]
+        :param vulnerable_file: Filter issues that originated from the given file
+        :type vulnerable_file: str
+        :param cve_id: Filter issues that have the given CVE
+        :type cve_id: str
+        :param min_score: Filter issues by their score (0-100)
+        :type min_score: float
+        :param min_epss_score: Filter issues by their apss score
+        :type min_epss_score: float
+        :param dependency_fix_types: Filter issues that their dependency fix type is in the given list. To filter for a specific dependency fix type provide it here alone
+        :type dependency_fix_types: List[DependencyFixType]
+        :param product_ids: Filter issues that belong to at list ine of the product units in the given list. To filter for a specific product unit provide it here alone
+        :type product_ids: List[str]
+        :param has_ticket: Filter issues that have a ticket related to them
+        :type has_ticket: bool
+        :param is_assigned: Filter issues that have a user assigned to them in the legit platform
+        :type is_assigned: bool
+        :param is_assigned_to_me: Filter issues that are assigned to the user using this API in the legit platform
+        :type is_assigned_to_me: bool
+        :param is_triaged: Filter issues that have either a user or a ticket assigned to them in the legit platform
+        :type is_triaged: bool
+        :param assigned_user_id: Filter issues that are assigned to the given user in the legit platform
+        :type assigned_user_id: str
+        :param origin_id: The identifier of the origin
+        :type origin_id: str
+        :param origin_origin_type: The type of the origin
+        :type origin_origin_type: OriginType
+        :param origin_type: Filter issues that have specific origin type
+        :type origin_type: OriginType
+        :param origins: Filter issues that their origin is in the given list
+        :type origins: List[IssueOriginParams]
+        :param policy_name: Filter issues that were detected by the given policy
+        :type policy_name: str
+        :param action_id: Filter issues that are part of the action with the given id
+        :type action_id: str
+        :param tag: Filter issues by tag name
+        :type tag: str
+        :param source_name: Filter issues that have at least one source with the given name
+        :type source_name: str
+        :param integration_id: Filter issues that were detected by the given integration
+        :type integration_id: str
+        :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
+        :type source_scanner_ids: List[ControlClassification]
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
+        :type ai_validation_result: AiValidationResult
+        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
+        :type validity_status: SecretIssueValidityStatus
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :type validity_check_from_date: datetime
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :type validity_check_to_date: datetime
+        :param file_path: Filter issues that their fila-path contains the given string
+        :type file_path: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2222,50 +4091,50 @@ class IssuesV2Api:
         """ # noqa: E501
 
         _param = self._get_issues_v2_serialize(
-            issues_query_title=issues_query_title,
-            issues_query_title_search=issues_query_title_search,
-            issues_query_issue_types=issues_query_issue_types,
-            issues_query_severities=issues_query_severities,
-            issues_query_policy_severity=issues_query_policy_severity,
-            issues_query_statuses=issues_query_statuses,
-            issues_query_detected_from_date=issues_query_detected_from_date,
-            issues_query_detected_to_date=issues_query_detected_to_date,
-            issues_query_opening_reason=issues_query_opening_reason,
-            issues_query_last_action_time_from_date=issues_query_last_action_time_from_date,
-            issues_query_last_action_time_to_date=issues_query_last_action_time_to_date,
-            issues_query_closing_reason=issues_query_closing_reason,
-            issues_query_closing_location=issues_query_closing_location,
-            issues_query_workspace_ids=issues_query_workspace_ids,
-            issues_query_vulnerable_file=issues_query_vulnerable_file,
-            issues_query_cve_id=issues_query_cve_id,
-            issues_query_min_score=issues_query_min_score,
-            issues_query_min_epss_score=issues_query_min_epss_score,
-            issues_query_dependency_fix_types=issues_query_dependency_fix_types,
-            issues_query_product_ids=issues_query_product_ids,
-            issues_query_has_ticket=issues_query_has_ticket,
-            issues_query_is_assigned=issues_query_is_assigned,
-            issues_query_is_assigned_to_me=issues_query_is_assigned_to_me,
-            issues_query_is_triaged=issues_query_is_triaged,
-            issues_query_assigned_user_id=issues_query_assigned_user_id,
-            issues_query_origin_id=issues_query_origin_id,
-            issues_query_origin_origin_type=issues_query_origin_origin_type,
-            issues_query_origin_type=issues_query_origin_type,
-            issues_query_origins=issues_query_origins,
-            issues_query_policy_name=issues_query_policy_name,
-            issues_query_action_id=issues_query_action_id,
-            issues_query_tag=issues_query_tag,
-            issues_query_source_name=issues_query_source_name,
-            issues_query_integration_id=issues_query_integration_id,
-            issues_query_source_scanner_ids=issues_query_source_scanner_ids,
-            issues_query_ai_validation_result=issues_query_ai_validation_result,
-            issues_query_validity_status=issues_query_validity_status,
-            issues_query_validity_check_from_date=issues_query_validity_check_from_date,
-            issues_query_validity_check_to_date=issues_query_validity_check_to_date,
-            issues_query_file_path=issues_query_file_path,
             sort_column=sort_column,
             sort_direction=sort_direction,
             token=token,
             limit=limit,
+            title=title,
+            title_search=title_search,
+            issue_types=issue_types,
+            severities=severities,
+            policy_severity=policy_severity,
+            statuses=statuses,
+            detected_from_date=detected_from_date,
+            detected_to_date=detected_to_date,
+            opening_reason=opening_reason,
+            last_action_time_from_date=last_action_time_from_date,
+            last_action_time_to_date=last_action_time_to_date,
+            closing_reason=closing_reason,
+            closing_location=closing_location,
+            workspace_ids=workspace_ids,
+            vulnerable_file=vulnerable_file,
+            cve_id=cve_id,
+            min_score=min_score,
+            min_epss_score=min_epss_score,
+            dependency_fix_types=dependency_fix_types,
+            product_ids=product_ids,
+            has_ticket=has_ticket,
+            is_assigned=is_assigned,
+            is_assigned_to_me=is_assigned_to_me,
+            is_triaged=is_triaged,
+            assigned_user_id=assigned_user_id,
+            origin_id=origin_id,
+            origin_origin_type=origin_origin_type,
+            origin_type=origin_type,
+            origins=origins,
+            policy_name=policy_name,
+            action_id=action_id,
+            tag=tag,
+            source_name=source_name,
+            integration_id=integration_id,
+            source_scanner_ids=source_scanner_ids,
+            ai_validation_result=ai_validation_result,
+            validity_status=validity_status,
+            validity_check_from_date=validity_check_from_date,
+            validity_check_to_date=validity_check_to_date,
+            file_path=file_path,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2284,50 +4153,50 @@ class IssuesV2Api:
 
     def _get_issues_v2_serialize(
         self,
-        issues_query_title,
-        issues_query_title_search,
-        issues_query_issue_types,
-        issues_query_severities,
-        issues_query_policy_severity,
-        issues_query_statuses,
-        issues_query_detected_from_date,
-        issues_query_detected_to_date,
-        issues_query_opening_reason,
-        issues_query_last_action_time_from_date,
-        issues_query_last_action_time_to_date,
-        issues_query_closing_reason,
-        issues_query_closing_location,
-        issues_query_workspace_ids,
-        issues_query_vulnerable_file,
-        issues_query_cve_id,
-        issues_query_min_score,
-        issues_query_min_epss_score,
-        issues_query_dependency_fix_types,
-        issues_query_product_ids,
-        issues_query_has_ticket,
-        issues_query_is_assigned,
-        issues_query_is_assigned_to_me,
-        issues_query_is_triaged,
-        issues_query_assigned_user_id,
-        issues_query_origin_id,
-        issues_query_origin_origin_type,
-        issues_query_origin_type,
-        issues_query_origins,
-        issues_query_policy_name,
-        issues_query_action_id,
-        issues_query_tag,
-        issues_query_source_name,
-        issues_query_integration_id,
-        issues_query_source_scanner_ids,
-        issues_query_ai_validation_result,
-        issues_query_validity_status,
-        issues_query_validity_check_from_date,
-        issues_query_validity_check_to_date,
-        issues_query_file_path,
         sort_column,
         sort_direction,
         token,
         limit,
+        title,
+        title_search,
+        issue_types,
+        severities,
+        policy_severity,
+        statuses,
+        detected_from_date,
+        detected_to_date,
+        opening_reason,
+        last_action_time_from_date,
+        last_action_time_to_date,
+        closing_reason,
+        closing_location,
+        workspace_ids,
+        vulnerable_file,
+        cve_id,
+        min_score,
+        min_epss_score,
+        dependency_fix_types,
+        product_ids,
+        has_ticket,
+        is_assigned,
+        is_assigned_to_me,
+        is_triaged,
+        assigned_user_id,
+        origin_id,
+        origin_origin_type,
+        origin_type,
+        origins,
+        policy_name,
+        action_id,
+        tag,
+        source_name,
+        integration_id,
+        source_scanner_ids,
+        ai_validation_result,
+        validity_status,
+        validity_check_from_date,
+        validity_check_to_date,
+        file_path,
         _request_auth,
         _content_type,
         _headers,
@@ -2337,14 +4206,14 @@ class IssuesV2Api:
         _host = None
 
         _collection_formats: Dict[str, str] = {
-            'issuesQuery.issueTypes': 'multi',
-            'issuesQuery.severities': 'multi',
-            'issuesQuery.statuses': 'multi',
-            'issuesQuery.workspaceIds': 'multi',
-            'issuesQuery.dependencyFixTypes': 'multi',
-            'issuesQuery.productIds': 'multi',
-            'issuesQuery.origins': 'multi',
-            'issuesQuery.sourceScannerIds': 'multi',
+            'issueTypes': 'multi',
+            'severities': 'multi',
+            'statuses': 'multi',
+            'workspaceIds': 'multi',
+            'dependencyFixTypes': 'multi',
+            'productIds': 'multi',
+            'origins': 'multi',
+            'sourceScannerIds': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2358,220 +4227,6 @@ class IssuesV2Api:
 
         # process the path parameters
         # process the query parameters
-        if issues_query_title is not None:
-            
-            _query_params.append(('issuesQuery.title', issues_query_title))
-            
-        if issues_query_title_search is not None:
-            
-            _query_params.append(('issuesQuery.titleSearch', issues_query_title_search))
-            
-        if issues_query_issue_types is not None:
-            
-            _query_params.append(('issuesQuery.issueTypes', issues_query_issue_types))
-            
-        if issues_query_severities is not None:
-            
-            _query_params.append(('issuesQuery.severities', issues_query_severities))
-            
-        if issues_query_policy_severity is not None:
-            
-            _query_params.append(('issuesQuery.policySeverity', issues_query_policy_severity.value))
-            
-        if issues_query_statuses is not None:
-            
-            _query_params.append(('issuesQuery.statuses', issues_query_statuses))
-            
-        if issues_query_detected_from_date is not None:
-            if isinstance(issues_query_detected_from_date, datetime):
-                _query_params.append(
-                    (
-                        'issuesQuery.detectedFromDate',
-                        issues_query_detected_from_date.strftime(
-                            self.api_client.configuration.datetime_format
-                        )
-                    )
-                )
-            else:
-                _query_params.append(('issuesQuery.detectedFromDate', issues_query_detected_from_date))
-            
-        if issues_query_detected_to_date is not None:
-            if isinstance(issues_query_detected_to_date, datetime):
-                _query_params.append(
-                    (
-                        'issuesQuery.detectedToDate',
-                        issues_query_detected_to_date.strftime(
-                            self.api_client.configuration.datetime_format
-                        )
-                    )
-                )
-            else:
-                _query_params.append(('issuesQuery.detectedToDate', issues_query_detected_to_date))
-            
-        if issues_query_opening_reason is not None:
-            
-            _query_params.append(('issuesQuery.openingReason', issues_query_opening_reason.value))
-            
-        if issues_query_last_action_time_from_date is not None:
-            if isinstance(issues_query_last_action_time_from_date, datetime):
-                _query_params.append(
-                    (
-                        'issuesQuery.lastActionTimeFromDate',
-                        issues_query_last_action_time_from_date.strftime(
-                            self.api_client.configuration.datetime_format
-                        )
-                    )
-                )
-            else:
-                _query_params.append(('issuesQuery.lastActionTimeFromDate', issues_query_last_action_time_from_date))
-            
-        if issues_query_last_action_time_to_date is not None:
-            if isinstance(issues_query_last_action_time_to_date, datetime):
-                _query_params.append(
-                    (
-                        'issuesQuery.lastActionTimeToDate',
-                        issues_query_last_action_time_to_date.strftime(
-                            self.api_client.configuration.datetime_format
-                        )
-                    )
-                )
-            else:
-                _query_params.append(('issuesQuery.lastActionTimeToDate', issues_query_last_action_time_to_date))
-            
-        if issues_query_closing_reason is not None:
-            
-            _query_params.append(('issuesQuery.closingReason', issues_query_closing_reason.value))
-            
-        if issues_query_closing_location is not None:
-            
-            _query_params.append(('issuesQuery.closingLocation', issues_query_closing_location.value))
-            
-        if issues_query_workspace_ids is not None:
-            
-            _query_params.append(('issuesQuery.workspaceIds', issues_query_workspace_ids))
-            
-        if issues_query_vulnerable_file is not None:
-            
-            _query_params.append(('issuesQuery.vulnerableFile', issues_query_vulnerable_file))
-            
-        if issues_query_cve_id is not None:
-            
-            _query_params.append(('issuesQuery.cveId', issues_query_cve_id))
-            
-        if issues_query_min_score is not None:
-            
-            _query_params.append(('issuesQuery.minScore', issues_query_min_score))
-            
-        if issues_query_min_epss_score is not None:
-            
-            _query_params.append(('issuesQuery.minEpssScore', issues_query_min_epss_score))
-            
-        if issues_query_dependency_fix_types is not None:
-            
-            _query_params.append(('issuesQuery.dependencyFixTypes', issues_query_dependency_fix_types))
-            
-        if issues_query_product_ids is not None:
-            
-            _query_params.append(('issuesQuery.productIds', issues_query_product_ids))
-            
-        if issues_query_has_ticket is not None:
-            
-            _query_params.append(('issuesQuery.hasTicket', issues_query_has_ticket))
-            
-        if issues_query_is_assigned is not None:
-            
-            _query_params.append(('issuesQuery.isAssigned', issues_query_is_assigned))
-            
-        if issues_query_is_assigned_to_me is not None:
-            
-            _query_params.append(('issuesQuery.isAssignedToMe', issues_query_is_assigned_to_me))
-            
-        if issues_query_is_triaged is not None:
-            
-            _query_params.append(('issuesQuery.isTriaged', issues_query_is_triaged))
-            
-        if issues_query_assigned_user_id is not None:
-            
-            _query_params.append(('issuesQuery.assignedUserId', issues_query_assigned_user_id))
-            
-        if issues_query_origin_id is not None:
-            
-            _query_params.append(('issuesQuery.origin.id', issues_query_origin_id))
-            
-        if issues_query_origin_origin_type is not None:
-            
-            _query_params.append(('issuesQuery.origin.originType', issues_query_origin_origin_type.value))
-            
-        if issues_query_origin_type is not None:
-            
-            _query_params.append(('issuesQuery.originType', issues_query_origin_type.value))
-            
-        if issues_query_origins is not None:
-            
-            _query_params.append(('issuesQuery.origins', issues_query_origins))
-            
-        if issues_query_policy_name is not None:
-            
-            _query_params.append(('issuesQuery.policyName', issues_query_policy_name))
-            
-        if issues_query_action_id is not None:
-            
-            _query_params.append(('issuesQuery.actionId', issues_query_action_id))
-            
-        if issues_query_tag is not None:
-            
-            _query_params.append(('issuesQuery.tag', issues_query_tag))
-            
-        if issues_query_source_name is not None:
-            
-            _query_params.append(('issuesQuery.sourceName', issues_query_source_name))
-            
-        if issues_query_integration_id is not None:
-            
-            _query_params.append(('issuesQuery.integrationId', issues_query_integration_id))
-            
-        if issues_query_source_scanner_ids is not None:
-            
-            _query_params.append(('issuesQuery.sourceScannerIds', issues_query_source_scanner_ids))
-            
-        if issues_query_ai_validation_result is not None:
-            
-            _query_params.append(('issuesQuery.aiValidationResult', issues_query_ai_validation_result.value))
-            
-        if issues_query_validity_status is not None:
-            
-            _query_params.append(('issuesQuery.validityStatus', issues_query_validity_status.value))
-            
-        if issues_query_validity_check_from_date is not None:
-            if isinstance(issues_query_validity_check_from_date, datetime):
-                _query_params.append(
-                    (
-                        'issuesQuery.validityCheckFromDate',
-                        issues_query_validity_check_from_date.strftime(
-                            self.api_client.configuration.datetime_format
-                        )
-                    )
-                )
-            else:
-                _query_params.append(('issuesQuery.validityCheckFromDate', issues_query_validity_check_from_date))
-            
-        if issues_query_validity_check_to_date is not None:
-            if isinstance(issues_query_validity_check_to_date, datetime):
-                _query_params.append(
-                    (
-                        'issuesQuery.validityCheckToDate',
-                        issues_query_validity_check_to_date.strftime(
-                            self.api_client.configuration.datetime_format
-                        )
-                    )
-                )
-            else:
-                _query_params.append(('issuesQuery.validityCheckToDate', issues_query_validity_check_to_date))
-            
-        if issues_query_file_path is not None:
-            
-            _query_params.append(('issuesQuery.filePath', issues_query_file_path))
-            
         if sort_column is not None:
             
             _query_params.append(('sortColumn', sort_column.value))
@@ -2587,6 +4242,220 @@ class IssuesV2Api:
         if limit is not None:
             
             _query_params.append(('limit', limit))
+            
+        if title is not None:
+            
+            _query_params.append(('title', title))
+            
+        if title_search is not None:
+            
+            _query_params.append(('titleSearch', title_search))
+            
+        if issue_types is not None:
+            
+            _query_params.append(('issueTypes', issue_types))
+            
+        if severities is not None:
+            
+            _query_params.append(('severities', severities))
+            
+        if policy_severity is not None:
+            
+            _query_params.append(('policySeverity', policy_severity.value))
+            
+        if statuses is not None:
+            
+            _query_params.append(('statuses', statuses))
+            
+        if detected_from_date is not None:
+            if isinstance(detected_from_date, datetime):
+                _query_params.append(
+                    (
+                        'detectedFromDate',
+                        detected_from_date.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('detectedFromDate', detected_from_date))
+            
+        if detected_to_date is not None:
+            if isinstance(detected_to_date, datetime):
+                _query_params.append(
+                    (
+                        'detectedToDate',
+                        detected_to_date.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('detectedToDate', detected_to_date))
+            
+        if opening_reason is not None:
+            
+            _query_params.append(('openingReason', opening_reason.value))
+            
+        if last_action_time_from_date is not None:
+            if isinstance(last_action_time_from_date, datetime):
+                _query_params.append(
+                    (
+                        'lastActionTimeFromDate',
+                        last_action_time_from_date.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('lastActionTimeFromDate', last_action_time_from_date))
+            
+        if last_action_time_to_date is not None:
+            if isinstance(last_action_time_to_date, datetime):
+                _query_params.append(
+                    (
+                        'lastActionTimeToDate',
+                        last_action_time_to_date.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('lastActionTimeToDate', last_action_time_to_date))
+            
+        if closing_reason is not None:
+            
+            _query_params.append(('closingReason', closing_reason.value))
+            
+        if closing_location is not None:
+            
+            _query_params.append(('closingLocation', closing_location.value))
+            
+        if workspace_ids is not None:
+            
+            _query_params.append(('workspaceIds', workspace_ids))
+            
+        if vulnerable_file is not None:
+            
+            _query_params.append(('vulnerableFile', vulnerable_file))
+            
+        if cve_id is not None:
+            
+            _query_params.append(('cveId', cve_id))
+            
+        if min_score is not None:
+            
+            _query_params.append(('minScore', min_score))
+            
+        if min_epss_score is not None:
+            
+            _query_params.append(('minEpssScore', min_epss_score))
+            
+        if dependency_fix_types is not None:
+            
+            _query_params.append(('dependencyFixTypes', dependency_fix_types))
+            
+        if product_ids is not None:
+            
+            _query_params.append(('productIds', product_ids))
+            
+        if has_ticket is not None:
+            
+            _query_params.append(('hasTicket', has_ticket))
+            
+        if is_assigned is not None:
+            
+            _query_params.append(('isAssigned', is_assigned))
+            
+        if is_assigned_to_me is not None:
+            
+            _query_params.append(('isAssignedToMe', is_assigned_to_me))
+            
+        if is_triaged is not None:
+            
+            _query_params.append(('isTriaged', is_triaged))
+            
+        if assigned_user_id is not None:
+            
+            _query_params.append(('assignedUserId', assigned_user_id))
+            
+        if origin_id is not None:
+            
+            _query_params.append(('origin.id', origin_id))
+            
+        if origin_origin_type is not None:
+            
+            _query_params.append(('origin.originType', origin_origin_type.value))
+            
+        if origin_type is not None:
+            
+            _query_params.append(('originType', origin_type.value))
+            
+        if origins is not None:
+            
+            _query_params.append(('origins', origins))
+            
+        if policy_name is not None:
+            
+            _query_params.append(('policyName', policy_name))
+            
+        if action_id is not None:
+            
+            _query_params.append(('actionId', action_id))
+            
+        if tag is not None:
+            
+            _query_params.append(('tag', tag))
+            
+        if source_name is not None:
+            
+            _query_params.append(('sourceName', source_name))
+            
+        if integration_id is not None:
+            
+            _query_params.append(('integrationId', integration_id))
+            
+        if source_scanner_ids is not None:
+            
+            _query_params.append(('sourceScannerIds', source_scanner_ids))
+            
+        if ai_validation_result is not None:
+            
+            _query_params.append(('aiValidationResult', ai_validation_result.value))
+            
+        if validity_status is not None:
+            
+            _query_params.append(('validityStatus', validity_status.value))
+            
+        if validity_check_from_date is not None:
+            if isinstance(validity_check_from_date, datetime):
+                _query_params.append(
+                    (
+                        'validityCheckFromDate',
+                        validity_check_from_date.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('validityCheckFromDate', validity_check_from_date))
+            
+        if validity_check_to_date is not None:
+            if isinstance(validity_check_to_date, datetime):
+                _query_params.append(
+                    (
+                        'validityCheckToDate',
+                        validity_check_to_date.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('validityCheckToDate', validity_check_to_date))
+            
+        if file_path is not None:
+            
+            _query_params.append(('filePath', file_path))
             
         # process the header parameters
         # process the form parameters
@@ -2612,6 +4481,272 @@ class IssuesV2Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v2.0/issues',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_issues_vulnerabilities(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> List[CustomerFacingIssueToVulnerabilityDto]:
+        """Get the vulnerabilities of the given issues
+
+        Get the issue ids to their vulnerabilities. Some issue types may not have vulnerabilities
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issues_vulnerabilities_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToVulnerabilityDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_issues_vulnerabilities_with_http_info(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[List[CustomerFacingIssueToVulnerabilityDto]]:
+        """Get the vulnerabilities of the given issues
+
+        Get the issue ids to their vulnerabilities. Some issue types may not have vulnerabilities
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issues_vulnerabilities_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToVulnerabilityDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_issues_vulnerabilities_without_preload_content(
+        self,
+        ids: Annotated[Optional[List[StrictStr]], Field(description="List of issue Ids to filter by (max 100 items)")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get the vulnerabilities of the given issues
+
+        Get the issue ids to their vulnerabilities. Some issue types may not have vulnerabilities
+
+        :param ids: List of issue Ids to filter by (max 100 items)
+        :type ids: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_issues_vulnerabilities_serialize(
+            ids=ids,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[CustomerFacingIssueToVulnerabilityDto]",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_issues_vulnerabilities_serialize(
+        self,
+        ids,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'text/plain', 
+                    'application/json', 
+                    'text/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'BearerAuth'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2.0/issues/vulnerabilities',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

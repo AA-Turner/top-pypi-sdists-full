@@ -53,7 +53,18 @@ class FrameworkStub(BaseAPIModelStub):
         "communicationCategories": [],
         "communicationsOpen": False,
         "fvraSettings": {},
-        "hasTechnicalAbilityCertificate": False,
+        "technicalAbilityCertificateSettings": {
+            "routes": [],
+            "lotToRoute": {},
+        },
+        "evaluationSettings": {
+            "routes": [],
+            "lotToRoute": {},
+        },
+        "lotPricingSettings": {
+            "routes": [],
+            "lotToRoute": {},
+        },
     }
     optional_keys = [
         ("family", "framework_family"),
@@ -63,9 +74,9 @@ class FrameworkStub(BaseAPIModelStub):
         ("allowDeclarationReuse", "allow_declaration_reuse"),
         ("communicationCategories", "communication_categories"),
         ("fvraSettings", "fvra_settings"),
-        ("hasEvaluation", "has_evaluation"),
-        ("hasTechnicalAbilityCertificate", "has_technical_ability_certificate"),
-        ("hasLotPricing", "has_lot_pricing"),
+        ("technicalAbilityCertificateSettings", "technical_ability_certificate_settings"),
+        ("evaluationSettings", "evaluation_settings"),
+        ("lotPricingSettings", "lot_pricing_settings"),
     ]
     datestamp_keys = [
         ("clarificationsCloseAtUTC", "clarifications_close_at"),
@@ -159,12 +170,6 @@ class FrameworkStub(BaseAPIModelStub):
                 lot["slug"]: f"Lot {i + 1}: {lot['name']}" for i, lot in enumerate(self.response_data["lots"])
             }
 
-        if "has_evaluation" not in kwargs:
-            self.response_data["hasEvaluation"] = any(lot["hasEvaluation"] for lot in self.response_data["lots"])
-
-        if "has_lot_pricing" not in kwargs:
-            self.response_data["hasLotPricing"] = any(lot["hasLotPricing"] for lot in self.response_data["lots"])
-
         if kwargs.get("with_communication_categories"):
             self.response_data["communicationCategories"] = [
                 {
@@ -245,4 +250,63 @@ class FrameworkStub(BaseAPIModelStub):
 
             del kwargs["with_fvra"]
 
+        if kwargs.get("with_technical_ability_certificate"):
+            self.response_data["technicalAbilityCertificateSettings"] = {
+                "routes": [
+                    "iaas-and-paas",
+                    "iaas-and-paas-above-official",
+                    "isaas",
+                    "saas",
+                    "cloud-support",
+                ],
+                "lot_to_route": {
+                    "iaas-and-paas": "iaas-and-paas",
+                    "iaas-and-paas-above-official": "iaas-and-paas-above-official",
+                    "isaas": "isaas",
+                    "saas": "saas",
+                    "cloud-support": "cloud-support",
+                },
+            }
+
+            del kwargs["with_technical_ability_certificate"]
+
+        if kwargs.get("with_evaluation"):
+            self.response_data["evaluationSettings"] = {
+                "routes": [
+                    "digital-capability-and-delivery-partner",
+                ],
+                "lot_to_route": {
+                    "digital-capability-and-delivery-partner": "digital-capability-and-delivery-partner",
+                },
+            }
+
+            del kwargs["with_evaluation"]
+
+        if kwargs.get("with_lot_pricing"):
+            self.response_data["lotPricingSettings"] = {
+                "routes": [
+                    "cloud-hosting",
+                    "cloud-software",
+                    "cloud-support",
+                ],
+                "lot_to_route": {
+                    "iaas-and-paas": "cloud-hosting",
+                    "iaas-and-paas-above-official": "cloud-hosting",
+                    "isaas": "cloud-software",
+                    "saas": "cloud-software",
+                    "cloud-support": "cloud-support",
+                },
+            }
+
+            del kwargs["with_lot_pricing"]
+
         self.response_data["hasFvra"] = bool(self.response_data["fvraSettings"])
+        self.response_data["hasTechnicalAbilityCertificate"] = bool(
+            self.response_data["technicalAbilityCertificateSettings"]["routes"]
+        ) or bool(self.response_data["technicalAbilityCertificateSettings"]["lotToRoute"])
+        self.response_data["hasEvaluation"] = bool(self.response_data["evaluationSettings"]["routes"]) or bool(
+            self.response_data["evaluationSettings"]["lotToRoute"]
+        )
+        self.response_data["hasLotPricing"] = bool(self.response_data["lotPricingSettings"]["routes"]) or bool(
+            self.response_data["lotPricingSettings"]["lotToRoute"]
+        )

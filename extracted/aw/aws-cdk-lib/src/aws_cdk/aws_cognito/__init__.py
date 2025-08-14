@@ -4521,7 +4521,7 @@ class CfnManagedLoginBranding(
         :param assets: An array of image files that you want to apply to roles like backgrounds, logos, and icons. Each object must also indicate whether it is for dark mode, light mode, or browser-adaptive mode.
         :param client_id: The app client that you want to assign the branding style to. Each style is linked to an app client until you delete it.
         :param return_merged_resources: When ``true`` , returns values for branding options that are unchanged from Amazon Cognito defaults. When ``false`` or when you omit this parameter, returns only values that you customized in your branding style.
-        :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style.
+        :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style. The following components are not currently implemented and reserved for future use: - ``signUp`` - ``instructions`` - ``sessionTimerDisplay`` - ``languageSelector`` (for localization, see `Managed login localization) <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-localization>`_
         :param use_cognito_provided_values: When true, applies the default branding style options. This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding editor. When you specify ``true`` for this option, you must also omit values for ``Settings`` and ``Assets`` in the request.
         '''
         if __debug__:
@@ -4834,7 +4834,7 @@ class CfnManagedLoginBrandingProps:
         :param assets: An array of image files that you want to apply to roles like backgrounds, logos, and icons. Each object must also indicate whether it is for dark mode, light mode, or browser-adaptive mode.
         :param client_id: The app client that you want to assign the branding style to. Each style is linked to an app client until you delete it.
         :param return_merged_resources: When ``true`` , returns values for branding options that are unchanged from Amazon Cognito defaults. When ``false`` or when you omit this parameter, returns only values that you customized in your branding style.
-        :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style.
+        :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style. The following components are not currently implemented and reserved for future use: - ``signUp`` - ``instructions`` - ``sessionTimerDisplay`` - ``languageSelector`` (for localization, see `Managed login localization) <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-localization>`_
         :param use_cognito_provided_values: When true, applies the default branding style options. This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding editor. When you specify ``true`` for this option, you must also omit values for ``Settings`` and ``Assets`` in the request.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-managedloginbranding.html
@@ -4939,6 +4939,13 @@ class CfnManagedLoginBrandingProps:
     @builtins.property
     def settings(self) -> typing.Any:
         '''A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style.
+
+        The following components are not currently implemented and reserved for future use:
+
+        - ``signUp``
+        - ``instructions``
+        - ``sessionTimerDisplay``
+        - ``languageSelector`` (for localization, see `Managed login localization) <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html#managed-login-localization>`_
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-managedloginbranding.html#cfn-cognito-managedloginbranding-settings
         '''

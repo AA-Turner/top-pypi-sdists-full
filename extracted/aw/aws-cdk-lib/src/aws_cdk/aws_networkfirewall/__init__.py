@@ -76,7 +76,7 @@ class CfnFirewall(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewall",
 ):
-    '''Use the ``Firewall`` to provide stateful, managed, network firewall and intrusion detection and prevention filtering for your VPCs in Amazon VPC .
+    '''Use the firewall to provide stateful, managed, network firewall and intrusion detection and prevention filtering for your VPCs in Amazon VPC .
 
     The firewall defines the configuration settings for an AWS Network Firewall firewall. The settings include the firewall policy, the subnets in your VPC to use for the firewall endpoints, and any tags that are attached to the firewall AWS resource.
 
@@ -93,24 +93,29 @@ class CfnFirewall(
         cfn_firewall = networkfirewall.CfnFirewall(self, "MyCfnFirewall",
             firewall_name="firewallName",
             firewall_policy_arn="firewallPolicyArn",
+        
+            # the properties below are optional
+            availability_zone_change_protection=False,
+            availability_zone_mappings=[networkfirewall.CfnFirewall.AvailabilityZoneMappingProperty(
+                availability_zone="availabilityZone"
+            )],
+            delete_protection=False,
+            description="description",
+            enabled_analysis_types=["enabledAnalysisTypes"],
+            firewall_policy_change_protection=False,
+            subnet_change_protection=False,
             subnet_mappings=[networkfirewall.CfnFirewall.SubnetMappingProperty(
                 subnet_id="subnetId",
         
                 # the properties below are optional
                 ip_address_type="ipAddressType"
             )],
-            vpc_id="vpcId",
-        
-            # the properties below are optional
-            delete_protection=False,
-            description="description",
-            enabled_analysis_types=["enabledAnalysisTypes"],
-            firewall_policy_change_protection=False,
-            subnet_change_protection=False,
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            transit_gateway_id="transitGatewayId",
+            vpc_id="vpcId"
         )
     '''
 
@@ -121,28 +126,34 @@ class CfnFirewall(
         *,
         firewall_name: builtins.str,
         firewall_policy_arn: builtins.str,
-        subnet_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFirewall.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        vpc_id: builtins.str,
+        availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        availability_zone_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFirewall.AvailabilityZoneMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         delete_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         description: typing.Optional[builtins.str] = None,
         enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFirewall.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        transit_gateway_id: typing.Optional[builtins.str] = None,
+        vpc_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param firewall_name: The descriptive name of the firewall. You can't change the name of a firewall after you create it.
         :param firewall_policy_arn: The Amazon Resource Name (ARN) of the firewall policy. The relationship of firewall to firewall policy is many to one. Each firewall requires one firewall policy association, and you can use the same firewall policy for multiple firewalls.
-        :param subnet_mappings: The primary public subnets that Network Firewall is using for the firewall. Network Firewall creates a firewall endpoint in each subnet. Create a subnet mapping for each Availability Zone where you want to use the firewall. These subnets are all defined for a single, primary VPC, and each must belong to a different Availability Zone. Each of these subnets establishes the availability of the firewall in its Availability Zone. In addition to these subnets, you can define other endpoints for the firewall in ``VpcEndpointAssociation`` resources. You can define these additional endpoints for any VPC, and for any of the Availability Zones where the firewall resource already has a subnet mapping. VPC endpoint associations give you the ability to protect multiple VPCs using a single firewall, and to define multiple firewall endpoints for a VPC in a single Availability Zone.
-        :param vpc_id: The unique identifier of the VPC where the firewall is in use. You can't change the VPC of a firewall after you create the firewall.
+        :param availability_zone_change_protection: A setting indicating whether the firewall is protected against changes to its Availability Zone configuration. When set to ``TRUE`` , you must first disable this protection before adding or removing Availability Zones.
+        :param availability_zone_mappings: The Availability Zones where the firewall endpoints are created for a transit gateway-attached firewall. Each mapping specifies an Availability Zone where the firewall processes traffic.
         :param delete_protection: A flag indicating whether it is possible to delete the firewall. A setting of ``TRUE`` indicates that the firewall is protected against deletion. Use this setting to protect against accidentally deleting a firewall that is in use. When you create a firewall, the operation initializes this flag to ``TRUE`` .
         :param description: A description of the firewall.
         :param enabled_analysis_types: An optional setting indicating the specific traffic analysis types to enable on the firewall.
         :param firewall_policy_change_protection: A setting indicating whether the firewall is protected against a change to the firewall policy association. Use this setting to protect against accidentally modifying the firewall policy for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
         :param subnet_change_protection: A setting indicating whether the firewall is protected against changes to the subnet associations. Use this setting to protect against accidentally modifying the subnet associations for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
+        :param subnet_mappings: The primary public subnets that Network Firewall is using for the firewall. Network Firewall creates a firewall endpoint in each subnet. Create a subnet mapping for each Availability Zone where you want to use the firewall. These subnets are all defined for a single, primary VPC, and each must belong to a different Availability Zone. Each of these subnets establishes the availability of the firewall in its Availability Zone. In addition to these subnets, you can define other endpoints for the firewall in ``VpcEndpointAssociation`` resources. You can define these additional endpoints for any VPC, and for any of the Availability Zones where the firewall resource already has a subnet mapping. VPC endpoint associations give you the ability to protect multiple VPCs using a single firewall, and to define multiple firewall endpoints for a VPC in a single Availability Zone.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param transit_gateway_id: The unique identifier of the transit gateway associated with this firewall. This field is only present for transit gateway-attached firewalls.
+        :param vpc_id: The unique identifier of the VPC where the firewall is in use. You can't change the VPC of a firewall after you create the firewall.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8735e4ce7e79159823190ad059af802b7721b71930c6b4b8805c4676b38d4d56)
@@ -151,14 +162,17 @@ class CfnFirewall(
         props = CfnFirewallProps(
             firewall_name=firewall_name,
             firewall_policy_arn=firewall_policy_arn,
-            subnet_mappings=subnet_mappings,
-            vpc_id=vpc_id,
+            availability_zone_change_protection=availability_zone_change_protection,
+            availability_zone_mappings=availability_zone_mappings,
             delete_protection=delete_protection,
             description=description,
             enabled_analysis_types=enabled_analysis_types,
             firewall_policy_change_protection=firewall_policy_change_protection,
             subnet_change_protection=subnet_change_protection,
+            subnet_mappings=subnet_mappings,
             tags=tags,
+            transit_gateway_id=transit_gateway_id,
+            vpc_id=vpc_id,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -207,7 +221,7 @@ class CfnFirewall(
     @builtins.property
     @jsii.member(jsii_name="attrFirewallArn")
     def attr_firewall_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the ``Firewall`` .
+        '''The Amazon Resource Name (ARN) of the firewall.
 
         :cloudformationAttribute: FirewallArn
         '''
@@ -216,7 +230,7 @@ class CfnFirewall(
     @builtins.property
     @jsii.member(jsii_name="attrFirewallId")
     def attr_firewall_id(self) -> builtins.str:
-        '''The name of the ``Firewall`` resource.
+        '''The name of the firewallresource.
 
         :cloudformationAttribute: FirewallId
         '''
@@ -260,35 +274,40 @@ class CfnFirewall(
         jsii.set(self, "firewallPolicyArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="subnetMappings")
-    def subnet_mappings(
+    @jsii.member(jsii_name="availabilityZoneChangeProtection")
+    def availability_zone_change_protection(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewall.SubnetMappingProperty"]]]:
-        '''The primary public subnets that Network Firewall is using for the firewall.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewall.SubnetMappingProperty"]]], jsii.get(self, "subnetMappings"))
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A setting indicating whether the firewall is protected against changes to its Availability Zone configuration.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "availabilityZoneChangeProtection"))
 
-    @subnet_mappings.setter
-    def subnet_mappings(
+    @availability_zone_change_protection.setter
+    def availability_zone_change_protection(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewall.SubnetMappingProperty"]]],
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f2f1e41c3294b6f9ed43f3936b8feb28ed4bd73021f059aae4743db717241ab)
+            type_hints = typing.get_type_hints(_typecheckingstub__9264301e2259874347a035c96f8c2b41c3eace108b10ab012df466442d7477f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetMappings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZoneChangeProtection", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="vpcId")
-    def vpc_id(self) -> builtins.str:
-        '''The unique identifier of the VPC where the firewall is in use.'''
-        return typing.cast(builtins.str, jsii.get(self, "vpcId"))
+    @jsii.member(jsii_name="availabilityZoneMappings")
+    def availability_zone_mappings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewall.AvailabilityZoneMappingProperty"]]]]:
+        '''The Availability Zones where the firewall endpoints are created for a transit gateway-attached firewall.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewall.AvailabilityZoneMappingProperty"]]]], jsii.get(self, "availabilityZoneMappings"))
 
-    @vpc_id.setter
-    def vpc_id(self, value: builtins.str) -> None:
+    @availability_zone_mappings.setter
+    def availability_zone_mappings(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewall.AvailabilityZoneMappingProperty"]]]],
+    ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba092b3d0c9ca8819ad31fd4320cebdee3150a45603af80de70f2c0bbb9e04b5)
+            type_hints = typing.get_type_hints(_typecheckingstub__cf571f7b78cee2a31a1b36a9ada83e153f52c7a14fea3f65c9362d1d4634dd77)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZoneMappings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="deleteProtection")
@@ -374,6 +393,24 @@ class CfnFirewall(
         jsii.set(self, "subnetChangeProtection", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="subnetMappings")
+    def subnet_mappings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewall.SubnetMappingProperty"]]]]:
+        '''The primary public subnets that Network Firewall is using for the firewall.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewall.SubnetMappingProperty"]]]], jsii.get(self, "subnetMappings"))
+
+    @subnet_mappings.setter
+    def subnet_mappings(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFirewall.SubnetMappingProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f2f1e41c3294b6f9ed43f3936b8feb28ed4bd73021f059aae4743db717241ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subnetMappings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tagsRaw")
     def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
         '''An array of key-value pairs to apply to this resource.'''
@@ -385,6 +422,90 @@ class CfnFirewall(
             type_hints = typing.get_type_hints(_typecheckingstub__e1b2b141c4b9a04d63365f9d8a2a5636d417c4a087ebfbfd40be7336d4d258da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="transitGatewayId")
+    def transit_gateway_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the transit gateway associated with this firewall.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "transitGatewayId"))
+
+    @transit_gateway_id.setter
+    def transit_gateway_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebf25e7b4ccdda1a25794e9d426e24b28f37c786df4576a4b499042b55c26bc6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "transitGatewayId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcId")
+    def vpc_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the VPC where the firewall is in use.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vpcId"))
+
+    @vpc_id.setter
+    def vpc_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba092b3d0c9ca8819ad31fd4320cebdee3150a45603af80de70f2c0bbb9e04b5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewall.AvailabilityZoneMappingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"availability_zone": "availabilityZone"},
+    )
+    class AvailabilityZoneMappingProperty:
+        def __init__(self, *, availability_zone: builtins.str) -> None:
+            '''Defines the mapping between an Availability Zone and a firewall endpoint for a transit gateway-attached firewall.
+
+            Each mapping represents where the firewall can process traffic. You use these mappings when calling ``CreateFirewall`` , ``AssociateAvailabilityZones`` , and ``DisassociateAvailabilityZones`` .
+
+            To retrieve the current Availability Zone mappings for a firewall, use ``DescribeFirewall`` .
+
+            :param availability_zone: The ID of the Availability Zone where the firewall endpoint is located. For example, ``us-east-2a`` . The Availability Zone must be in the same Region as the transit gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-availabilityzonemapping.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                availability_zone_mapping_property = networkfirewall.CfnFirewall.AvailabilityZoneMappingProperty(
+                    availability_zone="availabilityZone"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e12d4b074bc6fa59b990e1d43ef30390330da9da999dbf3bac9bf5e98eb30caf)
+                check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "availability_zone": availability_zone,
+            }
+
+        @builtins.property
+        def availability_zone(self) -> builtins.str:
+            '''The ID of the Availability Zone where the firewall endpoint is located.
+
+            For example, ``us-east-2a`` . The Availability Zone must be in the same Region as the transit gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-availabilityzonemapping.html#cfn-networkfirewall-firewall-availabilityzonemapping-availabilityzone
+            '''
+            result = self._values.get("availability_zone")
+            assert result is not None, "Required property 'availability_zone' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AvailabilityZoneMappingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewall.SubnetMappingProperty",
@@ -470,7 +591,7 @@ class CfnFirewallPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewallPolicy",
 ):
-    '''Use the ``FirewallPolicy`` to define the stateless and stateful network traffic filtering behavior for your ``Firewall`` .
+    '''Use the firewall policy to define the stateless and stateful network traffic filtering behavior for your firewall.
 
     You can use one firewall policy for multiple firewalls.
 
@@ -509,6 +630,7 @@ class CfnFirewallPolicy(
                     resource_arn="resourceArn",
         
                     # the properties below are optional
+                    deep_threat_inspection=False,
                     override=networkfirewall.CfnFirewallPolicy.StatefulRuleGroupOverrideProperty(
                         action="action"
                     ),
@@ -605,7 +727,7 @@ class CfnFirewallPolicy(
     @builtins.property
     @jsii.member(jsii_name="attrFirewallPolicyArn")
     def attr_firewall_policy_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the ``FirewallPolicy`` .
+        '''The Amazon Resource Name (ARN) of the firewall policy.
 
         :cloudformationAttribute: FirewallPolicyArn
         '''
@@ -614,7 +736,7 @@ class CfnFirewallPolicy(
     @builtins.property
     @jsii.member(jsii_name="attrFirewallPolicyId")
     def attr_firewall_policy_id(self) -> builtins.str:
-        '''The unique ID of the ``FirewallPolicy`` resource.
+        '''The unique ID of the firewall policy resource.
 
         :cloudformationAttribute: FirewallPolicyId
         '''
@@ -776,8 +898,8 @@ class CfnFirewallPolicy(
 
             You can use custom actions in the following places:
 
-            - In an ``RuleGroup.StatelessRulesAndCustomActions`` . The custom actions are available for use by name inside the ``StatelessRulesAndCustomActions`` where you define them. You can use them for your stateless rule actions to specify what to do with a packet that matches the rule's match attributes.
-            - In an ``FirewallPolicy`` specification, in ``StatelessCustomActions`` . The custom actions are available for use inside the policy where you define them. You can use them for the policy's default stateless actions settings to specify what to do with packets that don't match any of the policy's stateless rules.
+            - In an ``StatelessRulesAndCustomActions`` . The custom actions are available for use by name inside the ``StatelessRulesAndCustomActions`` where you define them. You can use them for your stateless rule actions to specify what to do with a packet that matches the rule's match attributes.
+            - In an firewall policy specification, in ``StatelessCustomActions`` . The custom actions are available for use inside the policy where you define them. You can use them for the policy's default stateless actions settings to specify what to do with packets that don't match any of the policy's stateless rules.
 
             :param action_definition: The custom action associated with the action name.
             :param action_name: The descriptive name of the custom action. You can't change the name of a custom action after you create it.
@@ -978,6 +1100,7 @@ class CfnFirewallPolicy(
                         resource_arn="resourceArn",
                 
                         # the properties below are optional
+                        deep_threat_inspection=False,
                         override=networkfirewall.CfnFirewallPolicy.StatefulRuleGroupOverrideProperty(
                             action="action"
                         ),
@@ -1241,7 +1364,7 @@ class CfnFirewallPolicy(
         ) -> None:
             '''A list of IP addresses and address ranges, in CIDR notation.
 
-            This is part of a ``RuleVariables`` .
+            This is part of a rule variable.
 
             :param definition: The list of IP addresses and address ranges, in CIDR notation.
 
@@ -1568,6 +1691,7 @@ class CfnFirewallPolicy(
         jsii_struct_bases=[],
         name_mapping={
             "resource_arn": "resourceArn",
+            "deep_threat_inspection": "deepThreatInspection",
             "override": "override",
             "priority": "priority",
         },
@@ -1577,14 +1701,16 @@ class CfnFirewallPolicy(
             self,
             *,
             resource_arn: builtins.str,
+            deep_threat_inspection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFirewallPolicy.StatefulRuleGroupOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             priority: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Identifier for a single stateful rule group, used in a firewall policy to refer to a rule group.
 
             :param resource_arn: The Amazon Resource Name (ARN) of the stateful rule group.
+            :param deep_threat_inspection: AWS Network Firewall plans to augment the active threat defense managed rule group with an additional deep threat inspection capability. When this capability is released, AWS will analyze service logs of network traffic processed by these rule groups to identify threat indicators across customers. AWS will use these threat indicators to improve the active threat defense managed rule groups and protect the security of AWS customers and services. .. epigraph:: Customers can opt-out of deep threat inspection at any time through the AWS Network Firewall console or API. When customers opt out, AWS Network Firewall will not use the network traffic processed by those customers' active threat defense rule groups for rule group improvement.
             :param override: The action that allows the policy owner to override the behavior of the rule group within a policy.
-            :param priority: An integer setting that indicates the order in which to run the stateful rule groups in a single ``FirewallPolicy`` . This setting only applies to firewall policies that specify the ``STRICT_ORDER`` rule order in the stateful engine options settings. Network Firewall evalutes each stateful rule group against a packet starting with the group that has the lowest priority setting. You must ensure that the priority settings are unique within each policy. You can change the priority settings of your rule groups at any time. To make it easier to insert rule groups later, number them so there's a wide range in between, for example use 100, 200, and so on.
+            :param priority: An integer setting that indicates the order in which to run the stateful rule groups in a single firewall policy. This setting only applies to firewall policies that specify the ``STRICT_ORDER`` rule order in the stateful engine options settings. Network Firewall evalutes each stateful rule group against a packet starting with the group that has the lowest priority setting. You must ensure that the priority settings are unique within each policy. You can change the priority settings of your rule groups at any time. To make it easier to insert rule groups later, number them so there's a wide range in between, for example use 100, 200, and so on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-statefulrulegroupreference.html
             :exampleMetadata: fixture=_generated
@@ -1599,6 +1725,7 @@ class CfnFirewallPolicy(
                     resource_arn="resourceArn",
                 
                     # the properties below are optional
+                    deep_threat_inspection=False,
                     override=networkfirewall.CfnFirewallPolicy.StatefulRuleGroupOverrideProperty(
                         action="action"
                     ),
@@ -1608,11 +1735,14 @@ class CfnFirewallPolicy(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__b35f780a3045f4df1ecbf5bb69deb711659429dcfd9f87d388080942e7b17ef8)
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+                check_type(argname="argument deep_threat_inspection", value=deep_threat_inspection, expected_type=type_hints["deep_threat_inspection"])
                 check_type(argname="argument override", value=override, expected_type=type_hints["override"])
                 check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "resource_arn": resource_arn,
             }
+            if deep_threat_inspection is not None:
+                self._values["deep_threat_inspection"] = deep_threat_inspection
             if override is not None:
                 self._values["override"] = override
             if priority is not None:
@@ -1629,6 +1759,22 @@ class CfnFirewallPolicy(
             return typing.cast(builtins.str, result)
 
         @builtins.property
+        def deep_threat_inspection(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''AWS Network Firewall plans to augment the active threat defense managed rule group with an additional deep threat inspection capability.
+
+            When this capability is released, AWS will analyze service logs of network traffic processed by these rule groups to identify threat indicators across customers. AWS will use these threat indicators to improve the active threat defense managed rule groups and protect the security of AWS customers and services.
+            .. epigraph::
+
+               Customers can opt-out of deep threat inspection at any time through the AWS Network Firewall console or API. When customers opt out, AWS Network Firewall will not use the network traffic processed by those customers' active threat defense rule groups for rule group improvement.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-statefulrulegroupreference.html#cfn-networkfirewall-firewallpolicy-statefulrulegroupreference-deepthreatinspection
+            '''
+            result = self._values.get("deep_threat_inspection")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
         def override(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFirewallPolicy.StatefulRuleGroupOverrideProperty"]]:
@@ -1641,7 +1787,7 @@ class CfnFirewallPolicy(
 
         @builtins.property
         def priority(self) -> typing.Optional[jsii.Number]:
-            '''An integer setting that indicates the order in which to run the stateful rule groups in a single ``FirewallPolicy`` .
+            '''An integer setting that indicates the order in which to run the stateful rule groups in a single firewall policy.
 
             This setting only applies to firewall policies that specify the ``STRICT_ORDER`` rule order in the stateful engine options settings.
 
@@ -1679,7 +1825,7 @@ class CfnFirewallPolicy(
         ) -> None:
             '''Identifier for a single stateless rule group, used in a firewall policy to refer to the rule group.
 
-            :param priority: An integer setting that indicates the order in which to run the stateless rule groups in a single ``FirewallPolicy`` . Network Firewall applies each stateless rule group to a packet starting with the group that has the lowest priority setting. You must ensure that the priority settings are unique within each policy.
+            :param priority: An integer setting that indicates the order in which to run the stateless rule groups in a single firewall policy. Network Firewall applies each stateless rule group to a packet starting with the group that has the lowest priority setting. You must ensure that the priority settings are unique within each policy.
             :param resource_arn: The Amazon Resource Name (ARN) of the stateless rule group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewallpolicy-statelessrulegroupreference.html
@@ -1707,7 +1853,7 @@ class CfnFirewallPolicy(
 
         @builtins.property
         def priority(self) -> jsii.Number:
-            '''An integer setting that indicates the order in which to run the stateless rule groups in a single ``FirewallPolicy`` .
+            '''An integer setting that indicates the order in which to run the stateless rule groups in a single firewall policy.
 
             Network Firewall applies each stateless rule group to a packet starting with the group that has the lowest priority setting. You must ensure that the priority settings are unique within each policy.
 
@@ -1799,6 +1945,7 @@ class CfnFirewallPolicyProps:
                         resource_arn="resourceArn",
             
                         # the properties below are optional
+                        deep_threat_inspection=False,
                         override=networkfirewall.CfnFirewallPolicy.StatefulRuleGroupOverrideProperty(
                             action="action"
                         ),
@@ -1907,14 +2054,17 @@ class CfnFirewallPolicyProps:
     name_mapping={
         "firewall_name": "firewallName",
         "firewall_policy_arn": "firewallPolicyArn",
-        "subnet_mappings": "subnetMappings",
-        "vpc_id": "vpcId",
+        "availability_zone_change_protection": "availabilityZoneChangeProtection",
+        "availability_zone_mappings": "availabilityZoneMappings",
         "delete_protection": "deleteProtection",
         "description": "description",
         "enabled_analysis_types": "enabledAnalysisTypes",
         "firewall_policy_change_protection": "firewallPolicyChangeProtection",
         "subnet_change_protection": "subnetChangeProtection",
+        "subnet_mappings": "subnetMappings",
         "tags": "tags",
+        "transit_gateway_id": "transitGatewayId",
+        "vpc_id": "vpcId",
     },
 )
 class CfnFirewallProps:
@@ -1923,27 +2073,33 @@ class CfnFirewallProps:
         *,
         firewall_name: builtins.str,
         firewall_policy_arn: builtins.str,
-        subnet_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
-        vpc_id: builtins.str,
+        availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        availability_zone_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.AvailabilityZoneMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         delete_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         description: typing.Optional[builtins.str] = None,
         enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        transit_gateway_id: typing.Optional[builtins.str] = None,
+        vpc_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnFirewall``.
 
         :param firewall_name: The descriptive name of the firewall. You can't change the name of a firewall after you create it.
         :param firewall_policy_arn: The Amazon Resource Name (ARN) of the firewall policy. The relationship of firewall to firewall policy is many to one. Each firewall requires one firewall policy association, and you can use the same firewall policy for multiple firewalls.
-        :param subnet_mappings: The primary public subnets that Network Firewall is using for the firewall. Network Firewall creates a firewall endpoint in each subnet. Create a subnet mapping for each Availability Zone where you want to use the firewall. These subnets are all defined for a single, primary VPC, and each must belong to a different Availability Zone. Each of these subnets establishes the availability of the firewall in its Availability Zone. In addition to these subnets, you can define other endpoints for the firewall in ``VpcEndpointAssociation`` resources. You can define these additional endpoints for any VPC, and for any of the Availability Zones where the firewall resource already has a subnet mapping. VPC endpoint associations give you the ability to protect multiple VPCs using a single firewall, and to define multiple firewall endpoints for a VPC in a single Availability Zone.
-        :param vpc_id: The unique identifier of the VPC where the firewall is in use. You can't change the VPC of a firewall after you create the firewall.
+        :param availability_zone_change_protection: A setting indicating whether the firewall is protected against changes to its Availability Zone configuration. When set to ``TRUE`` , you must first disable this protection before adding or removing Availability Zones.
+        :param availability_zone_mappings: The Availability Zones where the firewall endpoints are created for a transit gateway-attached firewall. Each mapping specifies an Availability Zone where the firewall processes traffic.
         :param delete_protection: A flag indicating whether it is possible to delete the firewall. A setting of ``TRUE`` indicates that the firewall is protected against deletion. Use this setting to protect against accidentally deleting a firewall that is in use. When you create a firewall, the operation initializes this flag to ``TRUE`` .
         :param description: A description of the firewall.
         :param enabled_analysis_types: An optional setting indicating the specific traffic analysis types to enable on the firewall.
         :param firewall_policy_change_protection: A setting indicating whether the firewall is protected against a change to the firewall policy association. Use this setting to protect against accidentally modifying the firewall policy for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
         :param subnet_change_protection: A setting indicating whether the firewall is protected against changes to the subnet associations. Use this setting to protect against accidentally modifying the subnet associations for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
+        :param subnet_mappings: The primary public subnets that Network Firewall is using for the firewall. Network Firewall creates a firewall endpoint in each subnet. Create a subnet mapping for each Availability Zone where you want to use the firewall. These subnets are all defined for a single, primary VPC, and each must belong to a different Availability Zone. Each of these subnets establishes the availability of the firewall in its Availability Zone. In addition to these subnets, you can define other endpoints for the firewall in ``VpcEndpointAssociation`` resources. You can define these additional endpoints for any VPC, and for any of the Availability Zones where the firewall resource already has a subnet mapping. VPC endpoint associations give you the ability to protect multiple VPCs using a single firewall, and to define multiple firewall endpoints for a VPC in a single Availability Zone.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param transit_gateway_id: The unique identifier of the transit gateway associated with this firewall. This field is only present for transit gateway-attached firewalls.
+        :param vpc_id: The unique identifier of the VPC where the firewall is in use. You can't change the VPC of a firewall after you create the firewall.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html
         :exampleMetadata: fixture=_generated
@@ -1957,44 +2113,54 @@ class CfnFirewallProps:
             cfn_firewall_props = networkfirewall.CfnFirewallProps(
                 firewall_name="firewallName",
                 firewall_policy_arn="firewallPolicyArn",
+            
+                # the properties below are optional
+                availability_zone_change_protection=False,
+                availability_zone_mappings=[networkfirewall.CfnFirewall.AvailabilityZoneMappingProperty(
+                    availability_zone="availabilityZone"
+                )],
+                delete_protection=False,
+                description="description",
+                enabled_analysis_types=["enabledAnalysisTypes"],
+                firewall_policy_change_protection=False,
+                subnet_change_protection=False,
                 subnet_mappings=[networkfirewall.CfnFirewall.SubnetMappingProperty(
                     subnet_id="subnetId",
             
                     # the properties below are optional
                     ip_address_type="ipAddressType"
                 )],
-                vpc_id="vpcId",
-            
-                # the properties below are optional
-                delete_protection=False,
-                description="description",
-                enabled_analysis_types=["enabledAnalysisTypes"],
-                firewall_policy_change_protection=False,
-                subnet_change_protection=False,
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                transit_gateway_id="transitGatewayId",
+                vpc_id="vpcId"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d4108d5c35b1608da0d36c8bb60f52501d3b0634ca4324342a71c57bc238e99)
             check_type(argname="argument firewall_name", value=firewall_name, expected_type=type_hints["firewall_name"])
             check_type(argname="argument firewall_policy_arn", value=firewall_policy_arn, expected_type=type_hints["firewall_policy_arn"])
-            check_type(argname="argument subnet_mappings", value=subnet_mappings, expected_type=type_hints["subnet_mappings"])
-            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument availability_zone_change_protection", value=availability_zone_change_protection, expected_type=type_hints["availability_zone_change_protection"])
+            check_type(argname="argument availability_zone_mappings", value=availability_zone_mappings, expected_type=type_hints["availability_zone_mappings"])
             check_type(argname="argument delete_protection", value=delete_protection, expected_type=type_hints["delete_protection"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument enabled_analysis_types", value=enabled_analysis_types, expected_type=type_hints["enabled_analysis_types"])
             check_type(argname="argument firewall_policy_change_protection", value=firewall_policy_change_protection, expected_type=type_hints["firewall_policy_change_protection"])
             check_type(argname="argument subnet_change_protection", value=subnet_change_protection, expected_type=type_hints["subnet_change_protection"])
+            check_type(argname="argument subnet_mappings", value=subnet_mappings, expected_type=type_hints["subnet_mappings"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument transit_gateway_id", value=transit_gateway_id, expected_type=type_hints["transit_gateway_id"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "firewall_name": firewall_name,
             "firewall_policy_arn": firewall_policy_arn,
-            "subnet_mappings": subnet_mappings,
-            "vpc_id": vpc_id,
         }
+        if availability_zone_change_protection is not None:
+            self._values["availability_zone_change_protection"] = availability_zone_change_protection
+        if availability_zone_mappings is not None:
+            self._values["availability_zone_mappings"] = availability_zone_mappings
         if delete_protection is not None:
             self._values["delete_protection"] = delete_protection
         if description is not None:
@@ -2005,8 +2171,14 @@ class CfnFirewallProps:
             self._values["firewall_policy_change_protection"] = firewall_policy_change_protection
         if subnet_change_protection is not None:
             self._values["subnet_change_protection"] = subnet_change_protection
+        if subnet_mappings is not None:
+            self._values["subnet_mappings"] = subnet_mappings
         if tags is not None:
             self._values["tags"] = tags
+        if transit_gateway_id is not None:
+            self._values["transit_gateway_id"] = transit_gateway_id
+        if vpc_id is not None:
+            self._values["vpc_id"] = vpc_id
 
     @builtins.property
     def firewall_name(self) -> builtins.str:
@@ -2033,34 +2205,30 @@ class CfnFirewallProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def subnet_mappings(
+    def availability_zone_change_protection(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.SubnetMappingProperty]]]:
-        '''The primary public subnets that Network Firewall is using for the firewall.
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''A setting indicating whether the firewall is protected against changes to its Availability Zone configuration.
 
-        Network Firewall creates a firewall endpoint in each subnet. Create a subnet mapping for each Availability Zone where you want to use the firewall.
+        When set to ``TRUE`` , you must first disable this protection before adding or removing Availability Zones.
 
-        These subnets are all defined for a single, primary VPC, and each must belong to a different Availability Zone. Each of these subnets establishes the availability of the firewall in its Availability Zone.
-
-        In addition to these subnets, you can define other endpoints for the firewall in ``VpcEndpointAssociation`` resources. You can define these additional endpoints for any VPC, and for any of the Availability Zones where the firewall resource already has a subnet mapping. VPC endpoint associations give you the ability to protect multiple VPCs using a single firewall, and to define multiple firewall endpoints for a VPC in a single Availability Zone.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-subnetmappings
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-availabilityzonechangeprotection
         '''
-        result = self._values.get("subnet_mappings")
-        assert result is not None, "Required property 'subnet_mappings' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.SubnetMappingProperty]]], result)
+        result = self._values.get("availability_zone_change_protection")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
     @builtins.property
-    def vpc_id(self) -> builtins.str:
-        '''The unique identifier of the VPC where the firewall is in use.
+    def availability_zone_mappings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.AvailabilityZoneMappingProperty]]]]:
+        '''The Availability Zones where the firewall endpoints are created for a transit gateway-attached firewall.
 
-        You can't change the VPC of a firewall after you create the firewall.
+        Each mapping specifies an Availability Zone where the firewall processes traffic.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-vpcid
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-availabilityzonemappings
         '''
-        result = self._values.get("vpc_id")
-        assert result is not None, "Required property 'vpc_id' is missing"
-        return typing.cast(builtins.str, result)
+        result = self._values.get("availability_zone_mappings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.AvailabilityZoneMappingProperty]]]], result)
 
     @builtins.property
     def delete_protection(
@@ -2120,6 +2288,23 @@ class CfnFirewallProps:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
     @builtins.property
+    def subnet_mappings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.SubnetMappingProperty]]]]:
+        '''The primary public subnets that Network Firewall is using for the firewall.
+
+        Network Firewall creates a firewall endpoint in each subnet. Create a subnet mapping for each Availability Zone where you want to use the firewall.
+
+        These subnets are all defined for a single, primary VPC, and each must belong to a different Availability Zone. Each of these subnets establishes the availability of the firewall in its Availability Zone.
+
+        In addition to these subnets, you can define other endpoints for the firewall in ``VpcEndpointAssociation`` resources. You can define these additional endpoints for any VPC, and for any of the Availability Zones where the firewall resource already has a subnet mapping. VPC endpoint associations give you the ability to protect multiple VPCs using a single firewall, and to define multiple firewall endpoints for a VPC in a single Availability Zone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-subnetmappings
+        '''
+        result = self._values.get("subnet_mappings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.SubnetMappingProperty]]]], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
         '''An array of key-value pairs to apply to this resource.
 
@@ -2129,6 +2314,28 @@ class CfnFirewallProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def transit_gateway_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the transit gateway associated with this firewall.
+
+        This field is only present for transit gateway-attached firewalls.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-transitgatewayid
+        '''
+        result = self._values.get("transit_gateway_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_id(self) -> typing.Optional[builtins.str]:
+        '''The unique identifier of the VPC where the firewall is in use.
+
+        You can't change the VPC of a firewall after you create the firewall.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2148,11 +2355,11 @@ class CfnLoggingConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnLoggingConfiguration",
 ):
-    '''Use the ``LoggingConfiguration`` to define the destinations and logging options for an ``Firewall`` .
+    '''Use the logging configuration to define the destinations and logging options for an firewall.
 
     You must change the logging configuration by changing one ``LogDestinationConfig`` setting at a time in your ``LogDestinationConfigs`` .
 
-    You can make only one of the following changes to your ``LoggingConfiguration`` resource:
+    You can make only one of the following changes to your logging configuration resource:
 
     - Create a new log destination object by adding a single ``LogDestinationConfig`` array element to ``LogDestinationConfigs`` .
     - Delete a log destination object by removing a single ``LogDestinationConfig`` array element from ``LogDestinationConfigs`` .
@@ -2201,8 +2408,8 @@ class CfnLoggingConfiguration(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param firewall_arn: The Amazon Resource Name (ARN) of the ``Firewall`` that the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
-        :param logging_configuration: Defines how AWS Network Firewall performs logging for a ``Firewall`` .
+        :param firewall_arn: The Amazon Resource Name (ARN) of the firewallthat the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
+        :param logging_configuration: Defines how AWS Network Firewall performs logging for a firewall.
         :param enable_monitoring_dashboard: 
         :param firewall_name: The name of the firewall that the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
         '''
@@ -2257,7 +2464,7 @@ class CfnLoggingConfiguration(
     @builtins.property
     @jsii.member(jsii_name="firewallArn")
     def firewall_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the ``Firewall`` that the logging configuration is associated with.'''
+        '''The Amazon Resource Name (ARN) of the firewallthat the logging configuration is associated with.'''
         return typing.cast(builtins.str, jsii.get(self, "firewallArn"))
 
     @firewall_arn.setter
@@ -2272,7 +2479,7 @@ class CfnLoggingConfiguration(
     def logging_configuration(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.LoggingConfigurationProperty"]:
-        '''Defines how AWS Network Firewall performs logging for a ``Firewall`` .'''
+        '''Defines how AWS Network Firewall performs logging for a firewall.'''
         return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.LoggingConfigurationProperty"], jsii.get(self, "loggingConfiguration"))
 
     @logging_configuration.setter
@@ -2334,7 +2541,7 @@ class CfnLoggingConfiguration(
         ) -> None:
             '''Defines where AWS Network Firewall sends logs for the firewall for one log type.
 
-            This is used in ``LoggingConfiguration`` . You can send each type of log to an Amazon S3 bucket, a CloudWatch log group, or a Kinesis Data Firehose delivery stream.
+            This is used in logging configuration. You can send each type of log to an Amazon S3 bucket, a CloudWatch log group, or a Kinesis Data Firehose delivery stream.
 
             Network Firewall generates logs for stateful rule groups. You can save alert and flow log types. The stateful rules engine records flow logs for all network traffic that it receives. It records alert logs for traffic that matches stateful rules that have the rule action set to ``DROP`` or ``ALERT`` .
 
@@ -2446,7 +2653,7 @@ class CfnLoggingConfiguration(
             *,
             log_destination_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.LogDestinationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
-            '''Defines how AWS Network Firewall performs logging for a ``Firewall`` .
+            '''Defines how AWS Network Firewall performs logging for a firewall.
 
             :param log_destination_configs: Defines the logging destinations for the logs for a firewall. Network Firewall generates logs for stateful rule groups.
 
@@ -2523,8 +2730,8 @@ class CfnLoggingConfigurationProps:
     ) -> None:
         '''Properties for defining a ``CfnLoggingConfiguration``.
 
-        :param firewall_arn: The Amazon Resource Name (ARN) of the ``Firewall`` that the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
-        :param logging_configuration: Defines how AWS Network Firewall performs logging for a ``Firewall`` .
+        :param firewall_arn: The Amazon Resource Name (ARN) of the firewallthat the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
+        :param logging_configuration: Defines how AWS Network Firewall performs logging for a firewall.
         :param enable_monitoring_dashboard: 
         :param firewall_name: The name of the firewall that the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
 
@@ -2571,7 +2778,7 @@ class CfnLoggingConfigurationProps:
 
     @builtins.property
     def firewall_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the ``Firewall`` that the logging configuration is associated with.
+        '''The Amazon Resource Name (ARN) of the firewallthat the logging configuration is associated with.
 
         You can't change the firewall specification after you create the logging configuration.
 
@@ -2585,7 +2792,7 @@ class CfnLoggingConfigurationProps:
     def logging_configuration(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, CfnLoggingConfiguration.LoggingConfigurationProperty]:
-        '''Defines how AWS Network Firewall performs logging for a ``Firewall`` .
+        '''Defines how AWS Network Firewall performs logging for a firewall.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-loggingconfiguration.html#cfn-networkfirewall-loggingconfiguration-loggingconfiguration
         '''
@@ -2632,9 +2839,7 @@ class CfnRuleGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_networkfirewall.CfnRuleGroup",
 ):
-    '''Use the ``RuleGroup`` to define a reusable collection of stateless or stateful network traffic filtering rules.
-
-    You use rule groups in an ``FirewallPolicy`` to specify the filtering behavior of an ``Firewall`` .
+    '''Use the ` <https://docs.aws.amazon.com/RuleGroup>`_ to define a reusable collection of stateless or stateful network traffic filtering rules. You use rule groups in an firewall policy to specify the filtering behavior of an firewall.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-rulegroup.html
     :cloudformationResource: AWS::NetworkFirewall::RuleGroup
@@ -2747,6 +2952,9 @@ class CfnRuleGroup(
                     rule_order="ruleOrder"
                 )
             ),
+            summary_configuration=networkfirewall.CfnRuleGroup.SummaryConfigurationProperty(
+                rule_options=["ruleOptions"]
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -2764,6 +2972,7 @@ class CfnRuleGroup(
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
         rule_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RuleGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        summary_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.SummaryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
@@ -2774,6 +2983,7 @@ class CfnRuleGroup(
         :param type: Indicates whether the rule group is stateless or stateful. If the rule group is stateless, it contains stateless rules. If it is stateful, it contains stateful rules.
         :param description: A description of the rule group.
         :param rule_group: An object that defines the rule group rules.
+        :param summary_configuration: A complex type containing the currently selected rule option fields that will be displayed for rule summarization returned by ``DescribeRuleGroupSummary`` . - The ``RuleOptions`` specified in ``SummaryConfiguration`` - Rule metadata organization preferences
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
@@ -2786,6 +2996,7 @@ class CfnRuleGroup(
             type=type,
             description=description,
             rule_group=rule_group,
+            summary_configuration=summary_configuration,
             tags=tags,
         )
 
@@ -2824,7 +3035,7 @@ class CfnRuleGroup(
     @builtins.property
     @jsii.member(jsii_name="attrRuleGroupArn")
     def attr_rule_group_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the ``RuleGroup`` .
+        '''The Amazon Resource Name (ARN) of the rule group.
 
         :cloudformationAttribute: RuleGroupArn
         '''
@@ -2833,7 +3044,7 @@ class CfnRuleGroup(
     @builtins.property
     @jsii.member(jsii_name="attrRuleGroupId")
     def attr_rule_group_id(self) -> builtins.str:
-        '''The unique ID of the ``RuleGroup`` resource.
+        '''The unique ID of the rule group resource.
 
         :cloudformationAttribute: RuleGroupId
         '''
@@ -2919,6 +3130,24 @@ class CfnRuleGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__6ed6ac96ae6360b92bfdf6614d9832ba1cad5080dce3a3257a75537c93626bb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleGroup", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="summaryConfiguration")
+    def summary_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.SummaryConfigurationProperty"]]:
+        '''A complex type containing the currently selected rule option fields that will be displayed for rule summarization returned by ``DescribeRuleGroupSummary`` .'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.SummaryConfigurationProperty"]], jsii.get(self, "summaryConfiguration"))
+
+    @summary_configuration.setter
+    def summary_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.SummaryConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46973fc09b1e3c3e87b38c8ac10ef1cb472bfde25cd2947723ae44a7d98733e0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "summaryConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3007,7 +3236,7 @@ class CfnRuleGroup(
         def __init__(self, *, address_definition: builtins.str) -> None:
             '''A single IP address specification.
 
-            This is used in the ``RuleGroup.MatchAttributes`` source and destination specifications.
+            This is used in the match attributes source and destination specifications.
 
             :param address_definition: Specify an IP address or a block of IP addresses in Classless Inter-Domain Routing (CIDR) notation. Network Firewall supports all address ranges for IPv4 and IPv6. Examples: - To configure Network Firewall to inspect for the IP address 192.0.2.44, specify ``192.0.2.44/32`` . - To configure Network Firewall to inspect for IP addresses from 192.0.2.0 to 192.0.2.255, specify ``192.0.2.0/24`` . - To configure Network Firewall to inspect for the IP address 1111:0000:0000:0000:0000:0000:0000:0111, specify ``1111:0000:0000:0000:0000:0000:0000:0111/128`` . - To configure Network Firewall to inspect for IP addresses from 1111:0000:0000:0000:0000:0000:0000:0000 to 1111:0000:0000:0000:ffff:ffff:ffff:ffff, specify ``1111:0000:0000:0000:0000:0000:0000:0000/64`` . For more information about CIDR notation, see the Wikipedia entry `Classless Inter-Domain Routing <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing>`_ .
 
@@ -3086,8 +3315,8 @@ class CfnRuleGroup(
 
             You can use custom actions in the following places:
 
-            - In an ``RuleGroup.StatelessRulesAndCustomActions`` . The custom actions are available for use by name inside the ``StatelessRulesAndCustomActions`` where you define them. You can use them for your stateless rule actions to specify what to do with a packet that matches the rule's match attributes.
-            - In an ``FirewallPolicy`` specification, in ``StatelessCustomActions`` . The custom actions are available for use inside the policy where you define them. You can use them for the policy's default stateless actions settings to specify what to do with packets that don't match any of the policy's stateless rules.
+            - In a ``StatelessRulesAndCustomActions`` . The custom actions are available for use by name inside the ``StatelessRulesAndCustomActions`` where you define them. You can use them for your stateless rule actions to specify what to do with a packet that matches the rule's match attributes.
+            - In an firewall policy specification, in ``StatelessCustomActions`` . The custom actions are available for use inside the policy where you define them. You can use them for the policy's default stateless actions settings to specify what to do with packets that don't match any of the policy's stateless rules.
 
             :param action_definition: The custom action associated with the action name.
             :param action_name: The descriptive name of the custom action. You can't change the name of a custom action after you create it.
@@ -3401,7 +3630,7 @@ class CfnRuleGroup(
         ) -> None:
             '''A list of IP addresses and address ranges, in CIDR notation.
 
-            This is part of a ``RuleGroup.RuleVariables`` .
+            This is part of a ``RuleVariables`` .
 
             :param definition: The list of IP addresses and address ranges, in CIDR notation.
 
@@ -3456,11 +3685,11 @@ class CfnRuleGroup(
             *,
             reference_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Configures one or more ``IPSetReferences`` for a Suricata-compatible rule group.
+            '''Configures one or more IP set references for a Suricata-compatible rule group.
 
             An IP set reference is a rule variable that references a resource that you create and manage in another AWS service, such as an Amazon VPC prefix list. Network Firewall IP set references enable you to dynamically update the contents of your rules. When you create, update, or delete the IP set you are referencing in your rule, Network Firewall automatically updates the rule's content with the changes. For more information about IP set references in Network Firewall , see `Using IP set references <https://docs.aws.amazon.com/network-firewall/latest/developerguide/rule-groups-ip-set-references.html>`_ in the *Network Firewall Developer Guide* .
 
-            :param reference_arn: The Amazon Resource Name (ARN) of the resource to include in the ``RuleGroup.IPSetReference`` .
+            :param reference_arn: The Amazon Resource Name (ARN) of the resource to include in the IP set reference.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-ipsetreference.html
             :exampleMetadata: fixture=_generated
@@ -3484,7 +3713,7 @@ class CfnRuleGroup(
 
         @builtins.property
         def reference_arn(self) -> typing.Optional[builtins.str]:
-            '''The Amazon Resource Name (ARN) of the resource to include in the ``RuleGroup.IPSetReference`` .
+            '''The Amazon Resource Name (ARN) of the resource to include in the IP set reference.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-ipsetreference.html#cfn-networkfirewall-rulegroup-ipsetreference-referencearn
             '''
@@ -3695,7 +3924,7 @@ class CfnRuleGroup(
         def __init__(self, *, from_port: jsii.Number, to_port: jsii.Number) -> None:
             '''A single port range specification.
 
-            This is used for source and destination port ranges in the stateless ``RuleGroup.MatchAttributes`` .
+            This is used for source and destination port ranges in the stateless match attributes.
 
             :param from_port: The lower limit of the port range. This must be less than or equal to the ``ToPort`` specification.
             :param to_port: The upper limit of the port range. This must be greater than or equal to the ``FromPort`` specification.
@@ -3885,7 +4114,7 @@ class CfnRuleGroup(
             *,
             ip_set_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.IPSetReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''Configures the ``ReferenceSets`` for a stateful rule group.
+            '''Configures the reference sets for a stateful rule group.
 
             For more information, see the `Using IP set references in Suricata compatible rule groups <https://docs.aws.amazon.com/network-firewall/latest/developerguide/rule-groups-ip-set-references.html>`_ in the *Network Firewall User Guide* .
 
@@ -3953,7 +4182,7 @@ class CfnRuleGroup(
 
             AWS Network Firewall inspects each packet for the specified matching criteria. When a packet matches the criteria, Network Firewall performs the rule's actions on the packet.
 
-            :param actions: The actions to take on a packet that matches one of the stateless rule definition's match attributes. You must specify a standard action and you can add custom actions. .. epigraph:: Network Firewall only forwards a packet for stateful rule inspection if you specify ``aws:forward_to_sfe`` for a rule that the packet matches, or if the packet doesn't match any stateless rule and you specify ``aws:forward_to_sfe`` for the ``StatelessDefaultActions`` setting for the ``FirewallPolicy`` . For every rule, you must specify exactly one of the following standard actions. - *aws:pass* - Discontinues all inspection of the packet and permits it to go to its intended destination. - *aws:drop* - Discontinues all inspection of the packet and blocks it from going to its intended destination. - *aws:forward_to_sfe* - Discontinues stateless inspection of the packet and forwards it to the stateful rule engine for inspection. Additionally, you can specify a custom action. To do this, you define a custom action by name and type, then provide the name you've assigned to the action in this ``Actions`` setting. To provide more than one action in this setting, separate the settings with a comma. For example, if you have a publish metrics custom action that you've named ``MyMetricsAction`` , then you could specify the standard action ``aws:pass`` combined with the custom action using ``[“aws:pass”, “MyMetricsAction”]`` .
+            :param actions: The actions to take on a packet that matches one of the stateless rule definition's match attributes. You must specify a standard action and you can add custom actions. .. epigraph:: Network Firewall only forwards a packet for stateful rule inspection if you specify ``aws:forward_to_sfe`` for a rule that the packet matches, or if the packet doesn't match any stateless rule and you specify ``aws:forward_to_sfe`` for the ``StatelessDefaultActions`` setting for the firewall policy. For every rule, you must specify exactly one of the following standard actions. - *aws:pass* - Discontinues all inspection of the packet and permits it to go to its intended destination. - *aws:drop* - Discontinues all inspection of the packet and blocks it from going to its intended destination. - *aws:forward_to_sfe* - Discontinues stateless inspection of the packet and forwards it to the stateful rule engine for inspection. Additionally, you can specify a custom action. To do this, you define a custom action by name and type, then provide the name you've assigned to the action in this ``Actions`` setting. To provide more than one action in this setting, separate the settings with a comma. For example, if you have a publish metrics custom action that you've named ``MyMetricsAction`` , then you could specify the standard action ``aws:pass`` combined with the custom action using ``[“aws:pass”, “MyMetricsAction”]`` .
             :param match_attributes: Criteria for Network Firewall to use to inspect an individual packet in stateless rule inspection. Each match attributes set can include one or more items such as IP address, CIDR range, port number, protocol, and TCP flags.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-ruledefinition.html
@@ -4008,7 +4237,7 @@ class CfnRuleGroup(
             You must specify a standard action and you can add custom actions.
             .. epigraph::
 
-               Network Firewall only forwards a packet for stateful rule inspection if you specify ``aws:forward_to_sfe`` for a rule that the packet matches, or if the packet doesn't match any stateless rule and you specify ``aws:forward_to_sfe`` for the ``StatelessDefaultActions`` setting for the ``FirewallPolicy`` .
+               Network Firewall only forwards a packet for stateful rule inspection if you specify ``aws:forward_to_sfe`` for a rule that the packet matches, or if the packet doesn't match any stateless rule and you specify ``aws:forward_to_sfe`` for the ``StatelessDefaultActions`` setting for the firewall policy.
 
             For every rule, you must specify exactly one of the following standard actions.
 
@@ -4350,9 +4579,7 @@ class CfnRuleGroup(
             ip_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.IPSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             port_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.PortSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''Settings that are available for use in the rules in the ``RuleGroup`` where this is defined.
-
-            See ``CreateRuleGroup`` or ``UpdateRuleGroup`` for usage.
+            '''Settings that are available for use in the rules in the rule group where this is defined.
 
             :param ip_sets: A list of IP addresses and address ranges, in CIDR notation.
             :param port_sets: A list of port ranges.
@@ -4443,7 +4670,7 @@ class CfnRuleGroup(
 
             For HTTPS traffic, domain filtering is SNI-based. It uses the server name indicator extension of the TLS handshake.
 
-            By default, Network Firewall domain list inspection only includes traffic coming from the VPC where you deploy the firewall. To inspect traffic from IP addresses outside of the deployment VPC, you set the ``HOME_NET`` rule variable to include the CIDR range of the deployment VPC plus the other CIDR ranges. For more information, see ``RuleGroup.RuleVariables`` in this guide and `Stateful domain list rule groups in AWS Network Firewall <https://docs.aws.amazon.com/network-firewall/latest/developerguide/stateful-rule-groups-domain-names.html>`_ in the *Network Firewall Developer Guide*
+            By default, Network Firewall domain list inspection only includes traffic coming from the VPC where you deploy the firewall. To inspect traffic from IP addresses outside of the deployment VPC, you set the ``HOME_NET`` rule variable to include the CIDR range of the deployment VPC plus the other CIDR ranges. For more information, see ``RuleVariables`` in this guide and `Stateful domain list rule groups in AWS Network Firewall <https://docs.aws.amazon.com/network-firewall/latest/developerguide/stateful-rule-groups-domain-names.html>`_ in the *Network Firewall Developer Guide*
 
             :param generated_rules_type: Whether you want to allow or deny access to the domains in your target list.
             :param targets: The domains that you want to inspect for in your traffic flows. Valid domain specifications are the following:. - Explicit names. For example, ``abc.example.com`` matches only the domain ``abc.example.com`` . - Names that use a domain wildcard, which you indicate with an initial ' ``.`` '. For example, ``.example.com`` matches ``example.com`` and matches all subdomains of ``example.com`` , such as ``abc.example.com`` and ``www.example.com`` .
@@ -4545,7 +4772,7 @@ class CfnRuleGroup(
             Each rule group requires a single ``RulesSource`` . You can use an instance of this for either stateless rules or stateful rules.
 
             :param rules_source_list: Stateful inspection criteria for a domain list rule group.
-            :param rules_string: Stateful inspection criteria, provided in Suricata compatible rules. Suricata is an open-source threat detection framework that includes a standard rule-based language for network traffic inspection. These rules contain the inspection criteria and the action to take for traffic that matches the criteria, so this type of rule group doesn't have a separate action setting. .. epigraph:: You can't use the ``priority`` keyword if the ``RuleOrder`` option in ``StatefulRuleOptions`` is set to ``STRICT_ORDER`` .
+            :param rules_string: Stateful inspection criteria, provided in Suricata compatible rules. Suricata is an open-source threat detection framework that includes a standard rule-based language for network traffic inspection. These rules contain the inspection criteria and the action to take for traffic that matches the criteria, so this type of rule group doesn't have a separate action setting. .. epigraph:: You can't use the ``priority`` keyword if the ``RuleOrder`` option in StatefulRuleOptions is set to ``STRICT_ORDER`` .
             :param stateful_rules: An array of individual stateful rules inspection criteria to be used together in a stateful rule group. Use this option to specify simple Suricata rules with protocol, source and destination, ports, direction, and rule options. For information about the Suricata ``Rules`` format, see `Rules Format <https://docs.aws.amazon.com/https://suricata.readthedocs.io/en/suricata-7.0.3/rules/intro.html>`_ .
             :param stateless_rules_and_custom_actions: Stateless inspection criteria to be used in a stateless rule group.
 
@@ -4663,7 +4890,7 @@ class CfnRuleGroup(
             These rules contain the inspection criteria and the action to take for traffic that matches the criteria, so this type of rule group doesn't have a separate action setting.
             .. epigraph::
 
-               You can't use the ``priority`` keyword if the ``RuleOrder`` option in ``StatefulRuleOptions`` is set to ``STRICT_ORDER`` .
+               You can't use the ``priority`` keyword if the ``RuleOrder`` option in StatefulRuleOptions is set to ``STRICT_ORDER`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-rulessource.html#cfn-networkfirewall-rulegroup-rulessource-rulesstring
             '''
@@ -4781,7 +5008,7 @@ class CfnRuleGroup(
 
             Use this option to specify a simple Suricata rule with protocol, source and destination, ports, direction, and rule options. For information about the Suricata ``Rules`` format, see `Rules Format <https://docs.aws.amazon.com/https://suricata.readthedocs.io/en/suricata-7.0.3/rules/intro.html>`_ .
 
-            :param action: Defines what Network Firewall should do with the packets in a traffic flow when the flow matches the stateful rule criteria. For all actions, Network Firewall performs the specified action and discontinues stateful inspection of the traffic flow. The actions for a stateful rule are defined as follows: - *PASS* - Permits the packets to go to the intended destination. - *DROP* - Blocks the packets from going to the intended destination and sends an alert log message, if alert logging is configured in the ``Firewall`` ``LoggingConfiguration`` . - *REJECT* - Drops traffic that matches the conditions of the stateful rule and sends a TCP reset packet back to sender of the packet. A TCP reset packet is a packet with no payload and a ``RST`` bit contained in the TCP header flags. ``REJECT`` is available only for TCP traffic. - *ALERT* - Permits the packets to go to the intended destination and sends an alert log message, if alert logging is configured in the ``Firewall`` ``LoggingConfiguration`` . You can use this action to test a rule that you intend to use to drop traffic. You can enable the rule with ``ALERT`` action, verify in the logs that the rule is filtering as you want, then change the action to ``DROP`` . - *REJECT* - Drops TCP traffic that matches the conditions of the stateful rule, and sends a TCP reset packet back to sender of the packet. A TCP reset packet is a packet with no payload and a ``RST`` bit contained in the TCP header flags. Also sends an alert log mesage if alert logging is configured in the ``Firewall`` ``LoggingConfiguration`` . ``REJECT`` isn't currently available for use with IMAP and FTP protocols.
+            :param action: Defines what Network Firewall should do with the packets in a traffic flow when the flow matches the stateful rule criteria. For all actions, Network Firewall performs the specified action and discontinues stateful inspection of the traffic flow. The actions for a stateful rule are defined as follows: - *PASS* - Permits the packets to go to the intended destination. - *DROP* - Blocks the packets from going to the intended destination and sends an alert log message, if alert logging is configured in the firewall logging configuration. - *REJECT* - Drops traffic that matches the conditions of the stateful rule and sends a TCP reset packet back to sender of the packet. A TCP reset packet is a packet with no payload and a ``RST`` bit contained in the TCP header flags. ``REJECT`` is available only for TCP traffic. - *ALERT* - Permits the packets to go to the intended destination and sends an alert log message, if alert logging is configured in the firewall logging configuration. You can use this action to test a rule that you intend to use to drop traffic. You can enable the rule with ``ALERT`` action, verify in the logs that the rule is filtering as you want, then change the action to ``DROP`` . - *REJECT* - Drops TCP traffic that matches the conditions of the stateful rule, and sends a TCP reset packet back to sender of the packet. A TCP reset packet is a packet with no payload and a ``RST`` bit contained in the TCP header flags. Also sends an alert log mesage if alert logging is configured in the firewall logging configuration. ``REJECT`` isn't currently available for use with IMAP and FTP protocols.
             :param header: The stateful inspection criteria for this rule, used to inspect traffic flows.
             :param rule_options: Additional settings for a stateful rule, provided as keywords and settings.
 
@@ -4832,13 +5059,13 @@ class CfnRuleGroup(
             The actions for a stateful rule are defined as follows:
 
             - *PASS* - Permits the packets to go to the intended destination.
-            - *DROP* - Blocks the packets from going to the intended destination and sends an alert log message, if alert logging is configured in the ``Firewall`` ``LoggingConfiguration`` .
+            - *DROP* - Blocks the packets from going to the intended destination and sends an alert log message, if alert logging is configured in the firewall logging configuration.
             - *REJECT* - Drops traffic that matches the conditions of the stateful rule and sends a TCP reset packet back to sender of the packet. A TCP reset packet is a packet with no payload and a ``RST`` bit contained in the TCP header flags. ``REJECT`` is available only for TCP traffic.
-            - *ALERT* - Permits the packets to go to the intended destination and sends an alert log message, if alert logging is configured in the ``Firewall`` ``LoggingConfiguration`` .
+            - *ALERT* - Permits the packets to go to the intended destination and sends an alert log message, if alert logging is configured in the firewall logging configuration.
 
             You can use this action to test a rule that you intend to use to drop traffic. You can enable the rule with ``ALERT`` action, verify in the logs that the rule is filtering as you want, then change the action to ``DROP`` .
 
-            - *REJECT* - Drops TCP traffic that matches the conditions of the stateful rule, and sends a TCP reset packet back to sender of the packet. A TCP reset packet is a packet with no payload and a ``RST`` bit contained in the TCP header flags. Also sends an alert log mesage if alert logging is configured in the ``Firewall`` ``LoggingConfiguration`` .
+            - *REJECT* - Drops TCP traffic that matches the conditions of the stateful rule, and sends a TCP reset packet back to sender of the packet. A TCP reset packet is a packet with no payload and a ``RST`` bit contained in the TCP header flags. Also sends an alert log mesage if alert logging is configured in the firewall logging configuration.
 
             ``REJECT`` isn't currently available for use with IMAP and FTP protocols.
 
@@ -4897,7 +5124,7 @@ class CfnRuleGroup(
         ) -> None:
             '''A single stateless rule.
 
-            This is used in ``RuleGroup.StatelessRulesAndCustomActions`` .
+            This is used in ``StatelessRulesAndCustomActions`` .
 
             :param priority: Indicates the order in which to run this rule relative to all of the rules that are defined for a stateless rule group. Network Firewall evaluates the rules in a rule group starting with the lowest priority setting. You must ensure that the priority settings are unique for the rule group. Each stateless rule group uses exactly one ``StatelessRulesAndCustomActions`` object, and each ``StatelessRulesAndCustomActions`` contains exactly one ``StatelessRules`` object. To ensure unique priority settings for your rule groups, set unique priorities for the stateless rules that you define inside any single ``StatelessRules`` object. You can change the priority settings of your rules at any time. To make it easier to insert rules later, number them so there's a wide range in between, for example use 100, 200, and so on.
             :param rule_definition: Defines the stateless 5-tuple packet inspection criteria and the action to take on a packet that matches the criteria.
@@ -5009,7 +5236,7 @@ class CfnRuleGroup(
             Each stateless rule group uses exactly one of these data types to define its stateless rules.
 
             :param stateless_rules: Defines the set of stateless rules for use in a stateless rule group.
-            :param custom_actions: Defines an array of individual custom action definitions that are available for use by the stateless rules in this ``StatelessRulesAndCustomActions`` specification. You name each custom action that you define, and then you can use it by name in your stateless rule ``RuleGroup.RuleDefinition`` ``Actions`` specification.
+            :param custom_actions: Defines an array of individual custom action definitions that are available for use by the stateless rules in this ``StatelessRulesAndCustomActions`` specification. You name each custom action that you define, and then you can use it by name in your stateless rule definition ``Actions`` specification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-statelessrulesandcustomactions.html
             :exampleMetadata: fixture=_generated
@@ -5092,7 +5319,7 @@ class CfnRuleGroup(
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomActionProperty"]]]]:
             '''Defines an array of individual custom action definitions that are available for use by the stateless rules in this ``StatelessRulesAndCustomActions`` specification.
 
-            You name each custom action that you define, and then you can use it by name in your stateless rule ``RuleGroup.RuleDefinition`` ``Actions`` specification.
+            You name each custom action that you define, and then you can use it by name in your stateless rule definition ``Actions`` specification.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-statelessrulesandcustomactions.html#cfn-networkfirewall-rulegroup-statelessrulesandcustomactions-customactions
             '''
@@ -5111,6 +5338,65 @@ class CfnRuleGroup(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnRuleGroup.SummaryConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"rule_options": "ruleOptions"},
+    )
+    class SummaryConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            rule_options: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''A complex type that specifies which Suricata rule metadata fields to use when displaying threat information. Contains:.
+
+            - ``RuleOptions`` - The Suricata rule options fields to extract and display
+
+            These settings affect how threat information appears in both the console and API responses. Summaries are available for rule groups you manage and for active threat defense AWS managed rule groups.
+
+            :param rule_options: Specifies the selected rule options returned by ``DescribeRuleGroupSummary`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-summaryconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                summary_configuration_property = networkfirewall.CfnRuleGroup.SummaryConfigurationProperty(
+                    rule_options=["ruleOptions"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__46f2fcadfd6cf356e80e3b58b0b02c7c119bd9a36d7ac33ac0ee324f887c1307)
+                check_type(argname="argument rule_options", value=rule_options, expected_type=type_hints["rule_options"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if rule_options is not None:
+                self._values["rule_options"] = rule_options
+
+        @builtins.property
+        def rule_options(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Specifies the selected rule options returned by ``DescribeRuleGroupSummary`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-rulegroup-summaryconfiguration.html#cfn-networkfirewall-rulegroup-summaryconfiguration-ruleoptions
+            '''
+            result = self._values.get("rule_options")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SummaryConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnRuleGroup.TCPFlagFieldProperty",
         jsii_struct_bases=[],
         name_mapping={"flags": "flags", "masks": "masks"},
@@ -5122,7 +5408,7 @@ class CfnRuleGroup(
             flags: typing.Sequence[builtins.str],
             masks: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''TCP flags and masks to inspect packets for. This is used in the ``RuleGroup.MatchAttributes`` specification.
+            '''TCP flags and masks to inspect packets for. This is used in the match attributes specification.
 
             For example:
 
@@ -5206,6 +5492,7 @@ class CfnRuleGroup(
         "type": "type",
         "description": "description",
         "rule_group": "ruleGroup",
+        "summary_configuration": "summaryConfiguration",
         "tags": "tags",
     },
 )
@@ -5218,6 +5505,7 @@ class CfnRuleGroupProps:
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
         rule_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        summary_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.SummaryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRuleGroup``.
@@ -5227,6 +5515,7 @@ class CfnRuleGroupProps:
         :param type: Indicates whether the rule group is stateless or stateful. If the rule group is stateless, it contains stateless rules. If it is stateful, it contains stateful rules.
         :param description: A description of the rule group.
         :param rule_group: An object that defines the rule group rules.
+        :param summary_configuration: A complex type containing the currently selected rule option fields that will be displayed for rule summarization returned by ``DescribeRuleGroupSummary`` . - The ``RuleOptions`` specified in ``SummaryConfiguration`` - Rule metadata organization preferences
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-rulegroup.html
@@ -5339,6 +5628,9 @@ class CfnRuleGroupProps:
                         rule_order="ruleOrder"
                     )
                 ),
+                summary_configuration=networkfirewall.CfnRuleGroup.SummaryConfigurationProperty(
+                    rule_options=["ruleOptions"]
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -5352,6 +5644,7 @@ class CfnRuleGroupProps:
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument rule_group", value=rule_group, expected_type=type_hints["rule_group"])
+            check_type(argname="argument summary_configuration", value=summary_configuration, expected_type=type_hints["summary_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "capacity": capacity,
@@ -5362,6 +5655,8 @@ class CfnRuleGroupProps:
             self._values["description"] = description
         if rule_group is not None:
             self._values["rule_group"] = rule_group
+        if summary_configuration is not None:
+            self._values["summary_configuration"] = summary_configuration
         if tags is not None:
             self._values["tags"] = tags
 
@@ -5421,6 +5716,20 @@ class CfnRuleGroupProps:
         '''
         result = self._values.get("rule_group")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRuleGroup.RuleGroupProperty]], result)
+
+    @builtins.property
+    def summary_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRuleGroup.SummaryConfigurationProperty]]:
+        '''A complex type containing the currently selected rule option fields that will be displayed for rule summarization returned by ``DescribeRuleGroupSummary`` .
+
+        - The ``RuleOptions`` specified in ``SummaryConfiguration``
+        - Rule metadata organization preferences
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-rulegroup.html#cfn-networkfirewall-rulegroup-summaryconfiguration
+        '''
+        result = self._values.get("summary_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRuleGroup.SummaryConfigurationProperty]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -6496,7 +6805,7 @@ class CfnVpcEndpointAssociation(
 
     You can use AWS Resource Access Manager to share a ``Firewall`` that you own with other accounts, which gives them the ability to use the firewall to create VPC endpoint associations. For information about sharing a firewall, see ``PutResourcePolicy`` in this guide and see `Sharing Network Firewall resources <https://docs.aws.amazon.com/network-firewall/latest/developerguide/sharing.html>`_ in the *AWS Network Firewall Developer Guide* .
 
-    The status of the VPC endpoint association, which indicates whether it's ready to filter network traffic, is provided in the corresponding ``VpcEndpointAssociationStatus`` . You can retrieve both the association and its status by calling ``DescribeVpcEndpointAssociation`` .
+    The status of the VPC endpoint association, which indicates whether it's ready to filter network traffic, is provided in the corresponding VPC endpoint association status. You can retrieve both the association and its status by calling ``DescribeVpcEndpointAssociation`` .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html
     :cloudformationResource: AWS::NetworkFirewall::VpcEndpointAssociation
@@ -6594,7 +6903,7 @@ class CfnVpcEndpointAssociation(
     @builtins.property
     @jsii.member(jsii_name="attrEndpointId")
     def attr_endpoint_id(self) -> builtins.str:
-        '''An endpoint Id.
+        '''The unique ID of the firewall endpoint for the subnet that you attached to the firewall.For example: "vpce-111122223333".
 
         :cloudformationAttribute: EndpointId
         '''
@@ -6937,14 +7246,17 @@ def _typecheckingstub__8735e4ce7e79159823190ad059af802b7721b71930c6b4b8805c4676b
     *,
     firewall_name: builtins.str,
     firewall_policy_arn: builtins.str,
-    subnet_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    vpc_id: builtins.str,
+    availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    availability_zone_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.AvailabilityZoneMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     delete_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     description: typing.Optional[builtins.str] = None,
     enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transit_gateway_id: typing.Optional[builtins.str] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6973,14 +7285,14 @@ def _typecheckingstub__c711ef7af7567ab69b12f083b26c4033f7cdf1593bf27227f989d7c73
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0f2f1e41c3294b6f9ed43f3936b8feb28ed4bd73021f059aae4743db717241ab(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.SubnetMappingProperty]]],
+def _typecheckingstub__9264301e2259874347a035c96f8c2b41c3eace108b10ab012df466442d7477f1(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ba092b3d0c9ca8819ad31fd4320cebdee3150a45603af80de70f2c0bbb9e04b5(
-    value: builtins.str,
+def _typecheckingstub__cf571f7b78cee2a31a1b36a9ada83e153f52c7a14fea3f65c9362d1d4634dd77(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.AvailabilityZoneMappingProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7015,8 +7327,33 @@ def _typecheckingstub__3edeae6cf81be7cb1d87c21080d7c060fb1fdbd872b4292af576701d5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0f2f1e41c3294b6f9ed43f3936b8feb28ed4bd73021f059aae4743db717241ab(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFirewall.SubnetMappingProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e1b2b141c4b9a04d63365f9d8a2a5636d417c4a087ebfbfd40be7336d4d258da(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebf25e7b4ccdda1a25794e9d426e24b28f37c786df4576a4b499042b55c26bc6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba092b3d0c9ca8819ad31fd4320cebdee3150a45603af80de70f2c0bbb9e04b5(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e12d4b074bc6fa59b990e1d43ef30390330da9da999dbf3bac9bf5e98eb30caf(
+    *,
+    availability_zone: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7161,6 +7498,7 @@ def _typecheckingstub__62be7baa7c0ae22655f34e1d3316236c114457fe368caf2a958ba1fd9
 def _typecheckingstub__b35f780a3045f4df1ecbf5bb69deb711659429dcfd9f87d388080942e7b17ef8(
     *,
     resource_arn: builtins.str,
+    deep_threat_inspection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     override: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewallPolicy.StatefulRuleGroupOverrideProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     priority: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -7189,14 +7527,17 @@ def _typecheckingstub__8d4108d5c35b1608da0d36c8bb60f52501d3b0634ca4324342a71c57b
     *,
     firewall_name: builtins.str,
     firewall_policy_arn: builtins.str,
-    subnet_mappings: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    vpc_id: builtins.str,
+    availability_zone_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    availability_zone_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.AvailabilityZoneMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     delete_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     description: typing.Optional[builtins.str] = None,
     enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    subnet_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    transit_gateway_id: typing.Optional[builtins.str] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7284,6 +7625,7 @@ def _typecheckingstub__2f1d19cebb2e7dfe2bb3a674253e22bfdb540bd48dc9cd243370420d8
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
     rule_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    summary_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.SummaryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7327,6 +7669,12 @@ def _typecheckingstub__b0c85f5fc86d4cd20434a5458984123db8b76ff5d649d26af8be38c56
 
 def _typecheckingstub__6ed6ac96ae6360b92bfdf6614d9832ba1cad5080dce3a3257a75537c93626bb1(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRuleGroup.RuleGroupProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__46973fc09b1e3c3e87b38c8ac10ef1cb472bfde25cd2947723ae44a7d98733e0(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRuleGroup.SummaryConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7518,6 +7866,13 @@ def _typecheckingstub__71d7a12c23bdb40d0d25319bf80720d55c4205129c386e8de5676df43
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__46f2fcadfd6cf356e80e3b58b0b02c7c119bd9a36d7ac33ac0ee324f887c1307(
+    *,
+    rule_options: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__775fa1817d39168a6b1883b9e449352da902edc72fb398c55cda18aa8ead3039(
     *,
     flags: typing.Sequence[builtins.str],
@@ -7533,6 +7888,7 @@ def _typecheckingstub__775b93be404fbe10bf6b023b8192636307852f30e49da9892d7e20aa4
     type: builtins.str,
     description: typing.Optional[builtins.str] = None,
     rule_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    summary_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.SummaryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

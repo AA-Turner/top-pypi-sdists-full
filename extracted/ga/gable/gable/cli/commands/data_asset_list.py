@@ -2,11 +2,12 @@ import json
 
 import click
 from click.core import Context as ClickContext
-from gable.api.client import GableAPIClient
-from gable.cli.options import global_options
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
+
+from gable.api.client import GableAPIClient
+from gable.cli.options import global_options
 
 console = Console()
 

@@ -7,7 +7,6 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "tinytag"
-version = "2.1.1"
 description = "Read audio file metadata"
 authors = [
     {name = "Tom Wallroth"},
@@ -50,6 +49,7 @@ classifiers = [
 license = {file = "LICENSE"}
 readme = "README.md"
 requires-python = ">=3.7"
+dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://github.com/tinytag/tinytag"
@@ -59,7 +59,8 @@ tests = [
     "coverage",
     "mypy",
     "pycodestyle",
-    "pylint"
+    "pylint",
+    "pyright"
 ]
 
 [tool.flit.sdist]
@@ -114,3 +115,13 @@ py-version = "3.7"
 
 [tool.mypy]
 strict = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "if TYPE_CHECKING:"
+]
+precision = 2
+show_missing = true
+
+[tool.coverage.run]
+relative_files = true

@@ -2384,7 +2384,7 @@ class CfnDeliverySourceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnDestination(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2410,7 +2410,11 @@ class CfnDestination(
             target_arn="targetArn",
         
             # the properties below are optional
-            destination_policy="destinationPolicy"
+            destination_policy="destinationPolicy",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -2423,6 +2427,7 @@ class CfnDestination(
         role_arn: builtins.str,
         target_arn: builtins.str,
         destination_policy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -2431,6 +2436,7 @@ class CfnDestination(
         :param role_arn: The ARN of an IAM role that permits CloudWatch Logs to send data to the specified AWS resource.
         :param target_arn: The Amazon Resource Name (ARN) of the physical target where the log events are delivered (for example, a Kinesis stream).
         :param destination_policy: An IAM policy document that governs which AWS accounts can create subscription filters against this destination.
+        :param tags: The tags that have been assigned to this delivery destination.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44e37c6c2772abdacfbcd01df5c5418fca8937b435df3890a5a5cb3437b9bab5)
@@ -2441,6 +2447,7 @@ class CfnDestination(
             role_arn=role_arn,
             target_arn=target_arn,
             destination_policy=destination_policy,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -2483,6 +2490,12 @@ class CfnDestination(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2541,6 +2554,19 @@ class CfnDestination(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "destinationPolicy", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags that have been assigned to this delivery destination.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e2da427145601b64454ab268bb3be33f3c089ff53e25e2b9a66fd51a6d385db)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_logs.CfnDestinationProps",
@@ -2550,6 +2576,7 @@ class CfnDestination(
         "role_arn": "roleArn",
         "target_arn": "targetArn",
         "destination_policy": "destinationPolicy",
+        "tags": "tags",
     },
 )
 class CfnDestinationProps:
@@ -2560,6 +2587,7 @@ class CfnDestinationProps:
         role_arn: builtins.str,
         target_arn: builtins.str,
         destination_policy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDestination``.
 
@@ -2567,6 +2595,7 @@ class CfnDestinationProps:
         :param role_arn: The ARN of an IAM role that permits CloudWatch Logs to send data to the specified AWS resource.
         :param target_arn: The Amazon Resource Name (ARN) of the physical target where the log events are delivered (for example, a Kinesis stream).
         :param destination_policy: An IAM policy document that governs which AWS accounts can create subscription filters against this destination.
+        :param tags: The tags that have been assigned to this delivery destination.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-destination.html
         :exampleMetadata: fixture=_generated
@@ -2583,7 +2612,11 @@ class CfnDestinationProps:
                 target_arn="targetArn",
             
                 # the properties below are optional
-                destination_policy="destinationPolicy"
+                destination_policy="destinationPolicy",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -2592,6 +2625,7 @@ class CfnDestinationProps:
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
             check_type(argname="argument destination_policy", value=destination_policy, expected_type=type_hints["destination_policy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "destination_name": destination_name,
             "role_arn": role_arn,
@@ -2599,6 +2633,8 @@ class CfnDestinationProps:
         }
         if destination_policy is not None:
             self._values["destination_policy"] = destination_policy
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def destination_name(self) -> builtins.str:
@@ -2638,6 +2674,15 @@ class CfnDestinationProps:
         '''
         result = self._values.get("destination_policy")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tags that have been assigned to this delivery destination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-destination.html#cfn-logs-destination-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3550,6 +3595,7 @@ class CfnLogGroup(
         
         # data_protection_policy: Any
         # field_index_policies: Any
+        # resource_policy_document: Any
         
         cfn_log_group = logs.CfnLogGroup(self, "MyCfnLogGroup",
             data_protection_policy=data_protection_policy,
@@ -3557,6 +3603,7 @@ class CfnLogGroup(
             kms_key_id="kmsKeyId",
             log_group_class="logGroupClass",
             log_group_name="logGroupName",
+            resource_policy_document=resource_policy_document,
             retention_in_days=123,
             tags=[CfnTag(
                 key="key",
@@ -3575,6 +3622,7 @@ class CfnLogGroup(
         kms_key_id: typing.Optional[builtins.str] = None,
         log_group_class: typing.Optional[builtins.str] = None,
         log_group_name: typing.Optional[builtins.str] = None,
+        resource_policy_document: typing.Any = None,
         retention_in_days: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -3586,6 +3634,7 @@ class CfnLogGroup(
         :param kms_key_id: The Amazon Resource Name (ARN) of the AWS KMS key to use when encrypting log data. To associate an AWS KMS key with the log group, specify the ARN of that KMS key here. If you do so, ingested data is encrypted using this key. This association is stored as long as the data encrypted with the KMS key is still within CloudWatch Logs . This enables CloudWatch Logs to decrypt this data whenever it is requested. If you attempt to associate a KMS key with the log group but the KMS key doesn't exist or is deactivated, you will receive an ``InvalidParameterException`` error. Log group data is always encrypted in CloudWatch Logs . If you omit this key, the encryption does not use AWS KMS . For more information, see `Encrypt log data in CloudWatch Logs using AWS Key Management Service <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/encrypt-log-data-kms.html>`_
         :param log_group_class: Specifies the log group class for this log group. There are two classes:. - The ``Standard`` log class supports all CloudWatch Logs features. - The ``Infrequent Access`` log class supports a subset of CloudWatch Logs features and incurs lower costs. For details about the features supported by each class, see `Log classes <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html>`_ Default: - "STANDARD"
         :param log_group_name: The name of the log group. If you don't specify a name, AWS CloudFormation generates a unique ID for the log group.
+        :param resource_policy_document: 
         :param retention_in_days: The number of days to retain the log events in the specified log group. Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, and 3653. To set a log group so that its log events do not expire, use `DeleteRetentionPolicy <https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DeleteRetentionPolicy.html>`_ .
         :param tags: An array of key-value pairs to apply to the log group. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
@@ -3599,6 +3648,7 @@ class CfnLogGroup(
             kms_key_id=kms_key_id,
             log_group_class=log_group_class,
             log_group_name=log_group_name,
+            resource_policy_document=resource_policy_document,
             retention_in_days=retention_in_days,
             tags=tags,
         )
@@ -3729,6 +3779,18 @@ class CfnLogGroup(
         jsii.set(self, "logGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="resourcePolicyDocument")
+    def resource_policy_document(self) -> typing.Any:
+        return typing.cast(typing.Any, jsii.get(self, "resourcePolicyDocument"))
+
+    @resource_policy_document.setter
+    def resource_policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d6853e85debe88051bdf2f6ab68103e166533560e34248419263b9c0f7dd03e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourcePolicyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="retentionInDays")
     def retention_in_days(self) -> typing.Optional[jsii.Number]:
         '''The number of days to retain the log events in the specified log group.'''
@@ -3764,6 +3826,7 @@ class CfnLogGroup(
         "kms_key_id": "kmsKeyId",
         "log_group_class": "logGroupClass",
         "log_group_name": "logGroupName",
+        "resource_policy_document": "resourcePolicyDocument",
         "retention_in_days": "retentionInDays",
         "tags": "tags",
     },
@@ -3777,6 +3840,7 @@ class CfnLogGroupProps:
         kms_key_id: typing.Optional[builtins.str] = None,
         log_group_class: typing.Optional[builtins.str] = None,
         log_group_name: typing.Optional[builtins.str] = None,
+        resource_policy_document: typing.Any = None,
         retention_in_days: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -3787,6 +3851,7 @@ class CfnLogGroupProps:
         :param kms_key_id: The Amazon Resource Name (ARN) of the AWS KMS key to use when encrypting log data. To associate an AWS KMS key with the log group, specify the ARN of that KMS key here. If you do so, ingested data is encrypted using this key. This association is stored as long as the data encrypted with the KMS key is still within CloudWatch Logs . This enables CloudWatch Logs to decrypt this data whenever it is requested. If you attempt to associate a KMS key with the log group but the KMS key doesn't exist or is deactivated, you will receive an ``InvalidParameterException`` error. Log group data is always encrypted in CloudWatch Logs . If you omit this key, the encryption does not use AWS KMS . For more information, see `Encrypt log data in CloudWatch Logs using AWS Key Management Service <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/encrypt-log-data-kms.html>`_
         :param log_group_class: Specifies the log group class for this log group. There are two classes:. - The ``Standard`` log class supports all CloudWatch Logs features. - The ``Infrequent Access`` log class supports a subset of CloudWatch Logs features and incurs lower costs. For details about the features supported by each class, see `Log classes <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html>`_ Default: - "STANDARD"
         :param log_group_name: The name of the log group. If you don't specify a name, AWS CloudFormation generates a unique ID for the log group.
+        :param resource_policy_document: 
         :param retention_in_days: The number of days to retain the log events in the specified log group. Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, and 3653. To set a log group so that its log events do not expire, use `DeleteRetentionPolicy <https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DeleteRetentionPolicy.html>`_ .
         :param tags: An array of key-value pairs to apply to the log group. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
@@ -3801,6 +3866,7 @@ class CfnLogGroupProps:
             
             # data_protection_policy: Any
             # field_index_policies: Any
+            # resource_policy_document: Any
             
             cfn_log_group_props = logs.CfnLogGroupProps(
                 data_protection_policy=data_protection_policy,
@@ -3808,6 +3874,7 @@ class CfnLogGroupProps:
                 kms_key_id="kmsKeyId",
                 log_group_class="logGroupClass",
                 log_group_name="logGroupName",
+                resource_policy_document=resource_policy_document,
                 retention_in_days=123,
                 tags=[CfnTag(
                     key="key",
@@ -3822,6 +3889,7 @@ class CfnLogGroupProps:
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             check_type(argname="argument log_group_class", value=log_group_class, expected_type=type_hints["log_group_class"])
             check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
+            check_type(argname="argument resource_policy_document", value=resource_policy_document, expected_type=type_hints["resource_policy_document"])
             check_type(argname="argument retention_in_days", value=retention_in_days, expected_type=type_hints["retention_in_days"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3835,6 +3903,8 @@ class CfnLogGroupProps:
             self._values["log_group_class"] = log_group_class
         if log_group_name is not None:
             self._values["log_group_name"] = log_group_name
+        if resource_policy_document is not None:
+            self._values["resource_policy_document"] = resource_policy_document
         if retention_in_days is not None:
             self._values["retention_in_days"] = retention_in_days
         if tags is not None:
@@ -3911,6 +3981,14 @@ class CfnLogGroupProps:
         '''
         result = self._values.get("log_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_policy_document(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html#cfn-logs-loggroup-resourcepolicydocument
+        '''
+        result = self._values.get("resource_policy_document")
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def retention_in_days(self) -> typing.Optional[jsii.Number]:
@@ -18104,6 +18182,7 @@ def _typecheckingstub__44e37c6c2772abdacfbcd01df5c5418fca8937b435df3890a5a5cb343
     role_arn: builtins.str,
     target_arn: builtins.str,
     destination_policy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18144,12 +18223,19 @@ def _typecheckingstub__4b0569830af0faea41307b4fd071b0ef86a0b49f3514f3050bfa53cc7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5e2da427145601b64454ab268bb3be33f3c089ff53e25e2b9a66fd51a6d385db(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__faf2f9f88fd096e79a2445aab3efdc3a85509df7ba06ffc305c9faf39fa77a56(
     *,
     destination_name: builtins.str,
     role_arn: builtins.str,
     target_arn: builtins.str,
     destination_policy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18313,6 +18399,7 @@ def _typecheckingstub__8e283e76ec168d67513d106f9413697672f161b29f03fa9b13486e96b
     kms_key_id: typing.Optional[builtins.str] = None,
     log_group_class: typing.Optional[builtins.str] = None,
     log_group_name: typing.Optional[builtins.str] = None,
+    resource_policy_document: typing.Any = None,
     retention_in_days: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -18361,6 +18448,12 @@ def _typecheckingstub__08bea1f6b59cbce316d19aa0ff5db07ed0da20b04cc322eb41788ce24
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8d6853e85debe88051bdf2f6ab68103e166533560e34248419263b9c0f7dd03e(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d977a18b9031aeb9d37e4baf6f3eccb9ebf070ad2e33a30cfba9f69fbaf62408(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -18380,6 +18473,7 @@ def _typecheckingstub__1a2ba122502a64b05bea3e56f15389c84f127761b660b1d06de3ea638
     kms_key_id: typing.Optional[builtins.str] = None,
     log_group_class: typing.Optional[builtins.str] = None,
     log_group_name: typing.Optional[builtins.str] = None,
+    resource_policy_document: typing.Any = None,
     retention_in_days: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

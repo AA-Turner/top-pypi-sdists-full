@@ -23,7 +23,7 @@ class Pagination(PaginationBase):
 
 if t.TYPE_CHECKING:
 
-    class NextPageToken(NextPageTokenInterface[Pagination]):
+    class NextPageToken(NextPageTokenInterface[Pagination]):  # pragma: no cover
         @classmethod
         def from_paginations(cls, paginations: list[Pagination]) -> "NextPageToken":
             return cls(token=None)

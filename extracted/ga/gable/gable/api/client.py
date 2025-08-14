@@ -3,10 +3,13 @@ import copy
 import json
 import os
 import re
-from typing import Any, Callable, Literal, TypeVar, Union, cast, Optional
+from typing import Any, Callable, Literal, Optional, TypeVar, Union, cast
 from urllib.parse import urljoin
 
 import requests
+from loguru import logger
+from pydantic import parse_obj_as
+
 from gable.openapi import (
     CheckComplianceDataAssetsPySparkRequest,
     CheckComplianceDataAssetsS3Request,
@@ -26,21 +29,19 @@ from gable.openapi import (
     ErrorResponse,
     ErrorResponseDeprecated,
     GetNpmCredentialsResponse,
-    GetScaRunStatusResponse,
     GetPipCredentialsResponse,
+    GetScaRunStatusResponse,
     IngestDataAssetResponse,
     PostContractRequest,
     PostContractResponse,
+    PostScaStartRunRequest,
+    PostScaStartRunResponse,
     RegisterDataAssetPySparkRequest,
     RegisterDataAssetS3Request,
     RegisterDataAssetsRequest,
     RegisterDataAssetsResponse,
     ResponseType,
-    PostScaStartRunRequest,
-    PostScaStartRunResponse
 )
-from loguru import logger
-from pydantic import parse_obj_as
 
 T = TypeVar("T")
 
@@ -317,12 +318,15 @@ class GableAPIClient:
         request: PostScaStartRunRequest,
     ) -> tuple[Union[PostScaStartRunResponse, ErrorResponse], bool, int]:
         """Start a new SCA run with the given parameters."""
-        response, success, status_code = self._post("v0/sca/start-run", json=json.loads(request.json(by_alias=True, exclude_none=True)))
+        response, success, status_code = self._post(
+            "v0/sca/start-run",
+            json=json.loads(request.json(by_alias=True, exclude_none=True)),
+        )
         if success:
             return PostScaStartRunResponse.parse_obj(response), success, status_code
         else:
             return ErrorResponse.parse_obj(response), success, status_code
-        
+
     def get_sca_run_status(
         self,
         job_id: str,

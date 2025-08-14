@@ -16,7 +16,7 @@ import os
 nox.options.sessions = ["lint"]
 
 # Define the minimal nox version required to run
-nox.options.needs_version = ">= 2024.3.2"
+nox.needs_version = ">= 2024.3.2"
 
 
 @nox.session
@@ -37,7 +37,7 @@ def build_and_check_dists(session):
     session.run("python", "-m", "twine", "check", "dist/*")
 
 
-@nox.session(python=["3.9", "3.10", "3.11", "3.12"])
+@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"])
 def tests(session):
     session.install("pytest")
     session.install("pytest-asyncio")

@@ -6,19 +6,19 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
 import importlib.util
-import json
 import logging
 import os
 import platform
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from warnings import warn
+
+import requests as req
 
 import ibm_watsonx_ai._wrappers.requests as requests
-import requests as req
-from ibm_watsonx_ai.utils.utils import get_module_version, _handle_fl_removal
+from ibm_watsonx_ai.utils.utils import _handle_fl_removal, get_module_version
 from ibm_watsonx_ai.wml_client_error import ApiRequestFailure
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -41,7 +41,6 @@ def is_crypto_supported() -> bool:
 
 
 def import_diff(module_file_path):
-
     if "runtime-23-1" in module_file_path:
         return
     pathlist = Path(module_file_path).rglob("*.py")
@@ -205,7 +204,6 @@ class Party(WMLResource):
     }
 
     def __init__(self, client: APIClient | None = None, **kwargs: Any) -> None:
-
         libs_module = sys.modules["ibm_watsonx_ai.libs"]
         libs_location_list = libs_module.__path__
 
@@ -460,7 +458,6 @@ class Party(WMLResource):
                 )
 
             if ready:
-
                 details = self._client.training.get_details(
                     aggregator_id, _internal=True
                 )

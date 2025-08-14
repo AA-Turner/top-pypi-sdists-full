@@ -3760,7 +3760,7 @@ def h3_lat_lon_to_cell(
     ...    id: str
     ...    lat: float
     ...    lon: float
-    ...    h3_cell: int = F.h3_lat_lon_to_cell(_.lat, _.lon, 9, unit="degrees")
+    ...    h3_cell: str = F.h3_lat_lon_to_cell(_.lat, _.lon, 9, unit="degrees")
     """
     if unit == "degrees":
         lat = radians(lat)
@@ -4924,9 +4924,11 @@ def array_intersect(left_array: Underscore, right_array: Underscore):
     return UnderscoreFunction("array_intersect", left_array, right_array)
 
 
-def array_normalize(array: Underscore):
+def array_normalize(array: Underscore, p: Underscore | float | None = None):
     """
-    Normalize array values so they sum to 1.
+    Calculate the p-norm of the array. For instance:
+    - for l1 normalization, set p=1.0
+    - for l2 normalization, set p=2.0 (default)
 
     Parameters
     ----------
@@ -4935,7 +4937,9 @@ def array_normalize(array: Underscore):
 
     Returns
     -------
-    Array where each element is divided by the sum of all elements.
+    Array where each element is divided by the sum of the of the absolute
+    value of all elements raised to the power of p:
+    ||x||ₚ = ( |x₁|ᵖ + |x₂|ᵖ + ... + |xₙ|ᵖ )¹/ᵖ
 
     Examples
     --------
@@ -4947,7 +4951,7 @@ def array_normalize(array: Underscore):
     ...     raw_scores: list[float]
     ...     probabilities: list[float] = F.array_normalize(_.raw_scores)
     """
-    return UnderscoreFunction("array_normalize", array)
+    return UnderscoreFunction("array_normalize", array, 2.0 if p is None else p)
 
 
 def array_position(array: Underscore, element: Underscore):

@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.7.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.8.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.7.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.8.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -1674,6 +1674,7 @@ __all__ = [
     "networkfirewall_resource_policy",
     "networkfirewall_rule_group",
     "networkfirewall_tls_inspection_configuration",
+    "networkfirewall_vpc_endpoint_association",
     "networkmanager_attachment_accepter",
     "networkmanager_connect_attachment",
     "networkmanager_connect_peer",
@@ -1759,6 +1760,7 @@ __all__ = [
     "quicksight_account_settings",
     "quicksight_account_subscription",
     "quicksight_analysis",
+    "quicksight_custom_permissions",
     "quicksight_dashboard",
     "quicksight_data_set",
     "quicksight_data_source",
@@ -1772,11 +1774,13 @@ __all__ = [
     "quicksight_key_registration",
     "quicksight_namespace",
     "quicksight_refresh_schedule",
+    "quicksight_role_custom_permission",
     "quicksight_role_membership",
     "quicksight_template",
     "quicksight_template_alias",
     "quicksight_theme",
     "quicksight_user",
+    "quicksight_user_custom_permission",
     "quicksight_vpc_connection",
     "ram_principal_association",
     "ram_resource_association",
@@ -2238,6 +2242,7 @@ __all__ = [
     "wafv2_web_acl",
     "wafv2_web_acl_association",
     "wafv2_web_acl_logging_configuration",
+    "wafv2_web_acl_rule_group_association",
     "workspaces_connection_alias",
     "workspaces_directory",
     "workspaces_ip_group",
@@ -3805,6 +3810,7 @@ from . import networkfirewall_logging_configuration
 from . import networkfirewall_resource_policy
 from . import networkfirewall_rule_group
 from . import networkfirewall_tls_inspection_configuration
+from . import networkfirewall_vpc_endpoint_association
 from . import networkmanager_attachment_accepter
 from . import networkmanager_connect_attachment
 from . import networkmanager_connect_peer
@@ -3890,6 +3896,7 @@ from . import qldb_stream
 from . import quicksight_account_settings
 from . import quicksight_account_subscription
 from . import quicksight_analysis
+from . import quicksight_custom_permissions
 from . import quicksight_dashboard
 from . import quicksight_data_set
 from . import quicksight_data_source
@@ -3903,11 +3910,13 @@ from . import quicksight_ip_restriction
 from . import quicksight_key_registration
 from . import quicksight_namespace
 from . import quicksight_refresh_schedule
+from . import quicksight_role_custom_permission
 from . import quicksight_role_membership
 from . import quicksight_template
 from . import quicksight_template_alias
 from . import quicksight_theme
 from . import quicksight_user
+from . import quicksight_user_custom_permission
 from . import quicksight_vpc_connection
 from . import ram_principal_association
 from . import ram_resource_association
@@ -4369,6 +4378,7 @@ from . import wafv2_rule_group
 from . import wafv2_web_acl
 from . import wafv2_web_acl_association
 from . import wafv2_web_acl_logging_configuration
+from . import wafv2_web_acl_rule_group_association
 from . import workspaces_connection_alias
 from . import workspaces_directory
 from . import workspaces_ip_group

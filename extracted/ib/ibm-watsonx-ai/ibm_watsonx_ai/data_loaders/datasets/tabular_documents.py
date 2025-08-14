@@ -10,25 +10,25 @@ __all__ = [
 
 import logging
 from copy import deepcopy
+from typing import TYPE_CHECKING, Any, Callable
+
+import pandas as pd
 
 from ibm_watsonx_ai.data_loaders.datasets.base_documents import (
-    BaseDocumentsIterableDataset,
-    DEFAULT_SAMPLE_SIZE_LIMIT,
     DEFAULT_DOCUMENTS_SAMPLING_TYPE,
+    DEFAULT_SAMPLE_SIZE_LIMIT,
+    BaseDocumentsIterableDataset,
 )
 from ibm_watsonx_ai.data_loaders.datasets.tabular import TabularIterableDataset
 from ibm_watsonx_ai.data_loaders.experiment import ExperimentDataLoader
-from ibm_watsonx_ai.utils.autoai.errors import FolderDownloadNotSupported
-
-logger = logging.getLogger(__name__)
-
-import pandas as pd
-from typing import TYPE_CHECKING, Any, Callable
-
 from ibm_watsonx_ai.helpers.remote_document import RemoteDocument
 
 if TYPE_CHECKING:
+    from pandas import DataFrame
+
     from ibm_watsonx_ai.helpers.connections import DataConnection
+
+logger = logging.getLogger(__name__)
 
 
 class TabularDocumentsIterableDataset(BaseDocumentsIterableDataset):
@@ -160,9 +160,7 @@ class TabularDocumentsIterableDataset(BaseDocumentsIterableDataset):
             doc.document_id.endswith(".xlsx") or doc.document_id.endswith(".xls")
         ) and "file_format" not in tabular_iterable_args.get(
             "flight_parameters", {}
-        ).get(
-            "interaction_properties", {}
-        ):
+        ).get("interaction_properties", {}):
             if "flight_parameters" not in tabular_iterable_args:
                 tabular_iterable_args["flight_parameters"] = {}
 
@@ -187,5 +185,5 @@ class TabularDocumentsIterableDataset(BaseDocumentsIterableDataset):
             )
         )
 
-    def _get_element_size(self, el: "pandas.DataFrame") -> int:
+    def _get_element_size(self, el: "DataFrame") -> int:
         return el.memory_usage(index=True).sum()

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: loop-rate-limiters
-Version: 1.1.2
+Version: 1.2.0
 Summary: Loop rate limiters.
 Keywords: rate,loop,frequency,regulator,limiter
 Author-email: Stéphane Caron <stephane.caron@normalesup.org>
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Mathematics
+License-File: LICENSE
 Project-URL: Changelog, https://github.com/stephane-caron/loop-rate-limiters/blob/master/CHANGELOG.md
 Project-URL: Homepage, https://github.com/stephane-caron/loop-rate-limiters
 Project-URL: Source, https://github.com/stephane-caron/loop-rate-limiters

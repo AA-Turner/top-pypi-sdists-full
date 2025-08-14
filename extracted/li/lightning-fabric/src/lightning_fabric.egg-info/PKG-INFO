@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: lightning-fabric
-Version: 2.5.2
+Version: 2.5.3
 Home-page: https://github.com/Lightning-AI/lightning
 Download-URL: https://github.com/Lightning-AI/lightning
 Author: Lightning AI et al.
-Author-email: pytorch@lightning.ai
+Author-email: developer@lightning.ai
 License: Apache-2.0
 Project-URL: Bug Tracker, https://github.com/Lightning-AI/pytorch-lightning/issues
 Project-URL: Documentation, https://pytorch-lightning.rtfd.io/en/latest/
@@ -28,48 +28,45 @@ License-File: LICENSE
 Requires-Dist: torch>=2.1.0
 Requires-Dist: fsspec[http]>=2022.5.0
 Requires-Dist: packaging>=20.0
-Requires-Dist: typing-extensions>=4.4.0
+Requires-Dist: typing-extensions>4.5.0
 Requires-Dist: lightning-utilities>=0.10.0
 Provides-Extra: strategies
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "strategies"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "strategies"
 Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "strategies"
 Provides-Extra: test
-Requires-Dist: coverage==7.9.1; extra == "test"
+Requires-Dist: coverage==7.10.3; extra == "test"
 Requires-Dist: numpy>=1.17.2; extra == "test"
-Requires-Dist: pytest==8.4.0; extra == "test"
+Requires-Dist: pytest==8.4.1; extra == "test"
 Requires-Dist: pytest-cov==6.2.1; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pytest-rerunfailures==15.1; extra == "test"
-Requires-Dist: pytest-random-order==1.1.1; extra == "test"
+Requires-Dist: pytest-random-order==1.2.0; extra == "test"
 Requires-Dist: click==8.1.8; extra == "test"
 Requires-Dist: tensorboardX>=2.2; extra == "test"
 Provides-Extra: examples
 Requires-Dist: torchvision>=0.16.0; extra == "examples"
 Requires-Dist: torchmetrics>=0.10.0; extra == "examples"
-Requires-Dist: lightning-utilities>=0.8.0; extra == "examples"
 Provides-Extra: deepspeed
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "deepspeed"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "deepspeed"
 Provides-Extra: bitsandbytes
 Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "bitsandbytes"
 Provides-Extra: all
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "all"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "all"
 Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "all"
 Requires-Dist: torchvision>=0.16.0; extra == "all"
 Requires-Dist: torchmetrics>=0.10.0; extra == "all"
-Requires-Dist: lightning-utilities>=0.8.0; extra == "all"
 Provides-Extra: dev
-Requires-Dist: deepspeed<=0.9.3,>=0.8.2; (platform_system != "Windows" and platform_system != "Darwin") and extra == "dev"
+Requires-Dist: deepspeed<=0.9.3,>=0.9.3; (platform_system != "Windows" and platform_system != "Darwin") and extra == "dev"
 Requires-Dist: bitsandbytes>=0.45.2; platform_system != "Darwin" and extra == "dev"
 Requires-Dist: torchvision>=0.16.0; extra == "dev"
 Requires-Dist: torchmetrics>=0.10.0; extra == "dev"
-Requires-Dist: lightning-utilities>=0.8.0; extra == "dev"
-Requires-Dist: coverage==7.9.1; extra == "dev"
+Requires-Dist: coverage==7.10.3; extra == "dev"
 Requires-Dist: numpy>=1.17.2; extra == "dev"
-Requires-Dist: pytest==8.4.0; extra == "dev"
+Requires-Dist: pytest==8.4.1; extra == "dev"
 Requires-Dist: pytest-cov==6.2.1; extra == "dev"
 Requires-Dist: pytest-timeout==2.4.0; extra == "dev"
 Requires-Dist: pytest-rerunfailures==15.1; extra == "dev"
-Requires-Dist: pytest-random-order==1.1.1; extra == "dev"
+Requires-Dist: pytest-random-order==1.2.0; extra == "dev"
 Requires-Dist: click==8.1.8; extra == "dev"
 Requires-Dist: tensorboardX>=2.2; extra == "dev"
 Dynamic: author

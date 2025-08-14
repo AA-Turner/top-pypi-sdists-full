@@ -703,11 +703,20 @@ class Sling:
             # BUT only if we're streaming to stdout or the target explicitly uses Arrow
             if HAS_ARROW and self._should_use_arrow() and self._should_use_arrow_for_input():
                 if self.src_options is None:
-                    self.src_options = SourceOptions(format=Format.ARROW)
+                    self.src_options = SourceOptions(format=Format.ARROW, null_if='\\N')
                 elif isinstance(self.src_options, dict):
                     self.src_options['format'] = Format.ARROW
+                    self.src_options['null_if'] = '\\N'
                 elif hasattr(self.src_options, 'format'):
                     self.src_options.format = Format.ARROW
+                    self.src_options.null_if ='\\N'
+            else:
+                if self.src_options is None:
+                    self.src_options = SourceOptions(null_if='\\N')
+                elif isinstance(self.src_options, dict):
+                    self.src_options['null_if'] = '\\N'
+                elif hasattr(self.src_options, 'format'):
+                    self.src_options.null_if ='\\N'
         else:
             if self.src_conn:
                 # Handle file:// URLs - use LOCAL connection
@@ -1017,6 +1026,7 @@ class Sling:
                 selected_columns = [col.strip() for col in self.select.split(',')]
         
         try:
+            to_value = lambda v: '\\N' if v is None else v
             for record in record_iterator:
                 record_count += 1
                 if not record:  # Skip empty records but count them
@@ -1043,8 +1053,8 @@ class Sling:
                     # Write the record as CSV
                     csv_buffer = io.StringIO()
                     csv_writer = csv.writer(csv_buffer)
-                    # Ensure record has all fields, fill missing with empty string
-                    row = [str(record.get(h, '')) for h in headers]
+                    # Ensure record has all fields, fill missing with null value
+                    row = [str(to_value(record.get(h, None))) for h in headers]
                     csv_writer.writerow(row)
                     csv_line = csv_buffer.getvalue()
                     stdin.write(csv_line.encode('utf-8'))

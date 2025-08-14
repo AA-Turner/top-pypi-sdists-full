@@ -1,7 +1,7 @@
 r'''
 # `google_kms_key_handle`
 
-Refer to the Terraform Registry for docs: [`google_kms_key_handle`](https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle).
+Refer to the Terraform Registry for docs: [`google_kms_key_handle`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class KmsKeyHandle(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.kmsKeyHandle.KmsKeyHandle",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle google_kms_key_handle}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle google_kms_key_handle}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class KmsKeyHandle(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle google_kms_key_handle} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle google_kms_key_handle} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The location for the KeyHandle. A full list of valid locations can be found by running 'gcloud kms locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#location KmsKeyHandle#location}
-        :param name: The resource name for the KeyHandle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#name KmsKeyHandle#name}
-        :param resource_type_selector: Selector of the resource type where we want to protect resources. For example, 'storage.googleapis.com/Bucket'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#resource_type_selector KmsKeyHandle#resource_type_selector}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#id KmsKeyHandle#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#project KmsKeyHandle#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#timeouts KmsKeyHandle#timeouts}
+        :param location: The location for the KeyHandle. A full list of valid locations can be found by running 'gcloud kms locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#location KmsKeyHandle#location}
+        :param name: The resource name for the KeyHandle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#name KmsKeyHandle#name}
+        :param resource_type_selector: Selector of the resource type where we want to protect resources. For example, 'storage.googleapis.com/Bucket'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#resource_type_selector KmsKeyHandle#resource_type_selector}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#id KmsKeyHandle#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#project KmsKeyHandle#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#timeouts KmsKeyHandle#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class KmsKeyHandle(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the KmsKeyHandle to import.
-        :param import_from_id: The id of the existing KmsKeyHandle that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing KmsKeyHandle that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the KmsKeyHandle to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class KmsKeyHandle(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#create KmsKeyHandle#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#delete KmsKeyHandle#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#create KmsKeyHandle#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#delete KmsKeyHandle#delete}.
         '''
         value = KmsKeyHandleTimeouts(create=create, delete=delete)
 
@@ -317,12 +317,12 @@ class KmsKeyHandleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The location for the KeyHandle. A full list of valid locations can be found by running 'gcloud kms locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#location KmsKeyHandle#location}
-        :param name: The resource name for the KeyHandle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#name KmsKeyHandle#name}
-        :param resource_type_selector: Selector of the resource type where we want to protect resources. For example, 'storage.googleapis.com/Bucket'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#resource_type_selector KmsKeyHandle#resource_type_selector}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#id KmsKeyHandle#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#project KmsKeyHandle#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#timeouts KmsKeyHandle#timeouts}
+        :param location: The location for the KeyHandle. A full list of valid locations can be found by running 'gcloud kms locations list'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#location KmsKeyHandle#location}
+        :param name: The resource name for the KeyHandle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#name KmsKeyHandle#name}
+        :param resource_type_selector: Selector of the resource type where we want to protect resources. For example, 'storage.googleapis.com/Bucket'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#resource_type_selector KmsKeyHandle#resource_type_selector}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#id KmsKeyHandle#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#project KmsKeyHandle#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#timeouts KmsKeyHandle#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -437,7 +437,7 @@ class KmsKeyHandleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location for the KeyHandle. A full list of valid locations can be found by running 'gcloud kms locations list'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#location KmsKeyHandle#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#location KmsKeyHandle#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -447,7 +447,7 @@ class KmsKeyHandleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name for the KeyHandle.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#name KmsKeyHandle#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#name KmsKeyHandle#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -457,7 +457,7 @@ class KmsKeyHandleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_type_selector(self) -> builtins.str:
         '''Selector of the resource type where we want to protect resources. For example, 'storage.googleapis.com/Bucket'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#resource_type_selector KmsKeyHandle#resource_type_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#resource_type_selector KmsKeyHandle#resource_type_selector}
         '''
         result = self._values.get("resource_type_selector")
         assert result is not None, "Required property 'resource_type_selector' is missing"
@@ -465,7 +465,7 @@ class KmsKeyHandleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#id KmsKeyHandle#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#id KmsKeyHandle#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -475,7 +475,7 @@ class KmsKeyHandleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#project KmsKeyHandle#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#project KmsKeyHandle#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -483,7 +483,7 @@ class KmsKeyHandleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["KmsKeyHandleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#timeouts KmsKeyHandle#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#timeouts KmsKeyHandle#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["KmsKeyHandleTimeouts"], result)
@@ -513,8 +513,8 @@ class KmsKeyHandleTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#create KmsKeyHandle#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#delete KmsKeyHandle#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#create KmsKeyHandle#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#delete KmsKeyHandle#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc7a1ee53dd5c1fe1620ff8eda3e1ccbfde30d8ad5368e9024a43b8e48254462)
@@ -528,13 +528,13 @@ class KmsKeyHandleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#create KmsKeyHandle#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#create KmsKeyHandle#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/kms_key_handle#delete KmsKeyHandle#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/kms_key_handle#delete KmsKeyHandle#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

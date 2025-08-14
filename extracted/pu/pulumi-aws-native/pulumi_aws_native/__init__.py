@@ -59,6 +59,8 @@ if typing.TYPE_CHECKING:
     appsync = __appsync
     import pulumi_aws_native.aps as __aps
     aps = __aps
+    import pulumi_aws_native.arcregionswitch as __arcregionswitch
+    arcregionswitch = __arcregionswitch
     import pulumi_aws_native.arczonalshift as __arczonalshift
     arczonalshift = __arczonalshift
     import pulumi_aws_native.athena as __athena
@@ -329,6 +331,8 @@ if typing.TYPE_CHECKING:
     nimblestudio = __nimblestudio
     import pulumi_aws_native.oam as __oam
     oam = __oam
+    import pulumi_aws_native.observabilityadmin as __observabilityadmin
+    observabilityadmin = __observabilityadmin
     import pulumi_aws_native.odb as __odb
     odb = __odb
     import pulumi_aws_native.omics as __omics
@@ -502,6 +506,7 @@ else:
     appstream = _utilities.lazy_import('pulumi_aws_native.appstream')
     appsync = _utilities.lazy_import('pulumi_aws_native.appsync')
     aps = _utilities.lazy_import('pulumi_aws_native.aps')
+    arcregionswitch = _utilities.lazy_import('pulumi_aws_native.arcregionswitch')
     arczonalshift = _utilities.lazy_import('pulumi_aws_native.arczonalshift')
     athena = _utilities.lazy_import('pulumi_aws_native.athena')
     auditmanager = _utilities.lazy_import('pulumi_aws_native.auditmanager')
@@ -637,6 +642,7 @@ else:
     networkmanager = _utilities.lazy_import('pulumi_aws_native.networkmanager')
     nimblestudio = _utilities.lazy_import('pulumi_aws_native.nimblestudio')
     oam = _utilities.lazy_import('pulumi_aws_native.oam')
+    observabilityadmin = _utilities.lazy_import('pulumi_aws_native.observabilityadmin')
     odb = _utilities.lazy_import('pulumi_aws_native.odb')
     omics = _utilities.lazy_import('pulumi_aws_native.omics')
     opensearchserverless = _utilities.lazy_import('pulumi_aws_native.opensearchserverless')
@@ -937,6 +943,14 @@ _utilities.register(
  },
  {
   "pkg": "aws-native",
+  "mod": "arcregionswitch",
+  "fqn": "pulumi_aws_native.arcregionswitch",
+  "classes": {
+   "aws-native:arcregionswitch:Plan": "Plan"
+  }
+ },
+ {
+  "pkg": "aws-native",
   "mod": "arczonalshift",
   "fqn": "pulumi_aws_native.arczonalshift",
   "classes": {
@@ -1020,7 +1034,8 @@ _utilities.register(
    "aws-native:batch:ConsumableResource": "ConsumableResource",
    "aws-native:batch:JobDefinition": "JobDefinition",
    "aws-native:batch:JobQueue": "JobQueue",
-   "aws-native:batch:SchedulingPolicy": "SchedulingPolicy"
+   "aws-native:batch:SchedulingPolicy": "SchedulingPolicy",
+   "aws-native:batch:ServiceEnvironment": "ServiceEnvironment"
   }
  },
  {
@@ -1567,6 +1582,7 @@ _utilities.register(
    "aws-native:ec2:Instance": "Instance",
    "aws-native:ec2:InstanceConnectEndpoint": "InstanceConnectEndpoint",
    "aws-native:ec2:InternetGateway": "InternetGateway",
+   "aws-native:ec2:IpPoolRouteTableAssociation": "IpPoolRouteTableAssociation",
    "aws-native:ec2:Ipam": "Ipam",
    "aws-native:ec2:IpamAllocation": "IpamAllocation",
    "aws-native:ec2:IpamPool": "IpamPool",
@@ -1610,6 +1626,7 @@ _utilities.register(
    "aws-native:ec2:SubnetRouteTableAssociation": "SubnetRouteTableAssociation",
    "aws-native:ec2:TrafficMirrorFilter": "TrafficMirrorFilter",
    "aws-native:ec2:TrafficMirrorFilterRule": "TrafficMirrorFilterRule",
+   "aws-native:ec2:TrafficMirrorSession": "TrafficMirrorSession",
    "aws-native:ec2:TrafficMirrorTarget": "TrafficMirrorTarget",
    "aws-native:ec2:TransitGateway": "TransitGateway",
    "aws-native:ec2:TransitGatewayAttachment": "TransitGatewayAttachment",
@@ -2092,6 +2109,7 @@ _utilities.register(
    "aws-native:iot:CustomMetric": "CustomMetric",
    "aws-native:iot:Dimension": "Dimension",
    "aws-native:iot:DomainConfiguration": "DomainConfiguration",
+   "aws-native:iot:EncryptionConfiguration": "EncryptionConfiguration",
    "aws-native:iot:FleetMetric": "FleetMetric",
    "aws-native:iot:JobTemplate": "JobTemplate",
    "aws-native:iot:Logging": "Logging",
@@ -2621,6 +2639,15 @@ _utilities.register(
  },
  {
   "pkg": "aws-native",
+  "mod": "observabilityadmin",
+  "fqn": "pulumi_aws_native.observabilityadmin",
+  "classes": {
+   "aws-native:observabilityadmin:OrganizationTelemetryRule": "OrganizationTelemetryRule",
+   "aws-native:observabilityadmin:TelemetryRule": "TelemetryRule"
+  }
+ },
+ {
+  "pkg": "aws-native",
   "mod": "odb",
   "fqn": "pulumi_aws_native.odb",
   "classes": {
@@ -3115,6 +3142,7 @@ _utilities.register(
    "aws-native:sagemaker:MonitoringSchedule": "MonitoringSchedule",
    "aws-native:sagemaker:PartnerApp": "PartnerApp",
    "aws-native:sagemaker:Pipeline": "Pipeline",
+   "aws-native:sagemaker:ProcessingJob": "ProcessingJob",
    "aws-native:sagemaker:Project": "Project",
    "aws-native:sagemaker:Space": "Space",
    "aws-native:sagemaker:StudioLifecycleConfig": "StudioLifecycleConfig",
@@ -3499,6 +3527,7 @@ _utilities.register(
    "aws-native:workspacesweb:IpAccessSettings": "IpAccessSettings",
    "aws-native:workspacesweb:NetworkSettings": "NetworkSettings",
    "aws-native:workspacesweb:Portal": "Portal",
+   "aws-native:workspacesweb:SessionLogger": "SessionLogger",
    "aws-native:workspacesweb:TrustStore": "TrustStore",
    "aws-native:workspacesweb:UserAccessLoggingSettings": "UserAccessLoggingSettings",
    "aws-native:workspacesweb:UserSettings": "UserSettings"

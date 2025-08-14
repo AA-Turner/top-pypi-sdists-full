@@ -1,7 +1,7 @@
 r'''
 # `azuread_group_without_members`
 
-Refer to the Terraform Registry for docs: [`azuread_group_without_members`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members).
+Refer to the Terraform Registry for docs: [`azuread_group_without_members`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GroupWithoutMembers(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.groupWithoutMembers.GroupWithoutMembers",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members azuread_group_without_members}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members azuread_group_without_members}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class GroupWithoutMembers(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members azuread_group_without_members} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members azuread_group_without_members} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The display name for the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#display_name GroupWithoutMembers#display_name}
-        :param administrative_unit_ids: The administrative unit IDs in which the group should be. If empty, the group will be created at the tenant level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#administrative_unit_ids GroupWithoutMembers#administrative_unit_ids}
-        :param assignable_to_role: Indicates whether this group can be assigned to an Azure Active Directory role. This property can only be ``true`` for security-enabled groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#assignable_to_role GroupWithoutMembers#assignable_to_role}
-        :param auto_subscribe_new_members: Indicates whether new members added to the group will be auto-subscribed to receive email notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#auto_subscribe_new_members GroupWithoutMembers#auto_subscribe_new_members}
-        :param behaviors: The group behaviours for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#behaviors GroupWithoutMembers#behaviors}
-        :param description: The description for the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#description GroupWithoutMembers#description}
-        :param dynamic_membership: dynamic_membership block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#dynamic_membership GroupWithoutMembers#dynamic_membership}
-        :param external_senders_allowed: Indicates whether people external to the organization can send messages to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#external_senders_allowed GroupWithoutMembers#external_senders_allowed}
-        :param hide_from_address_lists: Indicates whether the group is displayed in certain parts of the Outlook user interface: in the Address Book, in address lists for selecting message recipients, and in the Browse Groups dialog for searching groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#hide_from_address_lists GroupWithoutMembers#hide_from_address_lists}
-        :param hide_from_outlook_clients: Indicates whether the group is displayed in Outlook clients, such as Outlook for Windows and Outlook on the web. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#hide_from_outlook_clients GroupWithoutMembers#hide_from_outlook_clients}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#id GroupWithoutMembers#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mail_enabled: Whether the group is a mail enabled, with a shared group mailbox. At least one of ``mail_enabled`` or ``security_enabled`` must be specified. A group can be mail enabled *and* security enabled Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#mail_enabled GroupWithoutMembers#mail_enabled}
-        :param mail_nickname: The mail alias for the group, unique in the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#mail_nickname GroupWithoutMembers#mail_nickname}
-        :param onpremises_group_type: Indicates the target on-premise group type the group will be written back as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#onpremises_group_type GroupWithoutMembers#onpremises_group_type}
-        :param owners: A set of owners who own this group. Supported object types are Users or Service Principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#owners GroupWithoutMembers#owners}
-        :param prevent_duplicate_names: If ``true``, will return an error if an existing group is found with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#prevent_duplicate_names GroupWithoutMembers#prevent_duplicate_names}
-        :param provisioning_options: The group provisioning options for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#provisioning_options GroupWithoutMembers#provisioning_options}
-        :param security_enabled: Whether the group is a security group for controlling access to in-app resources. At least one of ``security_enabled`` or ``mail_enabled`` must be specified. A group can be security enabled *and* mail enabled Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#security_enabled GroupWithoutMembers#security_enabled}
-        :param theme: The colour theme for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#theme GroupWithoutMembers#theme}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#timeouts GroupWithoutMembers#timeouts}
-        :param types: A set of group types to configure for the group. ``Unified`` specifies a Microsoft 365 group. Required when ``mail_enabled`` is true Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#types GroupWithoutMembers#types}
-        :param visibility: Specifies the group join policy and group content visibility. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#visibility GroupWithoutMembers#visibility}
-        :param writeback_enabled: Whether this group should be synced from Azure AD to the on-premises directory when Azure AD Connect is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#writeback_enabled GroupWithoutMembers#writeback_enabled}
+        :param display_name: The display name for the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#display_name GroupWithoutMembers#display_name}
+        :param administrative_unit_ids: The administrative unit IDs in which the group should be. If empty, the group will be created at the tenant level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#administrative_unit_ids GroupWithoutMembers#administrative_unit_ids}
+        :param assignable_to_role: Indicates whether this group can be assigned to an Azure Active Directory role. This property can only be ``true`` for security-enabled groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#assignable_to_role GroupWithoutMembers#assignable_to_role}
+        :param auto_subscribe_new_members: Indicates whether new members added to the group will be auto-subscribed to receive email notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#auto_subscribe_new_members GroupWithoutMembers#auto_subscribe_new_members}
+        :param behaviors: The group behaviours for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#behaviors GroupWithoutMembers#behaviors}
+        :param description: The description for the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#description GroupWithoutMembers#description}
+        :param dynamic_membership: dynamic_membership block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#dynamic_membership GroupWithoutMembers#dynamic_membership}
+        :param external_senders_allowed: Indicates whether people external to the organization can send messages to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#external_senders_allowed GroupWithoutMembers#external_senders_allowed}
+        :param hide_from_address_lists: Indicates whether the group is displayed in certain parts of the Outlook user interface: in the Address Book, in address lists for selecting message recipients, and in the Browse Groups dialog for searching groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#hide_from_address_lists GroupWithoutMembers#hide_from_address_lists}
+        :param hide_from_outlook_clients: Indicates whether the group is displayed in Outlook clients, such as Outlook for Windows and Outlook on the web. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#hide_from_outlook_clients GroupWithoutMembers#hide_from_outlook_clients}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#id GroupWithoutMembers#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mail_enabled: Whether the group is a mail enabled, with a shared group mailbox. At least one of ``mail_enabled`` or ``security_enabled`` must be specified. A group can be mail enabled *and* security enabled Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#mail_enabled GroupWithoutMembers#mail_enabled}
+        :param mail_nickname: The mail alias for the group, unique in the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#mail_nickname GroupWithoutMembers#mail_nickname}
+        :param onpremises_group_type: Indicates the target on-premise group type the group will be written back as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#onpremises_group_type GroupWithoutMembers#onpremises_group_type}
+        :param owners: A set of owners who own this group. Supported object types are Users or Service Principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#owners GroupWithoutMembers#owners}
+        :param prevent_duplicate_names: If ``true``, will return an error if an existing group is found with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#prevent_duplicate_names GroupWithoutMembers#prevent_duplicate_names}
+        :param provisioning_options: The group provisioning options for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#provisioning_options GroupWithoutMembers#provisioning_options}
+        :param security_enabled: Whether the group is a security group for controlling access to in-app resources. At least one of ``security_enabled`` or ``mail_enabled`` must be specified. A group can be security enabled *and* mail enabled Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#security_enabled GroupWithoutMembers#security_enabled}
+        :param theme: The colour theme for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#theme GroupWithoutMembers#theme}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#timeouts GroupWithoutMembers#timeouts}
+        :param types: A set of group types to configure for the group. ``Unified`` specifies a Microsoft 365 group. Required when ``mail_enabled`` is true Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#types GroupWithoutMembers#types}
+        :param visibility: Specifies the group join policy and group content visibility. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#visibility GroupWithoutMembers#visibility}
+        :param writeback_enabled: Whether this group should be synced from Azure AD to the on-premises directory when Azure AD Connect is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#writeback_enabled GroupWithoutMembers#writeback_enabled}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class GroupWithoutMembers(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GroupWithoutMembers to import.
-        :param import_from_id: The id of the existing GroupWithoutMembers that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GroupWithoutMembers that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GroupWithoutMembers to import is found.
         '''
         if __debug__:
@@ -188,8 +188,8 @@ class GroupWithoutMembers(
         rule: builtins.str,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#enabled GroupWithoutMembers#enabled}.
-        :param rule: Rule to determine members for a dynamic group. Required when ``group_types`` contains 'DynamicMembership'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#rule GroupWithoutMembers#rule}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#enabled GroupWithoutMembers#enabled}.
+        :param rule: Rule to determine members for a dynamic group. Required when ``group_types`` contains 'DynamicMembership'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#rule GroupWithoutMembers#rule}
         '''
         value = GroupWithoutMembersDynamicMembership(enabled=enabled, rule=rule)
 
@@ -205,10 +205,10 @@ class GroupWithoutMembers(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#create GroupWithoutMembers#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#delete GroupWithoutMembers#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#read GroupWithoutMembers#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#update GroupWithoutMembers#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#create GroupWithoutMembers#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#delete GroupWithoutMembers#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#read GroupWithoutMembers#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#update GroupWithoutMembers#update}.
         '''
         value = GroupWithoutMembersTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -888,29 +888,29 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The display name for the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#display_name GroupWithoutMembers#display_name}
-        :param administrative_unit_ids: The administrative unit IDs in which the group should be. If empty, the group will be created at the tenant level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#administrative_unit_ids GroupWithoutMembers#administrative_unit_ids}
-        :param assignable_to_role: Indicates whether this group can be assigned to an Azure Active Directory role. This property can only be ``true`` for security-enabled groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#assignable_to_role GroupWithoutMembers#assignable_to_role}
-        :param auto_subscribe_new_members: Indicates whether new members added to the group will be auto-subscribed to receive email notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#auto_subscribe_new_members GroupWithoutMembers#auto_subscribe_new_members}
-        :param behaviors: The group behaviours for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#behaviors GroupWithoutMembers#behaviors}
-        :param description: The description for the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#description GroupWithoutMembers#description}
-        :param dynamic_membership: dynamic_membership block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#dynamic_membership GroupWithoutMembers#dynamic_membership}
-        :param external_senders_allowed: Indicates whether people external to the organization can send messages to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#external_senders_allowed GroupWithoutMembers#external_senders_allowed}
-        :param hide_from_address_lists: Indicates whether the group is displayed in certain parts of the Outlook user interface: in the Address Book, in address lists for selecting message recipients, and in the Browse Groups dialog for searching groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#hide_from_address_lists GroupWithoutMembers#hide_from_address_lists}
-        :param hide_from_outlook_clients: Indicates whether the group is displayed in Outlook clients, such as Outlook for Windows and Outlook on the web. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#hide_from_outlook_clients GroupWithoutMembers#hide_from_outlook_clients}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#id GroupWithoutMembers#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mail_enabled: Whether the group is a mail enabled, with a shared group mailbox. At least one of ``mail_enabled`` or ``security_enabled`` must be specified. A group can be mail enabled *and* security enabled Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#mail_enabled GroupWithoutMembers#mail_enabled}
-        :param mail_nickname: The mail alias for the group, unique in the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#mail_nickname GroupWithoutMembers#mail_nickname}
-        :param onpremises_group_type: Indicates the target on-premise group type the group will be written back as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#onpremises_group_type GroupWithoutMembers#onpremises_group_type}
-        :param owners: A set of owners who own this group. Supported object types are Users or Service Principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#owners GroupWithoutMembers#owners}
-        :param prevent_duplicate_names: If ``true``, will return an error if an existing group is found with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#prevent_duplicate_names GroupWithoutMembers#prevent_duplicate_names}
-        :param provisioning_options: The group provisioning options for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#provisioning_options GroupWithoutMembers#provisioning_options}
-        :param security_enabled: Whether the group is a security group for controlling access to in-app resources. At least one of ``security_enabled`` or ``mail_enabled`` must be specified. A group can be security enabled *and* mail enabled Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#security_enabled GroupWithoutMembers#security_enabled}
-        :param theme: The colour theme for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#theme GroupWithoutMembers#theme}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#timeouts GroupWithoutMembers#timeouts}
-        :param types: A set of group types to configure for the group. ``Unified`` specifies a Microsoft 365 group. Required when ``mail_enabled`` is true Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#types GroupWithoutMembers#types}
-        :param visibility: Specifies the group join policy and group content visibility. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#visibility GroupWithoutMembers#visibility}
-        :param writeback_enabled: Whether this group should be synced from Azure AD to the on-premises directory when Azure AD Connect is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#writeback_enabled GroupWithoutMembers#writeback_enabled}
+        :param display_name: The display name for the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#display_name GroupWithoutMembers#display_name}
+        :param administrative_unit_ids: The administrative unit IDs in which the group should be. If empty, the group will be created at the tenant level. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#administrative_unit_ids GroupWithoutMembers#administrative_unit_ids}
+        :param assignable_to_role: Indicates whether this group can be assigned to an Azure Active Directory role. This property can only be ``true`` for security-enabled groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#assignable_to_role GroupWithoutMembers#assignable_to_role}
+        :param auto_subscribe_new_members: Indicates whether new members added to the group will be auto-subscribed to receive email notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#auto_subscribe_new_members GroupWithoutMembers#auto_subscribe_new_members}
+        :param behaviors: The group behaviours for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#behaviors GroupWithoutMembers#behaviors}
+        :param description: The description for the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#description GroupWithoutMembers#description}
+        :param dynamic_membership: dynamic_membership block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#dynamic_membership GroupWithoutMembers#dynamic_membership}
+        :param external_senders_allowed: Indicates whether people external to the organization can send messages to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#external_senders_allowed GroupWithoutMembers#external_senders_allowed}
+        :param hide_from_address_lists: Indicates whether the group is displayed in certain parts of the Outlook user interface: in the Address Book, in address lists for selecting message recipients, and in the Browse Groups dialog for searching groups. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#hide_from_address_lists GroupWithoutMembers#hide_from_address_lists}
+        :param hide_from_outlook_clients: Indicates whether the group is displayed in Outlook clients, such as Outlook for Windows and Outlook on the web. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#hide_from_outlook_clients GroupWithoutMembers#hide_from_outlook_clients}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#id GroupWithoutMembers#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mail_enabled: Whether the group is a mail enabled, with a shared group mailbox. At least one of ``mail_enabled`` or ``security_enabled`` must be specified. A group can be mail enabled *and* security enabled Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#mail_enabled GroupWithoutMembers#mail_enabled}
+        :param mail_nickname: The mail alias for the group, unique in the organisation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#mail_nickname GroupWithoutMembers#mail_nickname}
+        :param onpremises_group_type: Indicates the target on-premise group type the group will be written back as. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#onpremises_group_type GroupWithoutMembers#onpremises_group_type}
+        :param owners: A set of owners who own this group. Supported object types are Users or Service Principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#owners GroupWithoutMembers#owners}
+        :param prevent_duplicate_names: If ``true``, will return an error if an existing group is found with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#prevent_duplicate_names GroupWithoutMembers#prevent_duplicate_names}
+        :param provisioning_options: The group provisioning options for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#provisioning_options GroupWithoutMembers#provisioning_options}
+        :param security_enabled: Whether the group is a security group for controlling access to in-app resources. At least one of ``security_enabled`` or ``mail_enabled`` must be specified. A group can be security enabled *and* mail enabled Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#security_enabled GroupWithoutMembers#security_enabled}
+        :param theme: The colour theme for a Microsoft 365 group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#theme GroupWithoutMembers#theme}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#timeouts GroupWithoutMembers#timeouts}
+        :param types: A set of group types to configure for the group. ``Unified`` specifies a Microsoft 365 group. Required when ``mail_enabled`` is true Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#types GroupWithoutMembers#types}
+        :param visibility: Specifies the group join policy and group content visibility. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#visibility GroupWithoutMembers#visibility}
+        :param writeback_enabled: Whether this group should be synced from Azure AD to the on-premises directory when Azure AD Connect is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#writeback_enabled GroupWithoutMembers#writeback_enabled}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1080,7 +1080,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The display name for the group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#display_name GroupWithoutMembers#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#display_name GroupWithoutMembers#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1092,7 +1092,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If empty, the group will be created at the tenant level.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#administrative_unit_ids GroupWithoutMembers#administrative_unit_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#administrative_unit_ids GroupWithoutMembers#administrative_unit_ids}
         '''
         result = self._values.get("administrative_unit_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1105,7 +1105,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This property can only be ``true`` for security-enabled groups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#assignable_to_role GroupWithoutMembers#assignable_to_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#assignable_to_role GroupWithoutMembers#assignable_to_role}
         '''
         result = self._values.get("assignable_to_role")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1116,7 +1116,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether new members added to the group will be auto-subscribed to receive email notifications.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#auto_subscribe_new_members GroupWithoutMembers#auto_subscribe_new_members}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#auto_subscribe_new_members GroupWithoutMembers#auto_subscribe_new_members}
         '''
         result = self._values.get("auto_subscribe_new_members")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1125,7 +1125,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def behaviors(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The group behaviours for a Microsoft 365 group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#behaviors GroupWithoutMembers#behaviors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#behaviors GroupWithoutMembers#behaviors}
         '''
         result = self._values.get("behaviors")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1134,7 +1134,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description for the group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#description GroupWithoutMembers#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#description GroupWithoutMembers#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1145,7 +1145,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GroupWithoutMembersDynamicMembership"]:
         '''dynamic_membership block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#dynamic_membership GroupWithoutMembers#dynamic_membership}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#dynamic_membership GroupWithoutMembers#dynamic_membership}
         '''
         result = self._values.get("dynamic_membership")
         return typing.cast(typing.Optional["GroupWithoutMembersDynamicMembership"], result)
@@ -1156,7 +1156,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether people external to the organization can send messages to the group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#external_senders_allowed GroupWithoutMembers#external_senders_allowed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#external_senders_allowed GroupWithoutMembers#external_senders_allowed}
         '''
         result = self._values.get("external_senders_allowed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1167,7 +1167,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the group is displayed in certain parts of the Outlook user interface: in the Address Book, in address lists for selecting message recipients, and in the Browse Groups dialog for searching groups.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#hide_from_address_lists GroupWithoutMembers#hide_from_address_lists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#hide_from_address_lists GroupWithoutMembers#hide_from_address_lists}
         '''
         result = self._values.get("hide_from_address_lists")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1178,14 +1178,14 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the group is displayed in Outlook clients, such as Outlook for Windows and Outlook on the web.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#hide_from_outlook_clients GroupWithoutMembers#hide_from_outlook_clients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#hide_from_outlook_clients GroupWithoutMembers#hide_from_outlook_clients}
         '''
         result = self._values.get("hide_from_outlook_clients")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#id GroupWithoutMembers#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#id GroupWithoutMembers#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1201,7 +1201,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         At least one of ``mail_enabled`` or ``security_enabled`` must be specified. A group can be mail enabled *and* security enabled
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#mail_enabled GroupWithoutMembers#mail_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#mail_enabled GroupWithoutMembers#mail_enabled}
         '''
         result = self._values.get("mail_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1210,7 +1210,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mail_nickname(self) -> typing.Optional[builtins.str]:
         '''The mail alias for the group, unique in the organisation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#mail_nickname GroupWithoutMembers#mail_nickname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#mail_nickname GroupWithoutMembers#mail_nickname}
         '''
         result = self._values.get("mail_nickname")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1219,7 +1219,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def onpremises_group_type(self) -> typing.Optional[builtins.str]:
         '''Indicates the target on-premise group type the group will be written back as.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#onpremises_group_type GroupWithoutMembers#onpremises_group_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#onpremises_group_type GroupWithoutMembers#onpremises_group_type}
         '''
         result = self._values.get("onpremises_group_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1228,7 +1228,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def owners(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A set of owners who own this group. Supported object types are Users or Service Principals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#owners GroupWithoutMembers#owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#owners GroupWithoutMembers#owners}
         '''
         result = self._values.get("owners")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1239,7 +1239,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If ``true``, will return an error if an existing group is found with the same name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#prevent_duplicate_names GroupWithoutMembers#prevent_duplicate_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#prevent_duplicate_names GroupWithoutMembers#prevent_duplicate_names}
         '''
         result = self._values.get("prevent_duplicate_names")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1248,7 +1248,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def provisioning_options(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The group provisioning options for a Microsoft 365 group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#provisioning_options GroupWithoutMembers#provisioning_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#provisioning_options GroupWithoutMembers#provisioning_options}
         '''
         result = self._values.get("provisioning_options")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1261,7 +1261,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         At least one of ``security_enabled`` or ``mail_enabled`` must be specified. A group can be security enabled *and* mail enabled
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#security_enabled GroupWithoutMembers#security_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#security_enabled GroupWithoutMembers#security_enabled}
         '''
         result = self._values.get("security_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1270,7 +1270,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def theme(self) -> typing.Optional[builtins.str]:
         '''The colour theme for a Microsoft 365 group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#theme GroupWithoutMembers#theme}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#theme GroupWithoutMembers#theme}
         '''
         result = self._values.get("theme")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1279,7 +1279,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GroupWithoutMembersTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#timeouts GroupWithoutMembers#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#timeouts GroupWithoutMembers#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GroupWithoutMembersTimeouts"], result)
@@ -1290,7 +1290,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         ``Unified`` specifies a Microsoft 365 group. Required when ``mail_enabled`` is true
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#types GroupWithoutMembers#types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#types GroupWithoutMembers#types}
         '''
         result = self._values.get("types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1299,7 +1299,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def visibility(self) -> typing.Optional[builtins.str]:
         '''Specifies the group join policy and group content visibility.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#visibility GroupWithoutMembers#visibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#visibility GroupWithoutMembers#visibility}
         '''
         result = self._values.get("visibility")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1310,7 +1310,7 @@ class GroupWithoutMembersConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this group should be synced from Azure AD to the on-premises directory when Azure AD Connect is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#writeback_enabled GroupWithoutMembers#writeback_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#writeback_enabled GroupWithoutMembers#writeback_enabled}
         '''
         result = self._values.get("writeback_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1340,8 +1340,8 @@ class GroupWithoutMembersDynamicMembership:
         rule: builtins.str,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#enabled GroupWithoutMembers#enabled}.
-        :param rule: Rule to determine members for a dynamic group. Required when ``group_types`` contains 'DynamicMembership'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#rule GroupWithoutMembers#rule}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#enabled GroupWithoutMembers#enabled}.
+        :param rule: Rule to determine members for a dynamic group. Required when ``group_types`` contains 'DynamicMembership'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#rule GroupWithoutMembers#rule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0b4989d5ca311a042b9875e65764eed06969f470415202f596cb7490b9756d2)
@@ -1354,7 +1354,7 @@ class GroupWithoutMembersDynamicMembership:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#enabled GroupWithoutMembers#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#enabled GroupWithoutMembers#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1363,7 +1363,7 @@ class GroupWithoutMembersDynamicMembership:
     def rule(self) -> builtins.str:
         '''Rule to determine members for a dynamic group. Required when ``group_types`` contains 'DynamicMembership'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#rule GroupWithoutMembers#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#rule GroupWithoutMembers#rule}
         '''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
@@ -1476,10 +1476,10 @@ class GroupWithoutMembersTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#create GroupWithoutMembers#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#delete GroupWithoutMembers#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#read GroupWithoutMembers#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#update GroupWithoutMembers#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#create GroupWithoutMembers#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#delete GroupWithoutMembers#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#read GroupWithoutMembers#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#update GroupWithoutMembers#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ce707fefba51432ea0005c86de216e6a8bc0767a6529b95920bde7fcc36f06c)
@@ -1499,25 +1499,25 @@ class GroupWithoutMembersTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#create GroupWithoutMembers#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#create GroupWithoutMembers#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#delete GroupWithoutMembers#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#delete GroupWithoutMembers#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#read GroupWithoutMembers#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#read GroupWithoutMembers#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_without_members#update GroupWithoutMembers#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_without_members#update GroupWithoutMembers#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

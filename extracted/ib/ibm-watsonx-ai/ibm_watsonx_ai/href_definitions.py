@@ -3,12 +3,8 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 import re
-
-if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
 
 TRAINING_MODEL_HREF_PATTERN = "{}/v4/trainings/{}"
 TRAINING_MODELS_HREF_PATTERN = "{}/v4/trainings"
@@ -20,6 +16,7 @@ TOKEN_ENDPOINT_HREF_PATTERN = "{}/v3/identity/token"
 CPD_TOKEN_ENDPOINT_HREF_PATTERN = "{}/icp4d-api/v1/authorize"
 CPD_BEDROCK_TOKEN_ENDPOINT_HREF_PATTERN = "{}/idprovider/v1/auth/identitytoken"
 CPD_VALIDATION_TOKEN_ENDPOINT_HREF_PATTERN = "{}/v1/preauth/validateAuth"
+CPD_PUBLIC_KEYS_ENDPOINT_HREF_PATTERN = "{}/auth/jwks"
 EXPERIMENTS_HREF_PATTERN = "{}/v4/experiments"
 EXPERIMENT_HREF_PATTERN = "{}/v4/experiments/{}"
 EXPERIMENT_RUNS_HREF_PATTERN = "{}/v3/experiments/{}/runs"
@@ -63,6 +60,8 @@ AI_SERVICES_HREF_PATTERN = "{}/v4/ai_services"
 IAM_TOKEN_API = "{}&grant_type=urn%3Aibm%3Aparams%3Aoauth%3Agrant-type%3Aapikey"
 IAM_TOKEN_URL = "{}/identity/token"
 AWS_TOKEN_URL = "{}/api/2.0/apikeys/token"
+IAM_PUBLIC_KEYS_URL = "{}/identity/keys"
+AWS_PUBLIC_KEYS_URL = "{}/api/2.0/jwks"
 PROD_SVT_URL = [
     "https://ca-tor.ml.cloud.ibm.com",
     "https://private.ca-tor.ml.cloud.ibm.com",
@@ -74,6 +73,8 @@ PROD_SVT_URL = [
     "https://jp-tok.ml.cloud.ibm.com",
     "https://au-syd.ml.cloud.ibm.com",
     "https://ap-south-1.aws.wxai.ibm.com",
+    "https://wxai.ibmforusgov.com",
+    "https://wxai.prep.ibmforusgov.com",
     "https://ibm-watson-ml.mybluemix.net",
     "https://ibm-watson-ml.eu-gb.bluemix.net",
     "https://private.us-south.ml.cloud.ibm.com",
@@ -82,10 +83,13 @@ PROD_SVT_URL = [
     "https://private.jp-tok.ml.cloud.ibm.com",
     "https://private.au-syd.ml.cloud.ibm.com",
     "https://private.ap-south-1.aws.wxai.ibm.com",
+    "https://private.wxai.ibmforusgov.com",
+    "https://private.wxai.prep.ibmforusgov.com",
     "https://yp-qa.ml.cloud.ibm.com",
     "https://private.yp-qa.ml.cloud.ibm.com",
     "https://yp-cr.ml.cloud.ibm.com",
     "https://private.yp-cr.ml.cloud.ibm.com",
+
 ]
 
 PIPELINES_HREF_PATTERN = "{}/v4/pipelines"
@@ -170,6 +174,8 @@ PACKAGE_EXTENSION = "{}/v2/package_extensions/{}"
 PACKAGE_EXTENSIONS = "{}/v2/package_extensions"
 PARAMETER_SET = "{}/v2/parameter_sets/{}"
 PARAMETER_SETS = "{}/v2/parameter_sets"
+RUNTIME_DEFINITION = "{}/v2/runtime_definitions/{}"
+RUNTIME_DEFINITIONS = "{}/v2/runtime_definitions"
 JOBS_RUNS = "{}/v2/jobs/{}/runs/{}"
 
 V4GA_CLOUD_MIGRATION = "{}/ml/v4/repository"
@@ -190,6 +196,7 @@ FM_TOKENIZE = "{}/ml/v1/text/tokenization"
 FM_TOKENIZE_BETA = "{}/ml/v1-beta/text/tokenization"  # Remove on CPD 5.0 release
 FM_EMBEDDINGS = "{}/ml/v1/text/embeddings"
 FM_TIME_SERIES = "{}/ml/v1/time_series/forecast"
+FM_AUDIO_TRANSCRIPTIONS = "{}/ml/v1/audio/transcriptions"
 
 AUTOAI_RAG = "{}/ml/v1/autoai/rags"
 AUTOAI_RAG_ID = "{}/ml/v1/autoai/rags/{}"
@@ -339,6 +346,9 @@ class HrefDefinitions:
     def get_cpd_validation_token_endpoint_href(self) -> str:
         return CPD_VALIDATION_TOKEN_ENDPOINT_HREF_PATTERN.format(self.url)
 
+    def get_cpd_public_keys_endpoint_href(self) -> str:
+        return CPD_PUBLIC_KEYS_ENDPOINT_HREF_PATTERN.format(self.url)
+
     def get_published_model_href(self, model_id: str) -> str:
         return PUBLISHED_MODEL_HREF_PATTERN.format(self.url + self.prepend, model_id)
 
@@ -475,7 +485,33 @@ class HrefDefinitions:
         return IAM_TOKEN_API.format(apikey)
 
     def get_aws_token_url(self) -> str:
-        return AWS_TOKEN_URL.format(
+        match self.url:
+            case (
+                "https://ap-south-1.aws.wxai.ibm.com"
+                | "https://private.ap-south-1.aws.wxai.ibm.com"
+            ):
+                # Mumbai (AWS)
+                base_auth_url = "https://account-iam.platform.saas.ibm.com"
+            case (
+                "https://wxai.prep.ibmforusgov.com"
+                | "https://private.wxai.prep.ibmforusgov.com"
+            ):
+                # PreProd AWS GovCloud
+                base_auth_url = "https://account-iam.awsg.usge1.private.platform.prep.ibmforusgov.com"
+            case (
+                "https://wxai.ibmforusgov.com"
+                | "https://private.wxai.ibmforusgov.com"
+            ):
+                # Prod AWS GovCloud
+                base_auth_url = "https://account-iam.awsg.usge1.private.platform.ibmforusgov.com"
+            case _:
+                # AWS Dev
+                base_auth_url = "https://account-iam.platform.test.saas.ibm.com"
+
+        return AWS_TOKEN_URL.format(base_auth_url)
+
+    def get_aws_public_keys_url(self) -> str:
+        return AWS_PUBLIC_KEYS_URL.format(
             "https://account-iam.platform.saas.ibm.com"
             if self.url in PROD_SVT_URL
             else "https://account-iam.platform.test.saas.ibm.com"
@@ -486,6 +522,12 @@ class HrefDefinitions:
             return IAM_TOKEN_URL.format("https://iam.cloud.ibm.com")
         else:
             return IAM_TOKEN_URL.format("https://iam.test.cloud.ibm.com")
+
+    def get_iam_public_keys_url(self) -> str:
+        if self.url in PROD_SVT_URL:
+            return IAM_PUBLIC_KEYS_URL.format("https://iam.cloud.ibm.com")
+        else:
+            return IAM_PUBLIC_KEYS_URL.format("https://iam.test.cloud.ibm.com")
 
     def get_member_href(self, spaces_id: str, member_id: str) -> str:
         return MEMBER_HREF_PATTERN.format(self.url, spaces_id, member_id)
@@ -868,6 +910,14 @@ class HrefDefinitions:
     def get_parameter_sets_href(self) -> str:
         return PARAMETER_SETS.format(self._get_platform_url_if_exists())
 
+    def get_runtime_definition_href(self, runtime_definitions_id: str) -> str:
+        return RUNTIME_DEFINITION.format(
+            self._get_platform_url_if_exists(), runtime_definitions_id
+        )
+
+    def get_runtime_definitions_href(self) -> str:
+        return RUNTIME_DEFINITIONS.format(self._get_platform_url_if_exists())
+
     def get_fm_embeddings_href(self):
         return FM_EMBEDDINGS.format(self.url)
 
@@ -885,6 +935,9 @@ class HrefDefinitions:
 
     def get_time_series_href(self) -> str:
         return FM_TIME_SERIES.format(self.url)
+
+    def get_audio_transcriptions_href(self) -> str:
+        return FM_AUDIO_TRANSCRIPTIONS.format(self.url)
 
     def get_deployment_time_series_href(self, deployment_id: str) -> str:
         return FM_DEPLOYMENT_TIME_SERIES.format(self.url, deployment_id)

@@ -1,7 +1,7 @@
 r'''
 # `azurerm_logic_app_action_http`
 
-Refer to the Terraform Registry for docs: [`azurerm_logic_app_action_http`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http).
+Refer to the Terraform Registry for docs: [`azurerm_logic_app_action_http`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogicAppActionHttp(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.logicAppActionHttp.LogicAppActionHttp",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http azurerm_logic_app_action_http}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http azurerm_logic_app_action_http}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class LogicAppActionHttp(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http azurerm_logic_app_action_http} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http azurerm_logic_app_action_http} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#logic_app_id LogicAppActionHttp#logic_app_id}.
-        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#method LogicAppActionHttp#method}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#name LogicAppActionHttp#name}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#uri LogicAppActionHttp#uri}.
-        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#body LogicAppActionHttp#body}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#headers LogicAppActionHttp#headers}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#id LogicAppActionHttp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param queries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#queries LogicAppActionHttp#queries}.
-        :param run_after: run_after block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#run_after LogicAppActionHttp#run_after}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#timeouts LogicAppActionHttp#timeouts}
+        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#logic_app_id LogicAppActionHttp#logic_app_id}.
+        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#method LogicAppActionHttp#method}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#name LogicAppActionHttp#name}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#uri LogicAppActionHttp#uri}.
+        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#body LogicAppActionHttp#body}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#headers LogicAppActionHttp#headers}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#id LogicAppActionHttp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param queries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#queries LogicAppActionHttp#queries}.
+        :param run_after: run_after block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#run_after LogicAppActionHttp#run_after}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#timeouts LogicAppActionHttp#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class LogicAppActionHttp(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogicAppActionHttp to import.
-        :param import_from_id: The id of the existing LogicAppActionHttp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogicAppActionHttp that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogicAppActionHttp to import is found.
         '''
         if __debug__:
@@ -164,10 +164,10 @@ class LogicAppActionHttp(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#create LogicAppActionHttp#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#delete LogicAppActionHttp#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#read LogicAppActionHttp#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#update LogicAppActionHttp#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#create LogicAppActionHttp#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#delete LogicAppActionHttp#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#read LogicAppActionHttp#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#update LogicAppActionHttp#update}.
         '''
         value = LogicAppActionHttpTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -430,16 +430,16 @@ class LogicAppActionHttpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#logic_app_id LogicAppActionHttp#logic_app_id}.
-        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#method LogicAppActionHttp#method}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#name LogicAppActionHttp#name}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#uri LogicAppActionHttp#uri}.
-        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#body LogicAppActionHttp#body}.
-        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#headers LogicAppActionHttp#headers}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#id LogicAppActionHttp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param queries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#queries LogicAppActionHttp#queries}.
-        :param run_after: run_after block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#run_after LogicAppActionHttp#run_after}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#timeouts LogicAppActionHttp#timeouts}
+        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#logic_app_id LogicAppActionHttp#logic_app_id}.
+        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#method LogicAppActionHttp#method}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#name LogicAppActionHttp#name}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#uri LogicAppActionHttp#uri}.
+        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#body LogicAppActionHttp#body}.
+        :param headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#headers LogicAppActionHttp#headers}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#id LogicAppActionHttp#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param queries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#queries LogicAppActionHttp#queries}.
+        :param run_after: run_after block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#run_after LogicAppActionHttp#run_after}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#timeouts LogicAppActionHttp#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -563,47 +563,47 @@ class LogicAppActionHttpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def logic_app_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#logic_app_id LogicAppActionHttp#logic_app_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#logic_app_id LogicAppActionHttp#logic_app_id}.'''
         result = self._values.get("logic_app_id")
         assert result is not None, "Required property 'logic_app_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def method(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#method LogicAppActionHttp#method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#method LogicAppActionHttp#method}.'''
         result = self._values.get("method")
         assert result is not None, "Required property 'method' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#name LogicAppActionHttp#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#name LogicAppActionHttp#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#uri LogicAppActionHttp#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#uri LogicAppActionHttp#uri}.'''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def body(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#body LogicAppActionHttp#body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#body LogicAppActionHttp#body}.'''
         result = self._values.get("body")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def headers(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#headers LogicAppActionHttp#headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#headers LogicAppActionHttp#headers}.'''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#id LogicAppActionHttp#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#id LogicAppActionHttp#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -613,7 +613,7 @@ class LogicAppActionHttpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def queries(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#queries LogicAppActionHttp#queries}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#queries LogicAppActionHttp#queries}.'''
         result = self._values.get("queries")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -623,7 +623,7 @@ class LogicAppActionHttpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogicAppActionHttpRunAfter"]]]:
         '''run_after block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#run_after LogicAppActionHttp#run_after}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#run_after LogicAppActionHttp#run_after}
         '''
         result = self._values.get("run_after")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogicAppActionHttpRunAfter"]]], result)
@@ -632,7 +632,7 @@ class LogicAppActionHttpConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LogicAppActionHttpTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#timeouts LogicAppActionHttp#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#timeouts LogicAppActionHttp#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LogicAppActionHttpTimeouts"], result)
@@ -662,8 +662,8 @@ class LogicAppActionHttpRunAfter:
         action_result: builtins.str,
     ) -> None:
         '''
-        :param action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#action_name LogicAppActionHttp#action_name}.
-        :param action_result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#action_result LogicAppActionHttp#action_result}.
+        :param action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#action_name LogicAppActionHttp#action_name}.
+        :param action_result: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#action_result LogicAppActionHttp#action_result}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd453652742bb96fdc6e092cec0182d93d507ae9f3ace72abec5cc91ce6c2030)
@@ -676,14 +676,14 @@ class LogicAppActionHttpRunAfter:
 
     @builtins.property
     def action_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#action_name LogicAppActionHttp#action_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#action_name LogicAppActionHttp#action_name}.'''
         result = self._values.get("action_name")
         assert result is not None, "Required property 'action_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def action_result(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#action_result LogicAppActionHttp#action_result}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#action_result LogicAppActionHttp#action_result}.'''
         result = self._values.get("action_result")
         assert result is not None, "Required property 'action_result' is missing"
         return typing.cast(builtins.str, result)
@@ -888,10 +888,10 @@ class LogicAppActionHttpTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#create LogicAppActionHttp#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#delete LogicAppActionHttp#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#read LogicAppActionHttp#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#update LogicAppActionHttp#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#create LogicAppActionHttp#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#delete LogicAppActionHttp#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#read LogicAppActionHttp#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#update LogicAppActionHttp#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1aac5deb6281ec8c2debdb6e6528821c8a7beae93298a320f9cfcea25090a775)
@@ -911,25 +911,25 @@ class LogicAppActionHttpTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#create LogicAppActionHttp#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#create LogicAppActionHttp#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#delete LogicAppActionHttp#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#delete LogicAppActionHttp#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#read LogicAppActionHttp#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#read LogicAppActionHttp#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_action_http#update LogicAppActionHttp#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_action_http#update LogicAppActionHttp#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

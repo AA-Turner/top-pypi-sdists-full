@@ -8,6 +8,18 @@ from python_minifier import minify
 from python_minifier.transforms.remove_annotations_options import RemoveAnnotationsOptions
 
 
+class MinificationNotBeneficialError(Exception):
+    """Raised when minification results in larger output than the original."""
+    pass
+
+def stdout_write_bytes(data):
+    """Write bytes to stdout with proper Python 2.7/3.x compatibility."""
+    if sys.version_info >= (3, 0):
+        sys.stdout.buffer.write(data)
+    else:
+        sys.stdout.write(data)
+
+
 if sys.version_info >= (3, 8):
     from importlib import metadata
 
@@ -51,12 +63,23 @@ examples:
     if len(args.path) == 1 and args.path[0] == '-':
         # minify stdin
         source = sys.stdin.buffer.read() if sys.version_info >= (3, 0) else sys.stdin.read()
-        minified = do_minify(source, 'stdin', args)
+        try:
+            minified = do_minify(source, 'stdin', args)
+        except MinificationNotBeneficialError:
+            # Use original source when minification isn't beneficial
+            if args.output:
+                with open(args.output, 'wb') as f:
+                    f.write(source)
+            else:
+                # Write original source to stdout
+                stdout_write_bytes(source)
+            return
+
         if args.output:
-            with open(args.output, 'w') as f:
+            with open(args.output, 'wb') as f:
                 f.write(minified)
         else:
-            sys.stdout.write(minified)
+            stdout_write_bytes(minified)
 
     else:
         # minify source paths
@@ -67,16 +90,30 @@ examples:
             with open(path, 'rb') as f:
                 source = f.read()
 
-            minified = do_minify(source, path, args)
+            try:
+                minified = do_minify(source, path, args)
+            except MinificationNotBeneficialError:
+                # Use original source when minification isn't beneficial
+                if args.in_place:
+                    # File is already the original, no need to write
+                    pass
+                elif args.output:
+                    # Write original source to output
+                    with open(args.output, 'wb') as f:
+                        f.write(source)
+                else:
+                    # Write original source to stdout
+                    stdout_write_bytes(source)
+                continue
 
             if args.in_place:
-                with open(path, 'w') as f:
+                with open(path, 'wb') as f:
                     f.write(minified)
             elif args.output:
-                with open(args.output, 'w') as f:
+                with open(args.output, 'wb') as f:
                     f.write(minified)
             else:
-                sys.stdout.write(minified)
+                stdout_write_bytes(minified)
 
 
 def parse_args():
@@ -280,6 +317,15 @@ def source_modules(args):
 
 
 def do_minify(source, filename, minification_args):
+    """Minify Python source code with size-based fallback.
+
+    :param bytes source: Source code as bytes (from file 'rb' or stdin.buffer)
+    :param str filename: Filename for error reporting
+    :param argparse.Namespace minification_args: CLI arguments for minification options
+    :returns: Minified source code as UTF-8 bytes
+    :rtype: bytes
+    :raises MinificationNotBeneficialError: When minified output is larger than original
+    """
 
     preserve_globals = []
     if minification_args.preserve_globals:
@@ -308,7 +354,7 @@ def do_minify(source, filename, minification_args):
             remove_class_attribute_annotations=minification_args.remove_class_attribute_annotations,
         )
 
-    return minify(
+    minified_result = minify(
         source,
         filename=filename,
         combine_imports=minification_args.combine_imports,
@@ -329,6 +375,19 @@ def do_minify(source, filename, minification_args):
         remove_builtin_exception_brackets=minification_args.remove_exception_brackets,
         constant_folding=minification_args.constant_folding
     )
+
+    # Encode minified result to bytes for comparison and output
+    minified_bytes = minified_result.encode('utf-8')
+
+    # Check if environment variable forces minified output
+    if os.environ.get('PYMINIFY_FORCE_BEST_EFFORT'):
+        return minified_bytes
+
+    # Compare byte lengths for accurate size comparison
+    if len(minified_bytes) > len(source):
+        raise MinificationNotBeneficialError("Minified output is longer than original")
+
+    return minified_bytes
 
 
 if __name__ == '__main__':

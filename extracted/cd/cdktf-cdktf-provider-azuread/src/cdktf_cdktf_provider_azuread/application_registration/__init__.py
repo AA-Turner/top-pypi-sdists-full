@@ -1,7 +1,7 @@
 r'''
 # `azuread_application_registration`
 
-Refer to the Terraform Registry for docs: [`azuread_application_registration`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration).
+Refer to the Terraform Registry for docs: [`azuread_application_registration`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationRegistration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.applicationRegistration.ApplicationRegistration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration azuread_application_registration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration azuread_application_registration}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class ApplicationRegistration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration azuread_application_registration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration azuread_application_registration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#display_name ApplicationRegistration#display_name}
-        :param description: Description of the application as shown to end users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#description ApplicationRegistration#description}
-        :param group_membership_claims: Configures the ``groups`` claim that the app expects issued in a user or OAuth access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#group_membership_claims ApplicationRegistration#group_membership_claims}
-        :param homepage_url: URL of the home page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#homepage_url ApplicationRegistration#homepage_url}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#id ApplicationRegistration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param implicit_access_token_issuance_enabled: Whether this application can request an access token using OAuth implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#implicit_access_token_issuance_enabled ApplicationRegistration#implicit_access_token_issuance_enabled}
-        :param implicit_id_token_issuance_enabled: Whether this application can request an ID token using OAuth implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#implicit_id_token_issuance_enabled ApplicationRegistration#implicit_id_token_issuance_enabled}
-        :param logout_url: URL of the logout page for the application, where the session is cleared for single sign-out. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#logout_url ApplicationRegistration#logout_url}
-        :param marketing_url: URL of the marketing page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#marketing_url ApplicationRegistration#marketing_url}
-        :param notes: User-specified notes relevant for the management of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#notes ApplicationRegistration#notes}
-        :param privacy_statement_url: URL of the privacy statement for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#privacy_statement_url ApplicationRegistration#privacy_statement_url}
-        :param requested_access_token_version: The access token version expected by this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#requested_access_token_version ApplicationRegistration#requested_access_token_version}
-        :param service_management_reference: References application or contact information from a service or asset management database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#service_management_reference ApplicationRegistration#service_management_reference}
-        :param sign_in_audience: The Microsoft account types that are supported for the current application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#sign_in_audience ApplicationRegistration#sign_in_audience}
-        :param support_url: URL of the support page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#support_url ApplicationRegistration#support_url}
-        :param terms_of_service_url: URL of the terms of service statement for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#terms_of_service_url ApplicationRegistration#terms_of_service_url}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#timeouts ApplicationRegistration#timeouts}
+        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#display_name ApplicationRegistration#display_name}
+        :param description: Description of the application as shown to end users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#description ApplicationRegistration#description}
+        :param group_membership_claims: Configures the ``groups`` claim that the app expects issued in a user or OAuth access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#group_membership_claims ApplicationRegistration#group_membership_claims}
+        :param homepage_url: URL of the home page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#homepage_url ApplicationRegistration#homepage_url}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#id ApplicationRegistration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param implicit_access_token_issuance_enabled: Whether this application can request an access token using OAuth implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#implicit_access_token_issuance_enabled ApplicationRegistration#implicit_access_token_issuance_enabled}
+        :param implicit_id_token_issuance_enabled: Whether this application can request an ID token using OAuth implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#implicit_id_token_issuance_enabled ApplicationRegistration#implicit_id_token_issuance_enabled}
+        :param logout_url: URL of the logout page for the application, where the session is cleared for single sign-out. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#logout_url ApplicationRegistration#logout_url}
+        :param marketing_url: URL of the marketing page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#marketing_url ApplicationRegistration#marketing_url}
+        :param notes: User-specified notes relevant for the management of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#notes ApplicationRegistration#notes}
+        :param privacy_statement_url: URL of the privacy statement for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#privacy_statement_url ApplicationRegistration#privacy_statement_url}
+        :param requested_access_token_version: The access token version expected by this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#requested_access_token_version ApplicationRegistration#requested_access_token_version}
+        :param service_management_reference: References application or contact information from a service or asset management database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#service_management_reference ApplicationRegistration#service_management_reference}
+        :param sign_in_audience: The Microsoft account types that are supported for the current application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#sign_in_audience ApplicationRegistration#sign_in_audience}
+        :param support_url: URL of the support page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#support_url ApplicationRegistration#support_url}
+        :param terms_of_service_url: URL of the terms of service statement for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#terms_of_service_url ApplicationRegistration#terms_of_service_url}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#timeouts ApplicationRegistration#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class ApplicationRegistration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationRegistration to import.
-        :param import_from_id: The id of the existing ApplicationRegistration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationRegistration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationRegistration to import is found.
         '''
         if __debug__:
@@ -172,10 +172,10 @@ class ApplicationRegistration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#create ApplicationRegistration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#delete ApplicationRegistration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#read ApplicationRegistration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#update ApplicationRegistration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#create ApplicationRegistration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#delete ApplicationRegistration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#read ApplicationRegistration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#update ApplicationRegistration#update}.
         '''
         value = ApplicationRegistrationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -648,23 +648,23 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#display_name ApplicationRegistration#display_name}
-        :param description: Description of the application as shown to end users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#description ApplicationRegistration#description}
-        :param group_membership_claims: Configures the ``groups`` claim that the app expects issued in a user or OAuth access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#group_membership_claims ApplicationRegistration#group_membership_claims}
-        :param homepage_url: URL of the home page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#homepage_url ApplicationRegistration#homepage_url}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#id ApplicationRegistration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param implicit_access_token_issuance_enabled: Whether this application can request an access token using OAuth implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#implicit_access_token_issuance_enabled ApplicationRegistration#implicit_access_token_issuance_enabled}
-        :param implicit_id_token_issuance_enabled: Whether this application can request an ID token using OAuth implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#implicit_id_token_issuance_enabled ApplicationRegistration#implicit_id_token_issuance_enabled}
-        :param logout_url: URL of the logout page for the application, where the session is cleared for single sign-out. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#logout_url ApplicationRegistration#logout_url}
-        :param marketing_url: URL of the marketing page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#marketing_url ApplicationRegistration#marketing_url}
-        :param notes: User-specified notes relevant for the management of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#notes ApplicationRegistration#notes}
-        :param privacy_statement_url: URL of the privacy statement for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#privacy_statement_url ApplicationRegistration#privacy_statement_url}
-        :param requested_access_token_version: The access token version expected by this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#requested_access_token_version ApplicationRegistration#requested_access_token_version}
-        :param service_management_reference: References application or contact information from a service or asset management database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#service_management_reference ApplicationRegistration#service_management_reference}
-        :param sign_in_audience: The Microsoft account types that are supported for the current application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#sign_in_audience ApplicationRegistration#sign_in_audience}
-        :param support_url: URL of the support page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#support_url ApplicationRegistration#support_url}
-        :param terms_of_service_url: URL of the terms of service statement for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#terms_of_service_url ApplicationRegistration#terms_of_service_url}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#timeouts ApplicationRegistration#timeouts}
+        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#display_name ApplicationRegistration#display_name}
+        :param description: Description of the application as shown to end users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#description ApplicationRegistration#description}
+        :param group_membership_claims: Configures the ``groups`` claim that the app expects issued in a user or OAuth access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#group_membership_claims ApplicationRegistration#group_membership_claims}
+        :param homepage_url: URL of the home page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#homepage_url ApplicationRegistration#homepage_url}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#id ApplicationRegistration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param implicit_access_token_issuance_enabled: Whether this application can request an access token using OAuth implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#implicit_access_token_issuance_enabled ApplicationRegistration#implicit_access_token_issuance_enabled}
+        :param implicit_id_token_issuance_enabled: Whether this application can request an ID token using OAuth implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#implicit_id_token_issuance_enabled ApplicationRegistration#implicit_id_token_issuance_enabled}
+        :param logout_url: URL of the logout page for the application, where the session is cleared for single sign-out. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#logout_url ApplicationRegistration#logout_url}
+        :param marketing_url: URL of the marketing page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#marketing_url ApplicationRegistration#marketing_url}
+        :param notes: User-specified notes relevant for the management of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#notes ApplicationRegistration#notes}
+        :param privacy_statement_url: URL of the privacy statement for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#privacy_statement_url ApplicationRegistration#privacy_statement_url}
+        :param requested_access_token_version: The access token version expected by this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#requested_access_token_version ApplicationRegistration#requested_access_token_version}
+        :param service_management_reference: References application or contact information from a service or asset management database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#service_management_reference ApplicationRegistration#service_management_reference}
+        :param sign_in_audience: The Microsoft account types that are supported for the current application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#sign_in_audience ApplicationRegistration#sign_in_audience}
+        :param support_url: URL of the support page for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#support_url ApplicationRegistration#support_url}
+        :param terms_of_service_url: URL of the terms of service statement for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#terms_of_service_url ApplicationRegistration#terms_of_service_url}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#timeouts ApplicationRegistration#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -814,7 +814,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The display name for the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#display_name ApplicationRegistration#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#display_name ApplicationRegistration#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -824,7 +824,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the application as shown to end users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#description ApplicationRegistration#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#description ApplicationRegistration#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -833,7 +833,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def group_membership_claims(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Configures the ``groups`` claim that the app expects issued in a user or OAuth access token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#group_membership_claims ApplicationRegistration#group_membership_claims}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#group_membership_claims ApplicationRegistration#group_membership_claims}
         '''
         result = self._values.get("group_membership_claims")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -842,14 +842,14 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def homepage_url(self) -> typing.Optional[builtins.str]:
         '''URL of the home page for the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#homepage_url ApplicationRegistration#homepage_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#homepage_url ApplicationRegistration#homepage_url}
         '''
         result = self._values.get("homepage_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#id ApplicationRegistration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#id ApplicationRegistration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -863,7 +863,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this application can request an access token using OAuth implicit flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#implicit_access_token_issuance_enabled ApplicationRegistration#implicit_access_token_issuance_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#implicit_access_token_issuance_enabled ApplicationRegistration#implicit_access_token_issuance_enabled}
         '''
         result = self._values.get("implicit_access_token_issuance_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -874,7 +874,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this application can request an ID token using OAuth implicit flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#implicit_id_token_issuance_enabled ApplicationRegistration#implicit_id_token_issuance_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#implicit_id_token_issuance_enabled ApplicationRegistration#implicit_id_token_issuance_enabled}
         '''
         result = self._values.get("implicit_id_token_issuance_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -883,7 +883,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logout_url(self) -> typing.Optional[builtins.str]:
         '''URL of the logout page for the application, where the session is cleared for single sign-out.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#logout_url ApplicationRegistration#logout_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#logout_url ApplicationRegistration#logout_url}
         '''
         result = self._values.get("logout_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -892,7 +892,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def marketing_url(self) -> typing.Optional[builtins.str]:
         '''URL of the marketing page for the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#marketing_url ApplicationRegistration#marketing_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#marketing_url ApplicationRegistration#marketing_url}
         '''
         result = self._values.get("marketing_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -901,7 +901,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notes(self) -> typing.Optional[builtins.str]:
         '''User-specified notes relevant for the management of the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#notes ApplicationRegistration#notes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#notes ApplicationRegistration#notes}
         '''
         result = self._values.get("notes")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -910,7 +910,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def privacy_statement_url(self) -> typing.Optional[builtins.str]:
         '''URL of the privacy statement for the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#privacy_statement_url ApplicationRegistration#privacy_statement_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#privacy_statement_url ApplicationRegistration#privacy_statement_url}
         '''
         result = self._values.get("privacy_statement_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -919,7 +919,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def requested_access_token_version(self) -> typing.Optional[jsii.Number]:
         '''The access token version expected by this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#requested_access_token_version ApplicationRegistration#requested_access_token_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#requested_access_token_version ApplicationRegistration#requested_access_token_version}
         '''
         result = self._values.get("requested_access_token_version")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -928,7 +928,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_management_reference(self) -> typing.Optional[builtins.str]:
         '''References application or contact information from a service or asset management database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#service_management_reference ApplicationRegistration#service_management_reference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#service_management_reference ApplicationRegistration#service_management_reference}
         '''
         result = self._values.get("service_management_reference")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -937,7 +937,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sign_in_audience(self) -> typing.Optional[builtins.str]:
         '''The Microsoft account types that are supported for the current application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#sign_in_audience ApplicationRegistration#sign_in_audience}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#sign_in_audience ApplicationRegistration#sign_in_audience}
         '''
         result = self._values.get("sign_in_audience")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -946,7 +946,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def support_url(self) -> typing.Optional[builtins.str]:
         '''URL of the support page for the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#support_url ApplicationRegistration#support_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#support_url ApplicationRegistration#support_url}
         '''
         result = self._values.get("support_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -955,7 +955,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def terms_of_service_url(self) -> typing.Optional[builtins.str]:
         '''URL of the terms of service statement for the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#terms_of_service_url ApplicationRegistration#terms_of_service_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#terms_of_service_url ApplicationRegistration#terms_of_service_url}
         '''
         result = self._values.get("terms_of_service_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -964,7 +964,7 @@ class ApplicationRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationRegistrationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#timeouts ApplicationRegistration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#timeouts ApplicationRegistration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationRegistrationTimeouts"], result)
@@ -1001,10 +1001,10 @@ class ApplicationRegistrationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#create ApplicationRegistration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#delete ApplicationRegistration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#read ApplicationRegistration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#update ApplicationRegistration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#create ApplicationRegistration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#delete ApplicationRegistration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#read ApplicationRegistration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#update ApplicationRegistration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b3e516d10ebbf5f742405801c317d5210fe9c42ce56113284ce31f102b2a702)
@@ -1024,25 +1024,25 @@ class ApplicationRegistrationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#create ApplicationRegistration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#create ApplicationRegistration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#delete ApplicationRegistration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#delete ApplicationRegistration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#read ApplicationRegistration#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#read ApplicationRegistration#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_registration#update ApplicationRegistration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_registration#update ApplicationRegistration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

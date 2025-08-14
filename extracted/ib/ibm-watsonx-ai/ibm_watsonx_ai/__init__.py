@@ -8,9 +8,9 @@ from importlib.metadata import version
 package_name = __name__.replace("_", "-")
 __version__ = version(package_name)
 
-from ibm_watsonx_ai.credentials import Credentials
-from ibm_watsonx_ai.client import APIClient
-from ibm_watsonx_ai.utils.enums import AssetDuplicateAction
+from ibm_watsonx_ai.client import APIClient  # noqa: E402
+from ibm_watsonx_ai.credentials import Credentials  # noqa: E402
+from ibm_watsonx_ai.utils.enums import AssetDuplicateAction  # noqa: E402
 
 APIClient.version = __version__
 

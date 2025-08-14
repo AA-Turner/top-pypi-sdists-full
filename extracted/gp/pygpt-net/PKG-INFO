@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.0.post2
+Version: 2.6.1
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
@@ -106,7 +106,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.0** | build: **2025-08-13** | Python: **>=3.10, <3.14**
+Release: **2.6.1** | build: **2025-08-14** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -781,12 +781,16 @@ The vector database in use will be displayed in the list of uploaded files, on t
 
 Mode that allows the use of agents offered by `LlamaIndex`.
 
-Includes built-in agents:
+Includes built-in agents (Workflow):
 
-- OpenAI
+- FunctionAgent
 - ReAct
 - Structured Planner (sub-tasks)
 - CodeAct (connected to Code Interpreter plugin)
+
+Includes built-in agents (Legacy):
+
+- OpenAI Assistants
 
 In the future, the list of built-in agents will be expanded.
 
@@ -4370,6 +4374,10 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.1 (2025-08-14)**
+
+- LlamaIndex Agents refactored to Workflows.
 
 **2.6.0 (2025-08-13)**
 

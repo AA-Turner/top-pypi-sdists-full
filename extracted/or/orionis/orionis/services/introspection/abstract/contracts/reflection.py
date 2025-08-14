@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 import inspect
 from typing import List, Type
-from orionis.services.introspection.dependencies.entities.class_dependencies import ClassDependency
-from orionis.services.introspection.dependencies.entities.method_dependencies import MethodDependency
+from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
 
 class IReflectionAbstract(ABC):
     """
@@ -822,13 +821,13 @@ class IReflectionAbstract(ABC):
         pass
 
     @abstractmethod
-    def getConstructorDependencies(self) -> ClassDependency:
+    def getConstructorDependencies(self) -> ResolveArguments:
         """
         Get the resolved and unresolved dependencies from the constructor of the reflected class.
 
         Returns
         -------
-        ClassDependency
+        ResolveArguments
             A structured representation of the constructor dependencies containing:
             - resolved: Dictionary of resolved dependencies with their names and values
             - unresolved: List of unresolved dependencies (parameter names without default values or annotations)
@@ -836,7 +835,7 @@ class IReflectionAbstract(ABC):
         pass
 
     @abstractmethod
-    def getMethodDependencies(self, method_name: str) -> MethodDependency:
+    def getMethodDependencies(self, method_name: str) -> ResolveArguments:
         """
         Get the resolved and unresolved dependencies from a specific method of the reflected class.
 
@@ -847,7 +846,7 @@ class IReflectionAbstract(ABC):
 
         Returns
         -------
-        MethodDependency
+        ResolveArguments
             A structured representation of the method dependencies containing:
             - resolved: Dictionary of resolved dependencies with their names and values
             - unresolved: List of unresolved dependencies (parameter names without default values or annotations)

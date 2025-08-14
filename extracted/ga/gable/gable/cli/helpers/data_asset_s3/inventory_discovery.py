@@ -49,7 +49,7 @@ def run_inventory_discovery(
         bucket_name, prefix = match.group(1), match.group(2)
 
         tmp_dir = tempfile.mkdtemp(prefix="inventory_download_")
-        
+
         # Find all inventory files and sort by last modified time
         inventory_files = []
         paginator = s3.get_paginator("list_objects_v2")
@@ -58,11 +58,10 @@ def run_inventory_discovery(
                 key = obj["Key"]  # type: ignore
                 if not key.endswith(".csv.gz") and not key.endswith(".parquet"):
                     continue
-                inventory_files.append({
-                    "key": key,
-                    "last_modified": obj["LastModified"]
-                })
-        
+                inventory_files.append(
+                    {"key": key, "last_modified": obj["LastModified"]}
+                )
+
         # Sort by last modified time and take the latest one
         if inventory_files:
             inventory_files.sort(key=lambda x: x["last_modified"], reverse=True)
@@ -72,7 +71,7 @@ def run_inventory_discovery(
             logger.info(f"Downloaded latest inventory file: {latest_file['key']}")
         else:
             logger.warning(f"No inventory files found in {inventory_dir}")
-            
+
         local_inventory_dir = tmp_dir
     else:
         local_inventory_dir = inventory_dir
@@ -98,12 +97,14 @@ def run_inventory_discovery(
         urls = []
         for obj in latest_objs:
             ts_str = obj["last_modified"]
-            
+
             # Try to parse the timestamp
             try:
                 dt = Utils.parse_timestamp(ts_str)
             except (ValueError, TypeError) as e:
-                logger.warning(f"Invalid timestamp format in: {obj['key']} - {ts_str}: {e}")
+                logger.warning(
+                    f"Invalid timestamp format in: {obj['key']} - {ts_str}: {e}"
+                )
                 continue
 
             urls.append((dt, f"s3://{bucket}/{obj['key']}"))

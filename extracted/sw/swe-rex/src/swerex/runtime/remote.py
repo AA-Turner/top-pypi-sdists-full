@@ -1,12 +1,15 @@
+import asyncio
 import logging
+import random
 import shutil
 import sys
 import tempfile
 import traceback
+import uuid
 from pathlib import Path
 from typing import Any
 
-import requests
+import aiohttp
 from pydantic import BaseModel
 from typing_extensions import Self
 
@@ -111,16 +114,16 @@ class RemoteRuntime(AbstractRuntime):
         exception.extra_info = exc_transfer.extra_info
         raise exception from None
 
-    def _handle_response_errors(self, response: requests.Response) -> None:
+    async def _handle_response_errors(self, response: aiohttp.ClientResponse) -> None:
         """Raise exceptions found in the request response."""
-        if response.status_code == 511:
-            exc_transfer = _ExceptionTransfer(**response.json()["swerexception"])
+        if response.status == 511:
+            data = await response.json()
+            exc_transfer = _ExceptionTransfer(**data["swerexception"])
             self._handle_transfer_exception(exc_transfer)
-        try:
+        if response.status >= 400:
+            data = await response.json()
+            self.logger.critical("Received error response: %s", data)
             response.raise_for_status()
-        except Exception:
-            self.logger.critical("Received error response: %s", response.json())
-            raise
 
     async def is_alive(self, *, timeout: float | None = None) -> IsAliveResponse:
         """Checks if the runtime is alive.
@@ -129,20 +132,25 @@ class RemoteRuntime(AbstractRuntime):
         together with the message.
         """
         try:
-            response = requests.get(
-                f"{self._api_url}/is_alive", headers=self._headers, timeout=self._get_timeout(timeout)
-            )
-            if response.status_code == 200:
-                return IsAliveResponse(**response.json())
-            elif response.status_code == 511:
-                exc_transfer = _ExceptionTransfer(**response.json()["swerexception"])
-                self._handle_transfer_exception(exc_transfer)
-            msg = (
-                f"Status code {response.status_code} from {self._api_url}/is_alive. "
-                f"Message: {response.json().get('detail')}"
-            )
-            return IsAliveResponse(is_alive=False, message=msg)
-        except requests.RequestException:
+            async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(force_close=True)) as session:
+                timeout_value = self._get_timeout(timeout)
+                async with session.get(
+                    f"{self._api_url}/is_alive",
+                    headers=self._headers,
+                    timeout=aiohttp.ClientTimeout(total=timeout_value),
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return IsAliveResponse(**data)
+                    elif response.status == 511:
+                        data = await response.json()
+                        exc_transfer = _ExceptionTransfer(**data["swerexception"])
+                        self._handle_transfer_exception(exc_transfer)
+
+                    data = await response.json()
+                    msg = f"Status code {response.status} from {self._api_url}/is_alive. Message: {data.get('detail')}"
+                    return IsAliveResponse(is_alive=False, message=msg)
+        except aiohttp.ClientError:
             msg = f"Failed to connect to {self._config.host}\n"
             msg += traceback.format_exc()
             return IsAliveResponse(is_alive=False, message=msg)
@@ -154,64 +162,104 @@ class RemoteRuntime(AbstractRuntime):
     async def wait_until_alive(self, *, timeout: float = 60.0):
         return await _wait_until_alive(self.is_alive, timeout=timeout)
 
-    def _request(self, endpoint: str, request: BaseModel | None, output_class: Any):
+    async def _request(self, endpoint: str, payload: BaseModel | None, output_class: Any, num_retries: int = 0):
         """Small helper to make requests to the server and handle errors and output."""
-        response = requests.post(
-            f"{self._api_url}/{endpoint}", json=request.model_dump() if request else None, headers=self._headers
-        )
-        self._handle_response_errors(response)
-        return output_class(**response.json())
+        request_url = f"{self._api_url}/{endpoint}"
+        request_id = str(uuid.uuid4())
+        headers = self._headers.copy()
+        headers["X-Request-ID"] = request_id  # idempotency key for the request
+
+        retry_count = 0
+        last_exception: Exception | None = None
+        retry_delay = 0.1
+        backoff_max = 5
+
+        while retry_count <= num_retries:
+            try:
+                async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(force_close=True)) as session:
+                    async with session.post(
+                        request_url,
+                        json=payload.model_dump() if payload else None,
+                        headers=headers,
+                    ) as resp:
+                        await self._handle_response_errors(resp)
+                        return output_class(**await resp.json())
+            except Exception as e:
+                last_exception = e
+                retry_count += 1
+                if retry_count <= num_retries:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2
+                    retry_delay += random.uniform(0, 0.5)
+                    retry_delay = min(retry_delay, backoff_max)
+                    continue
+                self.logger.error("Error making request %s after %d retries: %s", request_id, num_retries, e)
+        raise last_exception  # type: ignore
 
     async def create_session(self, request: CreateSessionRequest) -> CreateSessionResponse:
         """Creates a new session."""
-        return self._request("create_session", request, CreateSessionResponse)
+        return await self._request("create_session", request, CreateSessionResponse)
 
     async def run_in_session(self, action: Action) -> Observation:
         """Runs a command in a session."""
-        return self._request("run_in_session", action, Observation)
+        return await self._request("run_in_session", action, Observation)
 
     async def close_session(self, request: CloseSessionRequest) -> CloseSessionResponse:
         """Closes a shell session."""
-        return self._request("close_session", request, CloseSessionResponse)
+        return await self._request("close_session", request, CloseSessionResponse)
 
     async def execute(self, command: Command) -> CommandResponse:
         """Executes a command (independent of any shell session)."""
-        return self._request("execute", command, CommandResponse)
+        return await self._request("execute", command, CommandResponse)
 
     async def read_file(self, request: ReadFileRequest) -> ReadFileResponse:
         """Reads a file"""
-        return self._request("read_file", request, ReadFileResponse)
+        return await self._request("read_file", request, ReadFileResponse)
 
     async def write_file(self, request: WriteFileRequest) -> WriteFileResponse:
         """Writes a file"""
-        return self._request("write_file", request, WriteFileResponse)
+        return await self._request("write_file", request, WriteFileResponse)
 
     async def upload(self, request: UploadRequest) -> UploadResponse:
         """Uploads a file"""
         source = Path(request.source_path).resolve()
         self.logger.debug("Uploading file from %s to %s", request.source_path, request.target_path)
-        if source.is_dir():
-            # Ignore cleanup errors: See https://github.com/SWE-agent/SWE-agent/issues/1005
-            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
-                zip_path = Path(temp_dir) / "zipped_transfer.zip"
-                shutil.make_archive(str(zip_path.with_suffix("")), "zip", source)
-                self.logger.debug("Created zip file at %s", zip_path)
-                files = {"file": zip_path.open("rb")}
-                data = {"target_path": request.target_path, "unzip": "true"}
-                response = requests.post(f"{self._api_url}/upload", files=files, data=data, headers=self._headers)
-                self._handle_response_errors(response)
-                return UploadResponse(**response.json())
-        elif source.is_file():
-            self.logger.debug("Uploading file from %s to %s", source, request.target_path)
-            files = {"file": source.open("rb")}
-            data = {"target_path": request.target_path, "unzip": "false"}
-            response = requests.post(f"{self._api_url}/upload", files=files, data=data, headers=self._headers)
-            self._handle_response_errors(response)
-            return UploadResponse(**response.json())
-        else:
-            msg = f"Source path {source} is not a file or directory"
-            raise ValueError(msg)
+
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(force_close=True)) as session:
+            if source.is_dir():
+                # Ignore cleanup errors: See https://github.com/SWE-agent/SWE-agent/issues/1005
+                with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
+                    zip_path = Path(temp_dir) / "zipped_transfer.zip"
+                    shutil.make_archive(str(zip_path.with_suffix("")), "zip", source)
+                    self.logger.debug("Created zip file at %s", zip_path)
+
+                    with open(zip_path, "rb") as f:
+                        data = aiohttp.FormData()
+                        data.add_field("file", f, filename=zip_path.name, content_type="application/zip")
+                        data.add_field("target_path", request.target_path)
+                        data.add_field("unzip", "true")
+
+                        async with session.post(
+                            f"{self._api_url}/upload", data=data, headers=self._headers
+                        ) as response:
+                            await self._handle_response_errors(response)
+                            return UploadResponse(**(await response.json()))
+            elif source.is_file():
+                self.logger.debug("Uploading file from %s to %s", source, request.target_path)
+
+                with open(source, "rb") as f:
+                    data = aiohttp.FormData()
+                    data.add_field("file", f, filename=source.name)
+                    data.add_field("target_path", request.target_path)
+                    data.add_field("unzip", "false")
+
+                    async with session.post(f"{self._api_url}/upload", data=data, headers=self._headers) as response:
+                        await self._handle_response_errors(response)
+                        return UploadResponse(**(await response.json()))
+            else:
+                msg = f"Source path {source} is not a file or directory"
+                raise ValueError(msg)
 
     async def close(self) -> CloseResponse:
         """Closes the runtime."""
-        return self._request("close", None, CloseResponse)
+        return await self._request("close", None, CloseResponse)

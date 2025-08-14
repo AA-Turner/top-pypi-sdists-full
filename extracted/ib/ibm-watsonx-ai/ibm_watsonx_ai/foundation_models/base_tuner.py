@@ -4,18 +4,19 @@
 #  -----------------------------------------------------------------------------------------
 import copy
 from abc import ABC
-from typing import Literal, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
+
+import numpy as np
 
 from ibm_watsonx_ai.helpers import (
-    DataConnection,
-    ContainerLocation,
-    S3Connection,
     AssetLocation,
+    ContainerLocation,
+    DataConnection,
     FSLocation,
+    S3Connection,
     S3Location,
 )
 from ibm_watsonx_ai.utils.autoai.errors import ContainerTypeNotSupported
-import numpy as np
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -23,9 +24,7 @@ if TYPE_CHECKING:
 
 class BaseTuner(ABC):
     tuning_type: Literal["prompt", "fine", "ilab"]
-    from ibm_watsonx_ai import APIClient
-
-    _client: APIClient = None  # type: ignore[assignment]
+    _client: "APIClient" = None  # type: ignore[assignment]
 
     def __init__(self, tuning_type: Literal["prompt", "fine", "ilab"]):
         self.tuning_type = tuning_type
@@ -113,6 +112,8 @@ class BaseTuner(ABC):
                     results_reference = DataConnection(
                         location=ContainerLocation(path=result_path)
                     )
+
+                results_reference._update_location_path_with_container_id(self._client)
         # -- end note
         else:
             results_reference = copy.deepcopy(results_reference)

@@ -1,7 +1,7 @@
 r'''
 # `newrelic_synthetics_script_monitor`
 
-Refer to the Terraform Registry for docs: [`newrelic_synthetics_script_monitor`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor).
+Refer to the Terraform Registry for docs: [`newrelic_synthetics_script_monitor`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SyntheticsScriptMonitor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.syntheticsScriptMonitor.SyntheticsScriptMonitor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor newrelic_synthetics_script_monitor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor newrelic_synthetics_script_monitor}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class SyntheticsScriptMonitor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor newrelic_synthetics_script_monitor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor newrelic_synthetics_script_monitor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The title of this monitor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#name SyntheticsScriptMonitor#name}
-        :param period: The interval at which this monitor should run. Valid values are EVERY_MINUTE, EVERY_5_MINUTES, EVERY_10_MINUTES, EVERY_15_MINUTES, EVERY_30_MINUTES, EVERY_HOUR, EVERY_6_HOURS, EVERY_12_HOURS, or EVERY_DAY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#period SyntheticsScriptMonitor#period}
-        :param status: The monitor status (ENABLED or DISABLED). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#status SyntheticsScriptMonitor#status}
-        :param type: The monitor type. Valid values are SCRIPT_BROWSER, and SCRIPT_API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#type SyntheticsScriptMonitor#type}
-        :param account_id: ID of the newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#account_id SyntheticsScriptMonitor#account_id}
-        :param browsers: The multiple browsers list on which synthetic monitors will run. Valid values are array of CHROME,and FIREFOX. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#browsers SyntheticsScriptMonitor#browsers}
-        :param device_orientation: The device orientation the user would like to represent. Valid values are LANDSCAPE, PORTRAIT, or NONE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#device_orientation SyntheticsScriptMonitor#device_orientation}
-        :param devices: The multiple devices list on which synthetic monitors will run. Valid values are array of DESKTOP, MOBILE_LANDSCAPE, MOBILE_PORTRAIT, TABLET_LANDSCAPE and TABLET_PORTRAIT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#devices SyntheticsScriptMonitor#devices}
-        :param device_type: The device type that a user can select. Valid values are MOBILE, TABLET, or NONE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#device_type SyntheticsScriptMonitor#device_type}
-        :param enable_screenshot_on_failure_and_script: Capture a screenshot during job execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#enable_screenshot_on_failure_and_script SyntheticsScriptMonitor#enable_screenshot_on_failure_and_script}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#id SyntheticsScriptMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location_private: location_private block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#location_private SyntheticsScriptMonitor#location_private}
-        :param locations_public: The public location(s) that the monitor will run jobs from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#locations_public SyntheticsScriptMonitor#locations_public}
-        :param runtime_type: The runtime type that the monitor will run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#runtime_type SyntheticsScriptMonitor#runtime_type}
-        :param runtime_type_version: The specific semver version of the runtime type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#runtime_type_version SyntheticsScriptMonitor#runtime_type_version}
-        :param script: The script that the monitor runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#script SyntheticsScriptMonitor#script}
-        :param script_language: The programing language that should execute the script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#script_language SyntheticsScriptMonitor#script_language}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#tag SyntheticsScriptMonitor#tag}
-        :param use_unsupported_legacy_runtime: A boolean attribute to be set true by the customer, if they would like to use the unsupported legacy runtime of Synthetic Monitors by means of an exemption given until the October 22, 2024 Legacy Runtime EOL. Setting this attribute to true would allow skipping validation performed by the the New Relic Terraform Provider starting v3.43.0 to disallow using the legacy runtime with new monitors. This would, hence, allow creation of monitors in the legacy runtime until the October 22, 2024 Legacy Runtime EOL, if exempt by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#use_unsupported_legacy_runtime SyntheticsScriptMonitor#use_unsupported_legacy_runtime}
+        :param name: The title of this monitor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#name SyntheticsScriptMonitor#name}
+        :param period: The interval at which this monitor should run. Valid values are EVERY_MINUTE, EVERY_5_MINUTES, EVERY_10_MINUTES, EVERY_15_MINUTES, EVERY_30_MINUTES, EVERY_HOUR, EVERY_6_HOURS, EVERY_12_HOURS, or EVERY_DAY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#period SyntheticsScriptMonitor#period}
+        :param status: The monitor status (ENABLED or DISABLED). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#status SyntheticsScriptMonitor#status}
+        :param type: The monitor type. Valid values are SCRIPT_BROWSER, and SCRIPT_API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#type SyntheticsScriptMonitor#type}
+        :param account_id: ID of the newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#account_id SyntheticsScriptMonitor#account_id}
+        :param browsers: The multiple browsers list on which synthetic monitors will run. Valid values are array of CHROME,and FIREFOX. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#browsers SyntheticsScriptMonitor#browsers}
+        :param device_orientation: The device orientation the user would like to represent. Valid values are LANDSCAPE, PORTRAIT, or NONE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#device_orientation SyntheticsScriptMonitor#device_orientation}
+        :param devices: The multiple devices list on which synthetic monitors will run. Valid values are array of DESKTOP, MOBILE_LANDSCAPE, MOBILE_PORTRAIT, TABLET_LANDSCAPE and TABLET_PORTRAIT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#devices SyntheticsScriptMonitor#devices}
+        :param device_type: The device type that a user can select. Valid values are MOBILE, TABLET, or NONE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#device_type SyntheticsScriptMonitor#device_type}
+        :param enable_screenshot_on_failure_and_script: Capture a screenshot during job execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#enable_screenshot_on_failure_and_script SyntheticsScriptMonitor#enable_screenshot_on_failure_and_script}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#id SyntheticsScriptMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location_private: location_private block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#location_private SyntheticsScriptMonitor#location_private}
+        :param locations_public: The public location(s) that the monitor will run jobs from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#locations_public SyntheticsScriptMonitor#locations_public}
+        :param runtime_type: The runtime type that the monitor will run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#runtime_type SyntheticsScriptMonitor#runtime_type}
+        :param runtime_type_version: The specific semver version of the runtime type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#runtime_type_version SyntheticsScriptMonitor#runtime_type_version}
+        :param script: The script that the monitor runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#script SyntheticsScriptMonitor#script}
+        :param script_language: The programing language that should execute the script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#script_language SyntheticsScriptMonitor#script_language}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#tag SyntheticsScriptMonitor#tag}
+        :param use_unsupported_legacy_runtime: A boolean attribute to be set true by the customer, if they would like to use the unsupported legacy runtime of Synthetic Monitors by means of an exemption given until the October 22, 2024 Legacy Runtime EOL. Setting this attribute to true would allow skipping validation performed by the the New Relic Terraform Provider starting v3.43.0 to disallow using the legacy runtime with new monitors. This would, hence, allow creation of monitors in the legacy runtime until the October 22, 2024 Legacy Runtime EOL, if exempt by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#use_unsupported_legacy_runtime SyntheticsScriptMonitor#use_unsupported_legacy_runtime}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class SyntheticsScriptMonitor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SyntheticsScriptMonitor to import.
-        :param import_from_id: The id of the existing SyntheticsScriptMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SyntheticsScriptMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SyntheticsScriptMonitor to import is found.
         '''
         if __debug__:
@@ -681,25 +681,25 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The title of this monitor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#name SyntheticsScriptMonitor#name}
-        :param period: The interval at which this monitor should run. Valid values are EVERY_MINUTE, EVERY_5_MINUTES, EVERY_10_MINUTES, EVERY_15_MINUTES, EVERY_30_MINUTES, EVERY_HOUR, EVERY_6_HOURS, EVERY_12_HOURS, or EVERY_DAY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#period SyntheticsScriptMonitor#period}
-        :param status: The monitor status (ENABLED or DISABLED). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#status SyntheticsScriptMonitor#status}
-        :param type: The monitor type. Valid values are SCRIPT_BROWSER, and SCRIPT_API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#type SyntheticsScriptMonitor#type}
-        :param account_id: ID of the newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#account_id SyntheticsScriptMonitor#account_id}
-        :param browsers: The multiple browsers list on which synthetic monitors will run. Valid values are array of CHROME,and FIREFOX. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#browsers SyntheticsScriptMonitor#browsers}
-        :param device_orientation: The device orientation the user would like to represent. Valid values are LANDSCAPE, PORTRAIT, or NONE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#device_orientation SyntheticsScriptMonitor#device_orientation}
-        :param devices: The multiple devices list on which synthetic monitors will run. Valid values are array of DESKTOP, MOBILE_LANDSCAPE, MOBILE_PORTRAIT, TABLET_LANDSCAPE and TABLET_PORTRAIT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#devices SyntheticsScriptMonitor#devices}
-        :param device_type: The device type that a user can select. Valid values are MOBILE, TABLET, or NONE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#device_type SyntheticsScriptMonitor#device_type}
-        :param enable_screenshot_on_failure_and_script: Capture a screenshot during job execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#enable_screenshot_on_failure_and_script SyntheticsScriptMonitor#enable_screenshot_on_failure_and_script}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#id SyntheticsScriptMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location_private: location_private block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#location_private SyntheticsScriptMonitor#location_private}
-        :param locations_public: The public location(s) that the monitor will run jobs from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#locations_public SyntheticsScriptMonitor#locations_public}
-        :param runtime_type: The runtime type that the monitor will run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#runtime_type SyntheticsScriptMonitor#runtime_type}
-        :param runtime_type_version: The specific semver version of the runtime type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#runtime_type_version SyntheticsScriptMonitor#runtime_type_version}
-        :param script: The script that the monitor runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#script SyntheticsScriptMonitor#script}
-        :param script_language: The programing language that should execute the script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#script_language SyntheticsScriptMonitor#script_language}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#tag SyntheticsScriptMonitor#tag}
-        :param use_unsupported_legacy_runtime: A boolean attribute to be set true by the customer, if they would like to use the unsupported legacy runtime of Synthetic Monitors by means of an exemption given until the October 22, 2024 Legacy Runtime EOL. Setting this attribute to true would allow skipping validation performed by the the New Relic Terraform Provider starting v3.43.0 to disallow using the legacy runtime with new monitors. This would, hence, allow creation of monitors in the legacy runtime until the October 22, 2024 Legacy Runtime EOL, if exempt by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#use_unsupported_legacy_runtime SyntheticsScriptMonitor#use_unsupported_legacy_runtime}
+        :param name: The title of this monitor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#name SyntheticsScriptMonitor#name}
+        :param period: The interval at which this monitor should run. Valid values are EVERY_MINUTE, EVERY_5_MINUTES, EVERY_10_MINUTES, EVERY_15_MINUTES, EVERY_30_MINUTES, EVERY_HOUR, EVERY_6_HOURS, EVERY_12_HOURS, or EVERY_DAY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#period SyntheticsScriptMonitor#period}
+        :param status: The monitor status (ENABLED or DISABLED). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#status SyntheticsScriptMonitor#status}
+        :param type: The monitor type. Valid values are SCRIPT_BROWSER, and SCRIPT_API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#type SyntheticsScriptMonitor#type}
+        :param account_id: ID of the newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#account_id SyntheticsScriptMonitor#account_id}
+        :param browsers: The multiple browsers list on which synthetic monitors will run. Valid values are array of CHROME,and FIREFOX. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#browsers SyntheticsScriptMonitor#browsers}
+        :param device_orientation: The device orientation the user would like to represent. Valid values are LANDSCAPE, PORTRAIT, or NONE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#device_orientation SyntheticsScriptMonitor#device_orientation}
+        :param devices: The multiple devices list on which synthetic monitors will run. Valid values are array of DESKTOP, MOBILE_LANDSCAPE, MOBILE_PORTRAIT, TABLET_LANDSCAPE and TABLET_PORTRAIT Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#devices SyntheticsScriptMonitor#devices}
+        :param device_type: The device type that a user can select. Valid values are MOBILE, TABLET, or NONE. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#device_type SyntheticsScriptMonitor#device_type}
+        :param enable_screenshot_on_failure_and_script: Capture a screenshot during job execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#enable_screenshot_on_failure_and_script SyntheticsScriptMonitor#enable_screenshot_on_failure_and_script}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#id SyntheticsScriptMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location_private: location_private block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#location_private SyntheticsScriptMonitor#location_private}
+        :param locations_public: The public location(s) that the monitor will run jobs from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#locations_public SyntheticsScriptMonitor#locations_public}
+        :param runtime_type: The runtime type that the monitor will run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#runtime_type SyntheticsScriptMonitor#runtime_type}
+        :param runtime_type_version: The specific semver version of the runtime type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#runtime_type_version SyntheticsScriptMonitor#runtime_type_version}
+        :param script: The script that the monitor runs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#script SyntheticsScriptMonitor#script}
+        :param script_language: The programing language that should execute the script. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#script_language SyntheticsScriptMonitor#script_language}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#tag SyntheticsScriptMonitor#tag}
+        :param use_unsupported_legacy_runtime: A boolean attribute to be set true by the customer, if they would like to use the unsupported legacy runtime of Synthetic Monitors by means of an exemption given until the October 22, 2024 Legacy Runtime EOL. Setting this attribute to true would allow skipping validation performed by the the New Relic Terraform Provider starting v3.43.0 to disallow using the legacy runtime with new monitors. This would, hence, allow creation of monitors in the legacy runtime until the October 22, 2024 Legacy Runtime EOL, if exempt by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#use_unsupported_legacy_runtime SyntheticsScriptMonitor#use_unsupported_legacy_runtime}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -850,7 +850,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The title of this monitor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#name SyntheticsScriptMonitor#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#name SyntheticsScriptMonitor#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -862,7 +862,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are EVERY_MINUTE, EVERY_5_MINUTES, EVERY_10_MINUTES, EVERY_15_MINUTES, EVERY_30_MINUTES, EVERY_HOUR, EVERY_6_HOURS, EVERY_12_HOURS, or EVERY_DAY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#period SyntheticsScriptMonitor#period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#period SyntheticsScriptMonitor#period}
         '''
         result = self._values.get("period")
         assert result is not None, "Required property 'period' is missing"
@@ -872,7 +872,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def status(self) -> builtins.str:
         '''The monitor status (ENABLED or DISABLED).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#status SyntheticsScriptMonitor#status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#status SyntheticsScriptMonitor#status}
         '''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
@@ -882,7 +882,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''The monitor type. Valid values are SCRIPT_BROWSER, and SCRIPT_API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#type SyntheticsScriptMonitor#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#type SyntheticsScriptMonitor#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -892,7 +892,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''ID of the newrelic account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#account_id SyntheticsScriptMonitor#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#account_id SyntheticsScriptMonitor#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -901,7 +901,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def browsers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The multiple browsers list on which synthetic monitors will run. Valid values are array of CHROME,and FIREFOX.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#browsers SyntheticsScriptMonitor#browsers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#browsers SyntheticsScriptMonitor#browsers}
         '''
         result = self._values.get("browsers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -910,7 +910,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def device_orientation(self) -> typing.Optional[builtins.str]:
         '''The device orientation the user would like to represent. Valid values are LANDSCAPE, PORTRAIT, or NONE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#device_orientation SyntheticsScriptMonitor#device_orientation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#device_orientation SyntheticsScriptMonitor#device_orientation}
         '''
         result = self._values.get("device_orientation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -921,7 +921,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are array of DESKTOP, MOBILE_LANDSCAPE, MOBILE_PORTRAIT, TABLET_LANDSCAPE and TABLET_PORTRAIT
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#devices SyntheticsScriptMonitor#devices}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#devices SyntheticsScriptMonitor#devices}
         '''
         result = self._values.get("devices")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -930,7 +930,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def device_type(self) -> typing.Optional[builtins.str]:
         '''The device type that a user can select. Valid values are MOBILE, TABLET, or NONE.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#device_type SyntheticsScriptMonitor#device_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#device_type SyntheticsScriptMonitor#device_type}
         '''
         result = self._values.get("device_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -941,14 +941,14 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Capture a screenshot during job execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#enable_screenshot_on_failure_and_script SyntheticsScriptMonitor#enable_screenshot_on_failure_and_script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#enable_screenshot_on_failure_and_script SyntheticsScriptMonitor#enable_screenshot_on_failure_and_script}
         '''
         result = self._values.get("enable_screenshot_on_failure_and_script")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#id SyntheticsScriptMonitor#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#id SyntheticsScriptMonitor#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -962,7 +962,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsScriptMonitorLocationPrivate"]]]:
         '''location_private block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#location_private SyntheticsScriptMonitor#location_private}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#location_private SyntheticsScriptMonitor#location_private}
         '''
         result = self._values.get("location_private")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsScriptMonitorLocationPrivate"]]], result)
@@ -971,7 +971,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def locations_public(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The public location(s) that the monitor will run jobs from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#locations_public SyntheticsScriptMonitor#locations_public}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#locations_public SyntheticsScriptMonitor#locations_public}
         '''
         result = self._values.get("locations_public")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -980,7 +980,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime_type(self) -> typing.Optional[builtins.str]:
         '''The runtime type that the monitor will run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#runtime_type SyntheticsScriptMonitor#runtime_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#runtime_type SyntheticsScriptMonitor#runtime_type}
         '''
         result = self._values.get("runtime_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -989,7 +989,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime_type_version(self) -> typing.Optional[builtins.str]:
         '''The specific semver version of the runtime type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#runtime_type_version SyntheticsScriptMonitor#runtime_type_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#runtime_type_version SyntheticsScriptMonitor#runtime_type_version}
         '''
         result = self._values.get("runtime_type_version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -998,7 +998,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def script(self) -> typing.Optional[builtins.str]:
         '''The script that the monitor runs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#script SyntheticsScriptMonitor#script}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#script SyntheticsScriptMonitor#script}
         '''
         result = self._values.get("script")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1007,7 +1007,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def script_language(self) -> typing.Optional[builtins.str]:
         '''The programing language that should execute the script.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#script_language SyntheticsScriptMonitor#script_language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#script_language SyntheticsScriptMonitor#script_language}
         '''
         result = self._values.get("script_language")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1018,7 +1018,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsScriptMonitorTag"]]]:
         '''tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#tag SyntheticsScriptMonitor#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#tag SyntheticsScriptMonitor#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SyntheticsScriptMonitorTag"]]], result)
@@ -1031,7 +1031,7 @@ class SyntheticsScriptMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Setting this attribute to true would allow skipping validation performed by the the New Relic Terraform Provider starting v3.43.0 to disallow using the legacy runtime with new monitors. This would, hence, allow creation of monitors in the legacy runtime until the October 22, 2024 Legacy Runtime EOL, if exempt by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#use_unsupported_legacy_runtime SyntheticsScriptMonitor#use_unsupported_legacy_runtime}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#use_unsupported_legacy_runtime SyntheticsScriptMonitor#use_unsupported_legacy_runtime}
         '''
         result = self._values.get("use_unsupported_legacy_runtime")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1061,8 +1061,8 @@ class SyntheticsScriptMonitorLocationPrivate:
         vse_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param guid: The unique identifier for the Synthetics private location in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#guid SyntheticsScriptMonitor#guid}
-        :param vse_password: The location's Verified Script Execution password (Only necessary if Verified Script Execution is enabled for the location). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#vse_password SyntheticsScriptMonitor#vse_password}
+        :param guid: The unique identifier for the Synthetics private location in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#guid SyntheticsScriptMonitor#guid}
+        :param vse_password: The location's Verified Script Execution password (Only necessary if Verified Script Execution is enabled for the location). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#vse_password SyntheticsScriptMonitor#vse_password}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59f45519a7aa9ab0b530a3e03029c62fa08fcadc8494c94e7d513d8ebadc9ba8)
@@ -1078,7 +1078,7 @@ class SyntheticsScriptMonitorLocationPrivate:
     def guid(self) -> builtins.str:
         '''The unique identifier for the Synthetics private location in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#guid SyntheticsScriptMonitor#guid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#guid SyntheticsScriptMonitor#guid}
         '''
         result = self._values.get("guid")
         assert result is not None, "Required property 'guid' is missing"
@@ -1088,7 +1088,7 @@ class SyntheticsScriptMonitorLocationPrivate:
     def vse_password(self) -> typing.Optional[builtins.str]:
         '''The location's Verified Script Execution password (Only necessary if Verified Script Execution is enabled for the location).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#vse_password SyntheticsScriptMonitor#vse_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#vse_password SyntheticsScriptMonitor#vse_password}
         '''
         result = self._values.get("vse_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1293,8 +1293,8 @@ class SyntheticsScriptMonitorTag:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param key: Name of the tag key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#key SyntheticsScriptMonitor#key}
-        :param values: Values associated with the tag key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#values SyntheticsScriptMonitor#values}
+        :param key: Name of the tag key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#key SyntheticsScriptMonitor#key}
+        :param values: Values associated with the tag key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#values SyntheticsScriptMonitor#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cfe61c1640ec7edaa957d7a02b825f7684ce6a541605aff3ccbad1cb4b632b91)
@@ -1309,7 +1309,7 @@ class SyntheticsScriptMonitorTag:
     def key(self) -> builtins.str:
         '''Name of the tag key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#key SyntheticsScriptMonitor#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#key SyntheticsScriptMonitor#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -1319,7 +1319,7 @@ class SyntheticsScriptMonitorTag:
     def values(self) -> typing.List[builtins.str]:
         '''Values associated with the tag key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/synthetics_script_monitor#values SyntheticsScriptMonitor#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/synthetics_script_monitor#values SyntheticsScriptMonitor#values}
         '''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"

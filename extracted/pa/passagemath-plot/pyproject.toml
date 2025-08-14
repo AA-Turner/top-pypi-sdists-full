@@ -1,0 +1,112 @@
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = [
+    'setuptools >= 77.0.0',
+    'passagemath-conf ~= 10.6.4.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.6.4.0',
+    'pkgconfig',
+    'passagemath-environment ~= 10.6.4.0',
+    'passagemath-categories ~= 10.6.4.0',
+    'passagemath-modules ~= 10.6.4.0',
+    'numpy >=1.19', 'numpy >=1.22.4',
+    'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
+    'gmpy2 ~=2.1.b999',
+    'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
+    'memory_allocator',
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "passagemath-plot"
+description = "passagemath: Plotting and graphics with Matplotlib, Three.JS, etc."
+dependencies = [
+    'gmpy2 ~=2.1.b999',
+    'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
+    'memory_allocator',
+    'passagemath-categories ~= 10.6.4.0',
+    'passagemath-modules ~= 10.6.4.0',
+    'numpy >=1.19', 'numpy >=1.22.4',
+    'scipy >=1.5',
+    'pillow >=7.2.0',
+    'matplotlib >=3.5.1',
+    'jupyter-threejs-sage',
+]
+dynamic = ["version"]
+license = "GPL-2.0-or-later"
+authors = [{name = "The Sage Developers", email = "sage-support@googlegroups.com"}]
+maintainers = [
+    {name = "Matthias Köppe"},
+    {name = "passagemath contributors"},
+]
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+requires-python = ">=3.10, <3.14"
+
+[project.urls]
+"release notes" = "https://github.com/passagemath/passagemath/releases"
+"repo (upstream)" = "https://github.com/sagemath/sage"
+"repo" = "https://github.com/passagemath/passagemath"
+documentation = "https://passagemath.org/docs/latest"
+"homepage (upstream)" = "https://www.sagemath.org"
+"discourse" = "https://passagemath.discourse.group"
+"tracker (upstream)" = "https://github.com/sagemath/sage/issues"
+"tracker" = "https://github.com/passagemath/passagemath/issues"
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.optional-dependencies]
+test            = [
+    "passagemath-plot[tachyon]",
+    "passagemath-repl",
+]
+
+# extras by libraries
+jsmol           = ['jupyter-jsmol',]
+matplotlib      = []  # no extra needed
+playwright      = ['playwright',]
+tachyon         = ['passagemath-tachyon ~= 10.6.4.0',]
+threejs         = []  # no extra needed
+
+# extras by other features
+graphs          = ["passagemath-graphs"]
+polyhedra       = ["passagemath-polyhedra"]
+symbolics       = ["passagemath-symbolics"]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.dynamic]
+version = {file = ["VERSION.txt"]}
+
+[external]
+# External dependencies in the format proposed by https://peps.python.org/pep-0725
+build-requires = [
+  "virtual:compiler/c",
+  "virtual:compiler/cpp",
+  "pkg:generic/pkg-config",
+]
+
+host-requires = [
+  "pkg:generic/gmp",
+  "pkg:generic/mpc",
+  "pkg:generic/mpfr",
+]
+
+dependencies = [
+]

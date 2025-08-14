@@ -1,7 +1,7 @@
 r'''
 # `azurerm_automation_source_control`
 
-Refer to the Terraform Registry for docs: [`azurerm_automation_source_control`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control).
+Refer to the Terraform Registry for docs: [`azurerm_automation_source_control`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AutomationSourceControl(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.automationSourceControl.AutomationSourceControl",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control azurerm_automation_source_control}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control azurerm_automation_source_control}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class AutomationSourceControl(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control azurerm_automation_source_control} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control azurerm_automation_source_control} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param automation_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#automation_account_id AutomationSourceControl#automation_account_id}.
-        :param folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#folder_path AutomationSourceControl#folder_path}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#name AutomationSourceControl#name}.
-        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#repository_url AutomationSourceControl#repository_url}.
-        :param security: security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#security AutomationSourceControl#security}
-        :param source_control_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#source_control_type AutomationSourceControl#source_control_type}.
-        :param automatic_sync: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#automatic_sync AutomationSourceControl#automatic_sync}.
-        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#branch AutomationSourceControl#branch}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#description AutomationSourceControl#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#id AutomationSourceControl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param publish_runbook_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#publish_runbook_enabled AutomationSourceControl#publish_runbook_enabled}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#timeouts AutomationSourceControl#timeouts}
+        :param automation_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#automation_account_id AutomationSourceControl#automation_account_id}.
+        :param folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#folder_path AutomationSourceControl#folder_path}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#name AutomationSourceControl#name}.
+        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#repository_url AutomationSourceControl#repository_url}.
+        :param security: security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#security AutomationSourceControl#security}
+        :param source_control_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#source_control_type AutomationSourceControl#source_control_type}.
+        :param automatic_sync: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#automatic_sync AutomationSourceControl#automatic_sync}.
+        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#branch AutomationSourceControl#branch}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#description AutomationSourceControl#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#id AutomationSourceControl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param publish_runbook_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#publish_runbook_enabled AutomationSourceControl#publish_runbook_enabled}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#timeouts AutomationSourceControl#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class AutomationSourceControl(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AutomationSourceControl to import.
-        :param import_from_id: The id of the existing AutomationSourceControl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AutomationSourceControl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AutomationSourceControl to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class AutomationSourceControl(
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#token AutomationSourceControl#token}.
-        :param token_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#token_type AutomationSourceControl#token_type}.
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#refresh_token AutomationSourceControl#refresh_token}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#token AutomationSourceControl#token}.
+        :param token_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#token_type AutomationSourceControl#token_type}.
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#refresh_token AutomationSourceControl#refresh_token}.
         '''
         value = AutomationSourceControlSecurity(
             token=token, token_type=token_type, refresh_token=refresh_token
@@ -176,10 +176,10 @@ class AutomationSourceControl(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#create AutomationSourceControl#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#delete AutomationSourceControl#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#read AutomationSourceControl#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#update AutomationSourceControl#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#create AutomationSourceControl#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#delete AutomationSourceControl#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#read AutomationSourceControl#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#update AutomationSourceControl#update}.
         '''
         value = AutomationSourceControlTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -488,18 +488,18 @@ class AutomationSourceControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param automation_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#automation_account_id AutomationSourceControl#automation_account_id}.
-        :param folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#folder_path AutomationSourceControl#folder_path}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#name AutomationSourceControl#name}.
-        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#repository_url AutomationSourceControl#repository_url}.
-        :param security: security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#security AutomationSourceControl#security}
-        :param source_control_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#source_control_type AutomationSourceControl#source_control_type}.
-        :param automatic_sync: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#automatic_sync AutomationSourceControl#automatic_sync}.
-        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#branch AutomationSourceControl#branch}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#description AutomationSourceControl#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#id AutomationSourceControl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param publish_runbook_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#publish_runbook_enabled AutomationSourceControl#publish_runbook_enabled}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#timeouts AutomationSourceControl#timeouts}
+        :param automation_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#automation_account_id AutomationSourceControl#automation_account_id}.
+        :param folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#folder_path AutomationSourceControl#folder_path}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#name AutomationSourceControl#name}.
+        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#repository_url AutomationSourceControl#repository_url}.
+        :param security: security block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#security AutomationSourceControl#security}
+        :param source_control_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#source_control_type AutomationSourceControl#source_control_type}.
+        :param automatic_sync: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#automatic_sync AutomationSourceControl#automatic_sync}.
+        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#branch AutomationSourceControl#branch}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#description AutomationSourceControl#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#id AutomationSourceControl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param publish_runbook_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#publish_runbook_enabled AutomationSourceControl#publish_runbook_enabled}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#timeouts AutomationSourceControl#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -629,28 +629,28 @@ class AutomationSourceControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def automation_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#automation_account_id AutomationSourceControl#automation_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#automation_account_id AutomationSourceControl#automation_account_id}.'''
         result = self._values.get("automation_account_id")
         assert result is not None, "Required property 'automation_account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def folder_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#folder_path AutomationSourceControl#folder_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#folder_path AutomationSourceControl#folder_path}.'''
         result = self._values.get("folder_path")
         assert result is not None, "Required property 'folder_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#name AutomationSourceControl#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#name AutomationSourceControl#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def repository_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#repository_url AutomationSourceControl#repository_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#repository_url AutomationSourceControl#repository_url}.'''
         result = self._values.get("repository_url")
         assert result is not None, "Required property 'repository_url' is missing"
         return typing.cast(builtins.str, result)
@@ -659,7 +659,7 @@ class AutomationSourceControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def security(self) -> "AutomationSourceControlSecurity":
         '''security block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#security AutomationSourceControl#security}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#security AutomationSourceControl#security}
         '''
         result = self._values.get("security")
         assert result is not None, "Required property 'security' is missing"
@@ -667,7 +667,7 @@ class AutomationSourceControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def source_control_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#source_control_type AutomationSourceControl#source_control_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#source_control_type AutomationSourceControl#source_control_type}.'''
         result = self._values.get("source_control_type")
         assert result is not None, "Required property 'source_control_type' is missing"
         return typing.cast(builtins.str, result)
@@ -676,25 +676,25 @@ class AutomationSourceControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def automatic_sync(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#automatic_sync AutomationSourceControl#automatic_sync}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#automatic_sync AutomationSourceControl#automatic_sync}.'''
         result = self._values.get("automatic_sync")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def branch(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#branch AutomationSourceControl#branch}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#branch AutomationSourceControl#branch}.'''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#description AutomationSourceControl#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#description AutomationSourceControl#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#id AutomationSourceControl#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#id AutomationSourceControl#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -706,7 +706,7 @@ class AutomationSourceControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def publish_runbook_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#publish_runbook_enabled AutomationSourceControl#publish_runbook_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#publish_runbook_enabled AutomationSourceControl#publish_runbook_enabled}.'''
         result = self._values.get("publish_runbook_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -714,7 +714,7 @@ class AutomationSourceControlConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AutomationSourceControlTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#timeouts AutomationSourceControl#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#timeouts AutomationSourceControl#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AutomationSourceControlTimeouts"], result)
@@ -749,9 +749,9 @@ class AutomationSourceControlSecurity:
         refresh_token: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#token AutomationSourceControl#token}.
-        :param token_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#token_type AutomationSourceControl#token_type}.
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#refresh_token AutomationSourceControl#refresh_token}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#token AutomationSourceControl#token}.
+        :param token_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#token_type AutomationSourceControl#token_type}.
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#refresh_token AutomationSourceControl#refresh_token}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b3f57c2ecc3f71e4adcf4e19945dcb6ce8bb23b055fb17d0ce0914601a3b87a)
@@ -767,21 +767,21 @@ class AutomationSourceControlSecurity:
 
     @builtins.property
     def token(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#token AutomationSourceControl#token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#token AutomationSourceControl#token}.'''
         result = self._values.get("token")
         assert result is not None, "Required property 'token' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def token_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#token_type AutomationSourceControl#token_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#token_type AutomationSourceControl#token_type}.'''
         result = self._values.get("token_type")
         assert result is not None, "Required property 'token_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def refresh_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#refresh_token AutomationSourceControl#refresh_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#refresh_token AutomationSourceControl#refresh_token}.'''
         result = self._values.get("refresh_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -908,10 +908,10 @@ class AutomationSourceControlTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#create AutomationSourceControl#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#delete AutomationSourceControl#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#read AutomationSourceControl#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#update AutomationSourceControl#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#create AutomationSourceControl#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#delete AutomationSourceControl#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#read AutomationSourceControl#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#update AutomationSourceControl#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad441ecc02cd40d9285d18979514d0985ad2485d895cec6a38f0ff55415d91c6)
@@ -931,25 +931,25 @@ class AutomationSourceControlTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#create AutomationSourceControl#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#create AutomationSourceControl#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#delete AutomationSourceControl#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#delete AutomationSourceControl#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#read AutomationSourceControl#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#read AutomationSourceControl#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/automation_source_control#update AutomationSourceControl#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/automation_source_control#update AutomationSourceControl#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

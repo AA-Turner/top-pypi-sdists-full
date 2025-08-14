@@ -1,7 +1,7 @@
 r'''
 # `azuread_application_optional_claims`
 
-Refer to the Terraform Registry for docs: [`azuread_application_optional_claims`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims).
+Refer to the Terraform Registry for docs: [`azuread_application_optional_claims`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationOptionalClaimsA(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.applicationOptionalClaims.ApplicationOptionalClaimsA",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims azuread_application_optional_claims}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims azuread_application_optional_claims}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ApplicationOptionalClaimsA(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims azuread_application_optional_claims} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims azuread_application_optional_claims} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: The resource ID of the application to which these optional claims belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#application_id ApplicationOptionalClaimsA#application_id}
-        :param access_token: access_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#access_token ApplicationOptionalClaimsA#access_token}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#id ApplicationOptionalClaimsA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param id_token: id_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#id_token ApplicationOptionalClaimsA#id_token}
-        :param saml2_token: saml2_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#saml2_token ApplicationOptionalClaimsA#saml2_token}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#timeouts ApplicationOptionalClaimsA#timeouts}
+        :param application_id: The resource ID of the application to which these optional claims belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#application_id ApplicationOptionalClaimsA#application_id}
+        :param access_token: access_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#access_token ApplicationOptionalClaimsA#access_token}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#id ApplicationOptionalClaimsA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id_token: id_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#id_token ApplicationOptionalClaimsA#id_token}
+        :param saml2_token: saml2_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#saml2_token ApplicationOptionalClaimsA#saml2_token}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#timeouts ApplicationOptionalClaimsA#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ApplicationOptionalClaimsA(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationOptionalClaimsA to import.
-        :param import_from_id: The id of the existing ApplicationOptionalClaimsA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationOptionalClaimsA that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationOptionalClaimsA to import is found.
         '''
         if __debug__:
@@ -178,10 +178,10 @@ class ApplicationOptionalClaimsA(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#create ApplicationOptionalClaimsA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#delete ApplicationOptionalClaimsA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#read ApplicationOptionalClaimsA#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#update ApplicationOptionalClaimsA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#create ApplicationOptionalClaimsA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#delete ApplicationOptionalClaimsA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#read ApplicationOptionalClaimsA#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#update ApplicationOptionalClaimsA#update}.
         '''
         value = ApplicationOptionalClaimsTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -350,12 +350,12 @@ class ApplicationOptionalClaimsAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: The resource ID of the application to which these optional claims belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#application_id ApplicationOptionalClaimsA#application_id}
-        :param access_token: access_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#access_token ApplicationOptionalClaimsA#access_token}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#id ApplicationOptionalClaimsA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param id_token: id_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#id_token ApplicationOptionalClaimsA#id_token}
-        :param saml2_token: saml2_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#saml2_token ApplicationOptionalClaimsA#saml2_token}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#timeouts ApplicationOptionalClaimsA#timeouts}
+        :param application_id: The resource ID of the application to which these optional claims belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#application_id ApplicationOptionalClaimsA#application_id}
+        :param access_token: access_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#access_token ApplicationOptionalClaimsA#access_token}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#id ApplicationOptionalClaimsA#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id_token: id_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#id_token ApplicationOptionalClaimsA#id_token}
+        :param saml2_token: saml2_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#saml2_token ApplicationOptionalClaimsA#saml2_token}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#timeouts ApplicationOptionalClaimsA#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -472,7 +472,7 @@ class ApplicationOptionalClaimsAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''The resource ID of the application to which these optional claims belong.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#application_id ApplicationOptionalClaimsA#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#application_id ApplicationOptionalClaimsA#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -484,14 +484,14 @@ class ApplicationOptionalClaimsAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsAccessTokenA"]]]:
         '''access_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#access_token ApplicationOptionalClaimsA#access_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#access_token ApplicationOptionalClaimsA#access_token}
         '''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsAccessTokenA"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#id ApplicationOptionalClaimsA#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#id ApplicationOptionalClaimsA#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -505,7 +505,7 @@ class ApplicationOptionalClaimsAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsIdTokenA"]]]:
         '''id_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#id_token ApplicationOptionalClaimsA#id_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#id_token ApplicationOptionalClaimsA#id_token}
         '''
         result = self._values.get("id_token")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsIdTokenA"]]], result)
@@ -516,7 +516,7 @@ class ApplicationOptionalClaimsAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsSaml2TokenA"]]]:
         '''saml2_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#saml2_token ApplicationOptionalClaimsA#saml2_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#saml2_token ApplicationOptionalClaimsA#saml2_token}
         '''
         result = self._values.get("saml2_token")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsSaml2TokenA"]]], result)
@@ -525,7 +525,7 @@ class ApplicationOptionalClaimsAConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationOptionalClaimsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#timeouts ApplicationOptionalClaimsA#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#timeouts ApplicationOptionalClaimsA#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationOptionalClaimsTimeouts"], result)
@@ -562,10 +562,10 @@ class ApplicationOptionalClaimsAccessTokenA:
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
-        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
-        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
-        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
+        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
+        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
+        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
+        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb42c1075e05aabe368eb4a85820da753a1596fe3eec47462e072474a04a6bf4)
@@ -587,7 +587,7 @@ class ApplicationOptionalClaimsAccessTokenA:
     def name(self) -> builtins.str:
         '''The name of the optional claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -599,7 +599,7 @@ class ApplicationOptionalClaimsAccessTokenA:
 
         If a property exists in this list, it modifies the behaviour of the optional claim
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
         '''
         result = self._values.get("additional_properties")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -610,7 +610,7 @@ class ApplicationOptionalClaimsAccessTokenA:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the claim specified by the client is necessary to ensure a smooth authorization experience.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
         '''
         result = self._values.get("essential")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -621,7 +621,7 @@ class ApplicationOptionalClaimsAccessTokenA:
 
         If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -880,10 +880,10 @@ class ApplicationOptionalClaimsIdTokenA:
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
-        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
-        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
-        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
+        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
+        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
+        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
+        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c04ee037eb33d4bf2f1b699b38d32c33d2262a965ed7edb6e4500a369487f509)
@@ -905,7 +905,7 @@ class ApplicationOptionalClaimsIdTokenA:
     def name(self) -> builtins.str:
         '''The name of the optional claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -917,7 +917,7 @@ class ApplicationOptionalClaimsIdTokenA:
 
         If a property exists in this list, it modifies the behaviour of the optional claim
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
         '''
         result = self._values.get("additional_properties")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -928,7 +928,7 @@ class ApplicationOptionalClaimsIdTokenA:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the claim specified by the client is necessary to ensure a smooth authorization experience.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
         '''
         result = self._values.get("essential")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -939,7 +939,7 @@ class ApplicationOptionalClaimsIdTokenA:
 
         If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1198,10 +1198,10 @@ class ApplicationOptionalClaimsSaml2TokenA:
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
-        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
-        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
-        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
+        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
+        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
+        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
+        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5859067b8f3ed51015ae15ce8b9606b61055b1b2f9b3e90a67ce72297287df0)
@@ -1223,7 +1223,7 @@ class ApplicationOptionalClaimsSaml2TokenA:
     def name(self) -> builtins.str:
         '''The name of the optional claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#name ApplicationOptionalClaimsA#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1235,7 +1235,7 @@ class ApplicationOptionalClaimsSaml2TokenA:
 
         If a property exists in this list, it modifies the behaviour of the optional claim
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#additional_properties ApplicationOptionalClaimsA#additional_properties}
         '''
         result = self._values.get("additional_properties")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1246,7 +1246,7 @@ class ApplicationOptionalClaimsSaml2TokenA:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the claim specified by the client is necessary to ensure a smooth authorization experience.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#essential ApplicationOptionalClaimsA#essential}
         '''
         result = self._values.get("essential")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1257,7 +1257,7 @@ class ApplicationOptionalClaimsSaml2TokenA:
 
         If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#source ApplicationOptionalClaimsA#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1516,10 +1516,10 @@ class ApplicationOptionalClaimsTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#create ApplicationOptionalClaimsA#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#delete ApplicationOptionalClaimsA#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#read ApplicationOptionalClaimsA#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#update ApplicationOptionalClaimsA#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#create ApplicationOptionalClaimsA#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#delete ApplicationOptionalClaimsA#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#read ApplicationOptionalClaimsA#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#update ApplicationOptionalClaimsA#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90a734430194489a40fa59924095bd7bf78801df0cb13a6a1837158d21ee3562)
@@ -1539,25 +1539,25 @@ class ApplicationOptionalClaimsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#create ApplicationOptionalClaimsA#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#create ApplicationOptionalClaimsA#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#delete ApplicationOptionalClaimsA#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#delete ApplicationOptionalClaimsA#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#read ApplicationOptionalClaimsA#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#read ApplicationOptionalClaimsA#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_optional_claims#update ApplicationOptionalClaimsA#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_optional_claims#update ApplicationOptionalClaimsA#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

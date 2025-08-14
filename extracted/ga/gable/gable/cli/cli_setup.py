@@ -1,6 +1,7 @@
 import shutil
 
 import click
+
 from gable.cli.helpers.jsonpickle import register_jsonpickle_handlers
 from gable.cli.helpers.logging import configure_default_click_logging
 from gable.cli.options import global_options
@@ -34,7 +35,7 @@ register_jsonpickle_handlers()
     callback=print_version,
     expose_value=False,
     is_eager=True,
-    help="Show the version and exit."
+    help="Show the version and exit.",
 )
 def cli():
     pass

@@ -25,11 +25,11 @@ from typing_extensions import Self
 
 class UpdatedAccounts(BaseModel):
     """
-    Response model containing updated accounts with delta synchronization support.  This model extends the Delta model to include delta cursor information for efficient incremental synchronization.
+    Response model containing updated accounts with delta synchronization support.  This model extends the Delta model to include cursor information for efficient incremental synchronization.
     """ # noqa: E501
-    accounts: List[FoundAccountData] = Field(description="Array of account data for accounts that have been updated.  Each account in this array represents an account that has been modified since the specified `since_date` or since the `delta_cursor` timestamp.  ## Account Data Structure  Each account includes: - Standard account information (id, name, email, status, etc.) - Requested custom attributes (if specified) - Account metadata (creation date, last modified, etc.)  ## Empty Responses  An empty array indicates: - No accounts were updated in the specified time period - The delta cursor is up to date (no new changes) - The connector successfully processed the request  ## Response Size  Response size varies based on: - Number of updated accounts - Number of requested custom attributes - Connector-specific data richness")
-    delta_cursor: Optional[StrictStr] = Field(default=None, description="Cursor token for delta synchronization.  This token represents a point in time and should be included in subsequent requests to receive only the changes that occurred since that point.  - **First request**: Omit this parameter to get all available data - **Subsequent requests**: Include the `delta_cursor` from the previous response  The cursor is typically a base64-encoded string containing timestamp and other metadata needed for the delta synchronization.")
-    __properties: ClassVar[List[str]] = ["accounts", "delta_cursor"]
+    accounts: List[FoundAccountData] = Field(description="Array of account data for accounts that have been updated.  Each account in this array represents an account that has been modified since the specified `since` or since the `cursor` timestamp.  ## Account Data Structure  Each account includes: - Standard account information (id, name, email, status, etc.) - Requested custom attributes (if specified) - Account metadata (creation date, last modified, etc.)  ## Empty Responses  An empty array indicates: - No accounts were updated in the specified time period - The cursor is up to date (no new changes) - The connector successfully processed the request  ## Response Size  Response size varies based on: - Number of updated accounts - Number of requested custom attributes - Connector-specific data richness")
+    cursor: Optional[StrictStr] = Field(default=None, description="Cursor token for delta synchronization.  This token represents a point in time and should be included in subsequent requests to receive only the changes that occurred since that point.  - **First request**: Omit this parameter to get all available data - **Subsequent requests**: Include the `cursor` from the previous response  The cursor is typically a base64-encoded string containing timestamp and other metadata needed for the delta synchronization.")
+    __properties: ClassVar[List[str]] = ["accounts", "cursor"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -90,7 +90,7 @@ class UpdatedAccounts(BaseModel):
 
         _obj = cls.model_validate({
             "accounts": [FoundAccountData.from_dict(_item) for _item in obj["accounts"]] if obj.get("accounts") is not None else None,
-            "delta_cursor": obj.get("delta_cursor")
+            "cursor": obj.get("cursor")
         })
         return _obj
 

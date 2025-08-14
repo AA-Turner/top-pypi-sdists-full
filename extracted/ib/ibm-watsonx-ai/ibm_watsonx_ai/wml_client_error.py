@@ -3,11 +3,12 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 import logging
-import sys
 import re
+import sys
+from typing import TYPE_CHECKING
+
 import httpx
 
 if TYPE_CHECKING:
@@ -129,10 +130,10 @@ class ApiRequestFailure(WMLClientError):
         if str(response.status_code) == "404" and "DOCTYPE" in str(response.content):
             raise MissingWMLComponent()
 
-        elif str(
-            response.status_code
-        ) == "400" and "Invalid content. You cannot include any tags in the HTTP request." in str(
-            response.content
+        elif (
+            str(response.status_code) == "400"
+            and "Invalid content. You cannot include any tags in the HTTP request."
+            in str(response.content)
         ):
             WMLClientError.__init__(
                 self,
@@ -173,7 +174,7 @@ class UnexpectedType(WMLClientError, ValueError):
                 el_name,
                 (
                     "'{}'".format(expected_type)
-                    if type(expected_type) == type
+                    if type(expected_type) is type
                     else expected_type
                 ),
                 actual_type,
@@ -252,13 +253,13 @@ class MissingWMLComponent(WMLClientError):
 
 class CannotSetProjectOrSpace(WMLClientError):
     def __init__(self, reason: str):
-        WMLClientError.__init__(self, f"Cannot set Project or Space", reason=reason)
+        WMLClientError.__init__(self, "Cannot set Project or Space", reason=reason)
 
 
 class ForbiddenActionForGitBasedProject(WMLClientError):
     def __init__(self, reason: str):
         WMLClientError.__init__(
-            self, f"This action is not supported for git based project.", reason=reason
+            self, "This action is not supported for git based project.", reason=reason
         )
 
 
@@ -303,7 +304,7 @@ class EmptyDataSource(WMLClientError, ValueError):
 
 class SpaceIDandProjectIDCannotBeNone(WMLClientError, ValueError):
     def __init__(self, reason: str):
-        WMLClientError.__init__(self, f"Missing 'space_id' or 'project_id'.", reason)
+        WMLClientError.__init__(self, "Missing 'space_id' or 'project_id'.", reason)
 
 
 class ParamOutOfRange(WMLClientError, ValueError):
@@ -364,7 +365,7 @@ class UnexpectedKeyWordArgument(WMLClientError, TypeError):
 class UnsupportedOperation(WMLClientError):
     def __init__(self, reason: str):
         WMLClientError.__init__(
-            self, f"Operation is unsupported for this release.", reason
+            self, "Operation is unsupported for this release.", reason
         )
 
 

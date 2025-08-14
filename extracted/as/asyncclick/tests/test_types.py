@@ -74,14 +74,15 @@ def test_float_range_no_clamp_open():
         (-1, None, None, ()),
     ],
 )
-def test_cast_multi_default(runner, nargs, multiple, default, expect):
+@pytest.mark.anyio
+async def test_cast_multi_default(runner, nargs, multiple, default, expect):
     if nargs == -1:
         param = click.Argument(["a"], nargs=nargs, default=default)
     else:
         param = click.Option(["-a"], nargs=nargs, multiple=multiple, default=default)
 
     cli = click.Command("cli", params=[param], callback=lambda a: a)
-    result = runner.invoke(cli, standalone_mode=False)
+    result = await runner.invoke(cli, standalone_mode=False)
     assert result.exception is None
     assert result.return_value == expect
 
@@ -95,13 +96,14 @@ def test_cast_multi_default(runner, nargs, multiple, default, expect):
         (pathlib.Path, pathlib.Path("a", "b", "c.txt")),
     ],
 )
-def test_path_type(runner, cls, expect):
+@pytest.mark.anyio
+async def test_path_type(runner, cls, expect):
     cli = click.Command(
         "cli",
         params=[click.Argument(["p"], type=click.Path(path_type=cls))],
         callback=lambda p: p,
     )
-    result = runner.invoke(cli, ["a/b/c.txt"], standalone_mode=False)
+    result = await runner.invoke(cli, ["a/b/c.txt"], standalone_mode=False)
     assert result.exception is None
     assert result.return_value == expect
 
@@ -226,7 +228,12 @@ def test_path_surrogates(tmp_path, monkeypatch):
 def test_file_surrogates(type, tmp_path):
     path = tmp_path / "\udcff"
 
-    with pytest.raises(click.BadParameter, match="�': No such file or directory"):
+    # - common case: �': No such file or directory
+    # - special case: Illegal byte sequence
+    # The spacial case is seen with rootless Podman. The root cause is most
+    # likely that the path is handled by a user-space program (FUSE).
+    match = r"(�': No such file or directory|Illegal byte sequence)"
+    with pytest.raises(click.BadParameter, match=match):
         type.convert(path, None, None)
 
 
@@ -244,3 +251,9 @@ def test_invalid_path_with_esc_sequence():
             click.Path(dir_okay=False).convert(tempdir, None, None)
 
     assert "my\\ndir" in exc_info.value.message
+
+
+def test_choice_get_invalid_choice_message():
+    choice = click.Choice(["a", "b", "c"])
+    message = choice.get_invalid_choice_message("d", ctx=None)
+    assert message == "'d' is not one of 'a', 'b', 'c'."

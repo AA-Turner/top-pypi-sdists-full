@@ -6,24 +6,23 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
-from cachetools import cached, TTLCache
+
+from cachetools import TTLCache, cached
 
 from ibm_watsonx_ai._wrappers import requests
-from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.metanames import MemberMetaNames, ProjectsMetaNames
 from ibm_watsonx_ai.service_instance import ServiceInstance
-
-from ibm_watsonx_ai.metanames import ProjectsMetaNames, MemberMetaNames
-
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    ResourceIdByNameNotFound,
     MultipleResourceIdByNameFound,
+    ResourceIdByNameNotFound,
+    WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Projects(WMLResource):
@@ -60,7 +59,6 @@ class Projects(WMLResource):
 
             return self._handle_response(200, op_name, response_get)
         else:
-
             resources = []
 
             while True:
@@ -223,9 +221,7 @@ class Projects(WMLResource):
             project_endpoint, headers=self._client._get_headers()
         )
 
-        response = self._handle_response(
-            204, "project deletion", response_delete, False
-        )
+        self._handle_response(204, "project deletion", response_delete, False)
 
         print("DELETED")
 

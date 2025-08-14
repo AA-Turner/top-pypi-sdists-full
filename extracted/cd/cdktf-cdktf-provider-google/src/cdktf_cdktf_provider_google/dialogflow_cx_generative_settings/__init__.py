@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_cx_generative_settings`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_cx_generative_settings`](https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings).
+Refer to the Terraform Registry for docs: [`google_dialogflow_cx_generative_settings`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowCxGenerativeSettings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowCxGenerativeSettings.DialogflowCxGenerativeSettings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings google_dialogflow_cx_generative_settings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings google_dialogflow_cx_generative_settings}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class DialogflowCxGenerativeSettings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings google_dialogflow_cx_generative_settings} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings google_dialogflow_cx_generative_settings} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param language_code: Language for this settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
-        :param fallback_settings: fallback_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#fallback_settings DialogflowCxGenerativeSettings#fallback_settings}
-        :param generative_safety_settings: generative_safety_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#generative_safety_settings DialogflowCxGenerativeSettings#generative_safety_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#id DialogflowCxGenerativeSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param knowledge_connector_settings: knowledge_connector_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#knowledge_connector_settings DialogflowCxGenerativeSettings#knowledge_connector_settings}
-        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#llm_model_settings DialogflowCxGenerativeSettings#llm_model_settings}
-        :param parent: The agent to create a flow for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#parent DialogflowCxGenerativeSettings#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#timeouts DialogflowCxGenerativeSettings#timeouts}
+        :param language_code: Language for this settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
+        :param fallback_settings: fallback_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#fallback_settings DialogflowCxGenerativeSettings#fallback_settings}
+        :param generative_safety_settings: generative_safety_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#generative_safety_settings DialogflowCxGenerativeSettings#generative_safety_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#id DialogflowCxGenerativeSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param knowledge_connector_settings: knowledge_connector_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#knowledge_connector_settings DialogflowCxGenerativeSettings#knowledge_connector_settings}
+        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#llm_model_settings DialogflowCxGenerativeSettings#llm_model_settings}
+        :param parent: The agent to create a flow for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#parent DialogflowCxGenerativeSettings#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#timeouts DialogflowCxGenerativeSettings#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class DialogflowCxGenerativeSettings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowCxGenerativeSettings to import.
-        :param import_from_id: The id of the existing DialogflowCxGenerativeSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowCxGenerativeSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowCxGenerativeSettings to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class DialogflowCxGenerativeSettings(
         selected_prompt: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param prompt_templates: prompt_templates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#prompt_templates DialogflowCxGenerativeSettings#prompt_templates}
-        :param selected_prompt: Display name of the selected prompt. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#selected_prompt DialogflowCxGenerativeSettings#selected_prompt}
+        :param prompt_templates: prompt_templates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#prompt_templates DialogflowCxGenerativeSettings#prompt_templates}
+        :param selected_prompt: Display name of the selected prompt. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#selected_prompt DialogflowCxGenerativeSettings#selected_prompt}
         '''
         value = DialogflowCxGenerativeSettingsFallbackSettings(
             prompt_templates=prompt_templates, selected_prompt=selected_prompt
@@ -160,8 +160,8 @@ class DialogflowCxGenerativeSettings(
         default_banned_phrase_match_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param banned_phrases: banned_phrases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#banned_phrases DialogflowCxGenerativeSettings#banned_phrases}
-        :param default_banned_phrase_match_strategy: Optional. Default phrase match strategy for banned phrases. See `PhraseMatchStrategy <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/GenerativeSettings#phrasematchstrategy>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#default_banned_phrase_match_strategy DialogflowCxGenerativeSettings#default_banned_phrase_match_strategy}
+        :param banned_phrases: banned_phrases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#banned_phrases DialogflowCxGenerativeSettings#banned_phrases}
+        :param default_banned_phrase_match_strategy: Optional. Default phrase match strategy for banned phrases. See `PhraseMatchStrategy <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/GenerativeSettings#phrasematchstrategy>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#default_banned_phrase_match_strategy DialogflowCxGenerativeSettings#default_banned_phrase_match_strategy}
         '''
         value = DialogflowCxGenerativeSettingsGenerativeSafetySettings(
             banned_phrases=banned_phrases,
@@ -182,12 +182,12 @@ class DialogflowCxGenerativeSettings(
         disable_data_store_fallback: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param agent: Name of the virtual agent. Used for LLM prompt. Can be left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#agent DialogflowCxGenerativeSettings#agent}
-        :param agent_identity: Identity of the agent, e.g. "virtual agent", "AI assistant". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#agent_identity DialogflowCxGenerativeSettings#agent_identity}
-        :param agent_scope: Agent scope, e.g. "Example company website", "internal Example company website for employees", "manual of car owner". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#agent_scope DialogflowCxGenerativeSettings#agent_scope}
-        :param business: Name of the company, organization or other entity that the agent represents. Used for knowledge connector LLM prompt and for knowledge search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#business DialogflowCxGenerativeSettings#business}
-        :param business_description: Company description, used for LLM prompt, e.g. "a family company selling freshly roasted coffee beans".''. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#business_description DialogflowCxGenerativeSettings#business_description}
-        :param disable_data_store_fallback: Whether to disable fallback to Data Store search results (in case the LLM couldn't pick a proper answer). Per default the feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#disable_data_store_fallback DialogflowCxGenerativeSettings#disable_data_store_fallback}
+        :param agent: Name of the virtual agent. Used for LLM prompt. Can be left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#agent DialogflowCxGenerativeSettings#agent}
+        :param agent_identity: Identity of the agent, e.g. "virtual agent", "AI assistant". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#agent_identity DialogflowCxGenerativeSettings#agent_identity}
+        :param agent_scope: Agent scope, e.g. "Example company website", "internal Example company website for employees", "manual of car owner". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#agent_scope DialogflowCxGenerativeSettings#agent_scope}
+        :param business: Name of the company, organization or other entity that the agent represents. Used for knowledge connector LLM prompt and for knowledge search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#business DialogflowCxGenerativeSettings#business}
+        :param business_description: Company description, used for LLM prompt, e.g. "a family company selling freshly roasted coffee beans".''. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#business_description DialogflowCxGenerativeSettings#business_description}
+        :param disable_data_store_fallback: Whether to disable fallback to Data Store search results (in case the LLM couldn't pick a proper answer). Per default the feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#disable_data_store_fallback DialogflowCxGenerativeSettings#disable_data_store_fallback}
         '''
         value = DialogflowCxGenerativeSettingsKnowledgeConnectorSettings(
             agent=agent,
@@ -208,8 +208,8 @@ class DialogflowCxGenerativeSettings(
         prompt_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#model DialogflowCxGenerativeSettings#model}
-        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
+        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#model DialogflowCxGenerativeSettings#model}
+        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
         '''
         value = DialogflowCxGenerativeSettingsLlmModelSettings(
             model=model, prompt_text=prompt_text
@@ -226,9 +226,9 @@ class DialogflowCxGenerativeSettings(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#create DialogflowCxGenerativeSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#delete DialogflowCxGenerativeSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#update DialogflowCxGenerativeSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#create DialogflowCxGenerativeSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#delete DialogflowCxGenerativeSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#update DialogflowCxGenerativeSettings#update}.
         '''
         value = DialogflowCxGenerativeSettingsTimeouts(
             create=create, delete=delete, update=update
@@ -451,14 +451,14 @@ class DialogflowCxGenerativeSettingsConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param language_code: Language for this settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
-        :param fallback_settings: fallback_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#fallback_settings DialogflowCxGenerativeSettings#fallback_settings}
-        :param generative_safety_settings: generative_safety_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#generative_safety_settings DialogflowCxGenerativeSettings#generative_safety_settings}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#id DialogflowCxGenerativeSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param knowledge_connector_settings: knowledge_connector_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#knowledge_connector_settings DialogflowCxGenerativeSettings#knowledge_connector_settings}
-        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#llm_model_settings DialogflowCxGenerativeSettings#llm_model_settings}
-        :param parent: The agent to create a flow for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#parent DialogflowCxGenerativeSettings#parent}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#timeouts DialogflowCxGenerativeSettings#timeouts}
+        :param language_code: Language for this settings. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
+        :param fallback_settings: fallback_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#fallback_settings DialogflowCxGenerativeSettings#fallback_settings}
+        :param generative_safety_settings: generative_safety_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#generative_safety_settings DialogflowCxGenerativeSettings#generative_safety_settings}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#id DialogflowCxGenerativeSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param knowledge_connector_settings: knowledge_connector_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#knowledge_connector_settings DialogflowCxGenerativeSettings#knowledge_connector_settings}
+        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#llm_model_settings DialogflowCxGenerativeSettings#llm_model_settings}
+        :param parent: The agent to create a flow for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#parent DialogflowCxGenerativeSettings#parent}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#timeouts DialogflowCxGenerativeSettings#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -589,7 +589,7 @@ class DialogflowCxGenerativeSettingsConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def language_code(self) -> builtins.str:
         '''Language for this settings.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
         '''
         result = self._values.get("language_code")
         assert result is not None, "Required property 'language_code' is missing"
@@ -601,7 +601,7 @@ class DialogflowCxGenerativeSettingsConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional["DialogflowCxGenerativeSettingsFallbackSettings"]:
         '''fallback_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#fallback_settings DialogflowCxGenerativeSettings#fallback_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#fallback_settings DialogflowCxGenerativeSettings#fallback_settings}
         '''
         result = self._values.get("fallback_settings")
         return typing.cast(typing.Optional["DialogflowCxGenerativeSettingsFallbackSettings"], result)
@@ -612,14 +612,14 @@ class DialogflowCxGenerativeSettingsConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional["DialogflowCxGenerativeSettingsGenerativeSafetySettings"]:
         '''generative_safety_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#generative_safety_settings DialogflowCxGenerativeSettings#generative_safety_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#generative_safety_settings DialogflowCxGenerativeSettings#generative_safety_settings}
         '''
         result = self._values.get("generative_safety_settings")
         return typing.cast(typing.Optional["DialogflowCxGenerativeSettingsGenerativeSafetySettings"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#id DialogflowCxGenerativeSettings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#id DialogflowCxGenerativeSettings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -633,7 +633,7 @@ class DialogflowCxGenerativeSettingsConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional["DialogflowCxGenerativeSettingsKnowledgeConnectorSettings"]:
         '''knowledge_connector_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#knowledge_connector_settings DialogflowCxGenerativeSettings#knowledge_connector_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#knowledge_connector_settings DialogflowCxGenerativeSettings#knowledge_connector_settings}
         '''
         result = self._values.get("knowledge_connector_settings")
         return typing.cast(typing.Optional["DialogflowCxGenerativeSettingsKnowledgeConnectorSettings"], result)
@@ -644,7 +644,7 @@ class DialogflowCxGenerativeSettingsConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional["DialogflowCxGenerativeSettingsLlmModelSettings"]:
         '''llm_model_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#llm_model_settings DialogflowCxGenerativeSettings#llm_model_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#llm_model_settings DialogflowCxGenerativeSettings#llm_model_settings}
         '''
         result = self._values.get("llm_model_settings")
         return typing.cast(typing.Optional["DialogflowCxGenerativeSettingsLlmModelSettings"], result)
@@ -653,7 +653,7 @@ class DialogflowCxGenerativeSettingsConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def parent(self) -> typing.Optional[builtins.str]:
         '''The agent to create a flow for. Format: projects//locations//agents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#parent DialogflowCxGenerativeSettings#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#parent DialogflowCxGenerativeSettings#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -662,7 +662,7 @@ class DialogflowCxGenerativeSettingsConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["DialogflowCxGenerativeSettingsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#timeouts DialogflowCxGenerativeSettings#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#timeouts DialogflowCxGenerativeSettings#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowCxGenerativeSettingsTimeouts"], result)
@@ -695,8 +695,8 @@ class DialogflowCxGenerativeSettingsFallbackSettings:
         selected_prompt: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param prompt_templates: prompt_templates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#prompt_templates DialogflowCxGenerativeSettings#prompt_templates}
-        :param selected_prompt: Display name of the selected prompt. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#selected_prompt DialogflowCxGenerativeSettings#selected_prompt}
+        :param prompt_templates: prompt_templates block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#prompt_templates DialogflowCxGenerativeSettings#prompt_templates}
+        :param selected_prompt: Display name of the selected prompt. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#selected_prompt DialogflowCxGenerativeSettings#selected_prompt}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2033f4d4bae1361748107906fa4c87a0a77666ff961a47e4961fc55daf443e73)
@@ -714,7 +714,7 @@ class DialogflowCxGenerativeSettingsFallbackSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxGenerativeSettingsFallbackSettingsPromptTemplates"]]]:
         '''prompt_templates block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#prompt_templates DialogflowCxGenerativeSettings#prompt_templates}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#prompt_templates DialogflowCxGenerativeSettings#prompt_templates}
         '''
         result = self._values.get("prompt_templates")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxGenerativeSettingsFallbackSettingsPromptTemplates"]]], result)
@@ -723,7 +723,7 @@ class DialogflowCxGenerativeSettingsFallbackSettings:
     def selected_prompt(self) -> typing.Optional[builtins.str]:
         '''Display name of the selected prompt.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#selected_prompt DialogflowCxGenerativeSettings#selected_prompt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#selected_prompt DialogflowCxGenerativeSettings#selected_prompt}
         '''
         result = self._values.get("selected_prompt")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -848,9 +848,9 @@ class DialogflowCxGenerativeSettingsFallbackSettingsPromptTemplates:
         prompt_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: Prompt name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#display_name DialogflowCxGenerativeSettings#display_name}
-        :param frozen: If the flag is true, the prompt is frozen and cannot be modified by users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#frozen DialogflowCxGenerativeSettings#frozen}
-        :param prompt_text: Prompt text that is sent to a LLM on no-match default, placeholders are filled downstream. For example: "Here is a conversation $conversation, a response is: " Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
+        :param display_name: Prompt name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#display_name DialogflowCxGenerativeSettings#display_name}
+        :param frozen: If the flag is true, the prompt is frozen and cannot be modified by users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#frozen DialogflowCxGenerativeSettings#frozen}
+        :param prompt_text: Prompt text that is sent to a LLM on no-match default, placeholders are filled downstream. For example: "Here is a conversation $conversation, a response is: " Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76e576b38c0dbf7cd1bde2ab603173287168b8a7cced02bb7cd7697b1a05e8ed)
@@ -869,7 +869,7 @@ class DialogflowCxGenerativeSettingsFallbackSettingsPromptTemplates:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Prompt name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#display_name DialogflowCxGenerativeSettings#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#display_name DialogflowCxGenerativeSettings#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -880,7 +880,7 @@ class DialogflowCxGenerativeSettingsFallbackSettingsPromptTemplates:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If the flag is true, the prompt is frozen and cannot be modified by users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#frozen DialogflowCxGenerativeSettings#frozen}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#frozen DialogflowCxGenerativeSettings#frozen}
         '''
         result = self._values.get("frozen")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -891,7 +891,7 @@ class DialogflowCxGenerativeSettingsFallbackSettingsPromptTemplates:
 
         For example: "Here is a conversation $conversation, a response is: "
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
         '''
         result = self._values.get("prompt_text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1129,8 +1129,8 @@ class DialogflowCxGenerativeSettingsGenerativeSafetySettings:
         default_banned_phrase_match_strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param banned_phrases: banned_phrases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#banned_phrases DialogflowCxGenerativeSettings#banned_phrases}
-        :param default_banned_phrase_match_strategy: Optional. Default phrase match strategy for banned phrases. See `PhraseMatchStrategy <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/GenerativeSettings#phrasematchstrategy>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#default_banned_phrase_match_strategy DialogflowCxGenerativeSettings#default_banned_phrase_match_strategy}
+        :param banned_phrases: banned_phrases block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#banned_phrases DialogflowCxGenerativeSettings#banned_phrases}
+        :param default_banned_phrase_match_strategy: Optional. Default phrase match strategy for banned phrases. See `PhraseMatchStrategy <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/GenerativeSettings#phrasematchstrategy>`_ for valid values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#default_banned_phrase_match_strategy DialogflowCxGenerativeSettings#default_banned_phrase_match_strategy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4aafa25e7a87cfdab684399b326d3bde07184ea94ecf2b9fe1b43c96bb85f61e)
@@ -1148,7 +1148,7 @@ class DialogflowCxGenerativeSettingsGenerativeSafetySettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxGenerativeSettingsGenerativeSafetySettingsBannedPhrases"]]]:
         '''banned_phrases block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#banned_phrases DialogflowCxGenerativeSettings#banned_phrases}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#banned_phrases DialogflowCxGenerativeSettings#banned_phrases}
         '''
         result = self._values.get("banned_phrases")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxGenerativeSettingsGenerativeSafetySettingsBannedPhrases"]]], result)
@@ -1157,7 +1157,7 @@ class DialogflowCxGenerativeSettingsGenerativeSafetySettings:
     def default_banned_phrase_match_strategy(self) -> typing.Optional[builtins.str]:
         '''Optional. Default phrase match strategy for banned phrases. See `PhraseMatchStrategy <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/GenerativeSettings#phrasematchstrategy>`_ for valid values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#default_banned_phrase_match_strategy DialogflowCxGenerativeSettings#default_banned_phrase_match_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#default_banned_phrase_match_strategy DialogflowCxGenerativeSettings#default_banned_phrase_match_strategy}
         '''
         result = self._values.get("default_banned_phrase_match_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1182,8 +1182,8 @@ class DialogflowCxGenerativeSettingsGenerativeSafetySettings:
 class DialogflowCxGenerativeSettingsGenerativeSafetySettingsBannedPhrases:
     def __init__(self, *, language_code: builtins.str, text: builtins.str) -> None:
         '''
-        :param language_code: Language code of the phrase. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
-        :param text: Text input which can be used for prompt or banned phrases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#text DialogflowCxGenerativeSettings#text}
+        :param language_code: Language code of the phrase. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
+        :param text: Text input which can be used for prompt or banned phrases. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#text DialogflowCxGenerativeSettings#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__799b93b78e93eccee09f188d345bc6697b5b3354d2900129fab4ad115d2bc0ae)
@@ -1198,7 +1198,7 @@ class DialogflowCxGenerativeSettingsGenerativeSafetySettingsBannedPhrases:
     def language_code(self) -> builtins.str:
         '''Language code of the phrase.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#language_code DialogflowCxGenerativeSettings#language_code}
         '''
         result = self._values.get("language_code")
         assert result is not None, "Required property 'language_code' is missing"
@@ -1208,7 +1208,7 @@ class DialogflowCxGenerativeSettingsGenerativeSafetySettingsBannedPhrases:
     def text(self) -> builtins.str:
         '''Text input which can be used for prompt or banned phrases.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#text DialogflowCxGenerativeSettings#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#text DialogflowCxGenerativeSettings#text}
         '''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
@@ -1513,12 +1513,12 @@ class DialogflowCxGenerativeSettingsKnowledgeConnectorSettings:
         disable_data_store_fallback: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param agent: Name of the virtual agent. Used for LLM prompt. Can be left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#agent DialogflowCxGenerativeSettings#agent}
-        :param agent_identity: Identity of the agent, e.g. "virtual agent", "AI assistant". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#agent_identity DialogflowCxGenerativeSettings#agent_identity}
-        :param agent_scope: Agent scope, e.g. "Example company website", "internal Example company website for employees", "manual of car owner". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#agent_scope DialogflowCxGenerativeSettings#agent_scope}
-        :param business: Name of the company, organization or other entity that the agent represents. Used for knowledge connector LLM prompt and for knowledge search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#business DialogflowCxGenerativeSettings#business}
-        :param business_description: Company description, used for LLM prompt, e.g. "a family company selling freshly roasted coffee beans".''. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#business_description DialogflowCxGenerativeSettings#business_description}
-        :param disable_data_store_fallback: Whether to disable fallback to Data Store search results (in case the LLM couldn't pick a proper answer). Per default the feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#disable_data_store_fallback DialogflowCxGenerativeSettings#disable_data_store_fallback}
+        :param agent: Name of the virtual agent. Used for LLM prompt. Can be left empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#agent DialogflowCxGenerativeSettings#agent}
+        :param agent_identity: Identity of the agent, e.g. "virtual agent", "AI assistant". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#agent_identity DialogflowCxGenerativeSettings#agent_identity}
+        :param agent_scope: Agent scope, e.g. "Example company website", "internal Example company website for employees", "manual of car owner". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#agent_scope DialogflowCxGenerativeSettings#agent_scope}
+        :param business: Name of the company, organization or other entity that the agent represents. Used for knowledge connector LLM prompt and for knowledge search. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#business DialogflowCxGenerativeSettings#business}
+        :param business_description: Company description, used for LLM prompt, e.g. "a family company selling freshly roasted coffee beans".''. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#business_description DialogflowCxGenerativeSettings#business_description}
+        :param disable_data_store_fallback: Whether to disable fallback to Data Store search results (in case the LLM couldn't pick a proper answer). Per default the feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#disable_data_store_fallback DialogflowCxGenerativeSettings#disable_data_store_fallback}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a0f22e5ab24673e30b1b1db9a6a71e3d4354b92c71627385e3562552381a1385)
@@ -1546,7 +1546,7 @@ class DialogflowCxGenerativeSettingsKnowledgeConnectorSettings:
     def agent(self) -> typing.Optional[builtins.str]:
         '''Name of the virtual agent. Used for LLM prompt. Can be left empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#agent DialogflowCxGenerativeSettings#agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#agent DialogflowCxGenerativeSettings#agent}
         '''
         result = self._values.get("agent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1555,7 +1555,7 @@ class DialogflowCxGenerativeSettingsKnowledgeConnectorSettings:
     def agent_identity(self) -> typing.Optional[builtins.str]:
         '''Identity of the agent, e.g. "virtual agent", "AI assistant".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#agent_identity DialogflowCxGenerativeSettings#agent_identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#agent_identity DialogflowCxGenerativeSettings#agent_identity}
         '''
         result = self._values.get("agent_identity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1564,7 +1564,7 @@ class DialogflowCxGenerativeSettingsKnowledgeConnectorSettings:
     def agent_scope(self) -> typing.Optional[builtins.str]:
         '''Agent scope, e.g. "Example company website", "internal Example company website for employees", "manual of car owner".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#agent_scope DialogflowCxGenerativeSettings#agent_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#agent_scope DialogflowCxGenerativeSettings#agent_scope}
         '''
         result = self._values.get("agent_scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1575,7 +1575,7 @@ class DialogflowCxGenerativeSettingsKnowledgeConnectorSettings:
 
         Used for knowledge connector LLM prompt and for knowledge search.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#business DialogflowCxGenerativeSettings#business}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#business DialogflowCxGenerativeSettings#business}
         '''
         result = self._values.get("business")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1584,7 +1584,7 @@ class DialogflowCxGenerativeSettingsKnowledgeConnectorSettings:
     def business_description(self) -> typing.Optional[builtins.str]:
         '''Company description, used for LLM prompt, e.g. "a family company selling freshly roasted coffee beans".''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#business_description DialogflowCxGenerativeSettings#business_description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#business_description DialogflowCxGenerativeSettings#business_description}
         '''
         result = self._values.get("business_description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1597,7 +1597,7 @@ class DialogflowCxGenerativeSettingsKnowledgeConnectorSettings:
 
         Per default the feature is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#disable_data_store_fallback DialogflowCxGenerativeSettings#disable_data_store_fallback}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#disable_data_store_fallback DialogflowCxGenerativeSettings#disable_data_store_fallback}
         '''
         result = self._values.get("disable_data_store_fallback")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1798,8 +1798,8 @@ class DialogflowCxGenerativeSettingsLlmModelSettings:
         prompt_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#model DialogflowCxGenerativeSettings#model}
-        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
+        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#model DialogflowCxGenerativeSettings#model}
+        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__607eb357a726144355be3840a6bc58530b57f053d5d2418e0a2e47d7f7c2ef2f)
@@ -1815,7 +1815,7 @@ class DialogflowCxGenerativeSettingsLlmModelSettings:
     def model(self) -> typing.Optional[builtins.str]:
         '''The selected LLM model.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#model DialogflowCxGenerativeSettings#model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#model DialogflowCxGenerativeSettings#model}
         '''
         result = self._values.get("model")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1824,7 +1824,7 @@ class DialogflowCxGenerativeSettingsLlmModelSettings:
     def prompt_text(self) -> typing.Optional[builtins.str]:
         '''The custom prompt to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#prompt_text DialogflowCxGenerativeSettings#prompt_text}
         '''
         result = self._values.get("prompt_text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1935,9 +1935,9 @@ class DialogflowCxGenerativeSettingsTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#create DialogflowCxGenerativeSettings#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#delete DialogflowCxGenerativeSettings#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#update DialogflowCxGenerativeSettings#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#create DialogflowCxGenerativeSettings#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#delete DialogflowCxGenerativeSettings#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#update DialogflowCxGenerativeSettings#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0667d05f2c297e6de0f3b7499f846536a522df1a5f4f52f299115b11a3a1c613)
@@ -1954,19 +1954,19 @@ class DialogflowCxGenerativeSettingsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#create DialogflowCxGenerativeSettings#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#create DialogflowCxGenerativeSettings#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#delete DialogflowCxGenerativeSettings#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#delete DialogflowCxGenerativeSettings#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/dialogflow_cx_generative_settings#update DialogflowCxGenerativeSettings#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_generative_settings#update DialogflowCxGenerativeSettings#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

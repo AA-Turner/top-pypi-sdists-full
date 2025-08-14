@@ -1,7 +1,7 @@
 r'''
 # `azuread_group_role_management_policy`
 
-Refer to the Terraform Registry for docs: [`azuread_group_role_management_policy`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy).
+Refer to the Terraform Registry for docs: [`azuread_group_role_management_policy`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GroupRoleManagementPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.groupRoleManagementPolicy.GroupRoleManagementPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy azuread_group_role_management_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy azuread_group_role_management_policy}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class GroupRoleManagementPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy azuread_group_role_management_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy azuread_group_role_management_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param group_id: ID of the group to which this policy is assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#group_id GroupRoleManagementPolicy#group_id}
-        :param role_id: The ID of the role of this policy to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#role_id GroupRoleManagementPolicy#role_id}
-        :param activation_rules: activation_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#activation_rules GroupRoleManagementPolicy#activation_rules}
-        :param active_assignment_rules: active_assignment_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#active_assignment_rules GroupRoleManagementPolicy#active_assignment_rules}
-        :param eligible_assignment_rules: eligible_assignment_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#eligible_assignment_rules GroupRoleManagementPolicy#eligible_assignment_rules}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#id GroupRoleManagementPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notification_rules: notification_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_rules GroupRoleManagementPolicy#notification_rules}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#timeouts GroupRoleManagementPolicy#timeouts}
+        :param group_id: ID of the group to which this policy is assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#group_id GroupRoleManagementPolicy#group_id}
+        :param role_id: The ID of the role of this policy to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#role_id GroupRoleManagementPolicy#role_id}
+        :param activation_rules: activation_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#activation_rules GroupRoleManagementPolicy#activation_rules}
+        :param active_assignment_rules: active_assignment_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#active_assignment_rules GroupRoleManagementPolicy#active_assignment_rules}
+        :param eligible_assignment_rules: eligible_assignment_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#eligible_assignment_rules GroupRoleManagementPolicy#eligible_assignment_rules}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#id GroupRoleManagementPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notification_rules: notification_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_rules GroupRoleManagementPolicy#notification_rules}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#timeouts GroupRoleManagementPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class GroupRoleManagementPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GroupRoleManagementPolicy to import.
-        :param import_from_id: The id of the existing GroupRoleManagementPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GroupRoleManagementPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GroupRoleManagementPolicy to import is found.
         '''
         if __debug__:
@@ -148,13 +148,13 @@ class GroupRoleManagementPolicy(
         require_ticket_info: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param approval_stage: approval_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approval_stage GroupRoleManagementPolicy#approval_stage}
-        :param maximum_duration: The time after which the an activation can be valid for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#maximum_duration GroupRoleManagementPolicy#maximum_duration}
-        :param require_approval: Whether an approval is required for activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_approval GroupRoleManagementPolicy#require_approval}
-        :param required_conditional_access_authentication_context: Whether a conditional access context is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#required_conditional_access_authentication_context GroupRoleManagementPolicy#required_conditional_access_authentication_context}
-        :param require_justification: Whether a justification is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
-        :param require_multifactor_authentication: Whether multi-factor authentication is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
-        :param require_ticket_info: Whether ticket information is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
+        :param approval_stage: approval_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approval_stage GroupRoleManagementPolicy#approval_stage}
+        :param maximum_duration: The time after which the an activation can be valid for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#maximum_duration GroupRoleManagementPolicy#maximum_duration}
+        :param require_approval: Whether an approval is required for activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_approval GroupRoleManagementPolicy#require_approval}
+        :param required_conditional_access_authentication_context: Whether a conditional access context is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#required_conditional_access_authentication_context GroupRoleManagementPolicy#required_conditional_access_authentication_context}
+        :param require_justification: Whether a justification is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
+        :param require_multifactor_authentication: Whether multi-factor authentication is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
+        :param require_ticket_info: Whether ticket information is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
         '''
         value = GroupRoleManagementPolicyActivationRules(
             approval_stage=approval_stage,
@@ -179,11 +179,11 @@ class GroupRoleManagementPolicy(
         require_ticket_info: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param expiration_required: Must the assignment have an expiry date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
-        :param expire_after: The duration after which assignments expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
-        :param require_justification: Whether a justification is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
-        :param require_multifactor_authentication: Whether multi-factor authentication is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
-        :param require_ticket_info: Whether ticket information is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
+        :param expiration_required: Must the assignment have an expiry date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
+        :param expire_after: The duration after which assignments expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
+        :param require_justification: Whether a justification is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
+        :param require_multifactor_authentication: Whether multi-factor authentication is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
+        :param require_ticket_info: Whether ticket information is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
         '''
         value = GroupRoleManagementPolicyActiveAssignmentRules(
             expiration_required=expiration_required,
@@ -203,8 +203,8 @@ class GroupRoleManagementPolicy(
         expire_after: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expiration_required: Must the assignment have an expiry date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
-        :param expire_after: The duration after which assignments expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
+        :param expiration_required: Must the assignment have an expiry date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
+        :param expire_after: The duration after which assignments expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
         '''
         value = GroupRoleManagementPolicyEligibleAssignmentRules(
             expiration_required=expiration_required, expire_after=expire_after
@@ -221,9 +221,9 @@ class GroupRoleManagementPolicy(
         eligible_assignments: typing.Optional[typing.Union["GroupRoleManagementPolicyNotificationRulesEligibleAssignments", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param active_assignments: active_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#active_assignments GroupRoleManagementPolicy#active_assignments}
-        :param eligible_activations: eligible_activations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#eligible_activations GroupRoleManagementPolicy#eligible_activations}
-        :param eligible_assignments: eligible_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#eligible_assignments GroupRoleManagementPolicy#eligible_assignments}
+        :param active_assignments: active_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#active_assignments GroupRoleManagementPolicy#active_assignments}
+        :param eligible_activations: eligible_activations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#eligible_activations GroupRoleManagementPolicy#eligible_activations}
+        :param eligible_assignments: eligible_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#eligible_assignments GroupRoleManagementPolicy#eligible_assignments}
         '''
         value = GroupRoleManagementPolicyNotificationRules(
             active_assignments=active_assignments,
@@ -243,10 +243,10 @@ class GroupRoleManagementPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#create GroupRoleManagementPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#delete GroupRoleManagementPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#read GroupRoleManagementPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#update GroupRoleManagementPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#create GroupRoleManagementPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#delete GroupRoleManagementPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#read GroupRoleManagementPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#update GroupRoleManagementPolicy#update}.
         '''
         value = GroupRoleManagementPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -447,13 +447,13 @@ class GroupRoleManagementPolicyActivationRules:
         require_ticket_info: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param approval_stage: approval_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approval_stage GroupRoleManagementPolicy#approval_stage}
-        :param maximum_duration: The time after which the an activation can be valid for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#maximum_duration GroupRoleManagementPolicy#maximum_duration}
-        :param require_approval: Whether an approval is required for activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_approval GroupRoleManagementPolicy#require_approval}
-        :param required_conditional_access_authentication_context: Whether a conditional access context is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#required_conditional_access_authentication_context GroupRoleManagementPolicy#required_conditional_access_authentication_context}
-        :param require_justification: Whether a justification is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
-        :param require_multifactor_authentication: Whether multi-factor authentication is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
-        :param require_ticket_info: Whether ticket information is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
+        :param approval_stage: approval_stage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approval_stage GroupRoleManagementPolicy#approval_stage}
+        :param maximum_duration: The time after which the an activation can be valid for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#maximum_duration GroupRoleManagementPolicy#maximum_duration}
+        :param require_approval: Whether an approval is required for activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_approval GroupRoleManagementPolicy#require_approval}
+        :param required_conditional_access_authentication_context: Whether a conditional access context is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#required_conditional_access_authentication_context GroupRoleManagementPolicy#required_conditional_access_authentication_context}
+        :param require_justification: Whether a justification is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
+        :param require_multifactor_authentication: Whether multi-factor authentication is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
+        :param require_ticket_info: Whether ticket information is required during activation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
         '''
         if isinstance(approval_stage, dict):
             approval_stage = GroupRoleManagementPolicyActivationRulesApprovalStage(**approval_stage)
@@ -488,7 +488,7 @@ class GroupRoleManagementPolicyActivationRules:
     ) -> typing.Optional["GroupRoleManagementPolicyActivationRulesApprovalStage"]:
         '''approval_stage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approval_stage GroupRoleManagementPolicy#approval_stage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approval_stage GroupRoleManagementPolicy#approval_stage}
         '''
         result = self._values.get("approval_stage")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyActivationRulesApprovalStage"], result)
@@ -497,7 +497,7 @@ class GroupRoleManagementPolicyActivationRules:
     def maximum_duration(self) -> typing.Optional[builtins.str]:
         '''The time after which the an activation can be valid for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#maximum_duration GroupRoleManagementPolicy#maximum_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#maximum_duration GroupRoleManagementPolicy#maximum_duration}
         '''
         result = self._values.get("maximum_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -508,7 +508,7 @@ class GroupRoleManagementPolicyActivationRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether an approval is required for activation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_approval GroupRoleManagementPolicy#require_approval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_approval GroupRoleManagementPolicy#require_approval}
         '''
         result = self._values.get("require_approval")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -519,7 +519,7 @@ class GroupRoleManagementPolicyActivationRules:
     ) -> typing.Optional[builtins.str]:
         '''Whether a conditional access context is required during activation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#required_conditional_access_authentication_context GroupRoleManagementPolicy#required_conditional_access_authentication_context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#required_conditional_access_authentication_context GroupRoleManagementPolicy#required_conditional_access_authentication_context}
         '''
         result = self._values.get("required_conditional_access_authentication_context")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -530,7 +530,7 @@ class GroupRoleManagementPolicyActivationRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether a justification is required during activation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
         '''
         result = self._values.get("require_justification")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -541,7 +541,7 @@ class GroupRoleManagementPolicyActivationRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether multi-factor authentication is required during activation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
         '''
         result = self._values.get("require_multifactor_authentication")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -552,7 +552,7 @@ class GroupRoleManagementPolicyActivationRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether ticket information is required during activation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
         '''
         result = self._values.get("require_ticket_info")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -581,7 +581,7 @@ class GroupRoleManagementPolicyActivationRulesApprovalStage:
         primary_approver: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["GroupRoleManagementPolicyActivationRulesApprovalStagePrimaryApprover", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param primary_approver: primary_approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#primary_approver GroupRoleManagementPolicy#primary_approver}
+        :param primary_approver: primary_approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#primary_approver GroupRoleManagementPolicy#primary_approver}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__67ccbb44c8f89ecb62d1b29c024bdc5ec6804d60cd8f4b972e290ed864e50d42)
@@ -596,7 +596,7 @@ class GroupRoleManagementPolicyActivationRulesApprovalStage:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["GroupRoleManagementPolicyActivationRulesApprovalStagePrimaryApprover"]]:
         '''primary_approver block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#primary_approver GroupRoleManagementPolicy#primary_approver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#primary_approver GroupRoleManagementPolicy#primary_approver}
         '''
         result = self._values.get("primary_approver")
         assert result is not None, "Required property 'primary_approver' is missing"
@@ -692,8 +692,8 @@ class GroupRoleManagementPolicyActivationRulesApprovalStagePrimaryApprover:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object_id: The ID of the object to act as an approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#object_id GroupRoleManagementPolicy#object_id}
-        :param type: The type of object acting as an approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#type GroupRoleManagementPolicy#type}
+        :param object_id: The ID of the object to act as an approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#object_id GroupRoleManagementPolicy#object_id}
+        :param type: The type of object acting as an approver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#type GroupRoleManagementPolicy#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc459bba6d47b9d0c3cb989f54413f6b8cd7c02660d5b4b23977341d6c4e5829)
@@ -709,7 +709,7 @@ class GroupRoleManagementPolicyActivationRulesApprovalStagePrimaryApprover:
     def object_id(self) -> builtins.str:
         '''The ID of the object to act as an approver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#object_id GroupRoleManagementPolicy#object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#object_id GroupRoleManagementPolicy#object_id}
         '''
         result = self._values.get("object_id")
         assert result is not None, "Required property 'object_id' is missing"
@@ -719,7 +719,7 @@ class GroupRoleManagementPolicyActivationRulesApprovalStagePrimaryApprover:
     def type(self) -> typing.Optional[builtins.str]:
         '''The type of object acting as an approver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#type GroupRoleManagementPolicy#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#type GroupRoleManagementPolicy#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -938,7 +938,7 @@ class GroupRoleManagementPolicyActivationRulesOutputReference(
         primary_approver: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[GroupRoleManagementPolicyActivationRulesApprovalStagePrimaryApprover, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param primary_approver: primary_approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#primary_approver GroupRoleManagementPolicy#primary_approver}
+        :param primary_approver: primary_approver block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#primary_approver GroupRoleManagementPolicy#primary_approver}
         '''
         value = GroupRoleManagementPolicyActivationRulesApprovalStage(
             primary_approver=primary_approver
@@ -1163,11 +1163,11 @@ class GroupRoleManagementPolicyActiveAssignmentRules:
         require_ticket_info: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param expiration_required: Must the assignment have an expiry date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
-        :param expire_after: The duration after which assignments expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
-        :param require_justification: Whether a justification is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
-        :param require_multifactor_authentication: Whether multi-factor authentication is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
-        :param require_ticket_info: Whether ticket information is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
+        :param expiration_required: Must the assignment have an expiry date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
+        :param expire_after: The duration after which assignments expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
+        :param require_justification: Whether a justification is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
+        :param require_multifactor_authentication: Whether multi-factor authentication is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
+        :param require_ticket_info: Whether ticket information is required to make an assignment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ee7099acc0135e943382e2abff07ce6a5ee0113101f8d0035cc4c79751b2c02)
@@ -1194,7 +1194,7 @@ class GroupRoleManagementPolicyActiveAssignmentRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Must the assignment have an expiry date.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
         '''
         result = self._values.get("expiration_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1203,7 +1203,7 @@ class GroupRoleManagementPolicyActiveAssignmentRules:
     def expire_after(self) -> typing.Optional[builtins.str]:
         '''The duration after which assignments expire.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
         '''
         result = self._values.get("expire_after")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1214,7 +1214,7 @@ class GroupRoleManagementPolicyActiveAssignmentRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether a justification is required to make an assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_justification GroupRoleManagementPolicy#require_justification}
         '''
         result = self._values.get("require_justification")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1225,7 +1225,7 @@ class GroupRoleManagementPolicyActiveAssignmentRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether multi-factor authentication is required to make an assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_multifactor_authentication GroupRoleManagementPolicy#require_multifactor_authentication}
         '''
         result = self._values.get("require_multifactor_authentication")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1236,7 +1236,7 @@ class GroupRoleManagementPolicyActiveAssignmentRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether ticket information is required to make an assignment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#require_ticket_info GroupRoleManagementPolicy#require_ticket_info}
         '''
         result = self._values.get("require_ticket_info")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1473,14 +1473,14 @@ class GroupRoleManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param group_id: ID of the group to which this policy is assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#group_id GroupRoleManagementPolicy#group_id}
-        :param role_id: The ID of the role of this policy to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#role_id GroupRoleManagementPolicy#role_id}
-        :param activation_rules: activation_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#activation_rules GroupRoleManagementPolicy#activation_rules}
-        :param active_assignment_rules: active_assignment_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#active_assignment_rules GroupRoleManagementPolicy#active_assignment_rules}
-        :param eligible_assignment_rules: eligible_assignment_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#eligible_assignment_rules GroupRoleManagementPolicy#eligible_assignment_rules}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#id GroupRoleManagementPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notification_rules: notification_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_rules GroupRoleManagementPolicy#notification_rules}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#timeouts GroupRoleManagementPolicy#timeouts}
+        :param group_id: ID of the group to which this policy is assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#group_id GroupRoleManagementPolicy#group_id}
+        :param role_id: The ID of the role of this policy to the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#role_id GroupRoleManagementPolicy#role_id}
+        :param activation_rules: activation_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#activation_rules GroupRoleManagementPolicy#activation_rules}
+        :param active_assignment_rules: active_assignment_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#active_assignment_rules GroupRoleManagementPolicy#active_assignment_rules}
+        :param eligible_assignment_rules: eligible_assignment_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#eligible_assignment_rules GroupRoleManagementPolicy#eligible_assignment_rules}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#id GroupRoleManagementPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notification_rules: notification_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_rules GroupRoleManagementPolicy#notification_rules}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#timeouts GroupRoleManagementPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1610,7 +1610,7 @@ class GroupRoleManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def group_id(self) -> builtins.str:
         '''ID of the group to which this policy is assigned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#group_id GroupRoleManagementPolicy#group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#group_id GroupRoleManagementPolicy#group_id}
         '''
         result = self._values.get("group_id")
         assert result is not None, "Required property 'group_id' is missing"
@@ -1620,7 +1620,7 @@ class GroupRoleManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def role_id(self) -> builtins.str:
         '''The ID of the role of this policy to the group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#role_id GroupRoleManagementPolicy#role_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#role_id GroupRoleManagementPolicy#role_id}
         '''
         result = self._values.get("role_id")
         assert result is not None, "Required property 'role_id' is missing"
@@ -1632,7 +1632,7 @@ class GroupRoleManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GroupRoleManagementPolicyActivationRules]:
         '''activation_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#activation_rules GroupRoleManagementPolicy#activation_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#activation_rules GroupRoleManagementPolicy#activation_rules}
         '''
         result = self._values.get("activation_rules")
         return typing.cast(typing.Optional[GroupRoleManagementPolicyActivationRules], result)
@@ -1643,7 +1643,7 @@ class GroupRoleManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[GroupRoleManagementPolicyActiveAssignmentRules]:
         '''active_assignment_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#active_assignment_rules GroupRoleManagementPolicy#active_assignment_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#active_assignment_rules GroupRoleManagementPolicy#active_assignment_rules}
         '''
         result = self._values.get("active_assignment_rules")
         return typing.cast(typing.Optional[GroupRoleManagementPolicyActiveAssignmentRules], result)
@@ -1654,14 +1654,14 @@ class GroupRoleManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GroupRoleManagementPolicyEligibleAssignmentRules"]:
         '''eligible_assignment_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#eligible_assignment_rules GroupRoleManagementPolicy#eligible_assignment_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#eligible_assignment_rules GroupRoleManagementPolicy#eligible_assignment_rules}
         '''
         result = self._values.get("eligible_assignment_rules")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyEligibleAssignmentRules"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#id GroupRoleManagementPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#id GroupRoleManagementPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1675,7 +1675,7 @@ class GroupRoleManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRules"]:
         '''notification_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_rules GroupRoleManagementPolicy#notification_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_rules GroupRoleManagementPolicy#notification_rules}
         '''
         result = self._values.get("notification_rules")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRules"], result)
@@ -1684,7 +1684,7 @@ class GroupRoleManagementPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["GroupRoleManagementPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#timeouts GroupRoleManagementPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#timeouts GroupRoleManagementPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyTimeouts"], result)
@@ -1717,8 +1717,8 @@ class GroupRoleManagementPolicyEligibleAssignmentRules:
         expire_after: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expiration_required: Must the assignment have an expiry date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
-        :param expire_after: The duration after which assignments expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
+        :param expiration_required: Must the assignment have an expiry date. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
+        :param expire_after: The duration after which assignments expire. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea28738ab1e5159dc84aac60b7d218808846b93e77140c0daaaa257d4dbf49c3)
@@ -1736,7 +1736,7 @@ class GroupRoleManagementPolicyEligibleAssignmentRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Must the assignment have an expiry date.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expiration_required GroupRoleManagementPolicy#expiration_required}
         '''
         result = self._values.get("expiration_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1745,7 +1745,7 @@ class GroupRoleManagementPolicyEligibleAssignmentRules:
     def expire_after(self) -> typing.Optional[builtins.str]:
         '''The duration after which assignments expire.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#expire_after GroupRoleManagementPolicy#expire_after}
         '''
         result = self._values.get("expire_after")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1867,9 +1867,9 @@ class GroupRoleManagementPolicyNotificationRules:
         eligible_assignments: typing.Optional[typing.Union["GroupRoleManagementPolicyNotificationRulesEligibleAssignments", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param active_assignments: active_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#active_assignments GroupRoleManagementPolicy#active_assignments}
-        :param eligible_activations: eligible_activations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#eligible_activations GroupRoleManagementPolicy#eligible_activations}
-        :param eligible_assignments: eligible_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#eligible_assignments GroupRoleManagementPolicy#eligible_assignments}
+        :param active_assignments: active_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#active_assignments GroupRoleManagementPolicy#active_assignments}
+        :param eligible_activations: eligible_activations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#eligible_activations GroupRoleManagementPolicy#eligible_activations}
+        :param eligible_assignments: eligible_assignments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#eligible_assignments GroupRoleManagementPolicy#eligible_assignments}
         '''
         if isinstance(active_assignments, dict):
             active_assignments = GroupRoleManagementPolicyNotificationRulesActiveAssignments(**active_assignments)
@@ -1896,7 +1896,7 @@ class GroupRoleManagementPolicyNotificationRules:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesActiveAssignments"]:
         '''active_assignments block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#active_assignments GroupRoleManagementPolicy#active_assignments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#active_assignments GroupRoleManagementPolicy#active_assignments}
         '''
         result = self._values.get("active_assignments")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesActiveAssignments"], result)
@@ -1907,7 +1907,7 @@ class GroupRoleManagementPolicyNotificationRules:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleActivations"]:
         '''eligible_activations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#eligible_activations GroupRoleManagementPolicy#eligible_activations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#eligible_activations GroupRoleManagementPolicy#eligible_activations}
         '''
         result = self._values.get("eligible_activations")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleActivations"], result)
@@ -1918,7 +1918,7 @@ class GroupRoleManagementPolicyNotificationRules:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleAssignments"]:
         '''eligible_assignments block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#eligible_assignments GroupRoleManagementPolicy#eligible_assignments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#eligible_assignments GroupRoleManagementPolicy#eligible_assignments}
         '''
         result = self._values.get("eligible_assignments")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleAssignments"], result)
@@ -1953,9 +1953,9 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignments:
         assignee_notifications: typing.Optional[typing.Union["GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAssigneeNotifications", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
-        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
-        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
+        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
+        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
+        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
         '''
         if isinstance(admin_notifications, dict):
             admin_notifications = GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAdminNotifications(**admin_notifications)
@@ -1982,7 +1982,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignments:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAdminNotifications"]:
         '''admin_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
         '''
         result = self._values.get("admin_notifications")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAdminNotifications"], result)
@@ -1993,7 +1993,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignments:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesActiveAssignmentsApproverNotifications"]:
         '''approver_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
         '''
         result = self._values.get("approver_notifications")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesActiveAssignmentsApproverNotifications"], result)
@@ -2004,7 +2004,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignments:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAssigneeNotifications"]:
         '''assignee_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
         '''
         result = self._values.get("assignee_notifications")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAssigneeNotifications"], result)
@@ -2039,9 +2039,9 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAdminNotificati
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c1bf39c453ab967151963e4113e2c779c5a425c1733874e716bf226adc1f337b)
@@ -2061,7 +2061,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAdminNotificati
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the default recipients are notified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
         '''
         result = self._values.get("default_recipients")
         assert result is not None, "Required property 'default_recipients' is missing"
@@ -2071,7 +2071,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAdminNotificati
     def notification_level(self) -> builtins.str:
         '''What level of notifications are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
         '''
         result = self._values.get("notification_level")
         assert result is not None, "Required property 'notification_level' is missing"
@@ -2081,7 +2081,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAdminNotificati
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The additional recipients to notify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2216,9 +2216,9 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsApproverNotific
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42071a8d54e2120acffdf560848ccb616c66ba90c4dbcc749d35107c90156846)
@@ -2238,7 +2238,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsApproverNotific
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the default recipients are notified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
         '''
         result = self._values.get("default_recipients")
         assert result is not None, "Required property 'default_recipients' is missing"
@@ -2248,7 +2248,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsApproverNotific
     def notification_level(self) -> builtins.str:
         '''What level of notifications are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
         '''
         result = self._values.get("notification_level")
         assert result is not None, "Required property 'notification_level' is missing"
@@ -2258,7 +2258,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsApproverNotific
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The additional recipients to notify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2393,9 +2393,9 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAssigneeNotific
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a16e7122ae60aac5f71391b4ebfe9b5ad03061a23f1323ebc0f22cd8d3f7c4c)
@@ -2415,7 +2415,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAssigneeNotific
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the default recipients are notified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
         '''
         result = self._values.get("default_recipients")
         assert result is not None, "Required property 'default_recipients' is missing"
@@ -2425,7 +2425,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAssigneeNotific
     def notification_level(self) -> builtins.str:
         '''What level of notifications are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
         '''
         result = self._values.get("notification_level")
         assert result is not None, "Required property 'notification_level' is missing"
@@ -2435,7 +2435,7 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAssigneeNotific
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The additional recipients to notify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2581,9 +2581,9 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsOutputReference
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         value = GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAdminNotifications(
             default_recipients=default_recipients,
@@ -2602,9 +2602,9 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsOutputReference
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         value = GroupRoleManagementPolicyNotificationRulesActiveAssignmentsApproverNotifications(
             default_recipients=default_recipients,
@@ -2623,9 +2623,9 @@ class GroupRoleManagementPolicyNotificationRulesActiveAssignmentsOutputReference
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         value = GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAssigneeNotifications(
             default_recipients=default_recipients,
@@ -2725,9 +2725,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivations:
         assignee_notifications: typing.Optional[typing.Union["GroupRoleManagementPolicyNotificationRulesEligibleActivationsAssigneeNotifications", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
-        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
-        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
+        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
+        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
+        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
         '''
         if isinstance(admin_notifications, dict):
             admin_notifications = GroupRoleManagementPolicyNotificationRulesEligibleActivationsAdminNotifications(**admin_notifications)
@@ -2754,7 +2754,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivations:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleActivationsAdminNotifications"]:
         '''admin_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
         '''
         result = self._values.get("admin_notifications")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleActivationsAdminNotifications"], result)
@@ -2765,7 +2765,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivations:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleActivationsApproverNotifications"]:
         '''approver_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
         '''
         result = self._values.get("approver_notifications")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleActivationsApproverNotifications"], result)
@@ -2776,7 +2776,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivations:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleActivationsAssigneeNotifications"]:
         '''assignee_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
         '''
         result = self._values.get("assignee_notifications")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleActivationsAssigneeNotifications"], result)
@@ -2811,9 +2811,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsAdminNotifica
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__23d5b1ee5f526a0e009636c49ad15ca4ecb1f11968c1bdd16461c15ed2b86fbd)
@@ -2833,7 +2833,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsAdminNotifica
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the default recipients are notified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
         '''
         result = self._values.get("default_recipients")
         assert result is not None, "Required property 'default_recipients' is missing"
@@ -2843,7 +2843,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsAdminNotifica
     def notification_level(self) -> builtins.str:
         '''What level of notifications are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
         '''
         result = self._values.get("notification_level")
         assert result is not None, "Required property 'notification_level' is missing"
@@ -2853,7 +2853,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsAdminNotifica
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The additional recipients to notify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2988,9 +2988,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsApproverNotif
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74592b3068962e784d9e17de750626c075d9cec22262ecdc214ea01e33a2aa2b)
@@ -3010,7 +3010,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsApproverNotif
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the default recipients are notified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
         '''
         result = self._values.get("default_recipients")
         assert result is not None, "Required property 'default_recipients' is missing"
@@ -3020,7 +3020,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsApproverNotif
     def notification_level(self) -> builtins.str:
         '''What level of notifications are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
         '''
         result = self._values.get("notification_level")
         assert result is not None, "Required property 'notification_level' is missing"
@@ -3030,7 +3030,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsApproverNotif
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The additional recipients to notify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3165,9 +3165,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsAssigneeNotif
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a35c8d2ce45ca0ee320031edb1a8f3d39a7433c1ca1ba476a39bd026f47d96ad)
@@ -3187,7 +3187,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsAssigneeNotif
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the default recipients are notified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
         '''
         result = self._values.get("default_recipients")
         assert result is not None, "Required property 'default_recipients' is missing"
@@ -3197,7 +3197,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsAssigneeNotif
     def notification_level(self) -> builtins.str:
         '''What level of notifications are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
         '''
         result = self._values.get("notification_level")
         assert result is not None, "Required property 'notification_level' is missing"
@@ -3207,7 +3207,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsAssigneeNotif
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The additional recipients to notify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3353,9 +3353,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsOutputReferen
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         value = GroupRoleManagementPolicyNotificationRulesEligibleActivationsAdminNotifications(
             default_recipients=default_recipients,
@@ -3374,9 +3374,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsOutputReferen
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         value = GroupRoleManagementPolicyNotificationRulesEligibleActivationsApproverNotifications(
             default_recipients=default_recipients,
@@ -3395,9 +3395,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleActivationsOutputReferen
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         value = GroupRoleManagementPolicyNotificationRulesEligibleActivationsAssigneeNotifications(
             default_recipients=default_recipients,
@@ -3497,9 +3497,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignments:
         assignee_notifications: typing.Optional[typing.Union["GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAssigneeNotifications", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
-        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
-        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
+        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
+        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
+        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
         '''
         if isinstance(admin_notifications, dict):
             admin_notifications = GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAdminNotifications(**admin_notifications)
@@ -3526,7 +3526,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignments:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAdminNotifications"]:
         '''admin_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
         '''
         result = self._values.get("admin_notifications")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAdminNotifications"], result)
@@ -3537,7 +3537,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignments:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsApproverNotifications"]:
         '''approver_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
         '''
         result = self._values.get("approver_notifications")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsApproverNotifications"], result)
@@ -3548,7 +3548,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignments:
     ) -> typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAssigneeNotifications"]:
         '''assignee_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
         '''
         result = self._values.get("assignee_notifications")
         return typing.cast(typing.Optional["GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAssigneeNotifications"], result)
@@ -3583,9 +3583,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAdminNotifica
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab067141e4a6306af12bf2631ff76c66334c0ae416d1dfea273b8f354db480dd)
@@ -3605,7 +3605,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAdminNotifica
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the default recipients are notified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
         '''
         result = self._values.get("default_recipients")
         assert result is not None, "Required property 'default_recipients' is missing"
@@ -3615,7 +3615,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAdminNotifica
     def notification_level(self) -> builtins.str:
         '''What level of notifications are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
         '''
         result = self._values.get("notification_level")
         assert result is not None, "Required property 'notification_level' is missing"
@@ -3625,7 +3625,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAdminNotifica
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The additional recipients to notify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3760,9 +3760,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsApproverNotif
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80d6946969aa8f9180b9536a3e5521c019c1d2c41b6152a99b8e8c73e6d4dc17)
@@ -3782,7 +3782,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsApproverNotif
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the default recipients are notified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
         '''
         result = self._values.get("default_recipients")
         assert result is not None, "Required property 'default_recipients' is missing"
@@ -3792,7 +3792,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsApproverNotif
     def notification_level(self) -> builtins.str:
         '''What level of notifications are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
         '''
         result = self._values.get("notification_level")
         assert result is not None, "Required property 'notification_level' is missing"
@@ -3802,7 +3802,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsApproverNotif
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The additional recipients to notify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3937,9 +3937,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAssigneeNotif
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cbab6e0dcf141f0e081878b8c330e0c5402695e83313785ee1441380c62031f6)
@@ -3959,7 +3959,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAssigneeNotif
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the default recipients are notified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
         '''
         result = self._values.get("default_recipients")
         assert result is not None, "Required property 'default_recipients' is missing"
@@ -3969,7 +3969,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAssigneeNotif
     def notification_level(self) -> builtins.str:
         '''What level of notifications are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
         '''
         result = self._values.get("notification_level")
         assert result is not None, "Required property 'notification_level' is missing"
@@ -3979,7 +3979,7 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAssigneeNotif
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The additional recipients to notify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4125,9 +4125,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsOutputReferen
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         value = GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAdminNotifications(
             default_recipients=default_recipients,
@@ -4146,9 +4146,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsOutputReferen
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         value = GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsApproverNotifications(
             default_recipients=default_recipients,
@@ -4167,9 +4167,9 @@ class GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsOutputReferen
         additional_recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
-        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
-        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
+        :param default_recipients: Whether the default recipients are notified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#default_recipients GroupRoleManagementPolicy#default_recipients}
+        :param notification_level: What level of notifications are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#notification_level GroupRoleManagementPolicy#notification_level}
+        :param additional_recipients: The additional recipients to notify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#additional_recipients GroupRoleManagementPolicy#additional_recipients}
         '''
         value = GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAssigneeNotifications(
             default_recipients=default_recipients,
@@ -4280,9 +4280,9 @@ class GroupRoleManagementPolicyNotificationRulesOutputReference(
         assignee_notifications: typing.Optional[typing.Union[GroupRoleManagementPolicyNotificationRulesActiveAssignmentsAssigneeNotifications, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
-        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
-        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
+        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
+        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
+        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
         '''
         value = GroupRoleManagementPolicyNotificationRulesActiveAssignments(
             admin_notifications=admin_notifications,
@@ -4301,9 +4301,9 @@ class GroupRoleManagementPolicyNotificationRulesOutputReference(
         assignee_notifications: typing.Optional[typing.Union[GroupRoleManagementPolicyNotificationRulesEligibleActivationsAssigneeNotifications, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
-        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
-        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
+        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
+        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
+        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
         '''
         value = GroupRoleManagementPolicyNotificationRulesEligibleActivations(
             admin_notifications=admin_notifications,
@@ -4322,9 +4322,9 @@ class GroupRoleManagementPolicyNotificationRulesOutputReference(
         assignee_notifications: typing.Optional[typing.Union[GroupRoleManagementPolicyNotificationRulesEligibleAssignmentsAssigneeNotifications, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
-        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
-        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
+        :param admin_notifications: admin_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#admin_notifications GroupRoleManagementPolicy#admin_notifications}
+        :param approver_notifications: approver_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#approver_notifications GroupRoleManagementPolicy#approver_notifications}
+        :param assignee_notifications: assignee_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#assignee_notifications GroupRoleManagementPolicy#assignee_notifications}
         '''
         value = GroupRoleManagementPolicyNotificationRulesEligibleAssignments(
             admin_notifications=admin_notifications,
@@ -4426,10 +4426,10 @@ class GroupRoleManagementPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#create GroupRoleManagementPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#delete GroupRoleManagementPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#read GroupRoleManagementPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#update GroupRoleManagementPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#create GroupRoleManagementPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#delete GroupRoleManagementPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#read GroupRoleManagementPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#update GroupRoleManagementPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42fb93b9d910d8f346d63d58772896d81bd3cfd6e9181d6fba0d2835271bcdc3)
@@ -4449,25 +4449,25 @@ class GroupRoleManagementPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#create GroupRoleManagementPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#create GroupRoleManagementPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#delete GroupRoleManagementPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#delete GroupRoleManagementPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#read GroupRoleManagementPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#read GroupRoleManagementPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/group_role_management_policy#update GroupRoleManagementPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/group_role_management_policy#update GroupRoleManagementPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

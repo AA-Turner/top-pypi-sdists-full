@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from warnings import warn
 
 from ibm_watsonx_ai._wrappers import requests
@@ -15,11 +15,12 @@ from ibm_watsonx_ai.metanames import AssetsMetaNames
 from ibm_watsonx_ai.utils import DATA_ASSETS_DETAILS_TYPE
 from ibm_watsonx_ai.utils.enums import AssetDuplicateAction
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
-from ibm_watsonx_ai.wml_client_error import WMLClientError, ApiRequestFailure
+from ibm_watsonx_ai.wml_client_error import ApiRequestFailure, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from pandas import DataFrame
+
     from ibm_watsonx_ai import APIClient
 
 
@@ -333,7 +334,7 @@ class Assets(WMLResource):
                         else:
                             try:
                                 self.delete(asset_id)
-                            except:
+                            except Exception:
                                 pass
                             raise WMLClientError(
                                 Messages.get_message(
@@ -343,7 +344,7 @@ class Assets(WMLResource):
                     else:
                         try:
                             self.delete(asset_id)
-                        except:
+                        except Exception:
                             pass
                         raise WMLClientError(
                             Messages.get_message(
@@ -356,7 +357,7 @@ class Assets(WMLResource):
             else:
                 try:
                     self.delete(asset_id)
-                except:
+                except Exception:
                     pass
                 raise WMLClientError(
                     Messages.get_message(
@@ -456,8 +457,6 @@ class Assets(WMLResource):
 
         Assets._validate_type(asset_id, "asset_id", str, True)
 
-        import urllib
-
         asset_response = requests.get(
             self._client._href_definitions.get_data_asset_href(asset_id),
             params=self._client._params(),
@@ -477,7 +476,6 @@ class Assets(WMLResource):
                 "connection_id" in asset_details["attachments"][0]
                 and asset_details["attachments"][0]["connection_id"] is not None
             ):
-
                 conn_details = self._client.connections.get_details(
                     asset_details["attachments"][0]["connection_id"]
                 )
@@ -603,7 +601,6 @@ class Assets(WMLResource):
         )
 
     def _get_required_element_from_response(self, response_data: dict) -> dict:
-
         WMLResource._validate_type(response_data, "data assets response", dict)
 
         import copy
@@ -632,8 +629,15 @@ class Assets(WMLResource):
                 new_el["entity"] = response_data["entity"]
 
             if "attachments" in response_data and response_data["attachments"]:
+                req_attachment_props = {"id", "name"}
+                attachment_details = response_data["attachments"][0]
+
                 new_el["metadata"].update(
-                    {"attachment_id": response_data["attachments"][0]["id"]}
+                    {
+                        f"attachment_{prop}": attachment_details[prop]
+                        for prop in req_attachment_props
+                        if prop in attachment_details
+                    }
                 )
 
             href_without_host = response_data["href"].split(".com")[-1]

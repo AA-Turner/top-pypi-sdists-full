@@ -5706,6 +5706,332 @@ class CfnDomainConfigurationProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556)
+class CfnEncryptionConfiguration(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iot.CfnEncryptionConfiguration",
+):
+    '''Resource Type definition for AWS::IoT::EncryptionConfiguration.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html
+    :cloudformationResource: AWS::IoT::EncryptionConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iot as iot
+        
+        cfn_encryption_configuration = iot.CfnEncryptionConfiguration(self, "MyCfnEncryptionConfiguration",
+            encryption_type="encryptionType",
+        
+            # the properties below are optional
+            kms_access_role_arn="kmsAccessRoleArn",
+            kms_key_arn="kmsKeyArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        encryption_type: builtins.str,
+        kms_access_role_arn: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param encryption_type: 
+        :param kms_access_role_arn: 
+        :param kms_key_arn: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__590a310b1ce9a41bd611fc7e92d5bb9381ff548973b6322c201006617fc000f1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEncryptionConfigurationProps(
+            encryption_type=encryption_type,
+            kms_access_role_arn=kms_access_role_arn,
+            kms_key_arn=kms_key_arn,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__233141f5c147d73830fe3e9d9d504b3652e1d15f02ed8b705668c8e28e9b750c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5cd2e788d7ff1c10202a0e433dda70ca35befefeabdbfc3016d8016e6cf1ed37)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccountId")
+    def attr_account_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: AccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConfigurationDetails")
+    def attr_configuration_details(self) -> _IResolvable_da3f097b:
+        '''
+        :cloudformationAttribute: ConfigurationDetails
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrConfigurationDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedDate")
+    def attr_last_modified_date(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: LastModifiedDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionType")
+    def encryption_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "encryptionType"))
+
+    @encryption_type.setter
+    def encryption_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7fba231b8f68aa059f7c06875e959b3f3bd5636f6165991d32e54a5cc6d0bcd5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsAccessRoleArn")
+    def kms_access_role_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsAccessRoleArn"))
+
+    @kms_access_role_arn.setter
+    def kms_access_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7090d98481b34dbf2479198088f6a73b9c942d4517672b8d308682e61d5dbba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsAccessRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19b09278cd32890a2953a31edf28ad2ac6b609136b5854732d407ccb4b6766d9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnEncryptionConfiguration.ConfigurationDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "configuration_status": "configurationStatus",
+            "error_code": "errorCode",
+            "error_message": "errorMessage",
+        },
+    )
+    class ConfigurationDetailsProperty:
+        def __init__(
+            self,
+            *,
+            configuration_status: typing.Optional[builtins.str] = None,
+            error_code: typing.Optional[builtins.str] = None,
+            error_message: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param configuration_status: 
+            :param error_code: 
+            :param error_message: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-encryptionconfiguration-configurationdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                configuration_details_property = iot.CfnEncryptionConfiguration.ConfigurationDetailsProperty(
+                    configuration_status="configurationStatus",
+                    error_code="errorCode",
+                    error_message="errorMessage"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__177ce092c0e88e844eafa9e6b2f72e02413a4aecda7bf05efcdfd6fbf7857eff)
+                check_type(argname="argument configuration_status", value=configuration_status, expected_type=type_hints["configuration_status"])
+                check_type(argname="argument error_code", value=error_code, expected_type=type_hints["error_code"])
+                check_type(argname="argument error_message", value=error_message, expected_type=type_hints["error_message"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if configuration_status is not None:
+                self._values["configuration_status"] = configuration_status
+            if error_code is not None:
+                self._values["error_code"] = error_code
+            if error_message is not None:
+                self._values["error_message"] = error_message
+
+        @builtins.property
+        def configuration_status(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-encryptionconfiguration-configurationdetails.html#cfn-iot-encryptionconfiguration-configurationdetails-configurationstatus
+            '''
+            result = self._values.get("configuration_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def error_code(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-encryptionconfiguration-configurationdetails.html#cfn-iot-encryptionconfiguration-configurationdetails-errorcode
+            '''
+            result = self._values.get("error_code")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def error_message(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-encryptionconfiguration-configurationdetails.html#cfn-iot-encryptionconfiguration-configurationdetails-errormessage
+            '''
+            result = self._values.get("error_message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConfigurationDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iot.CfnEncryptionConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "encryption_type": "encryptionType",
+        "kms_access_role_arn": "kmsAccessRoleArn",
+        "kms_key_arn": "kmsKeyArn",
+    },
+)
+class CfnEncryptionConfigurationProps:
+    def __init__(
+        self,
+        *,
+        encryption_type: builtins.str,
+        kms_access_role_arn: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEncryptionConfiguration``.
+
+        :param encryption_type: 
+        :param kms_access_role_arn: 
+        :param kms_key_arn: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iot as iot
+            
+            cfn_encryption_configuration_props = iot.CfnEncryptionConfigurationProps(
+                encryption_type="encryptionType",
+            
+                # the properties below are optional
+                kms_access_role_arn="kmsAccessRoleArn",
+                kms_key_arn="kmsKeyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__336ea497535e43391cf9df6341fe126d948316050e95d2d41cb831737802b9ab)
+            check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+            check_type(argname="argument kms_access_role_arn", value=kms_access_role_arn, expected_type=type_hints["kms_access_role_arn"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "encryption_type": encryption_type,
+        }
+        if kms_access_role_arn is not None:
+            self._values["kms_access_role_arn"] = kms_access_role_arn
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+
+    @builtins.property
+    def encryption_type(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-encryptiontype
+        '''
+        result = self._values.get("encryption_type")
+        assert result is not None, "Required property 'encryption_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_access_role_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-kmsaccessrolearn
+        '''
+        result = self._values.get("kms_access_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-encryptionconfiguration.html#cfn-iot-encryptionconfiguration-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEncryptionConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
 class CfnFleetMetric(
     _CfnResource_9df397a6,
@@ -21300,6 +21626,8 @@ __all__ = [
     "CfnDimensionProps",
     "CfnDomainConfiguration",
     "CfnDomainConfigurationProps",
+    "CfnEncryptionConfiguration",
+    "CfnEncryptionConfigurationProps",
     "CfnFleetMetric",
     "CfnFleetMetricProps",
     "CfnJobTemplate",
@@ -22266,6 +22594,65 @@ def _typecheckingstub__af698e1a1ead0a2d7000837dd712796a150772065ad59ab9baf10a759
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     tls_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomainConfiguration.TlsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     validation_certificate_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__590a310b1ce9a41bd611fc7e92d5bb9381ff548973b6322c201006617fc000f1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    encryption_type: builtins.str,
+    kms_access_role_arn: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__233141f5c147d73830fe3e9d9d504b3652e1d15f02ed8b705668c8e28e9b750c(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cd2e788d7ff1c10202a0e433dda70ca35befefeabdbfc3016d8016e6cf1ed37(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fba231b8f68aa059f7c06875e959b3f3bd5636f6165991d32e54a5cc6d0bcd5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7090d98481b34dbf2479198088f6a73b9c942d4517672b8d308682e61d5dbba(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19b09278cd32890a2953a31edf28ad2ac6b609136b5854732d407ccb4b6766d9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__177ce092c0e88e844eafa9e6b2f72e02413a4aecda7bf05efcdfd6fbf7857eff(
+    *,
+    configuration_status: typing.Optional[builtins.str] = None,
+    error_code: typing.Optional[builtins.str] = None,
+    error_message: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__336ea497535e43391cf9df6341fe126d948316050e95d2d41cb831737802b9ab(
+    *,
+    encryption_type: builtins.str,
+    kms_access_role_arn: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

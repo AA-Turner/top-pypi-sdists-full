@@ -6,6 +6,8 @@ from typing import List, Literal, Optional
 
 import click
 from click_option_group import OptionGroup, optgroup
+from loguru import logger
+
 from gable.cli.client import GableCliClient
 from gable.cli.helpers.logging import configure_debug_logger, configure_trace_logger
 from gable.cli.helpers.multi_option import MultiOption
@@ -15,7 +17,6 @@ from gable.cli.option_defaults import (
 )
 from gable.common_types import DATABASE_SOURCE_TYPES, FILE_SOURCE_TYPES
 from gable.openapi import SourceType
-from loguru import logger
 
 TypescriptLibrary = Literal["brandviews", "segment", "amplitude", "udf"]
 ALL_TYPESCRIPT_LIBRARY_VALUES: List[TypescriptLibrary] = [
@@ -456,10 +457,10 @@ def typescript_project_options(
             type=str,
         )
         @optgroup.option(
-                "--emitter-file-path",
-                help="DEPRECATED: Use --emitter-location instead.",
-                type=str,
-            )
+            "--emitter-file-path",
+            help="DEPRECATED: Use --emitter-location instead.",
+            type=str,
+        )
         @optgroup.option(
             "--emitter-location",
             help="NPM package name, or relative path from the root of the project to the file that contains the emitter function",
@@ -486,14 +487,14 @@ def typescript_project_options(
             type=str,
         )
         @optgroup.option(
-                "--exclude",
-                help="Comma delimited list of filenames or extended globbing patterns of node modules to include in the analysis. Defaults toexclude common test patterns like *.test.js, *.spec.js, etc.",
-                type=str,
-                # TODO: Removed the default value until the new SCA tool will be released that supports this option.
-                #default="**/*.@(test|spec).@(js|jsx|ts|tsx|mjs|mts|cjs|cts),**/@(test|tests|spec)/**",
-                #show_default=True,
-                default=None,
-            )
+            "--exclude",
+            help="Comma delimited list of filenames or extended globbing patterns of node modules to include in the analysis. Defaults toexclude common test patterns like *.test.js, *.spec.js, etc.",
+            type=str,
+            # TODO: Removed the default value until the new SCA tool will be released that supports this option.
+            # default="**/*.@(test|spec).@(js|jsx|ts|tsx|mjs|mts|cjs|cts),**/@(test|tests|spec)/**",
+            # show_default=True,
+            default=None,
+        )
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)

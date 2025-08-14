@@ -7235,9 +7235,10 @@ class CfnEnvironmentBlueprintConfiguration(
             location_registration_exclude_s3_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
             location_registration_role: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param location_registration_exclude_s3_locations: 
-            :param location_registration_role: 
+            '''The Lake Formation configuration of the Data Lake blueprint.
+
+            :param location_registration_exclude_s3_locations: Specifies certain Amazon S3 locations if you do not want Amazon DataZone to automatically register them in hybrid mode.
+            :param location_registration_role: The role that is used to manage read/write access to the chosen Amazon S3 bucket(s) for Data Lake using AWS Lake Formation hybrid access mode.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-environmentblueprintconfiguration-lakeformationconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -7267,7 +7268,8 @@ class CfnEnvironmentBlueprintConfiguration(
         def location_registration_exclude_s3_locations(
             self,
         ) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''Specifies certain Amazon S3 locations if you do not want Amazon DataZone to automatically register them in hybrid mode.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-environmentblueprintconfiguration-lakeformationconfiguration.html#cfn-datazone-environmentblueprintconfiguration-lakeformationconfiguration-locationregistrationexcludes3locations
             '''
             result = self._values.get("location_registration_exclude_s3_locations")
@@ -7275,7 +7277,8 @@ class CfnEnvironmentBlueprintConfiguration(
 
         @builtins.property
         def location_registration_role(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The role that is used to manage read/write access to the chosen Amazon S3 bucket(s) for Data Lake using AWS Lake Formation hybrid access mode.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-environmentblueprintconfiguration-lakeformationconfiguration.html#cfn-datazone-environmentblueprintconfiguration-lakeformationconfiguration-locationregistrationrole
             '''
             result = self._values.get("location_registration_role")
@@ -7303,8 +7306,9 @@ class CfnEnvironmentBlueprintConfiguration(
             *,
             lake_formation_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironmentBlueprintConfiguration.LakeFormationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
-            '''
-            :param lake_formation_configuration: 
+            '''The provisioning configuration of the blueprint.
+
+            :param lake_formation_configuration: The Lake Formation configuration of the Data Lake blueprint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-environmentblueprintconfiguration-provisioningconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -7333,7 +7337,8 @@ class CfnEnvironmentBlueprintConfiguration(
         def lake_formation_configuration(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnEnvironmentBlueprintConfiguration.LakeFormationConfigurationProperty"]:
-            '''
+            '''The Lake Formation configuration of the Data Lake blueprint.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-environmentblueprintconfiguration-provisioningconfiguration.html#cfn-datazone-environmentblueprintconfiguration-provisioningconfiguration-lakeformationconfiguration
             '''
             result = self._values.get("lake_formation_configuration")
@@ -9133,8 +9138,8 @@ class CfnProject(
         :param description: The description of a project.
         :param domain_unit_id: The ID of the domain unit. This parameter is not required and if it is not specified, then the project is created at the root domain unit level.
         :param glossary_terms: The glossary terms that can be used in this Amazon DataZone project.
-        :param project_profile_id: The project profile ID.
-        :param project_profile_version: The project profile version to which the project should be updated. You can only specify the following string for this parameter: latest.
+        :param project_profile_id: The ID of the project profile.
+        :param project_profile_version: The project profile version to which the project should be updated. You can only specify the following string for this parameter: ``latest`` .
         :param user_parameters: The user parameters of the project.
         '''
         if __debug__:
@@ -9311,7 +9316,7 @@ class CfnProject(
     @builtins.property
     @jsii.member(jsii_name="projectProfileId")
     def project_profile_id(self) -> typing.Optional[builtins.str]:
-        '''The project profile ID.'''
+        '''The ID of the project profile.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectProfileId"))
 
     @project_profile_id.setter
@@ -9369,10 +9374,11 @@ class CfnProject(
             environment_id: typing.Optional[builtins.str] = None,
             environment_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProject.EnvironmentParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''
-            :param environment_configuration_name: 
-            :param environment_id: 
-            :param environment_parameters: 
+            '''The environment configuration user parameters.
+
+            :param environment_configuration_name: The environment configuration name.
+            :param environment_id: The ID of the environment.
+            :param environment_parameters: The environment parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-environmentconfigurationuserparameter.html
             :exampleMetadata: fixture=_generated
@@ -9407,7 +9413,8 @@ class CfnProject(
 
         @builtins.property
         def environment_configuration_name(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The environment configuration name.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-environmentconfigurationuserparameter.html#cfn-datazone-project-environmentconfigurationuserparameter-environmentconfigurationname
             '''
             result = self._values.get("environment_configuration_name")
@@ -9415,7 +9422,8 @@ class CfnProject(
 
         @builtins.property
         def environment_id(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The ID of the environment.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-environmentconfigurationuserparameter.html#cfn-datazone-project-environmentconfigurationuserparameter-environmentid
             '''
             result = self._values.get("environment_id")
@@ -9425,7 +9433,8 @@ class CfnProject(
         def environment_parameters(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProject.EnvironmentParameterProperty"]]]]:
-            '''
+            '''The environment parameters.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-environmentconfigurationuserparameter.html#cfn-datazone-project-environmentconfigurationuserparameter-environmentparameters
             '''
             result = self._values.get("environment_parameters")
@@ -9454,9 +9463,10 @@ class CfnProject(
             name: typing.Optional[builtins.str] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param name: 
-            :param value: 
+            '''The parameter details of an evironment profile.
+
+            :param name: The name of an environment profile parameter.
+            :param value: The value of an environment profile parameter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-environmentparameter.html
             :exampleMetadata: fixture=_generated
@@ -9484,7 +9494,8 @@ class CfnProject(
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The name of an environment profile parameter.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-environmentparameter.html#cfn-datazone-project-environmentparameter-name
             '''
             result = self._values.get("name")
@@ -9492,7 +9503,8 @@ class CfnProject(
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The value of an environment profile parameter.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-environmentparameter.html#cfn-datazone-project-environmentparameter-value
             '''
             result = self._values.get("value")
@@ -9858,7 +9870,7 @@ class CfnProjectProfile(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_datazone.CfnProjectProfile",
 ):
-    '''Definition of AWS::DataZone::ProjectProfile Resource Type.
+    '''The summary of a project profile.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-projectprofile.html
     :cloudformationResource: AWS::DataZone::ProjectProfile
@@ -9927,9 +9939,9 @@ class CfnProjectProfile(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of a project profile.
         :param description: The description of the project profile.
-        :param domain_identifier: 
-        :param domain_unit_identifier: 
-        :param environment_configurations: 
+        :param domain_identifier: A domain ID of the project profile.
+        :param domain_unit_identifier: A domain unit ID of the project profile.
+        :param environment_configurations: Environment configurations of a project profile.
         :param status: The status of a project profile.
         '''
         if __debug__:
@@ -10025,7 +10037,8 @@ class CfnProjectProfile(
     @builtins.property
     @jsii.member(jsii_name="attrIdentifier")
     def attr_identifier(self) -> builtins.str:
-        '''
+        '''Project profile ID.
+
         :cloudformationAttribute: Identifier
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrIdentifier"))
@@ -10073,6 +10086,7 @@ class CfnProjectProfile(
     @builtins.property
     @jsii.member(jsii_name="domainIdentifier")
     def domain_identifier(self) -> typing.Optional[builtins.str]:
+        '''A domain ID of the project profile.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "domainIdentifier"))
 
     @domain_identifier.setter
@@ -10085,6 +10099,7 @@ class CfnProjectProfile(
     @builtins.property
     @jsii.member(jsii_name="domainUnitIdentifier")
     def domain_unit_identifier(self) -> typing.Optional[builtins.str]:
+        '''A domain unit ID of the project profile.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "domainUnitIdentifier"))
 
     @domain_unit_identifier.setter
@@ -10099,6 +10114,7 @@ class CfnProjectProfile(
     def environment_configurations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProjectProfile.EnvironmentConfigurationProperty"]]]]:
+        '''Environment configurations of a project profile.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProjectProfile.EnvironmentConfigurationProperty"]]]], jsii.get(self, "environmentConfigurations"))
 
     @environment_configurations.setter
@@ -10131,8 +10147,9 @@ class CfnProjectProfile(
     )
     class AwsAccountProperty:
         def __init__(self, *, aws_account_id: builtins.str) -> None:
-            '''
-            :param aws_account_id: 
+            '''The AWS account of the environment.
+
+            :param aws_account_id: The account ID of a project.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-awsaccount.html
             :exampleMetadata: fixture=_generated
@@ -10156,7 +10173,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def aws_account_id(self) -> builtins.str:
-            '''
+            '''The account ID of a project.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-awsaccount.html#cfn-datazone-projectprofile-awsaccount-awsaccountid
             '''
             result = self._values.get("aws_account_id")
@@ -10187,10 +10205,11 @@ class CfnProjectProfile(
             name: typing.Optional[builtins.str] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param is_editable: 
-            :param name: 
-            :param value: 
+            '''The environment configuration parameter.
+
+            :param is_editable: Specifies whether the environment parameter is editable.
+            :param name: The name of the environment configuration parameter.
+            :param value: The value of the environment configuration parameter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparameter.html
             :exampleMetadata: fixture=_generated
@@ -10224,7 +10243,8 @@ class CfnProjectProfile(
         def is_editable(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
+            '''Specifies whether the environment parameter is editable.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparameter.html#cfn-datazone-projectprofile-environmentconfigurationparameter-iseditable
             '''
             result = self._values.get("is_editable")
@@ -10232,7 +10252,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The name of the environment configuration parameter.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparameter.html#cfn-datazone-projectprofile-environmentconfigurationparameter-name
             '''
             result = self._values.get("name")
@@ -10240,7 +10261,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The value of the environment configuration parameter.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparameter.html#cfn-datazone-projectprofile-environmentconfigurationparameter-value
             '''
             result = self._values.get("value")
@@ -10274,10 +10296,11 @@ class CfnProjectProfile(
             resolved_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProjectProfile.EnvironmentConfigurationParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ssm_path: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param parameter_overrides: 
-            :param resolved_parameters: 
-            :param ssm_path: 
+            '''The details of the environment configuration parameter.
+
+            :param parameter_overrides: The parameter overrides.
+            :param resolved_parameters: The resolved environment configuration parameters.
+            :param ssm_path: Ssm path environment configuration parameters.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparametersdetails.html
             :exampleMetadata: fixture=_generated
@@ -10319,7 +10342,8 @@ class CfnProjectProfile(
         def parameter_overrides(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProjectProfile.EnvironmentConfigurationParameterProperty"]]]]:
-            '''
+            '''The parameter overrides.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparametersdetails.html#cfn-datazone-projectprofile-environmentconfigurationparametersdetails-parameteroverrides
             '''
             result = self._values.get("parameter_overrides")
@@ -10329,7 +10353,8 @@ class CfnProjectProfile(
         def resolved_parameters(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProjectProfile.EnvironmentConfigurationParameterProperty"]]]]:
-            '''
+            '''The resolved environment configuration parameters.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparametersdetails.html#cfn-datazone-projectprofile-environmentconfigurationparametersdetails-resolvedparameters
             '''
             result = self._values.get("resolved_parameters")
@@ -10337,7 +10362,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def ssm_path(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Ssm path environment configuration parameters.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfigurationparametersdetails.html#cfn-datazone-projectprofile-environmentconfigurationparametersdetails-ssmpath
             '''
             result = self._values.get("ssm_path")
@@ -10383,16 +10409,17 @@ class CfnProjectProfile(
             description: typing.Optional[builtins.str] = None,
             id: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param aws_region: 
-            :param environment_blueprint_id: 
-            :param name: 
-            :param aws_account: 
-            :param configuration_parameters: 
-            :param deployment_mode: 
-            :param deployment_order: 
-            :param description: 
-            :param id: 
+            '''The configuration of an environment.
+
+            :param aws_region: The AWS Region of the environment.
+            :param environment_blueprint_id: The environment blueprint ID.
+            :param name: The environment name.
+            :param aws_account: The AWS account of the environment.
+            :param configuration_parameters: The configuration parameters of the environment.
+            :param deployment_mode: The deployment mode of the environment.
+            :param deployment_order: The deployment order of the environment.
+            :param description: The environment description.
+            :param id: The environment ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -10466,7 +10493,8 @@ class CfnProjectProfile(
         def aws_region(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnProjectProfile.RegionProperty"]:
-            '''
+            '''The AWS Region of the environment.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html#cfn-datazone-projectprofile-environmentconfiguration-awsregion
             '''
             result = self._values.get("aws_region")
@@ -10475,7 +10503,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def environment_blueprint_id(self) -> builtins.str:
-            '''
+            '''The environment blueprint ID.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html#cfn-datazone-projectprofile-environmentconfiguration-environmentblueprintid
             '''
             result = self._values.get("environment_blueprint_id")
@@ -10484,7 +10513,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def name(self) -> builtins.str:
-            '''
+            '''The environment name.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html#cfn-datazone-projectprofile-environmentconfiguration-name
             '''
             result = self._values.get("name")
@@ -10495,7 +10525,8 @@ class CfnProjectProfile(
         def aws_account(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProjectProfile.AwsAccountProperty"]]:
-            '''
+            '''The AWS account of the environment.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html#cfn-datazone-projectprofile-environmentconfiguration-awsaccount
             '''
             result = self._values.get("aws_account")
@@ -10505,7 +10536,8 @@ class CfnProjectProfile(
         def configuration_parameters(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProjectProfile.EnvironmentConfigurationParametersDetailsProperty"]]:
-            '''
+            '''The configuration parameters of the environment.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html#cfn-datazone-projectprofile-environmentconfiguration-configurationparameters
             '''
             result = self._values.get("configuration_parameters")
@@ -10513,7 +10545,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def deployment_mode(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The deployment mode of the environment.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html#cfn-datazone-projectprofile-environmentconfiguration-deploymentmode
             '''
             result = self._values.get("deployment_mode")
@@ -10521,7 +10554,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def deployment_order(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The deployment order of the environment.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html#cfn-datazone-projectprofile-environmentconfiguration-deploymentorder
             '''
             result = self._values.get("deployment_order")
@@ -10529,7 +10563,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The environment description.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html#cfn-datazone-projectprofile-environmentconfiguration-description
             '''
             result = self._values.get("description")
@@ -10537,7 +10572,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def id(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The environment ID.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-environmentconfiguration.html#cfn-datazone-projectprofile-environmentconfiguration-id
             '''
             result = self._values.get("id")
@@ -10561,8 +10597,9 @@ class CfnProjectProfile(
     )
     class RegionProperty:
         def __init__(self, *, region_name: builtins.str) -> None:
-            '''
-            :param region_name: 
+            '''The AWS Region.
+
+            :param region_name: The AWS Region name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-region.html
             :exampleMetadata: fixture=_generated
@@ -10586,7 +10623,8 @@ class CfnProjectProfile(
 
         @builtins.property
         def region_name(self) -> builtins.str:
-            '''
+            '''The AWS Region name.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-region.html#cfn-datazone-projectprofile-region-regionname
             '''
             result = self._values.get("region_name")
@@ -10632,9 +10670,9 @@ class CfnProjectProfileProps:
 
         :param name: The name of a project profile.
         :param description: The description of the project profile.
-        :param domain_identifier: 
-        :param domain_unit_identifier: 
-        :param environment_configurations: 
+        :param domain_identifier: A domain ID of the project profile.
+        :param domain_unit_identifier: A domain unit ID of the project profile.
+        :param environment_configurations: Environment configurations of a project profile.
         :param status: The status of a project profile.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-projectprofile.html
@@ -10728,7 +10766,8 @@ class CfnProjectProfileProps:
 
     @builtins.property
     def domain_identifier(self) -> typing.Optional[builtins.str]:
-        '''
+        '''A domain ID of the project profile.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-projectprofile.html#cfn-datazone-projectprofile-domainidentifier
         '''
         result = self._values.get("domain_identifier")
@@ -10736,7 +10775,8 @@ class CfnProjectProfileProps:
 
     @builtins.property
     def domain_unit_identifier(self) -> typing.Optional[builtins.str]:
-        '''
+        '''A domain unit ID of the project profile.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-projectprofile.html#cfn-datazone-projectprofile-domainunitidentifier
         '''
         result = self._values.get("domain_unit_identifier")
@@ -10746,7 +10786,8 @@ class CfnProjectProfileProps:
     def environment_configurations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProjectProfile.EnvironmentConfigurationProperty]]]]:
-        '''
+        '''Environment configurations of a project profile.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-projectprofile.html#cfn-datazone-projectprofile-environmentconfigurations
         '''
         result = self._values.get("environment_configurations")
@@ -10807,8 +10848,8 @@ class CfnProjectProps:
         :param description: The description of a project.
         :param domain_unit_id: The ID of the domain unit. This parameter is not required and if it is not specified, then the project is created at the root domain unit level.
         :param glossary_terms: The glossary terms that can be used in this Amazon DataZone project.
-        :param project_profile_id: The project profile ID.
-        :param project_profile_version: The project profile version to which the project should be updated. You can only specify the following string for this parameter: latest.
+        :param project_profile_id: The ID of the project profile.
+        :param project_profile_version: The project profile version to which the project should be updated. You can only specify the following string for this parameter: ``latest`` .
         :param user_parameters: The user parameters of the project.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-project.html
@@ -10918,7 +10959,7 @@ class CfnProjectProps:
 
     @builtins.property
     def project_profile_id(self) -> typing.Optional[builtins.str]:
-        '''The project profile ID.
+        '''The ID of the project profile.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-project.html#cfn-datazone-project-projectprofileid
         '''
@@ -10929,7 +10970,7 @@ class CfnProjectProps:
     def project_profile_version(self) -> typing.Optional[builtins.str]:
         '''The project profile version to which the project should be updated.
 
-        You can only specify the following string for this parameter: latest.
+        You can only specify the following string for this parameter: ``latest`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-project.html#cfn-datazone-project-projectprofileversion
         '''

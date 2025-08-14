@@ -1,7 +1,7 @@
 r'''
 # `azurerm_subscription_cost_management_export`
 
-Refer to the Terraform Registry for docs: [`azurerm_subscription_cost_management_export`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export).
+Refer to the Terraform Registry for docs: [`azurerm_subscription_cost_management_export`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SubscriptionCostManagementExport(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.subscriptionCostManagementExport.SubscriptionCostManagementExport",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export azurerm_subscription_cost_management_export}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export azurerm_subscription_cost_management_export}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class SubscriptionCostManagementExport(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export azurerm_subscription_cost_management_export} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export azurerm_subscription_cost_management_export} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param export_data_options: export_data_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#export_data_options SubscriptionCostManagementExport#export_data_options}
-        :param export_data_storage_location: export_data_storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#export_data_storage_location SubscriptionCostManagementExport#export_data_storage_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#name SubscriptionCostManagementExport#name}.
-        :param recurrence_period_end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#recurrence_period_end_date SubscriptionCostManagementExport#recurrence_period_end_date}.
-        :param recurrence_period_start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#recurrence_period_start_date SubscriptionCostManagementExport#recurrence_period_start_date}.
-        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#recurrence_type SubscriptionCostManagementExport#recurrence_type}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#subscription_id SubscriptionCostManagementExport#subscription_id}.
-        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#active SubscriptionCostManagementExport#active}.
-        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#file_format SubscriptionCostManagementExport#file_format}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#id SubscriptionCostManagementExport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#timeouts SubscriptionCostManagementExport#timeouts}
+        :param export_data_options: export_data_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#export_data_options SubscriptionCostManagementExport#export_data_options}
+        :param export_data_storage_location: export_data_storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#export_data_storage_location SubscriptionCostManagementExport#export_data_storage_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#name SubscriptionCostManagementExport#name}.
+        :param recurrence_period_end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#recurrence_period_end_date SubscriptionCostManagementExport#recurrence_period_end_date}.
+        :param recurrence_period_start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#recurrence_period_start_date SubscriptionCostManagementExport#recurrence_period_start_date}.
+        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#recurrence_type SubscriptionCostManagementExport#recurrence_type}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#subscription_id SubscriptionCostManagementExport#subscription_id}.
+        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#active SubscriptionCostManagementExport#active}.
+        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#file_format SubscriptionCostManagementExport#file_format}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#id SubscriptionCostManagementExport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#timeouts SubscriptionCostManagementExport#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class SubscriptionCostManagementExport(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SubscriptionCostManagementExport to import.
-        :param import_from_id: The id of the existing SubscriptionCostManagementExport that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SubscriptionCostManagementExport that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SubscriptionCostManagementExport to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class SubscriptionCostManagementExport(
         type: builtins.str,
     ) -> None:
         '''
-        :param time_frame: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#time_frame SubscriptionCostManagementExport#time_frame}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#type SubscriptionCostManagementExport#type}.
+        :param time_frame: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#time_frame SubscriptionCostManagementExport#time_frame}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#type SubscriptionCostManagementExport#type}.
         '''
         value = SubscriptionCostManagementExportExportDataOptions(
             time_frame=time_frame, type=type
@@ -169,8 +169,8 @@ class SubscriptionCostManagementExport(
         root_folder_path: builtins.str,
     ) -> None:
         '''
-        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#container_id SubscriptionCostManagementExport#container_id}.
-        :param root_folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#root_folder_path SubscriptionCostManagementExport#root_folder_path}.
+        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#container_id SubscriptionCostManagementExport#container_id}.
+        :param root_folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#root_folder_path SubscriptionCostManagementExport#root_folder_path}.
         '''
         value = SubscriptionCostManagementExportExportDataStorageLocation(
             container_id=container_id, root_folder_path=root_folder_path
@@ -188,10 +188,10 @@ class SubscriptionCostManagementExport(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#create SubscriptionCostManagementExport#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#delete SubscriptionCostManagementExport#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#read SubscriptionCostManagementExport#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#update SubscriptionCostManagementExport#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#create SubscriptionCostManagementExport#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#delete SubscriptionCostManagementExport#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#read SubscriptionCostManagementExport#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#update SubscriptionCostManagementExport#update}.
         '''
         value = SubscriptionCostManagementExportTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -465,17 +465,17 @@ class SubscriptionCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param export_data_options: export_data_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#export_data_options SubscriptionCostManagementExport#export_data_options}
-        :param export_data_storage_location: export_data_storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#export_data_storage_location SubscriptionCostManagementExport#export_data_storage_location}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#name SubscriptionCostManagementExport#name}.
-        :param recurrence_period_end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#recurrence_period_end_date SubscriptionCostManagementExport#recurrence_period_end_date}.
-        :param recurrence_period_start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#recurrence_period_start_date SubscriptionCostManagementExport#recurrence_period_start_date}.
-        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#recurrence_type SubscriptionCostManagementExport#recurrence_type}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#subscription_id SubscriptionCostManagementExport#subscription_id}.
-        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#active SubscriptionCostManagementExport#active}.
-        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#file_format SubscriptionCostManagementExport#file_format}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#id SubscriptionCostManagementExport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#timeouts SubscriptionCostManagementExport#timeouts}
+        :param export_data_options: export_data_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#export_data_options SubscriptionCostManagementExport#export_data_options}
+        :param export_data_storage_location: export_data_storage_location block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#export_data_storage_location SubscriptionCostManagementExport#export_data_storage_location}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#name SubscriptionCostManagementExport#name}.
+        :param recurrence_period_end_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#recurrence_period_end_date SubscriptionCostManagementExport#recurrence_period_end_date}.
+        :param recurrence_period_start_date: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#recurrence_period_start_date SubscriptionCostManagementExport#recurrence_period_start_date}.
+        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#recurrence_type SubscriptionCostManagementExport#recurrence_type}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#subscription_id SubscriptionCostManagementExport#subscription_id}.
+        :param active: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#active SubscriptionCostManagementExport#active}.
+        :param file_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#file_format SubscriptionCostManagementExport#file_format}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#id SubscriptionCostManagementExport#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#timeouts SubscriptionCostManagementExport#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -607,7 +607,7 @@ class SubscriptionCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> "SubscriptionCostManagementExportExportDataOptions":
         '''export_data_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#export_data_options SubscriptionCostManagementExport#export_data_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#export_data_options SubscriptionCostManagementExport#export_data_options}
         '''
         result = self._values.get("export_data_options")
         assert result is not None, "Required property 'export_data_options' is missing"
@@ -619,7 +619,7 @@ class SubscriptionCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgume
     ) -> "SubscriptionCostManagementExportExportDataStorageLocation":
         '''export_data_storage_location block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#export_data_storage_location SubscriptionCostManagementExport#export_data_storage_location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#export_data_storage_location SubscriptionCostManagementExport#export_data_storage_location}
         '''
         result = self._values.get("export_data_storage_location")
         assert result is not None, "Required property 'export_data_storage_location' is missing"
@@ -627,35 +627,35 @@ class SubscriptionCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#name SubscriptionCostManagementExport#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#name SubscriptionCostManagementExport#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def recurrence_period_end_date(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#recurrence_period_end_date SubscriptionCostManagementExport#recurrence_period_end_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#recurrence_period_end_date SubscriptionCostManagementExport#recurrence_period_end_date}.'''
         result = self._values.get("recurrence_period_end_date")
         assert result is not None, "Required property 'recurrence_period_end_date' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def recurrence_period_start_date(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#recurrence_period_start_date SubscriptionCostManagementExport#recurrence_period_start_date}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#recurrence_period_start_date SubscriptionCostManagementExport#recurrence_period_start_date}.'''
         result = self._values.get("recurrence_period_start_date")
         assert result is not None, "Required property 'recurrence_period_start_date' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def recurrence_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#recurrence_type SubscriptionCostManagementExport#recurrence_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#recurrence_type SubscriptionCostManagementExport#recurrence_type}.'''
         result = self._values.get("recurrence_type")
         assert result is not None, "Required property 'recurrence_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subscription_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#subscription_id SubscriptionCostManagementExport#subscription_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#subscription_id SubscriptionCostManagementExport#subscription_id}.'''
         result = self._values.get("subscription_id")
         assert result is not None, "Required property 'subscription_id' is missing"
         return typing.cast(builtins.str, result)
@@ -664,19 +664,19 @@ class SubscriptionCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def active(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#active SubscriptionCostManagementExport#active}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#active SubscriptionCostManagementExport#active}.'''
         result = self._values.get("active")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def file_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#file_format SubscriptionCostManagementExport#file_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#file_format SubscriptionCostManagementExport#file_format}.'''
         result = self._values.get("file_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#id SubscriptionCostManagementExport#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#id SubscriptionCostManagementExport#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -688,7 +688,7 @@ class SubscriptionCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def timeouts(self) -> typing.Optional["SubscriptionCostManagementExportTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#timeouts SubscriptionCostManagementExport#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#timeouts SubscriptionCostManagementExport#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SubscriptionCostManagementExportTimeouts"], result)
@@ -713,8 +713,8 @@ class SubscriptionCostManagementExportConfig(_cdktf_9a9027ec.TerraformMetaArgume
 class SubscriptionCostManagementExportExportDataOptions:
     def __init__(self, *, time_frame: builtins.str, type: builtins.str) -> None:
         '''
-        :param time_frame: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#time_frame SubscriptionCostManagementExport#time_frame}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#type SubscriptionCostManagementExport#type}.
+        :param time_frame: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#time_frame SubscriptionCostManagementExport#time_frame}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#type SubscriptionCostManagementExport#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a28a04137e8f14eeabdd41309b9f1fc54d257b5417e60b6d6dd0f75d36bfdb2e)
@@ -727,14 +727,14 @@ class SubscriptionCostManagementExportExportDataOptions:
 
     @builtins.property
     def time_frame(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#time_frame SubscriptionCostManagementExport#time_frame}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#time_frame SubscriptionCostManagementExport#time_frame}.'''
         result = self._values.get("time_frame")
         assert result is not None, "Required property 'time_frame' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#type SubscriptionCostManagementExport#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#type SubscriptionCostManagementExport#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -836,8 +836,8 @@ class SubscriptionCostManagementExportExportDataStorageLocation:
         root_folder_path: builtins.str,
     ) -> None:
         '''
-        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#container_id SubscriptionCostManagementExport#container_id}.
-        :param root_folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#root_folder_path SubscriptionCostManagementExport#root_folder_path}.
+        :param container_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#container_id SubscriptionCostManagementExport#container_id}.
+        :param root_folder_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#root_folder_path SubscriptionCostManagementExport#root_folder_path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9667898fdc1699114ba50bef8010cb6a53c0716c9e3fc694de83c97a44dba60b)
@@ -850,14 +850,14 @@ class SubscriptionCostManagementExportExportDataStorageLocation:
 
     @builtins.property
     def container_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#container_id SubscriptionCostManagementExport#container_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#container_id SubscriptionCostManagementExport#container_id}.'''
         result = self._values.get("container_id")
         assert result is not None, "Required property 'container_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def root_folder_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#root_folder_path SubscriptionCostManagementExport#root_folder_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#root_folder_path SubscriptionCostManagementExport#root_folder_path}.'''
         result = self._values.get("root_folder_path")
         assert result is not None, "Required property 'root_folder_path' is missing"
         return typing.cast(builtins.str, result)
@@ -966,10 +966,10 @@ class SubscriptionCostManagementExportTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#create SubscriptionCostManagementExport#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#delete SubscriptionCostManagementExport#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#read SubscriptionCostManagementExport#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#update SubscriptionCostManagementExport#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#create SubscriptionCostManagementExport#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#delete SubscriptionCostManagementExport#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#read SubscriptionCostManagementExport#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#update SubscriptionCostManagementExport#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2e4865632f0dfcdab65897025a670b9d9b6ae067fbd8a9ffa330a1de7bb913c)
@@ -989,25 +989,25 @@ class SubscriptionCostManagementExportTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#create SubscriptionCostManagementExport#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#create SubscriptionCostManagementExport#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#delete SubscriptionCostManagementExport#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#delete SubscriptionCostManagementExport#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#read SubscriptionCostManagementExport#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#read SubscriptionCostManagementExport#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/subscription_cost_management_export#update SubscriptionCostManagementExport#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_export#update SubscriptionCostManagementExport#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -3,6 +3,8 @@ from typing import Generator, List, Optional
 
 import click
 from click.core import Context as ClickContext
+from loguru import logger
+
 from gable.api.client import GableAPIClient
 from gable.cli.helpers.contract import (
     contract_files_to_contract_inputs,
@@ -19,7 +21,6 @@ from gable.openapi import (
     PostContractResponse,
 )
 from gable.sdk.models import ContractPublishResponse
-from loguru import logger
 
 CONTRACT_VALIDATE_CHUNK_SIZE = 20
 

@@ -1,7 +1,7 @@
 r'''
 # `azuread_app_role_assignment`
 
-Refer to the Terraform Registry for docs: [`azuread_app_role_assignment`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment).
+Refer to the Terraform Registry for docs: [`azuread_app_role_assignment`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppRoleAssignment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.appRoleAssignment.AppRoleAssignment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment azuread_app_role_assignment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment azuread_app_role_assignment}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AppRoleAssignment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment azuread_app_role_assignment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment azuread_app_role_assignment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param app_role_id: The ID of the app role to be assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#app_role_id AppRoleAssignment#app_role_id}
-        :param principal_object_id: The object ID of the user, group or service principal to be assigned this app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#principal_object_id AppRoleAssignment#principal_object_id}
-        :param resource_object_id: The object ID of the service principal representing the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#resource_object_id AppRoleAssignment#resource_object_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#id AppRoleAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#timeouts AppRoleAssignment#timeouts}
+        :param app_role_id: The ID of the app role to be assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#app_role_id AppRoleAssignment#app_role_id}
+        :param principal_object_id: The object ID of the user, group or service principal to be assigned this app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#principal_object_id AppRoleAssignment#principal_object_id}
+        :param resource_object_id: The object ID of the service principal representing the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#resource_object_id AppRoleAssignment#resource_object_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#id AppRoleAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#timeouts AppRoleAssignment#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AppRoleAssignment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppRoleAssignment to import.
-        :param import_from_id: The id of the existing AppRoleAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppRoleAssignment that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppRoleAssignment to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class AppRoleAssignment(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#create AppRoleAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#delete AppRoleAssignment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#read AppRoleAssignment#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#create AppRoleAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#delete AppRoleAssignment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#read AppRoleAssignment#read}.
         '''
         value = AppRoleAssignmentTimeouts(create=create, delete=delete, read=read)
 
@@ -303,11 +303,11 @@ class AppRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param app_role_id: The ID of the app role to be assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#app_role_id AppRoleAssignment#app_role_id}
-        :param principal_object_id: The object ID of the user, group or service principal to be assigned this app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#principal_object_id AppRoleAssignment#principal_object_id}
-        :param resource_object_id: The object ID of the service principal representing the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#resource_object_id AppRoleAssignment#resource_object_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#id AppRoleAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#timeouts AppRoleAssignment#timeouts}
+        :param app_role_id: The ID of the app role to be assigned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#app_role_id AppRoleAssignment#app_role_id}
+        :param principal_object_id: The object ID of the user, group or service principal to be assigned this app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#principal_object_id AppRoleAssignment#principal_object_id}
+        :param resource_object_id: The object ID of the service principal representing the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#resource_object_id AppRoleAssignment#resource_object_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#id AppRoleAssignment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#timeouts AppRoleAssignment#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -419,7 +419,7 @@ class AppRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_role_id(self) -> builtins.str:
         '''The ID of the app role to be assigned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#app_role_id AppRoleAssignment#app_role_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#app_role_id AppRoleAssignment#app_role_id}
         '''
         result = self._values.get("app_role_id")
         assert result is not None, "Required property 'app_role_id' is missing"
@@ -429,7 +429,7 @@ class AppRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def principal_object_id(self) -> builtins.str:
         '''The object ID of the user, group or service principal to be assigned this app role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#principal_object_id AppRoleAssignment#principal_object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#principal_object_id AppRoleAssignment#principal_object_id}
         '''
         result = self._values.get("principal_object_id")
         assert result is not None, "Required property 'principal_object_id' is missing"
@@ -439,7 +439,7 @@ class AppRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_object_id(self) -> builtins.str:
         '''The object ID of the service principal representing the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#resource_object_id AppRoleAssignment#resource_object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#resource_object_id AppRoleAssignment#resource_object_id}
         '''
         result = self._values.get("resource_object_id")
         assert result is not None, "Required property 'resource_object_id' is missing"
@@ -447,7 +447,7 @@ class AppRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#id AppRoleAssignment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#id AppRoleAssignment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -459,7 +459,7 @@ class AppRoleAssignmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AppRoleAssignmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#timeouts AppRoleAssignment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#timeouts AppRoleAssignment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AppRoleAssignmentTimeouts"], result)
@@ -490,9 +490,9 @@ class AppRoleAssignmentTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#create AppRoleAssignment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#delete AppRoleAssignment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#read AppRoleAssignment#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#create AppRoleAssignment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#delete AppRoleAssignment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#read AppRoleAssignment#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a91018c6c6da97ace10407052ff4ed6c8db1062209d13a917fa20c400d1b0d4e)
@@ -509,19 +509,19 @@ class AppRoleAssignmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#create AppRoleAssignment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#create AppRoleAssignment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#delete AppRoleAssignment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#delete AppRoleAssignment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/app_role_assignment#read AppRoleAssignment#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/app_role_assignment#read AppRoleAssignment#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

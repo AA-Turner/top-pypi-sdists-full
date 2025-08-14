@@ -3,9 +3,12 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import Any, cast, TypeAlias
 import copy
+from typing import Any, TypeAlias, cast
 
+from langchain_core.documents import Document
+
+from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
     LangChainVectorStoreAdapter,
 )
@@ -13,13 +16,11 @@ from ibm_watsonx_ai.wml_client_error import (
     MissingExtension,
     VectorStoreSerializationError,
 )
-from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
-from langchain_core.documents import Document
 
 try:
+    from langchain_core.embeddings import Embeddings as LCEmbeddings
     from langchain_db2 import DB2VS
     from langchain_db2.db2vs import clear_table
-    from langchain_core.embeddings import Embeddings as LCEmbeddings
 
 except ImportError as exc:
     raise MissingExtension(
@@ -27,9 +28,9 @@ except ImportError as exc:
         reason="Please install `ibm-watsonx-ai` with flag `rag`: \n `pip install -U 'ibm-watsonx-ai[rag]'`",
     ) from exc
 
-from ibm_watsonx_ai import APIClient
-
 import logging
+
+from ibm_watsonx_ai import APIClient
 
 logger = logging.getLogger(__name__)
 

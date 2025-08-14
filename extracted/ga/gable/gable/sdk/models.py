@@ -4,8 +4,9 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from gable.openapi import ContractSpec, ContractStatus, EnforcementLevel
 from pydantic import BaseModel
+
+from gable.openapi import ContractSpec, ContractStatus, EnforcementLevel
 
 
 # https://trino.io/docs/current/language/types.html

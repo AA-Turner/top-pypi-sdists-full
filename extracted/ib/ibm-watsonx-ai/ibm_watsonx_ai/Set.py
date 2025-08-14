@@ -4,15 +4,16 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import Any, TYPE_CHECKING, Literal
 
-from ibm_watsonx_ai.wml_resource import WMLResource
+from typing import TYPE_CHECKING, Any, Literal
+
+from ibm_watsonx_ai.service_instance import ServiceInstance
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
 from ibm_watsonx_ai.wml_client_error import (
     CannotSetProjectOrSpace,
     ExceededLimitOfAPICalls,
 )
-from ibm_watsonx_ai.service_instance import ServiceInstance
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient

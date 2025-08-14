@@ -5,6 +5,7 @@ import asyncio
 from concurrent.futures import ALL_COMPLETED
 from concurrent.futures import FIRST_COMPLETED
 from contextlib import suppress
+from inspect import iscoroutinefunction
 import logging
 import os
 import signal
@@ -17,6 +18,7 @@ from colcon_core.logging import colcon_logger
 from colcon_core.plugin_system import satisfies_version
 from colcon_core.subprocess import new_event_loop
 from colcon_core.subprocess import SIGINT_RESULT
+from colcon_parallel_executor.event.executor import ParallelStatus
 
 logger = colcon_logger.getChild(__name__)
 
@@ -43,7 +45,7 @@ class ParallelExecutorExtension(ExecutorExtensionPoint):
     def __init__(self):  # noqa: D107
         super().__init__()
         satisfies_version(
-            ExecutorExtensionPoint.EXTENSION_POINT_VERSION, '^1.0')
+            ExecutorExtensionPoint.EXTENSION_POINT_VERSION, '^1.1')
 
     def add_arguments(self, *, parser):  # noqa: D102
         max_workers_default = os.cpu_count() or 4
@@ -150,7 +152,7 @@ class ParallelExecutorExtension(ExecutorExtensionPoint):
 
             # pass them to the executor
             for package_name, job in take_jobs:
-                assert asyncio.iscoroutinefunction(job.__call__), \
+                assert iscoroutinefunction(job.__call__), \
                     'Job is not a coroutine'
                 future = asyncio.ensure_future(job())
                 futures[future] = job
@@ -162,9 +164,8 @@ class ParallelExecutorExtension(ExecutorExtensionPoint):
                 futures.keys(), timeout=30, return_when=FIRST_COMPLETED)
 
             if not done_futures:  # timeout
-                print(
-                    '[Processing: %s]' % ', '.join(sorted(
-                        f.identifier for f in futures.values())))
+                self.put_event_into_queue(ParallelStatus(tuple(
+                    f.identifier for f in futures.values())))
 
             # check results of done futures
             for done_future in done_futures:

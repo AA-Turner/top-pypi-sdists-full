@@ -3,36 +3,25 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import Any, Callable, cast
-from warnings import warn
-from pathlib import Path
 import json
 import os
+from pathlib import Path
+from typing import Any, Callable, cast
+from warnings import warn
 
 from ibm_watsonx_ai import APIClient, Credentials
-from ibm_watsonx_ai.helpers import DataConnection
 from ibm_watsonx_ai.foundation_models import ModelInference
-from ibm_watsonx_ai.foundation_models.extensions.rag import VectorStore
-
 from ibm_watsonx_ai.foundation_models.extensions.rag.chunker.langchain_chunker import (
     LangChainChunker,
-)
-
-from ibm_watsonx_ai.foundation_models.extensions.rag.retriever import (
-    BaseRetriever,
-    Retriever,
-)
-from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_function import (
-    default_inference_function,
 )
 from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_indexing_function import (
     default_indexing_function,
 )
+from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_function import (
+    default_inference_function,
+)
 from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service import (
     inference_service as default_inference_service,
-)
-from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_deployment import (
-    inference_service as default_inference_service_deployment,
 )
 from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_chroma import (
     inference_service as default_inference_service_chroma,
@@ -40,11 +29,8 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_s
 from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_chroma_deployment import (
     inference_service as default_inference_service_chroma_deployment,
 )
-from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_milvus import (
-    inference_service as default_inference_service_milvus,
-)
-from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_milvus_deployment import (
-    inference_service as default_inference_service_milvus_deployment,
+from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_deployment import (
+    inference_service as default_inference_service_deployment,
 )
 from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_elastic import (
     inference_service as default_inference_service_elastic,
@@ -52,9 +38,20 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_s
 from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_elastic_deployment import (
     inference_service as default_inference_service_elastic_deployment,
 )
-
+from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_milvus import (
+    inference_service as default_inference_service_milvus,
+)
+from ibm_watsonx_ai.foundation_models.extensions.rag.pattern.default_inference_service_milvus_deployment import (
+    inference_service as default_inference_service_milvus_deployment,
+)
+from ibm_watsonx_ai.foundation_models.extensions.rag.retriever import (
+    BaseRetriever,
+    Retriever,
+)
+from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores import VectorStore
 from ibm_watsonx_ai.foundation_models.prompts import PromptTemplateManager
 from ibm_watsonx_ai.foundation_models.utils.enums import PromptTemplateFormats
+from ibm_watsonx_ai.helpers import DataConnection
 from ibm_watsonx_ai.wml_client_error import (
     InvalidMultipleArguments,
     InvalidValue,
@@ -64,7 +61,7 @@ from ibm_watsonx_ai.wml_client_error import (
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
 
-from .pattern_assets import RAGPatternFunction, RAGPatternService, Context
+from .pattern_assets import Context, RAGPatternFunction, RAGPatternService
 
 
 class RAGPattern:
@@ -767,7 +764,7 @@ class RAGPattern:
         warn(query_method_deprecated_warning, category=DeprecationWarning, stacklevel=2)
 
         input_data = payload[self._client.deployments.ScoringMetaNames.INPUT_DATA]
-        if not "access_token" in input_data[0]:
+        if "access_token" not in input_data[0]:
             input_data[0]["access_token"] = self._client.token
 
         if self.inference_function is not None:
@@ -982,7 +979,7 @@ class RAGPattern:
         PKG_EXTN_NAME = "rag_pattern-py3.11"
         CONFIG_PATH = "config.yaml"
         CONFIG_TYPE = "conda_yml"
-        CONFIG_CONTENT = f"""
+        CONFIG_CONTENT = """
         name: python311
         channels:
           - empty
@@ -995,7 +992,7 @@ class RAGPattern:
         try:
             sw_spec_id = client.software_specifications.get_id_by_name(SW_SPEC_NAME)
             return client.software_specifications.get_details(sw_spec_id)
-        except:
+        except Exception:
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                 f.write(CONFIG_CONTENT)
 

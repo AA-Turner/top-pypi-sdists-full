@@ -4,54 +4,55 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import (
-    Literal,
-    Iterable,
-    Callable,
-    Any,
-    cast,
-    TYPE_CHECKING,
-    NoReturn,
-    Generator,
-    TypeAlias,
-    AsyncGenerator,
-)
-import numpy as np
-import json
-from warnings import warn
-from enum import Enum
 
-from ibm_watsonx_ai.utils import (
-    print_text_header_h1,
-    print_text_header_h2,
-    StatusLogger,
+import json
+from enum import Enum
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    AsyncGenerator,
+    Callable,
+    Generator,
+    Iterable,
+    Literal,
+    NoReturn,
+    TypeAlias,
+    cast,
 )
-from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
-from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    MissingValue,
-    InvalidValue,
-    ApiRequestFailure,
-)
+from urllib.parse import parse_qs, urlparse
+from warnings import warn
+
+import numpy as np
 
 from ibm_watsonx_ai.href_definitions import is_id
-from ibm_watsonx_ai.wml_resource import WMLResource
+from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import (
-    ScoringMetaNames,
     DecisionOptimizationMetaNames,
     DeploymentMetaNames,
+    ScoringMetaNames,
 )
-from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
+from ibm_watsonx_ai.utils import (
+    StatusLogger,
+    print_text_header_h1,
+    print_text_header_h2,
+)
 from ibm_watsonx_ai.utils.autoai.utils import all_logging_disabled
-
-from urllib.parse import urlparse, parse_qs
+from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
+from ibm_watsonx_ai.wml_client_error import (
+    ApiRequestFailure,
+    InvalidValue,
+    MissingValue,
+    WMLClientError,
+)
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
-    from ibm_watsonx_ai.lifecycle import SpecStates
-    from ibm_watsonx_ai.foundation_models.inference import ModelInference
     import pandas
+
+    from ibm_watsonx_ai import APIClient
+    from ibm_watsonx_ai.foundation_models.inference import ModelInference
+    from ibm_watsonx_ai.lifecycle import SpecStates
 
 lib_checker = LibraryChecker()
 
@@ -86,13 +87,13 @@ class Deployments(WMLResource):
             if "failure" in deployment_details["entity"]["status"]:
                 errors = deployment_details["entity"]["status"]["failure"]["errors"]
                 for error in errors:
-                    if type(error) == str:
+                    if isinstance(error, str):
                         try:
                             error_obj = json.loads(error)
                             print(error_obj["message"])
-                        except:
+                        except Exception:
                             print(error)
-                    elif type(error) == dict:
+                    elif isinstance(error, dict):
                         print(error["message"])
                     else:
                         print(error)
@@ -279,7 +280,6 @@ class Deployments(WMLResource):
                 warn(background_mode_turned_on_warning)
                 return deployment_details
             else:
-
                 if self._client.ICP_PLATFORM_SPACES:
                     if "online_url" in deployment_details["entity"]["status"]:
                         scoringUrl = (
@@ -289,9 +289,9 @@ class Deployments(WMLResource):
                             .get("url")
                             .replace("https://ibm-nginx-svc:443", predictionUrl)
                         )
-                        deployment_details["entity"]["status"]["online_url"][
-                            "url"
-                        ] = scoringUrl
+                        deployment_details["entity"]["status"]["online_url"]["url"] = (
+                            scoringUrl
+                        )
 
                 deployment_id = self.get_id(deployment_details)
 
@@ -814,7 +814,6 @@ class Deployments(WMLResource):
                 ## If payload is a numpy dataframe
 
                 elif isinstance(scoring_values, np.ndarray):
-
                     values = scoring_values.tolist()
                     each_score_request["values"] = values
 
@@ -1262,7 +1261,6 @@ class Deployments(WMLResource):
         transaction_id: str | None = None,
         retention: int | None = None,
     ) -> str | dict:
-
         Deployments._validate_type(deployment_id, "deployment_id", str, True)
         Deployments._validate_type(scoring_payload, "scoring_payload", dict, True)
         headers = self._client._get_headers()
@@ -1686,7 +1684,7 @@ class Deployments(WMLResource):
                 return self._handle_response(
                     204, "deployment async job deletion", response_delete, False
                 )
-            except:
+            except Exception:
                 pass
 
         url = self._client._href_definitions.get_async_deployment_jobs_href(job_id)
@@ -2175,7 +2173,7 @@ class Deployments(WMLResource):
                         yield response
             else:
                 resp.read()
-                raise ApiRequestFailure(f"Failure during AI Service run steam", resp)
+                raise ApiRequestFailure("Failure during AI Service run stream", resp)
 
 
 ### Definition of Runtime Context

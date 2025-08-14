@@ -5,32 +5,29 @@
 
 from __future__ import annotations
 
-import io
-import os
 import time
 from typing import TYPE_CHECKING, Any, cast
 
-import pandas as pd
 from pandas import DataFrame
 
-from .base_deployment import BaseDeployment
-from ..helpers import DataConnection, AssetLocation
+from ..helpers import AssetLocation, DataConnection
 from ..utils import StatusLogger, print_text_header_h1
 from ..utils.autoai.connection import (
-    validate_source_data_connections,
     validate_deployment_output_connection,
+    validate_source_data_connections,
 )
-from ..utils.autoai.utils import convert_dataframe_to_fields_values_payload
 from ..utils.autoai.errors import NoneDataConnection
+from ..utils.autoai.utils import convert_dataframe_to_fields_values_payload
 from ..utils.deployment.errors import BatchJobFailed, MissingScoringResults
 from ..wml_client_error import WMLClientError
+from .base_deployment import BaseDeployment
 
 if TYPE_CHECKING:
-    from sklearn.pipeline import Pipeline
-    from pandas import DataFrame
     from numpy import ndarray
-    from ..workspace import WorkSpace
+    from sklearn.pipeline import Pipeline
+
     from ..credentials import Credentials
+    from ..workspace import WorkSpace
 
 __all__ = ["Batch"]
 
@@ -71,7 +68,6 @@ class Batch(BaseDeployment):
         space_id: str | None = None,
         **kwargs: Any,
     ):
-
         super().__init__(
             deployment_type="batch",
             source_wml_credentials=kwargs.get("source_wml_credentials"),
@@ -179,7 +175,7 @@ class Batch(BaseDeployment):
             | list[DataConnection]
             | dict[str, DataFrame]
             | dict[str, DataConnection]
-        ) = pd.DataFrame(),
+        ) = DataFrame(),
         output_data_reference: DataConnection | None = None,
         transaction_id: str | None = None,
         background_mode: bool = True,
@@ -240,7 +236,7 @@ class Batch(BaseDeployment):
         input_data: list[DataConnection] | list[dict]
         scoring_payload: dict
         if isinstance(payload, dict):
-            observations = payload.get("observations", pd.DataFrame())
+            observations = payload.get("observations", DataFrame())
             supporting_features = payload.get("supporting_features")
 
             if isinstance(observations, DataFrame) and (
@@ -270,7 +266,6 @@ class Batch(BaseDeployment):
                 isinstance(supporting_features, DataConnection)
                 or supporting_features is None
             ):
-
                 observations.id = "observations"
                 input_data = [observations]
                 if supporting_features is not None:
@@ -298,7 +293,6 @@ class Batch(BaseDeployment):
                     raise ValueError('"output_data_reference" should be provided.')
 
                 if isinstance(output_data_reference, DataConnection):
-
                     # api_client sets correct href for Data Assets
                     if hasattr(output_data_reference, "location") and isinstance(
                         output_data_reference.location, AssetLocation
@@ -378,7 +372,6 @@ class Batch(BaseDeployment):
                 raise ValueError('"output_data_reference" should be provided.')
 
             if isinstance(output_data_reference, DataConnection):
-
                 # api_client sets correct href for Data Assets
                 if hasattr(output_data_reference, "location") and isinstance(
                     output_data_reference.location, AssetLocation
@@ -478,12 +471,8 @@ class Batch(BaseDeployment):
             scoring_details = deployment.score_rerun(scoring_job_id)
         """
         scoring_params = self.get_job_params(scoring_job_id)["entity"]["scoring"]
-        input_data_references = (
-            self._target_workspace.api_client.deployments.ScoringMetaNames.INPUT_DATA_REFERENCES
-        )
-        output_data_reference = (
-            self._target_workspace.api_client.deployments.ScoringMetaNames.OUTPUT_DATA_REFERENCE
-        )
+        input_data_references = self._target_workspace.api_client.deployments.ScoringMetaNames.INPUT_DATA_REFERENCES
+        output_data_reference = self._target_workspace.api_client.deployments.ScoringMetaNames.OUTPUT_DATA_REFERENCE
 
         if input_data_references in scoring_params:
             payload_ref = [

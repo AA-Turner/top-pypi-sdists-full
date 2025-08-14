@@ -3,10 +3,10 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-import numpy as np
-from IPython.display import display, clear_output
-
 from typing import Any
+
+import numpy as np
+from IPython.display import clear_output, display
 
 
 def calculate_cum_limits(scores: list):
@@ -73,17 +73,16 @@ def plot_learning_curve(
     titles: dict | None = None,
     x_values: list | None = None,
 ):
-    if isinstance(axes, np.ndarray) and fit_times is not None:
-        # plot score vs. batch number
+    # plot score vs. batch number
+    plot_subcurve(fig, axes[0], scores, x=x_values)
 
-        plot_subcurve(fig, axes[0], scores, x=x_values)
+    if titles and titles.get("first_plot"):
+        axes[0].set_title(titles["first_plot"])
 
-        if titles and titles.get("first_plot"):
-            axes[0].set_title(titles["first_plot"])
+    if xlabels and xlabels.get("first_xlabel"):
+        axes[0].set_xlabel(xlabels["first_xlabel"])
 
-        if xlabels and xlabels.get("first_xlabel"):
-            axes[0].set_xlabel(xlabels["first_xlabel"])
-
+    if isinstance(axes, np.ndarray) and fit_times:
         if len(fit_times) < len(scores):
             x = list(range(len(scores) - len(fit_times), len(scores)))
             scores_aligned = scores[len(scores) - len(fit_times) :]
@@ -130,7 +129,3 @@ def plot_learning_curve(
 
         if xlabels and xlabels.get("third_xlabel"):
             axes[2].set_xlabel(xlabels["third_xlabel"])
-
-    else:
-        # plot score vs. batch number
-        plot_subcurve(fig, axes[0], scores)

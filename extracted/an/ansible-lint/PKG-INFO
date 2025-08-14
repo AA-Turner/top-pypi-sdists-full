@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-lint
-Version: 25.7.0
+Version: 25.8.1
 Summary: Checks playbooks for practices and behavior that could potentially be improved
 Author-email: Will Thames <will@thames.id.au>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
@@ -33,7 +33,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: COPYING
 Requires-Dist: ansible-core>=2.16.11
-Requires-Dist: ansible-compat>=25.1.5
+Requires-Dist: ansible-compat>=25.8.0
 Requires-Dist: black>=24.3.0
 Requires-Dist: filelock>=3.8.2
 Requires-Dist: importlib-metadata
@@ -50,17 +50,17 @@ Requires-Dist: wcmatch>=8.5.0; python_version >= "3.12"
 Provides-Extra: docs
 Requires-Dist: mkdocs-ansible>=25.5.0; extra == "docs"
 Provides-Extra: lock
-Requires-Dist: ansible-compat==25.6.0; extra == "lock"
+Requires-Dist: ansible-compat==25.8.0; extra == "lock"
 Requires-Dist: attrs==25.3.0; extra == "lock"
 Requires-Dist: black==25.1.0; extra == "lock"
 Requires-Dist: bracex==2.6; extra == "lock"
 Requires-Dist: cffi==1.17.1; extra == "lock"
 Requires-Dist: click==8.2.1; extra == "lock"
-Requires-Dist: cryptography==45.0.5; extra == "lock"
+Requires-Dist: cryptography==45.0.6; extra == "lock"
 Requires-Dist: filelock==3.18.0; extra == "lock"
 Requires-Dist: importlib-metadata==8.7.0; extra == "lock"
 Requires-Dist: jinja2==3.1.6; extra == "lock"
-Requires-Dist: jsonschema==4.24.0; extra == "lock"
+Requires-Dist: jsonschema==4.25.0; extra == "lock"
 Requires-Dist: jsonschema-specifications==2025.4.1; extra == "lock"
 Requires-Dist: markupsafe==3.0.2; extra == "lock"
 Requires-Dist: mypy-extensions==1.1.0; extra == "lock"
@@ -70,7 +70,7 @@ Requires-Dist: platformdirs==4.3.8; extra == "lock"
 Requires-Dist: pycparser==2.22; extra == "lock"
 Requires-Dist: pyyaml==6.0.2; extra == "lock"
 Requires-Dist: referencing==0.36.2; extra == "lock"
-Requires-Dist: rpds-py==0.26.0; extra == "lock"
+Requires-Dist: rpds-py==0.27.0; extra == "lock"
 Requires-Dist: ruamel-yaml==0.18.14; extra == "lock"
 Requires-Dist: subprocess-tee==0.4.2; extra == "lock"
 Requires-Dist: wcmatch==10.1; extra == "lock"

@@ -2118,87 +2118,38 @@ Amazon ECS supports native blue/green deployments that allow you to deploy new v
 
 [Amazon ECS blue/green deployments](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-type-blue-green.html)
 
-### Using Escape Hatches for Blue/Green Features
-
-The new blue/green deployment features are added to CloudFormation but not yet available in the CDK L2 constructs, you can use escape hatches to access them through the L1 (CfnService) construct.
-
-#### Load Balancer Advanced Configuration
-
-Configure advanced load balancer settings for blue/green deployments with alternate target groups and listener rules:
-
 ```python
-# service: ecs.FargateService
+import aws_cdk.aws_lambda as lambda_
 
-
-cfn_service = service.node.default_child
-cfn_service.load_balancers = [ecs.CfnService.LoadBalancerProperty(
-    container_name="web",
-    container_port=80,
-    target_group_arn="arn:aws:elasticloadbalancing:region:account:targetgroup/production",
-    advanced_configuration=ecs.CfnService.AdvancedConfigurationProperty(
-        alternate_target_group_arn="arn:aws:elasticloadbalancing:region:account:targetgroup/test",
-        production_listener_rule="arn:aws:elasticloadbalancing:region:account:listener-rule/production-rule",
-        test_listener_rule="arn:aws:elasticloadbalancing:region:account:listener-rule/test-rule",
-        role_arn="arn:aws:iam::account:role/ecs-blue-green-role"
-    )
-)]
-```
-
-#### Blue/Green Deployment Configuration
-
-Configure deployment strategy with bake time and lifecycle hooks:
-
-```python
-# service: ecs.FargateService
-
-
-cfn_service = service.node.default_child
-cfn_service.deployment_configuration = ecs.CfnService.DeploymentConfigurationProperty(
-    maximum_percent=200,
-    minimum_healthy_percent=100,
-    strategy="BLUE_GREEN",
-    bake_time_in_minutes=15,
-    lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
-        hook_target_arn="arn:aws:lambda:region:account:function:pre-deployment-hook",
-        role_arn="arn:aws:iam::account:role/deployment-hook-role",
-        lifecycle_stages=["PRE_STOP", "POST_START"]
-    )]
-)
-```
-
-#### Service Connect Test Traffic Rules
-
-Configure test traffic routing for Service Connect during blue/green deployments:
-
-```python
 # cluster: ecs.Cluster
 # task_definition: ecs.TaskDefinition
+# lambda_hook: lambda.Function
+# blue_target_group: elbv2.ApplicationTargetGroup
+# green_target_group: elbv2.ApplicationTargetGroup
+# prod_listener_rule: elbv2.ApplicationListenerRule
 
 
 service = ecs.FargateService(self, "Service",
     cluster=cluster,
-    task_definition=task_definition
+    task_definition=task_definition,
+    deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
 )
 
-cfn_service = service.node.default_child
-cfn_service.service_connect_configuration = ecs.CfnService.ServiceConnectConfigurationProperty(
-    enabled=True,
-    services=[ecs.CfnService.ServiceConnectServiceProperty(
-        port_name="api",
-        client_aliases=[ecs.CfnService.ServiceConnectClientAliasProperty(
-            port=80,
-            dns_name="my-service",
-            test_traffic_rules=ecs.CfnService.ServiceConnectTestTrafficRulesProperty(
-                header=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty(
-                    name="x-canary-test",
-                    value=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
-                        exact="beta-version"
-                    )
-                )
-            )
-        )]
-    )]
+service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+    lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+))
+
+target = service.load_balancer_target(
+    container_name="nginx",
+    container_port=80,
+    protocol=ecs.Protocol.TCP,
+    alternate_target=ecs.AlternateTarget("AlternateTarget",
+        alternate_target_group=green_target_group,
+        production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
+    )
 )
+
+target.attach_to_application_target_group(blue_target_group)
 ```
 
 ## Daemon Scheduling Strategy
@@ -2338,6 +2289,7 @@ from ..aws_elasticloadbalancingv2 import (
     AddApplicationTargetsProps as _AddApplicationTargetsProps_76c7d190,
     AddNetworkTargetsProps as _AddNetworkTargetsProps_ce6bdf17,
     ApplicationListener as _ApplicationListener_e0620bf5,
+    ApplicationListenerRule as _ApplicationListenerRule_f93ff606,
     ApplicationProtocol as _ApplicationProtocol_aa5e9f29,
     ApplicationProtocolVersion as _ApplicationProtocolVersion_dddfe47b,
     ApplicationTargetGroup as _ApplicationTargetGroup_906fe365,
@@ -2346,6 +2298,7 @@ from ..aws_elasticloadbalancingv2 import (
     IApplicationTargetGroup as _IApplicationTargetGroup_57799827,
     INetworkLoadBalancerTarget as _INetworkLoadBalancerTarget_688b169f,
     INetworkTargetGroup as _INetworkTargetGroup_abca2df7,
+    ITargetGroup as _ITargetGroup_83c6f8c4,
     ListenerCondition as _ListenerCondition_e8416430,
     LoadBalancerTargetProps as _LoadBalancerTargetProps_4c30a73c,
     NetworkListener as _NetworkListener_539c17bf,
@@ -2359,6 +2312,7 @@ from ..aws_iam import (
     PolicyStatement as _PolicyStatement_0fe33853,
 )
 from ..aws_kms import IKey as _IKey_5f11635f
+from ..aws_lambda import IFunction as _IFunction_6adb0ab8
 from ..aws_logs import (
     ILogGroup as _ILogGroup_3c4fa718, RetentionDays as _RetentionDays_070f99f0
 )
@@ -2605,7 +2559,7 @@ class AddCapacityOptions(
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param max_capacity: Maximum number of instances in the fleet. Default: desiredCapacity
-        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value, leave this property undefined. Default: none
+        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 86,400 seconds (one day). To clear a previously set value, leave this property undefined. Default: none
         :param min_capacity: Minimum number of instances in the fleet. Default: 1
         :param new_instances_protected_from_scale_in: Whether newly-launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in. By default, Auto Scaling can terminate an instance at any time after launch when scaling in an Auto Scaling Group, subject to the group's termination policy. However, you may wish to protect newly-launched instances from being scaled in if they are going to run critical applications that should not be prematurely terminated. This flag must be enabled if the Auto Scaling Group will be associated with an ECS Capacity Provider with managed termination protection. Default: false
         :param notifications: Configure autoscaling group to send notifications about fleet changes to an SNS topic(s). Default: - No fleet change notifications will be sent.
@@ -3027,7 +2981,7 @@ class AddCapacityOptions(
         to all current and future instances in the group. As an instance approaches its maximum duration,
         it is terminated and replaced, and cannot be used again.
 
-        You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value,
+        You must specify a value of at least 86,400 seconds (one day). To clear a previously set value,
         leave this property undefined.
 
         :default: none
@@ -3284,6 +3238,306 @@ class AlarmBehavior(enum.Enum):
     In order to restore functionality, you must
     roll the stack forward by pushing a new version of the ECS service.
     '''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.AlternateTargetConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alternate_target_group_arn": "alternateTargetGroupArn",
+        "role_arn": "roleArn",
+        "production_listener_rule": "productionListenerRule",
+        "test_listener_rule": "testListenerRule",
+    },
+)
+class AlternateTargetConfig:
+    def __init__(
+        self,
+        *,
+        alternate_target_group_arn: builtins.str,
+        role_arn: builtins.str,
+        production_listener_rule: typing.Optional[builtins.str] = None,
+        test_listener_rule: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Configuration returned by AlternateTargetConfiguration.bind().
+
+        :param alternate_target_group_arn: The ARN of the alternate target group.
+        :param role_arn: The IAM role ARN for the configuration. Default: - a new role will be created
+        :param production_listener_rule: The production listener rule ARN (ALB) or listener ARN (NLB). Default: - none
+        :param test_listener_rule: The test listener rule ARN (ALB) or listener ARN (NLB). Default: - none
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecs as ecs
+            
+            alternate_target_config = ecs.AlternateTargetConfig(
+                alternate_target_group_arn="alternateTargetGroupArn",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                production_listener_rule="productionListenerRule",
+                test_listener_rule="testListenerRule"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__792a358f64361d957b07e1ed7f1116dd993837c77bffc674ebb1385615159cd7)
+            check_type(argname="argument alternate_target_group_arn", value=alternate_target_group_arn, expected_type=type_hints["alternate_target_group_arn"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument production_listener_rule", value=production_listener_rule, expected_type=type_hints["production_listener_rule"])
+            check_type(argname="argument test_listener_rule", value=test_listener_rule, expected_type=type_hints["test_listener_rule"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alternate_target_group_arn": alternate_target_group_arn,
+            "role_arn": role_arn,
+        }
+        if production_listener_rule is not None:
+            self._values["production_listener_rule"] = production_listener_rule
+        if test_listener_rule is not None:
+            self._values["test_listener_rule"] = test_listener_rule
+
+    @builtins.property
+    def alternate_target_group_arn(self) -> builtins.str:
+        '''The ARN of the alternate target group.'''
+        result = self._values.get("alternate_target_group_arn")
+        assert result is not None, "Required property 'alternate_target_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The IAM role ARN for the configuration.
+
+        :default: - a new role will be created
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def production_listener_rule(self) -> typing.Optional[builtins.str]:
+        '''The production listener rule ARN (ALB) or listener ARN (NLB).
+
+        :default: - none
+        '''
+        result = self._values.get("production_listener_rule")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def test_listener_rule(self) -> typing.Optional[builtins.str]:
+        '''The test listener rule ARN (ALB) or listener ARN (NLB).
+
+        :default: - none
+        '''
+        result = self._values.get("test_listener_rule")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AlternateTargetConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.AlternateTargetOptions",
+    jsii_struct_bases=[],
+    name_mapping={"role": "role", "test_listener": "testListener"},
+)
+class AlternateTargetOptions:
+    def __init__(
+        self,
+        *,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+        test_listener: typing.Optional["ListenerRuleConfiguration"] = None,
+    ) -> None:
+        '''Options for AlternateTarget configuration.
+
+        :param role: The IAM role for the configuration. Default: - a new role will be created
+        :param test_listener: The test listener configuration. Default: - none
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecs as ecs
+            from aws_cdk import aws_iam as iam
+            
+            # listener_rule_configuration: ecs.ListenerRuleConfiguration
+            # role: iam.Role
+            
+            alternate_target_options = ecs.AlternateTargetOptions(
+                role=role,
+                test_listener=listener_rule_configuration
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__419cc917bedbbd0a41ca044bcc54720f5a35bdc4f2dca6e11ae40da3ed05758d)
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument test_listener", value=test_listener, expected_type=type_hints["test_listener"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if role is not None:
+            self._values["role"] = role
+        if test_listener is not None:
+            self._values["test_listener"] = test_listener
+
+    @builtins.property
+    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM role for the configuration.
+
+        :default: - a new role will be created
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def test_listener(self) -> typing.Optional["ListenerRuleConfiguration"]:
+        '''The test listener configuration.
+
+        :default: - none
+        '''
+        result = self._values.get("test_listener")
+        return typing.cast(typing.Optional["ListenerRuleConfiguration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AlternateTargetOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.AlternateTargetProps",
+    jsii_struct_bases=[AlternateTargetOptions],
+    name_mapping={
+        "role": "role",
+        "test_listener": "testListener",
+        "alternate_target_group": "alternateTargetGroup",
+        "production_listener": "productionListener",
+    },
+)
+class AlternateTargetProps(AlternateTargetOptions):
+    def __init__(
+        self,
+        *,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+        test_listener: typing.Optional["ListenerRuleConfiguration"] = None,
+        alternate_target_group: _ITargetGroup_83c6f8c4,
+        production_listener: "ListenerRuleConfiguration",
+    ) -> None:
+        '''Properties for AlternateTarget configuration.
+
+        :param role: The IAM role for the configuration. Default: - a new role will be created
+        :param test_listener: The test listener configuration. Default: - none
+        :param alternate_target_group: The alternate target group.
+        :param production_listener: The production listener rule ARN (ALB) or listener ARN (NLB).
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_lambda as lambda_
+            
+            # cluster: ecs.Cluster
+            # task_definition: ecs.TaskDefinition
+            # lambda_hook: lambda.Function
+            # blue_target_group: elbv2.ApplicationTargetGroup
+            # green_target_group: elbv2.ApplicationTargetGroup
+            # prod_listener_rule: elbv2.ApplicationListenerRule
+            
+            
+            service = ecs.FargateService(self, "Service",
+                cluster=cluster,
+                task_definition=task_definition,
+                deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
+            )
+            
+            service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+                lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+            ))
+            
+            target = service.load_balancer_target(
+                container_name="nginx",
+                container_port=80,
+                protocol=ecs.Protocol.TCP,
+                alternate_target=ecs.AlternateTarget("AlternateTarget",
+                    alternate_target_group=green_target_group,
+                    production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
+                )
+            )
+            
+            target.attach_to_application_target_group(blue_target_group)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__308a285b9e7be7ba49d4d78caf88537a973f5504d7b7519fb1fe4ab1c987b690)
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument test_listener", value=test_listener, expected_type=type_hints["test_listener"])
+            check_type(argname="argument alternate_target_group", value=alternate_target_group, expected_type=type_hints["alternate_target_group"])
+            check_type(argname="argument production_listener", value=production_listener, expected_type=type_hints["production_listener"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alternate_target_group": alternate_target_group,
+            "production_listener": production_listener,
+        }
+        if role is not None:
+            self._values["role"] = role
+        if test_listener is not None:
+            self._values["test_listener"] = test_listener
+
+    @builtins.property
+    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM role for the configuration.
+
+        :default: - a new role will be created
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def test_listener(self) -> typing.Optional["ListenerRuleConfiguration"]:
+        '''The test listener configuration.
+
+        :default: - none
+        '''
+        result = self._values.get("test_listener")
+        return typing.cast(typing.Optional["ListenerRuleConfiguration"], result)
+
+    @builtins.property
+    def alternate_target_group(self) -> _ITargetGroup_83c6f8c4:
+        '''The alternate target group.'''
+        result = self._values.get("alternate_target_group")
+        assert result is not None, "Required property 'alternate_target_group' is missing"
+        return typing.cast(_ITargetGroup_83c6f8c4, result)
+
+    @builtins.property
+    def production_listener(self) -> "ListenerRuleConfiguration":
+        '''The production listener rule ARN (ALB) or listener ARN (NLB).'''
+        result = self._values.get("production_listener")
+        assert result is not None, "Required property 'production_listener' is missing"
+        return typing.cast("ListenerRuleConfiguration", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AlternateTargetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_ecs.AmiHardwareType")
@@ -5097,15 +5351,18 @@ class BaseMountPoint:
     jsii_struct_bases=[],
     name_mapping={
         "cluster": "cluster",
+        "bake_time": "bakeTime",
         "capacity_provider_strategies": "capacityProviderStrategies",
         "circuit_breaker": "circuitBreaker",
         "cloud_map_options": "cloudMapOptions",
         "deployment_alarms": "deploymentAlarms",
         "deployment_controller": "deploymentController",
+        "deployment_strategy": "deploymentStrategy",
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
         "health_check_grace_period": "healthCheckGracePeriod",
+        "lifecycle_hooks": "lifecycleHooks",
         "max_healthy_percent": "maxHealthyPercent",
         "min_healthy_percent": "minHealthyPercent",
         "propagate_tags": "propagateTags",
@@ -5120,15 +5377,18 @@ class BaseServiceOptions:
         self,
         *,
         cluster: "ICluster",
+        bake_time: typing.Optional[_Duration_4839e8c3] = None,
         capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
         circuit_breaker: typing.Optional[typing.Union["DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_map_options: typing.Optional[typing.Union["CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_alarms: typing.Optional[typing.Union["DeploymentAlarmConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union["DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_strategy: typing.Optional["DeploymentStrategy"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+        lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         propagate_tags: typing.Optional["PropagatedTagSource"] = None,
@@ -5140,15 +5400,18 @@ class BaseServiceOptions:
         '''The properties for the base Ec2Service or FargateService service.
 
         :param cluster: The name of the cluster that hosts the service.
+        :param bake_time: bake time minutes for service. Default: - none
         :param capacity_provider_strategies: A list of Capacity Provider strategies used to place a service. Default: - undefined
         :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cloud_map_options: The options for configuring an Amazon ECS service to use service discovery. Default: - AWS Cloud Map service discovery is not enabled.
         :param deployment_alarms: The alarm(s) to monitor during deployment, and behavior to apply if at least one enters a state of alarm during the deployment or bake time. Default: - No alarms will be monitored during deployment.
         :param deployment_controller: Specifies which deployment controller to use for the service. For more information, see `Amazon ECS Deployment Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`_ Default: - Rolling update (ECS)
+        :param deployment_strategy: The deployment strategy to use for the service. Default: ROLLING
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
+        :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param max_healthy_percent: The maximum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that can run in a service during a deployment. Default: - 100 if daemon, otherwise 200
         :param min_healthy_percent: The minimum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that must continue to run and remain healthy during a deployment. Default: - 0 if daemon, otherwise 50
         :param propagate_tags: Specifies whether to propagate the tags from the task definition or the service to the tasks in the service. Valid values are: PropagatedTagSource.SERVICE, PropagatedTagSource.TASK_DEFINITION or PropagatedTagSource.NONE Default: PropagatedTagSource.NONE
@@ -5171,6 +5434,7 @@ class BaseServiceOptions:
             
             # cluster: ecs.Cluster
             # container_definition: ecs.ContainerDefinition
+            # deployment_lifecycle_hook_target: ecs.IDeploymentLifecycleHookTarget
             # key: kms.Key
             # log_driver: ecs.LogDriver
             # namespace: servicediscovery.INamespace
@@ -5182,6 +5446,7 @@ class BaseServiceOptions:
                 cluster=cluster,
             
                 # the properties below are optional
+                bake_time=cdk.Duration.minutes(30),
                 capacity_provider_strategies=[ecs.CapacityProviderStrategy(
                     capacity_provider="capacityProvider",
             
@@ -5211,10 +5476,12 @@ class BaseServiceOptions:
                 deployment_controller=ecs.DeploymentController(
                     type=ecs.DeploymentControllerType.ECS
                 ),
+                deployment_strategy=ecs.DeploymentStrategy.ROLLING,
                 desired_count=123,
                 enable_eCSManaged_tags=False,
                 enable_execute_command=False,
                 health_check_grace_period=cdk.Duration.minutes(30),
+                lifecycle_hooks=[deployment_lifecycle_hook_target],
                 max_healthy_percent=123,
                 min_healthy_percent=123,
                 propagate_tags=ecs.PropagatedTagSource.SERVICE,
@@ -5256,15 +5523,18 @@ class BaseServiceOptions:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2e0ba28c74987301a54b0d197b791a6a94084b5f40d15304ffabf113b3f7daa)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
+            check_type(argname="argument bake_time", value=bake_time, expected_type=type_hints["bake_time"])
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument deployment_alarms", value=deployment_alarms, expected_type=type_hints["deployment_alarms"])
             check_type(argname="argument deployment_controller", value=deployment_controller, expected_type=type_hints["deployment_controller"])
+            check_type(argname="argument deployment_strategy", value=deployment_strategy, expected_type=type_hints["deployment_strategy"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
+            check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument max_healthy_percent", value=max_healthy_percent, expected_type=type_hints["max_healthy_percent"])
             check_type(argname="argument min_healthy_percent", value=min_healthy_percent, expected_type=type_hints["min_healthy_percent"])
             check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
@@ -5275,6 +5545,8 @@ class BaseServiceOptions:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster": cluster,
         }
+        if bake_time is not None:
+            self._values["bake_time"] = bake_time
         if capacity_provider_strategies is not None:
             self._values["capacity_provider_strategies"] = capacity_provider_strategies
         if circuit_breaker is not None:
@@ -5285,6 +5557,8 @@ class BaseServiceOptions:
             self._values["deployment_alarms"] = deployment_alarms
         if deployment_controller is not None:
             self._values["deployment_controller"] = deployment_controller
+        if deployment_strategy is not None:
+            self._values["deployment_strategy"] = deployment_strategy
         if desired_count is not None:
             self._values["desired_count"] = desired_count
         if enable_ecs_managed_tags is not None:
@@ -5293,6 +5567,8 @@ class BaseServiceOptions:
             self._values["enable_execute_command"] = enable_execute_command
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
+        if lifecycle_hooks is not None:
+            self._values["lifecycle_hooks"] = lifecycle_hooks
         if max_healthy_percent is not None:
             self._values["max_healthy_percent"] = max_healthy_percent
         if min_healthy_percent is not None:
@@ -5314,6 +5590,15 @@ class BaseServiceOptions:
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
         return typing.cast("ICluster", result)
+
+    @builtins.property
+    def bake_time(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''bake time minutes for service.
+
+        :default: - none
+        '''
+        result = self._values.get("bake_time")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
 
     @builtins.property
     def capacity_provider_strategies(
@@ -5369,6 +5654,15 @@ class BaseServiceOptions:
         return typing.cast(typing.Optional["DeploymentController"], result)
 
     @builtins.property
+    def deployment_strategy(self) -> typing.Optional["DeploymentStrategy"]:
+        '''The deployment strategy to use for the service.
+
+        :default: ROLLING
+        '''
+        result = self._values.get("deployment_strategy")
+        return typing.cast(typing.Optional["DeploymentStrategy"], result)
+
+    @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
         '''The desired number of instantiations of the task definition to keep running on the service.
 
@@ -5409,6 +5703,17 @@ class BaseServiceOptions:
         '''
         result = self._values.get("health_check_grace_period")
         return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def lifecycle_hooks(
+        self,
+    ) -> typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]]:
+        '''The lifecycle hooks to execute during deployment stages.
+
+        :default: - none;
+        '''
+        result = self._values.get("lifecycle_hooks")
+        return typing.cast(typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -5500,15 +5805,18 @@ class BaseServiceOptions:
     jsii_struct_bases=[BaseServiceOptions],
     name_mapping={
         "cluster": "cluster",
+        "bake_time": "bakeTime",
         "capacity_provider_strategies": "capacityProviderStrategies",
         "circuit_breaker": "circuitBreaker",
         "cloud_map_options": "cloudMapOptions",
         "deployment_alarms": "deploymentAlarms",
         "deployment_controller": "deploymentController",
+        "deployment_strategy": "deploymentStrategy",
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
         "health_check_grace_period": "healthCheckGracePeriod",
+        "lifecycle_hooks": "lifecycleHooks",
         "max_healthy_percent": "maxHealthyPercent",
         "min_healthy_percent": "minHealthyPercent",
         "propagate_tags": "propagateTags",
@@ -5524,15 +5832,18 @@ class BaseServiceProps(BaseServiceOptions):
         self,
         *,
         cluster: "ICluster",
+        bake_time: typing.Optional[_Duration_4839e8c3] = None,
         capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["CapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]] = None,
         circuit_breaker: typing.Optional[typing.Union["DeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_map_options: typing.Optional[typing.Union["CloudMapOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_alarms: typing.Optional[typing.Union["DeploymentAlarmConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union["DeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_strategy: typing.Optional["DeploymentStrategy"] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+        lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         propagate_tags: typing.Optional["PropagatedTagSource"] = None,
@@ -5545,15 +5856,18 @@ class BaseServiceProps(BaseServiceOptions):
         '''Complete base service properties that are required to be supplied by the implementation of the BaseService class.
 
         :param cluster: The name of the cluster that hosts the service.
+        :param bake_time: bake time minutes for service. Default: - none
         :param capacity_provider_strategies: A list of Capacity Provider strategies used to place a service. Default: - undefined
         :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cloud_map_options: The options for configuring an Amazon ECS service to use service discovery. Default: - AWS Cloud Map service discovery is not enabled.
         :param deployment_alarms: The alarm(s) to monitor during deployment, and behavior to apply if at least one enters a state of alarm during the deployment or bake time. Default: - No alarms will be monitored during deployment.
         :param deployment_controller: Specifies which deployment controller to use for the service. For more information, see `Amazon ECS Deployment Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`_ Default: - Rolling update (ECS)
+        :param deployment_strategy: The deployment strategy to use for the service. Default: ROLLING
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
+        :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param max_healthy_percent: The maximum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that can run in a service during a deployment. Default: - 100 if daemon, otherwise 200
         :param min_healthy_percent: The minimum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that must continue to run and remain healthy during a deployment. Default: - 0 if daemon, otherwise 50
         :param propagate_tags: Specifies whether to propagate the tags from the task definition or the service to the tasks in the service. Valid values are: PropagatedTagSource.SERVICE, PropagatedTagSource.TASK_DEFINITION or PropagatedTagSource.NONE Default: PropagatedTagSource.NONE
@@ -5577,6 +5891,7 @@ class BaseServiceProps(BaseServiceOptions):
             
             # cluster: ecs.Cluster
             # container_definition: ecs.ContainerDefinition
+            # deployment_lifecycle_hook_target: ecs.IDeploymentLifecycleHookTarget
             # key: kms.Key
             # log_driver: ecs.LogDriver
             # namespace: servicediscovery.INamespace
@@ -5589,6 +5904,7 @@ class BaseServiceProps(BaseServiceOptions):
                 launch_type=ecs.LaunchType.EC2,
             
                 # the properties below are optional
+                bake_time=cdk.Duration.minutes(30),
                 capacity_provider_strategies=[ecs.CapacityProviderStrategy(
                     capacity_provider="capacityProvider",
             
@@ -5618,10 +5934,12 @@ class BaseServiceProps(BaseServiceOptions):
                 deployment_controller=ecs.DeploymentController(
                     type=ecs.DeploymentControllerType.ECS
                 ),
+                deployment_strategy=ecs.DeploymentStrategy.ROLLING,
                 desired_count=123,
                 enable_eCSManaged_tags=False,
                 enable_execute_command=False,
                 health_check_grace_period=cdk.Duration.minutes(30),
+                lifecycle_hooks=[deployment_lifecycle_hook_target],
                 max_healthy_percent=123,
                 min_healthy_percent=123,
                 propagate_tags=ecs.PropagatedTagSource.SERVICE,
@@ -5663,15 +5981,18 @@ class BaseServiceProps(BaseServiceOptions):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ecfd95265b873c2042a9d5cb8465a48f9e325e2271c18461e2b266333563d84)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
+            check_type(argname="argument bake_time", value=bake_time, expected_type=type_hints["bake_time"])
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument deployment_alarms", value=deployment_alarms, expected_type=type_hints["deployment_alarms"])
             check_type(argname="argument deployment_controller", value=deployment_controller, expected_type=type_hints["deployment_controller"])
+            check_type(argname="argument deployment_strategy", value=deployment_strategy, expected_type=type_hints["deployment_strategy"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
+            check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument max_healthy_percent", value=max_healthy_percent, expected_type=type_hints["max_healthy_percent"])
             check_type(argname="argument min_healthy_percent", value=min_healthy_percent, expected_type=type_hints["min_healthy_percent"])
             check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
@@ -5684,6 +6005,8 @@ class BaseServiceProps(BaseServiceOptions):
             "cluster": cluster,
             "launch_type": launch_type,
         }
+        if bake_time is not None:
+            self._values["bake_time"] = bake_time
         if capacity_provider_strategies is not None:
             self._values["capacity_provider_strategies"] = capacity_provider_strategies
         if circuit_breaker is not None:
@@ -5694,6 +6017,8 @@ class BaseServiceProps(BaseServiceOptions):
             self._values["deployment_alarms"] = deployment_alarms
         if deployment_controller is not None:
             self._values["deployment_controller"] = deployment_controller
+        if deployment_strategy is not None:
+            self._values["deployment_strategy"] = deployment_strategy
         if desired_count is not None:
             self._values["desired_count"] = desired_count
         if enable_ecs_managed_tags is not None:
@@ -5702,6 +6027,8 @@ class BaseServiceProps(BaseServiceOptions):
             self._values["enable_execute_command"] = enable_execute_command
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
+        if lifecycle_hooks is not None:
+            self._values["lifecycle_hooks"] = lifecycle_hooks
         if max_healthy_percent is not None:
             self._values["max_healthy_percent"] = max_healthy_percent
         if min_healthy_percent is not None:
@@ -5723,6 +6050,15 @@ class BaseServiceProps(BaseServiceOptions):
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
         return typing.cast("ICluster", result)
+
+    @builtins.property
+    def bake_time(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''bake time minutes for service.
+
+        :default: - none
+        '''
+        result = self._values.get("bake_time")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
 
     @builtins.property
     def capacity_provider_strategies(
@@ -5778,6 +6114,15 @@ class BaseServiceProps(BaseServiceOptions):
         return typing.cast(typing.Optional["DeploymentController"], result)
 
     @builtins.property
+    def deployment_strategy(self) -> typing.Optional["DeploymentStrategy"]:
+        '''The deployment strategy to use for the service.
+
+        :default: ROLLING
+        '''
+        result = self._values.get("deployment_strategy")
+        return typing.cast(typing.Optional["DeploymentStrategy"], result)
+
+    @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
         '''The desired number of instantiations of the task definition to keep running on the service.
 
@@ -5818,6 +6163,17 @@ class BaseServiceProps(BaseServiceOptions):
         '''
         result = self._values.get("health_check_grace_period")
         return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def lifecycle_hooks(
+        self,
+    ) -> typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]]:
+        '''The lifecycle hooks to execute during deployment stages.
+
+        :default: - none;
+        '''
+        result = self._values.get("lifecycle_hooks")
+        return typing.cast(typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -8642,23 +8998,184 @@ class CfnService(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html
     :cloudformationResource: AWS::ECS::Service
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=_generated
 
     Example::
 
-        # service: ecs.FargateService
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ecs as ecs
         
+        cfn_service = ecs.CfnService(self, "MyCfnService",
+            availability_zone_rebalancing="availabilityZoneRebalancing",
+            capacity_provider_strategy=[ecs.CfnService.CapacityProviderStrategyItemProperty(
+                base=123,
+                capacity_provider="capacityProvider",
+                weight=123
+            )],
+            cluster="cluster",
+            deployment_configuration=ecs.CfnService.DeploymentConfigurationProperty(
+                alarms=ecs.CfnService.DeploymentAlarmsProperty(
+                    alarm_names=["alarmNames"],
+                    enable=False,
+                    rollback=False
+                ),
+                bake_time_in_minutes=123,
+                deployment_circuit_breaker=ecs.CfnService.DeploymentCircuitBreakerProperty(
+                    enable=False,
+                    rollback=False
+                ),
+                lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
+                    hook_target_arn="hookTargetArn",
+                    lifecycle_stages=["lifecycleStages"],
+                    role_arn="roleArn"
+                )],
+                maximum_percent=123,
+                minimum_healthy_percent=123,
+                strategy="strategy"
+            ),
+            deployment_controller=ecs.CfnService.DeploymentControllerProperty(
+                type="type"
+            ),
+            desired_count=123,
+            enable_ecs_managed_tags=False,
+            enable_execute_command=False,
+            health_check_grace_period_seconds=123,
+            launch_type="launchType",
+            load_balancers=[ecs.CfnService.LoadBalancerProperty(
+                advanced_configuration=ecs.CfnService.AdvancedConfigurationProperty(
+                    alternate_target_group_arn="alternateTargetGroupArn",
         
-        cfn_service = service.node.default_child
-        cfn_service.deployment_configuration = ecs.CfnService.DeploymentConfigurationProperty(
-            maximum_percent=200,
-            minimum_healthy_percent=100,
-            strategy="BLUE_GREEN",
-            bake_time_in_minutes=15,
-            lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
-                hook_target_arn="arn:aws:lambda:region:account:function:pre-deployment-hook",
-                role_arn="arn:aws:iam::account:role/deployment-hook-role",
-                lifecycle_stages=["PRE_STOP", "POST_START"]
+                    # the properties below are optional
+                    production_listener_rule="productionListenerRule",
+                    role_arn="roleArn",
+                    test_listener_rule="testListenerRule"
+                ),
+                container_name="containerName",
+                container_port=123,
+                load_balancer_name="loadBalancerName",
+                target_group_arn="targetGroupArn"
+            )],
+            network_configuration=ecs.CfnService.NetworkConfigurationProperty(
+                awsvpc_configuration=ecs.CfnService.AwsVpcConfigurationProperty(
+                    assign_public_ip="assignPublicIp",
+                    security_groups=["securityGroups"],
+                    subnets=["subnets"]
+                )
+            ),
+            placement_constraints=[ecs.CfnService.PlacementConstraintProperty(
+                type="type",
+        
+                # the properties below are optional
+                expression="expression"
+            )],
+            placement_strategies=[ecs.CfnService.PlacementStrategyProperty(
+                type="type",
+        
+                # the properties below are optional
+                field="field"
+            )],
+            platform_version="platformVersion",
+            propagate_tags="propagateTags",
+            role="role",
+            scheduling_strategy="schedulingStrategy",
+            service_connect_configuration=ecs.CfnService.ServiceConnectConfigurationProperty(
+                enabled=False,
+        
+                # the properties below are optional
+                log_configuration=ecs.CfnService.LogConfigurationProperty(
+                    log_driver="logDriver",
+                    options={
+                        "options_key": "options"
+                    },
+                    secret_options=[ecs.CfnService.SecretProperty(
+                        name="name",
+                        value_from="valueFrom"
+                    )]
+                ),
+                namespace="namespace",
+                services=[ecs.CfnService.ServiceConnectServiceProperty(
+                    port_name="portName",
+        
+                    # the properties below are optional
+                    client_aliases=[ecs.CfnService.ServiceConnectClientAliasProperty(
+                        port=123,
+        
+                        # the properties below are optional
+                        dns_name="dnsName",
+                        test_traffic_rules=ecs.CfnService.ServiceConnectTestTrafficRulesProperty(
+                            header=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty(
+                                name="name",
+        
+                                # the properties below are optional
+                                value=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
+                                    exact="exact"
+                                )
+                            )
+                        )
+                    )],
+                    discovery_name="discoveryName",
+                    ingress_port_override=123,
+                    timeout=ecs.CfnService.TimeoutConfigurationProperty(
+                        idle_timeout_seconds=123,
+                        per_request_timeout_seconds=123
+                    ),
+                    tls=ecs.CfnService.ServiceConnectTlsConfigurationProperty(
+                        issuer_certificate_authority=ecs.CfnService.ServiceConnectTlsCertificateAuthorityProperty(
+                            aws_pca_authority_arn="awsPcaAuthorityArn"
+                        ),
+        
+                        # the properties below are optional
+                        kms_key="kmsKey",
+                        role_arn="roleArn"
+                    )
+                )]
+            ),
+            service_name="serviceName",
+            service_registries=[ecs.CfnService.ServiceRegistryProperty(
+                container_name="containerName",
+                container_port=123,
+                port=123,
+                registry_arn="registryArn"
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            task_definition="taskDefinition",
+            volume_configurations=[ecs.CfnService.ServiceVolumeConfigurationProperty(
+                name="name",
+        
+                # the properties below are optional
+                managed_ebs_volume=ecs.CfnService.ServiceManagedEBSVolumeConfigurationProperty(
+                    role_arn="roleArn",
+        
+                    # the properties below are optional
+                    encrypted=False,
+                    filesystem_type="filesystemType",
+                    iops=123,
+                    kms_key_id="kmsKeyId",
+                    size_in_gi_b=123,
+                    snapshot_id="snapshotId",
+                    tag_specifications=[ecs.CfnService.EBSTagSpecificationProperty(
+                        resource_type="resourceType",
+        
+                        # the properties below are optional
+                        propagate_tags="propagateTags",
+                        tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )]
+                    )],
+                    throughput=123,
+                    volume_initialization_rate=123,
+                    volume_type="volumeType"
+                )
+            )],
+            vpc_lattice_configurations=[ecs.CfnService.VpcLatticeConfigurationProperty(
+                port_name="portName",
+                role_arn="roleArn",
+                target_group_arn="targetGroupArn"
             )]
         )
     '''
@@ -8697,7 +9214,7 @@ class CfnService(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service. For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** . Default: - "DISABLED"
+        :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service. For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** . Default: - "ENABLED"
         :param capacity_provider_strategy: The capacity provider strategy to use for the service. If a ``capacityProviderStrategy`` is specified, the ``launchType`` parameter must be omitted. If no ``capacityProviderStrategy`` or ``launchType`` is specified, the ``defaultCapacityProviderStrategy`` for the cluster is used. A capacity provider strategy can contain a maximum of 20 capacity providers. .. epigraph:: To remove this property from your service resource, specify an empty ``CapacityProviderStrategyItem`` array.
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that you run your service on. If you do not specify a cluster, the default cluster is assumed.
         :param deployment_configuration: Optional deployment parameters that control how many tasks run during the deployment and the ordering of stopping and starting tasks.
@@ -12556,7 +13073,7 @@ class CfnServiceProps:
     ) -> None:
         '''Properties for defining a ``CfnService``.
 
-        :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service. For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** . Default: - "DISABLED"
+        :param availability_zone_rebalancing: Indicates whether to use Availability Zone rebalancing for the service. For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** . Default: - "ENABLED"
         :param capacity_provider_strategy: The capacity provider strategy to use for the service. If a ``capacityProviderStrategy`` is specified, the ``launchType`` parameter must be omitted. If no ``capacityProviderStrategy`` or ``launchType`` is specified, the ``defaultCapacityProviderStrategy`` for the cluster is used. A capacity provider strategy can contain a maximum of 20 capacity providers. .. epigraph:: To remove this property from your service resource, specify an empty ``CapacityProviderStrategyItem`` array.
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that you run your service on. If you do not specify a cluster, the default cluster is assumed.
         :param deployment_configuration: Optional deployment parameters that control how many tasks run during the deployment and the ordering of stopping and starting tasks.
@@ -12849,7 +13366,7 @@ class CfnServiceProps:
 
         For more information, see `Balancing an Amazon ECS service across Availability Zones <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html>`_ in the **Amazon Elastic Container Service Developer Guide** .
 
-        :default: - "DISABLED"
+        :default: - "ENABLED"
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html#cfn-ecs-service-availabilityzonerebalancing
         '''
@@ -24422,6 +24939,290 @@ class DeploymentControllerType(enum.Enum):
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.DeploymentLifecycleHookTargetConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "lifecycle_stages": "lifecycleStages",
+        "target_arn": "targetArn",
+        "role": "role",
+    },
+)
+class DeploymentLifecycleHookTargetConfig:
+    def __init__(
+        self,
+        *,
+        lifecycle_stages: typing.Sequence["DeploymentLifecycleStage"],
+        target_arn: builtins.str,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+    ) -> None:
+        '''Configuration for a deployment lifecycle hook target.
+
+        :param lifecycle_stages: The lifecycle stages when this hook should be executed.
+        :param target_arn: The ARN of the target resource.
+        :param role: The IAM role that grants permissions to invoke the target. Default: - a role will be created automatically
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecs as ecs
+            from aws_cdk import aws_iam as iam
+            
+            # role: iam.Role
+            
+            deployment_lifecycle_hook_target_config = ecs.DeploymentLifecycleHookTargetConfig(
+                lifecycle_stages=[ecs.DeploymentLifecycleStage.RECONCILE_SERVICE],
+                target_arn="targetArn",
+            
+                # the properties below are optional
+                role=role
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58b105a4a38be4fd4e5d81c3d78a7d0fc4d3120086f0f1235d58be7e964bf172)
+            check_type(argname="argument lifecycle_stages", value=lifecycle_stages, expected_type=type_hints["lifecycle_stages"])
+            check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "lifecycle_stages": lifecycle_stages,
+            "target_arn": target_arn,
+        }
+        if role is not None:
+            self._values["role"] = role
+
+    @builtins.property
+    def lifecycle_stages(self) -> typing.List["DeploymentLifecycleStage"]:
+        '''The lifecycle stages when this hook should be executed.'''
+        result = self._values.get("lifecycle_stages")
+        assert result is not None, "Required property 'lifecycle_stages' is missing"
+        return typing.cast(typing.List["DeploymentLifecycleStage"], result)
+
+    @builtins.property
+    def target_arn(self) -> builtins.str:
+        '''The ARN of the target resource.'''
+        result = self._values.get("target_arn")
+        assert result is not None, "Required property 'target_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM role that grants permissions to invoke the target.
+
+        :default: - a role will be created automatically
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentLifecycleHookTargetConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.DeploymentLifecycleLambdaTargetProps",
+    jsii_struct_bases=[],
+    name_mapping={"lifecycle_stages": "lifecycleStages", "role": "role"},
+)
+class DeploymentLifecycleLambdaTargetProps:
+    def __init__(
+        self,
+        *,
+        lifecycle_stages: typing.Sequence["DeploymentLifecycleStage"],
+        role: typing.Optional[_IRole_235f5d8e] = None,
+    ) -> None:
+        '''Configuration for a lambda deployment lifecycle hook.
+
+        :param lifecycle_stages: The lifecycle stages when this hook should be executed.
+        :param role: The IAM role that grants permissions to invoke the lambda target. Default: - A unique role will be generated for this lambda function.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_lambda as lambda_
+            
+            # cluster: ecs.Cluster
+            # task_definition: ecs.TaskDefinition
+            # lambda_hook: lambda.Function
+            # blue_target_group: elbv2.ApplicationTargetGroup
+            # green_target_group: elbv2.ApplicationTargetGroup
+            # prod_listener_rule: elbv2.ApplicationListenerRule
+            
+            
+            service = ecs.FargateService(self, "Service",
+                cluster=cluster,
+                task_definition=task_definition,
+                deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
+            )
+            
+            service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+                lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+            ))
+            
+            target = service.load_balancer_target(
+                container_name="nginx",
+                container_port=80,
+                protocol=ecs.Protocol.TCP,
+                alternate_target=ecs.AlternateTarget("AlternateTarget",
+                    alternate_target_group=green_target_group,
+                    production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
+                )
+            )
+            
+            target.attach_to_application_target_group(blue_target_group)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e812b4c257c9817fdc66c09cfbc9ed6c2dae75feb52fdb91c33339837dbb883c)
+            check_type(argname="argument lifecycle_stages", value=lifecycle_stages, expected_type=type_hints["lifecycle_stages"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "lifecycle_stages": lifecycle_stages,
+        }
+        if role is not None:
+            self._values["role"] = role
+
+    @builtins.property
+    def lifecycle_stages(self) -> typing.List["DeploymentLifecycleStage"]:
+        '''The lifecycle stages when this hook should be executed.'''
+        result = self._values.get("lifecycle_stages")
+        assert result is not None, "Required property 'lifecycle_stages' is missing"
+        return typing.cast(typing.List["DeploymentLifecycleStage"], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The IAM role that grants permissions to invoke the lambda target.
+
+        :default: - A unique role will be generated for this lambda function.
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentLifecycleLambdaTargetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ecs.DeploymentLifecycleStage")
+class DeploymentLifecycleStage(enum.Enum):
+    '''Deployment lifecycle stages where hooks can be executed.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_lambda as lambda_
+        
+        # cluster: ecs.Cluster
+        # task_definition: ecs.TaskDefinition
+        # lambda_hook: lambda.Function
+        # blue_target_group: elbv2.ApplicationTargetGroup
+        # green_target_group: elbv2.ApplicationTargetGroup
+        # prod_listener_rule: elbv2.ApplicationListenerRule
+        
+        
+        service = ecs.FargateService(self, "Service",
+            cluster=cluster,
+            task_definition=task_definition,
+            deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
+        )
+        
+        service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+            lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+        ))
+        
+        target = service.load_balancer_target(
+            container_name="nginx",
+            container_port=80,
+            protocol=ecs.Protocol.TCP,
+            alternate_target=ecs.AlternateTarget("AlternateTarget",
+                alternate_target_group=green_target_group,
+                production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
+            )
+        )
+        
+        target.attach_to_application_target_group(blue_target_group)
+    '''
+
+    RECONCILE_SERVICE = "RECONCILE_SERVICE"
+    '''Execute during service reconciliation.'''
+    PRE_SCALE_UP = "PRE_SCALE_UP"
+    '''Execute before scaling up tasks.'''
+    POST_SCALE_UP = "POST_SCALE_UP"
+    '''Execute after scaling up tasks.'''
+    TEST_TRAFFIC_SHIFT = "TEST_TRAFFIC_SHIFT"
+    '''Execute during test traffic shift.'''
+    POST_TEST_TRAFFIC_SHIFT = "POST_TEST_TRAFFIC_SHIFT"
+    '''Execute after test traffic shift.'''
+    PRODUCTION_TRAFFIC_SHIFT = "PRODUCTION_TRAFFIC_SHIFT"
+    '''Execute during production traffic shift.'''
+    POST_PRODUCTION_TRAFFIC_SHIFT = "POST_PRODUCTION_TRAFFIC_SHIFT"
+    '''Execute after production traffic shift.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ecs.DeploymentStrategy")
+class DeploymentStrategy(enum.Enum):
+    '''The deployment stratergy to use for ECS controller.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_lambda as lambda_
+        
+        # cluster: ecs.Cluster
+        # task_definition: ecs.TaskDefinition
+        # lambda_hook: lambda.Function
+        # blue_target_group: elbv2.ApplicationTargetGroup
+        # green_target_group: elbv2.ApplicationTargetGroup
+        # prod_listener_rule: elbv2.ApplicationListenerRule
+        
+        
+        service = ecs.FargateService(self, "Service",
+            cluster=cluster,
+            task_definition=task_definition,
+            deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
+        )
+        
+        service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+            lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+        ))
+        
+        target = service.load_balancer_target(
+            container_name="nginx",
+            container_port=80,
+            protocol=ecs.Protocol.TCP,
+            alternate_target=ecs.AlternateTarget("AlternateTarget",
+                alternate_target_group=green_target_group,
+                production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
+            )
+        )
+        
+        target.attach_to_application_target_group(blue_target_group)
+    '''
+
+    ROLLING = "ROLLING"
+    '''Rolling update deployment.'''
+    BLUE_GREEN = "BLUE_GREEN"
+    '''Blue/green deployment.'''
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ecs.Device",
     jsii_struct_bases=[],
     name_mapping={
@@ -25023,15 +25824,18 @@ class Ec2ServiceAttributes:
     jsii_struct_bases=[BaseServiceOptions],
     name_mapping={
         "cluster": "cluster",
+        "bake_time": "bakeTime",
         "capacity_provider_strategies": "capacityProviderStrategies",
         "circuit_breaker": "circuitBreaker",
         "cloud_map_options": "cloudMapOptions",
         "deployment_alarms": "deploymentAlarms",
         "deployment_controller": "deploymentController",
+        "deployment_strategy": "deploymentStrategy",
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
         "health_check_grace_period": "healthCheckGracePeriod",
+        "lifecycle_hooks": "lifecycleHooks",
         "max_healthy_percent": "maxHealthyPercent",
         "min_healthy_percent": "minHealthyPercent",
         "propagate_tags": "propagateTags",
@@ -25054,15 +25858,18 @@ class Ec2ServiceProps(BaseServiceOptions):
         self,
         *,
         cluster: "ICluster",
+        bake_time: typing.Optional[_Duration_4839e8c3] = None,
         capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
         circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_alarms: typing.Optional[typing.Union["DeploymentAlarmConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_strategy: typing.Optional[DeploymentStrategy] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+        lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         propagate_tags: typing.Optional["PropagatedTagSource"] = None,
@@ -25082,15 +25889,18 @@ class Ec2ServiceProps(BaseServiceOptions):
         '''The properties for defining a service using the EC2 launch type.
 
         :param cluster: The name of the cluster that hosts the service.
+        :param bake_time: bake time minutes for service. Default: - none
         :param capacity_provider_strategies: A list of Capacity Provider strategies used to place a service. Default: - undefined
         :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cloud_map_options: The options for configuring an Amazon ECS service to use service discovery. Default: - AWS Cloud Map service discovery is not enabled.
         :param deployment_alarms: The alarm(s) to monitor during deployment, and behavior to apply if at least one enters a state of alarm during the deployment or bake time. Default: - No alarms will be monitored during deployment.
         :param deployment_controller: Specifies which deployment controller to use for the service. For more information, see `Amazon ECS Deployment Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`_ Default: - Rolling update (ECS)
+        :param deployment_strategy: The deployment strategy to use for the service. Default: ROLLING
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
+        :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param max_healthy_percent: The maximum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that can run in a service during a deployment. Default: - 100 if daemon, otherwise 200
         :param min_healthy_percent: The minimum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that must continue to run and remain healthy during a deployment. Default: - 0 if daemon, otherwise 50
         :param propagate_tags: Specifies whether to propagate the tags from the task definition or the service to the tasks in the service. Valid values are: PropagatedTagSource.SERVICE, PropagatedTagSource.TASK_DEFINITION or PropagatedTagSource.NONE Default: PropagatedTagSource.NONE
@@ -25100,7 +25910,7 @@ class Ec2ServiceProps(BaseServiceOptions):
         :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. This property is only used for tasks that use the awsvpc network mode. Default: false
-        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled: ``maxHealthyPercent`` must be greater than 100; ``daemon`` must be false; if there are any ``placementStrategies``, the first must be "spread across Availability Zones"; there must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.DISABLED
+        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled: ``maxHealthyPercent`` must be greater than 100; ``daemon`` must be false; if there are any ``placementStrategies``, the first must be "spread across Availability Zones"; there must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
         :param daemon: Specifies whether the service will use the daemon scheduling strategy. If true, the service scheduler deploys exactly one task on each container instance in your cluster. When you are using this strategy, do not specify a desired number of tasks or any task placement strategies. Default: false
         :param placement_constraints: The placement constraints to use for tasks in the service. For more information, see `Amazon ECS Task Placement Constraints <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-constraints.html>`_. Default: - No constraints.
         :param placement_strategies: The placement strategies to use for tasks in the service. For more information, see `Amazon ECS Task Placement Strategies <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-strategies.html>`_. Default: - No strategies.
@@ -25152,15 +25962,18 @@ class Ec2ServiceProps(BaseServiceOptions):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95634258086aa3448fbdfd9896017a2cbeb858f382deb61186bb9e22b1ccd366)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
+            check_type(argname="argument bake_time", value=bake_time, expected_type=type_hints["bake_time"])
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument deployment_alarms", value=deployment_alarms, expected_type=type_hints["deployment_alarms"])
             check_type(argname="argument deployment_controller", value=deployment_controller, expected_type=type_hints["deployment_controller"])
+            check_type(argname="argument deployment_strategy", value=deployment_strategy, expected_type=type_hints["deployment_strategy"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
+            check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument max_healthy_percent", value=max_healthy_percent, expected_type=type_hints["max_healthy_percent"])
             check_type(argname="argument min_healthy_percent", value=min_healthy_percent, expected_type=type_hints["min_healthy_percent"])
             check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
@@ -25180,6 +25993,8 @@ class Ec2ServiceProps(BaseServiceOptions):
             "cluster": cluster,
             "task_definition": task_definition,
         }
+        if bake_time is not None:
+            self._values["bake_time"] = bake_time
         if capacity_provider_strategies is not None:
             self._values["capacity_provider_strategies"] = capacity_provider_strategies
         if circuit_breaker is not None:
@@ -25190,6 +26005,8 @@ class Ec2ServiceProps(BaseServiceOptions):
             self._values["deployment_alarms"] = deployment_alarms
         if deployment_controller is not None:
             self._values["deployment_controller"] = deployment_controller
+        if deployment_strategy is not None:
+            self._values["deployment_strategy"] = deployment_strategy
         if desired_count is not None:
             self._values["desired_count"] = desired_count
         if enable_ecs_managed_tags is not None:
@@ -25198,6 +26015,8 @@ class Ec2ServiceProps(BaseServiceOptions):
             self._values["enable_execute_command"] = enable_execute_command
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
+        if lifecycle_hooks is not None:
+            self._values["lifecycle_hooks"] = lifecycle_hooks
         if max_healthy_percent is not None:
             self._values["max_healthy_percent"] = max_healthy_percent
         if min_healthy_percent is not None:
@@ -25233,6 +26052,15 @@ class Ec2ServiceProps(BaseServiceOptions):
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
         return typing.cast("ICluster", result)
+
+    @builtins.property
+    def bake_time(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''bake time minutes for service.
+
+        :default: - none
+        '''
+        result = self._values.get("bake_time")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
 
     @builtins.property
     def capacity_provider_strategies(
@@ -25288,6 +26116,15 @@ class Ec2ServiceProps(BaseServiceOptions):
         return typing.cast(typing.Optional[DeploymentController], result)
 
     @builtins.property
+    def deployment_strategy(self) -> typing.Optional[DeploymentStrategy]:
+        '''The deployment strategy to use for the service.
+
+        :default: ROLLING
+        '''
+        result = self._values.get("deployment_strategy")
+        return typing.cast(typing.Optional[DeploymentStrategy], result)
+
+    @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
         '''The desired number of instantiations of the task definition to keep running on the service.
 
@@ -25328,6 +26165,17 @@ class Ec2ServiceProps(BaseServiceOptions):
         '''
         result = self._values.get("health_check_grace_period")
         return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def lifecycle_hooks(
+        self,
+    ) -> typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]]:
+        '''The lifecycle hooks to execute during deployment stages.
+
+        :default: - none;
+        '''
+        result = self._values.get("lifecycle_hooks")
+        return typing.cast(typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -25436,7 +26284,7 @@ class Ec2ServiceProps(BaseServiceOptions):
         must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the
         service must not be a target of a Classic Load Balancer.
 
-        :default: AvailabilityZoneRebalancing.DISABLED
+        :default: AvailabilityZoneRebalancing.ENABLED
 
         :see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html
         '''
@@ -27044,15 +27892,18 @@ class ExternalServiceAttributes:
     jsii_struct_bases=[BaseServiceOptions],
     name_mapping={
         "cluster": "cluster",
+        "bake_time": "bakeTime",
         "capacity_provider_strategies": "capacityProviderStrategies",
         "circuit_breaker": "circuitBreaker",
         "cloud_map_options": "cloudMapOptions",
         "deployment_alarms": "deploymentAlarms",
         "deployment_controller": "deploymentController",
+        "deployment_strategy": "deploymentStrategy",
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
         "health_check_grace_period": "healthCheckGracePeriod",
+        "lifecycle_hooks": "lifecycleHooks",
         "max_healthy_percent": "maxHealthyPercent",
         "min_healthy_percent": "minHealthyPercent",
         "propagate_tags": "propagateTags",
@@ -27070,15 +27921,18 @@ class ExternalServiceProps(BaseServiceOptions):
         self,
         *,
         cluster: "ICluster",
+        bake_time: typing.Optional[_Duration_4839e8c3] = None,
         capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
         circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_alarms: typing.Optional[typing.Union["DeploymentAlarmConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_strategy: typing.Optional[DeploymentStrategy] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+        lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         propagate_tags: typing.Optional["PropagatedTagSource"] = None,
@@ -27093,15 +27947,18 @@ class ExternalServiceProps(BaseServiceOptions):
         '''The properties for defining a service using the External launch type.
 
         :param cluster: The name of the cluster that hosts the service.
+        :param bake_time: bake time minutes for service. Default: - none
         :param capacity_provider_strategies: A list of Capacity Provider strategies used to place a service. Default: - undefined
         :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cloud_map_options: The options for configuring an Amazon ECS service to use service discovery. Default: - AWS Cloud Map service discovery is not enabled.
         :param deployment_alarms: The alarm(s) to monitor during deployment, and behavior to apply if at least one enters a state of alarm during the deployment or bake time. Default: - No alarms will be monitored during deployment.
         :param deployment_controller: Specifies which deployment controller to use for the service. For more information, see `Amazon ECS Deployment Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`_ Default: - Rolling update (ECS)
+        :param deployment_strategy: The deployment strategy to use for the service. Default: ROLLING
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
+        :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param max_healthy_percent: The maximum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that can run in a service during a deployment. Default: - 100 if daemon, otherwise 200
         :param min_healthy_percent: The minimum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that must continue to run and remain healthy during a deployment. Default: - 0 if daemon, otherwise 50
         :param propagate_tags: Specifies whether to propagate the tags from the task definition or the service to the tasks in the service. Valid values are: PropagatedTagSource.SERVICE, PropagatedTagSource.TASK_DEFINITION or PropagatedTagSource.NONE Default: PropagatedTagSource.NONE
@@ -27146,15 +28003,18 @@ class ExternalServiceProps(BaseServiceOptions):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3cc413964caae89bfcfbcabff8356ffe5c054f46824be99731a77b64ec052a8a)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
+            check_type(argname="argument bake_time", value=bake_time, expected_type=type_hints["bake_time"])
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument deployment_alarms", value=deployment_alarms, expected_type=type_hints["deployment_alarms"])
             check_type(argname="argument deployment_controller", value=deployment_controller, expected_type=type_hints["deployment_controller"])
+            check_type(argname="argument deployment_strategy", value=deployment_strategy, expected_type=type_hints["deployment_strategy"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
+            check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument max_healthy_percent", value=max_healthy_percent, expected_type=type_hints["max_healthy_percent"])
             check_type(argname="argument min_healthy_percent", value=min_healthy_percent, expected_type=type_hints["min_healthy_percent"])
             check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
@@ -27169,6 +28029,8 @@ class ExternalServiceProps(BaseServiceOptions):
             "cluster": cluster,
             "task_definition": task_definition,
         }
+        if bake_time is not None:
+            self._values["bake_time"] = bake_time
         if capacity_provider_strategies is not None:
             self._values["capacity_provider_strategies"] = capacity_provider_strategies
         if circuit_breaker is not None:
@@ -27179,6 +28041,8 @@ class ExternalServiceProps(BaseServiceOptions):
             self._values["deployment_alarms"] = deployment_alarms
         if deployment_controller is not None:
             self._values["deployment_controller"] = deployment_controller
+        if deployment_strategy is not None:
+            self._values["deployment_strategy"] = deployment_strategy
         if desired_count is not None:
             self._values["desired_count"] = desired_count
         if enable_ecs_managed_tags is not None:
@@ -27187,6 +28051,8 @@ class ExternalServiceProps(BaseServiceOptions):
             self._values["enable_execute_command"] = enable_execute_command
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
+        if lifecycle_hooks is not None:
+            self._values["lifecycle_hooks"] = lifecycle_hooks
         if max_healthy_percent is not None:
             self._values["max_healthy_percent"] = max_healthy_percent
         if min_healthy_percent is not None:
@@ -27212,6 +28078,15 @@ class ExternalServiceProps(BaseServiceOptions):
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
         return typing.cast("ICluster", result)
+
+    @builtins.property
+    def bake_time(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''bake time minutes for service.
+
+        :default: - none
+        '''
+        result = self._values.get("bake_time")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
 
     @builtins.property
     def capacity_provider_strategies(
@@ -27267,6 +28142,15 @@ class ExternalServiceProps(BaseServiceOptions):
         return typing.cast(typing.Optional[DeploymentController], result)
 
     @builtins.property
+    def deployment_strategy(self) -> typing.Optional[DeploymentStrategy]:
+        '''The deployment strategy to use for the service.
+
+        :default: ROLLING
+        '''
+        result = self._values.get("deployment_strategy")
+        return typing.cast(typing.Optional[DeploymentStrategy], result)
+
+    @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
         '''The desired number of instantiations of the task definition to keep running on the service.
 
@@ -27307,6 +28191,17 @@ class ExternalServiceProps(BaseServiceOptions):
         '''
         result = self._values.get("health_check_grace_period")
         return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def lifecycle_hooks(
+        self,
+    ) -> typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]]:
+        '''The lifecycle hooks to execute during deployment stages.
+
+        :default: - none;
+        '''
+        result = self._values.get("lifecycle_hooks")
+        return typing.cast(typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -27888,15 +28783,18 @@ class FargateServiceAttributes:
     jsii_struct_bases=[BaseServiceOptions],
     name_mapping={
         "cluster": "cluster",
+        "bake_time": "bakeTime",
         "capacity_provider_strategies": "capacityProviderStrategies",
         "circuit_breaker": "circuitBreaker",
         "cloud_map_options": "cloudMapOptions",
         "deployment_alarms": "deploymentAlarms",
         "deployment_controller": "deploymentController",
+        "deployment_strategy": "deploymentStrategy",
         "desired_count": "desiredCount",
         "enable_ecs_managed_tags": "enableECSManagedTags",
         "enable_execute_command": "enableExecuteCommand",
         "health_check_grace_period": "healthCheckGracePeriod",
+        "lifecycle_hooks": "lifecycleHooks",
         "max_healthy_percent": "maxHealthyPercent",
         "min_healthy_percent": "minHealthyPercent",
         "propagate_tags": "propagateTags",
@@ -27917,15 +28815,18 @@ class FargateServiceProps(BaseServiceOptions):
         self,
         *,
         cluster: "ICluster",
+        bake_time: typing.Optional[_Duration_4839e8c3] = None,
         capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
         circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_alarms: typing.Optional[typing.Union["DeploymentAlarmConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_strategy: typing.Optional[DeploymentStrategy] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+        lifecycle_hooks: typing.Optional[typing.Sequence["IDeploymentLifecycleHookTarget"]] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         propagate_tags: typing.Optional["PropagatedTagSource"] = None,
@@ -27943,15 +28844,18 @@ class FargateServiceProps(BaseServiceOptions):
         '''The properties for defining a service using the Fargate launch type.
 
         :param cluster: The name of the cluster that hosts the service.
+        :param bake_time: bake time minutes for service. Default: - none
         :param capacity_provider_strategies: A list of Capacity Provider strategies used to place a service. Default: - undefined
         :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cloud_map_options: The options for configuring an Amazon ECS service to use service discovery. Default: - AWS Cloud Map service discovery is not enabled.
         :param deployment_alarms: The alarm(s) to monitor during deployment, and behavior to apply if at least one enters a state of alarm during the deployment or bake time. Default: - No alarms will be monitored during deployment.
         :param deployment_controller: Specifies which deployment controller to use for the service. For more information, see `Amazon ECS Deployment Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`_ Default: - Rolling update (ECS)
+        :param deployment_strategy: The deployment strategy to use for the service. Default: ROLLING
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
+        :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param max_healthy_percent: The maximum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that can run in a service during a deployment. Default: - 100 if daemon, otherwise 200
         :param min_healthy_percent: The minimum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that must continue to run and remain healthy during a deployment. Default: - 0 if daemon, otherwise 50
         :param propagate_tags: Specifies whether to propagate the tags from the task definition or the service to the tasks in the service. Valid values are: PropagatedTagSource.SERVICE, PropagatedTagSource.TASK_DEFINITION or PropagatedTagSource.NONE Default: PropagatedTagSource.NONE
@@ -27961,7 +28865,7 @@ class FargateServiceProps(BaseServiceOptions):
         :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. Default: false
-        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.DISABLED
+        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
         :param platform_version: The platform version on which to run your service. If one is not specified, the LATEST platform version is used by default. For more information, see `AWS Fargate Platform Versions <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/platform_versions.html>`_ in the Amazon Elastic Container Service Developer Guide. Default: Latest
         :param security_groups: The security groups to associate with the service. If you do not specify a security group, a new security group is created. Default: - A new security group is created.
         :param vpc_subnets: The subnets to associate with the service. Default: - Public subnets if ``assignPublicIp`` is set, otherwise the first available one of Private, Isolated, Public, in that order.
@@ -27974,28 +28878,34 @@ class FargateServiceProps(BaseServiceOptions):
             
             # cluster: ecs.Cluster
             # task_definition: ecs.TaskDefinition
-            # elb_alarm: cw.Alarm
             
-            
+            service_name = "MyFargateService"
             service = ecs.FargateService(self, "Service",
+                service_name=service_name,
                 cluster=cluster,
                 task_definition=task_definition,
-                min_healthy_percent=100,
-                deployment_alarms=ecs.DeploymentAlarmConfig(
-                    alarm_names=[elb_alarm.alarm_name],
-                    behavior=ecs.AlarmBehavior.ROLLBACK_ON_ALARM
-                )
+                min_healthy_percent=100
             )
             
-            # Defining a deployment alarm after the service has been created
-            cpu_alarm_name = "MyCpuMetricAlarm"
-            cw.Alarm(self, "CPUAlarm",
-                alarm_name=cpu_alarm_name,
-                metric=service.metric_cpu_utilization(),
+            cpu_metric = cw.Metric(
+                metric_name="CPUUtilization",
+                namespace="AWS/ECS",
+                period=Duration.minutes(5),
+                statistic="Average",
+                dimensions_map={
+                    "ClusterName": cluster.cluster_name,
+                    # Using `service.serviceName` here will cause a circular dependency
+                    "ServiceName": service_name
+                }
+            )
+            my_alarm = cw.Alarm(self, "CPUAlarm",
+                alarm_name="cpuAlarmName",
+                metric=cpu_metric,
                 evaluation_periods=2,
                 threshold=80
             )
-            service.enable_deployment_alarms([cpu_alarm_name],
+            
+            service.enable_deployment_alarms([my_alarm.alarm_name],
                 behavior=ecs.AlarmBehavior.FAIL_ON_ALARM
             )
         '''
@@ -28014,15 +28924,18 @@ class FargateServiceProps(BaseServiceOptions):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8290283f61f3e2d289b7e7f81cad1a5d1e9ed9dbc07ccce2b57604682a42ded7)
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
+            check_type(argname="argument bake_time", value=bake_time, expected_type=type_hints["bake_time"])
             check_type(argname="argument capacity_provider_strategies", value=capacity_provider_strategies, expected_type=type_hints["capacity_provider_strategies"])
             check_type(argname="argument circuit_breaker", value=circuit_breaker, expected_type=type_hints["circuit_breaker"])
             check_type(argname="argument cloud_map_options", value=cloud_map_options, expected_type=type_hints["cloud_map_options"])
             check_type(argname="argument deployment_alarms", value=deployment_alarms, expected_type=type_hints["deployment_alarms"])
             check_type(argname="argument deployment_controller", value=deployment_controller, expected_type=type_hints["deployment_controller"])
+            check_type(argname="argument deployment_strategy", value=deployment_strategy, expected_type=type_hints["deployment_strategy"])
             check_type(argname="argument desired_count", value=desired_count, expected_type=type_hints["desired_count"])
             check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
             check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
             check_type(argname="argument health_check_grace_period", value=health_check_grace_period, expected_type=type_hints["health_check_grace_period"])
+            check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
             check_type(argname="argument max_healthy_percent", value=max_healthy_percent, expected_type=type_hints["max_healthy_percent"])
             check_type(argname="argument min_healthy_percent", value=min_healthy_percent, expected_type=type_hints["min_healthy_percent"])
             check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
@@ -28040,6 +28953,8 @@ class FargateServiceProps(BaseServiceOptions):
             "cluster": cluster,
             "task_definition": task_definition,
         }
+        if bake_time is not None:
+            self._values["bake_time"] = bake_time
         if capacity_provider_strategies is not None:
             self._values["capacity_provider_strategies"] = capacity_provider_strategies
         if circuit_breaker is not None:
@@ -28050,6 +28965,8 @@ class FargateServiceProps(BaseServiceOptions):
             self._values["deployment_alarms"] = deployment_alarms
         if deployment_controller is not None:
             self._values["deployment_controller"] = deployment_controller
+        if deployment_strategy is not None:
+            self._values["deployment_strategy"] = deployment_strategy
         if desired_count is not None:
             self._values["desired_count"] = desired_count
         if enable_ecs_managed_tags is not None:
@@ -28058,6 +28975,8 @@ class FargateServiceProps(BaseServiceOptions):
             self._values["enable_execute_command"] = enable_execute_command
         if health_check_grace_period is not None:
             self._values["health_check_grace_period"] = health_check_grace_period
+        if lifecycle_hooks is not None:
+            self._values["lifecycle_hooks"] = lifecycle_hooks
         if max_healthy_percent is not None:
             self._values["max_healthy_percent"] = max_healthy_percent
         if min_healthy_percent is not None:
@@ -28089,6 +29008,15 @@ class FargateServiceProps(BaseServiceOptions):
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
         return typing.cast("ICluster", result)
+
+    @builtins.property
+    def bake_time(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''bake time minutes for service.
+
+        :default: - none
+        '''
+        result = self._values.get("bake_time")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
 
     @builtins.property
     def capacity_provider_strategies(
@@ -28144,6 +29072,15 @@ class FargateServiceProps(BaseServiceOptions):
         return typing.cast(typing.Optional[DeploymentController], result)
 
     @builtins.property
+    def deployment_strategy(self) -> typing.Optional[DeploymentStrategy]:
+        '''The deployment strategy to use for the service.
+
+        :default: ROLLING
+        '''
+        result = self._values.get("deployment_strategy")
+        return typing.cast(typing.Optional[DeploymentStrategy], result)
+
+    @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
         '''The desired number of instantiations of the task definition to keep running on the service.
 
@@ -28184,6 +29121,17 @@ class FargateServiceProps(BaseServiceOptions):
         '''
         result = self._values.get("health_check_grace_period")
         return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def lifecycle_hooks(
+        self,
+    ) -> typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]]:
+        '''The lifecycle hooks to execute during deployment stages.
+
+        :default: - none;
+        '''
+        result = self._values.get("lifecycle_hooks")
+        return typing.cast(typing.Optional[typing.List["IDeploymentLifecycleHookTarget"]], result)
 
     @builtins.property
     def max_healthy_percent(self) -> typing.Optional[jsii.Number]:
@@ -28288,7 +29236,7 @@ class FargateServiceProps(BaseServiceOptions):
         If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target
         of a Classic Load Balancer.
 
-        :default: AvailabilityZoneRebalancing.DISABLED
+        :default: AvailabilityZoneRebalancing.ENABLED
 
         :see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html
         '''
@@ -31828,6 +32776,43 @@ class Host:
         )
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ecs.IAlternateTarget")
+class IAlternateTarget(typing_extensions.Protocol):
+    '''Interface for configuring alternate target groups for blue/green deployments.'''
+
+    @jsii.member(jsii_name="bind")
+    def bind(self, scope: _constructs_77d1e7e8.IConstruct) -> AlternateTargetConfig:
+        '''Bind this configuration to a service.
+
+        :param scope: The construct scope.
+
+        :return: The configuration to apply to the service
+        '''
+        ...
+
+
+class _IAlternateTargetProxy:
+    '''Interface for configuring alternate target groups for blue/green deployments.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ecs.IAlternateTarget"
+
+    @jsii.member(jsii_name="bind")
+    def bind(self, scope: _constructs_77d1e7e8.IConstruct) -> AlternateTargetConfig:
+        '''Bind this configuration to a service.
+
+        :param scope: The construct scope.
+
+        :return: The configuration to apply to the service
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f10764be69e962209020c3a7e772567f1cbc3d3673cf209506562511ce9cd0a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast(AlternateTargetConfig, jsii.invoke(self, "bind", [scope]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAlternateTarget).__jsii_proxy_class__ = lambda : _IAlternateTargetProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ecs.ICluster")
 class ICluster(_IResource_c80c4260, typing_extensions.Protocol):
     '''A regional grouping of one or more container instances on which you can run tasks and services.'''
@@ -31954,6 +32939,45 @@ class _IClusterProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICluster).__jsii_proxy_class__ = lambda : _IClusterProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ecs.IDeploymentLifecycleHookTarget")
+class IDeploymentLifecycleHookTarget(typing_extensions.Protocol):
+    '''Interface for deployment lifecycle hook targets.'''
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: _constructs_77d1e7e8.IConstruct,
+    ) -> DeploymentLifecycleHookTargetConfig:
+        '''Bind this target to a deployment lifecycle hook.
+
+        :param scope: The construct scope.
+        '''
+        ...
+
+
+class _IDeploymentLifecycleHookTargetProxy:
+    '''Interface for deployment lifecycle hook targets.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ecs.IDeploymentLifecycleHookTarget"
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: _constructs_77d1e7e8.IConstruct,
+    ) -> DeploymentLifecycleHookTargetConfig:
+        '''Bind this target to a deployment lifecycle hook.
+
+        :param scope: The construct scope.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1cdcc51dc61399e62078243a225e42fd6901317236efebe039a9e3b36834d4b7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast(DeploymentLifecycleHookTargetConfig, jsii.invoke(self, "bind", [scope]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDeploymentLifecycleHookTarget).__jsii_proxy_class__ = lambda : _IDeploymentLifecycleHookTargetProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_ecs.IEcsLoadBalancerTarget")
@@ -33030,11 +34054,96 @@ class _ListenerConfigProxy(ListenerConfig):
 typing.cast(typing.Any, ListenerConfig).__jsii_proxy_class__ = lambda : _ListenerConfigProxy
 
 
+class ListenerRuleConfiguration(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_ecs.ListenerRuleConfiguration",
+):
+    '''Represents a listener configuration for advanced load balancer settings.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_lambda as lambda_
+        
+        # cluster: ecs.Cluster
+        # task_definition: ecs.TaskDefinition
+        # lambda_hook: lambda.Function
+        # blue_target_group: elbv2.ApplicationTargetGroup
+        # green_target_group: elbv2.ApplicationTargetGroup
+        # prod_listener_rule: elbv2.ApplicationListenerRule
+        
+        
+        service = ecs.FargateService(self, "Service",
+            cluster=cluster,
+            task_definition=task_definition,
+            deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
+        )
+        
+        service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+            lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+        ))
+        
+        target = service.load_balancer_target(
+            container_name="nginx",
+            container_port=80,
+            protocol=ecs.Protocol.TCP,
+            alternate_target=ecs.AlternateTarget("AlternateTarget",
+                alternate_target_group=green_target_group,
+                production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
+            )
+        )
+        
+        target.attach_to_application_target_group(blue_target_group)
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="applicationListenerRule")
+    @builtins.classmethod
+    def application_listener_rule(
+        cls,
+        rule: _ApplicationListenerRule_f93ff606,
+    ) -> "ListenerRuleConfiguration":
+        '''Use an Application Load Balancer listener rule.
+
+        :param rule: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4bdbe1ec0e220912f9ff8b7769875a4eebd5168734b702329f9d4600ecdb318)
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+        return typing.cast("ListenerRuleConfiguration", jsii.sinvoke(cls, "applicationListenerRule", [rule]))
+
+    @jsii.member(jsii_name="networkListener")
+    @builtins.classmethod
+    def network_listener(
+        cls,
+        listener: _NetworkListener_539c17bf,
+    ) -> "ListenerRuleConfiguration":
+        '''Use a Network Load Balancer listener.
+
+        :param listener: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c964a7ba26c195318cd3937b823b36facecf4120aeb9196876feb206f6f9855a)
+            check_type(argname="argument listener", value=listener, expected_type=type_hints["listener"])
+        return typing.cast("ListenerRuleConfiguration", jsii.sinvoke(cls, "networkListener", [listener]))
+
+
+class _ListenerRuleConfigurationProxy(ListenerRuleConfiguration):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, ListenerRuleConfiguration).__jsii_proxy_class__ = lambda : _ListenerRuleConfigurationProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ecs.LoadBalancerTargetOptions",
     jsii_struct_bases=[],
     name_mapping={
         "container_name": "containerName",
+        "alternate_target": "alternateTarget",
         "container_port": "containerPort",
         "protocol": "protocol",
     },
@@ -33044,6 +34153,7 @@ class LoadBalancerTargetOptions:
         self,
         *,
         container_name: builtins.str,
+        alternate_target: typing.Optional[IAlternateTarget] = None,
         container_port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional["Protocol"] = None,
     ) -> None:
@@ -33052,6 +34162,7 @@ class LoadBalancerTargetOptions:
         The port mapping for it must already have been created through addPortMapping().
 
         :param container_name: The name of the container.
+        :param alternate_target: Alternate target configuration for blue/green deployments. Default: - No alternate target configuration
         :param container_port: The port number of the container. Only applicable when using application/network load balancers. Default: - Container port of the first added port mapping.
         :param protocol: The protocol used for the port mapping. Only applicable when using application load balancers. Default: Protocol.TCP
 
@@ -33075,11 +34186,14 @@ class LoadBalancerTargetOptions:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5499166a691d3d9b788ba4a9808f921437da0987c4c4733332600e4e584bf30f)
             check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
+            check_type(argname="argument alternate_target", value=alternate_target, expected_type=type_hints["alternate_target"])
             check_type(argname="argument container_port", value=container_port, expected_type=type_hints["container_port"])
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "container_name": container_name,
         }
+        if alternate_target is not None:
+            self._values["alternate_target"] = alternate_target
         if container_port is not None:
             self._values["container_port"] = container_port
         if protocol is not None:
@@ -33091,6 +34205,15 @@ class LoadBalancerTargetOptions:
         result = self._values.get("container_name")
         assert result is not None, "Required property 'container_name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def alternate_target(self) -> typing.Optional[IAlternateTarget]:
+        '''Alternate target configuration for blue/green deployments.
+
+        :default: - No alternate target configuration
+        '''
+        result = self._values.get("alternate_target")
+        return typing.cast(typing.Optional[IAlternateTarget], result)
 
     @builtins.property
     def container_port(self) -> typing.Optional[jsii.Number]:
@@ -34716,34 +35839,37 @@ class Protocol(enum.Enum):
 
     Example::
 
-        # task_definition: ecs.TaskDefinition
+        import aws_cdk.aws_lambda as lambda_
+        
         # cluster: ecs.Cluster
+        # task_definition: ecs.TaskDefinition
+        # lambda_hook: lambda.Function
+        # blue_target_group: elbv2.ApplicationTargetGroup
+        # green_target_group: elbv2.ApplicationTargetGroup
+        # prod_listener_rule: elbv2.ApplicationListenerRule
         
         
-        # Add a container to the task definition
-        specific_container = task_definition.add_container("Container",
-            image=ecs.ContainerImage.from_registry("/aws/aws-example-app"),
-            memory_limit_mi_b=2048
-        )
-        
-        # Add a port mapping
-        specific_container.add_port_mappings(
-            container_port=7600,
-            protocol=ecs.Protocol.TCP
-        )
-        
-        ecs.Ec2Service(self, "Service",
+        service = ecs.FargateService(self, "Service",
             cluster=cluster,
             task_definition=task_definition,
-            min_healthy_percent=100,
-            cloud_map_options=ecs.CloudMapOptions(
-                # Create SRV records - useful for bridge networking
-                dns_record_type=cloudmap.DnsRecordType.SRV,
-                # Targets port TCP port 7600 `specificContainer`
-                container=specific_container,
-                container_port=7600
+            deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
+        )
+        
+        service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+            lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+        ))
+        
+        target = service.load_balancer_target(
+            container_name="nginx",
+            container_port=80,
+            protocol=ecs.Protocol.TCP,
+            alternate_target=ecs.AlternateTarget("AlternateTarget",
+                alternate_target_group=green_target_group,
+                production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
             )
         )
+        
+        target.attach_to_application_target_group(blue_target_group)
     '''
 
     TCP = "TCP"
@@ -40004,6 +41130,90 @@ class WindowsOptimizedVersion(enum.Enum):
     SERVER_2016 = "SERVER_2016"
 
 
+@jsii.implements(IAlternateTarget)
+class AlternateTarget(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ecs.AlternateTarget",
+):
+    '''Configuration for alternate target groups used in blue/green deployments with load balancers.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_lambda as lambda_
+        
+        # cluster: ecs.Cluster
+        # task_definition: ecs.TaskDefinition
+        # lambda_hook: lambda.Function
+        # blue_target_group: elbv2.ApplicationTargetGroup
+        # green_target_group: elbv2.ApplicationTargetGroup
+        # prod_listener_rule: elbv2.ApplicationListenerRule
+        
+        
+        service = ecs.FargateService(self, "Service",
+            cluster=cluster,
+            task_definition=task_definition,
+            deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
+        )
+        
+        service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+            lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+        ))
+        
+        target = service.load_balancer_target(
+            container_name="nginx",
+            container_port=80,
+            protocol=ecs.Protocol.TCP,
+            alternate_target=ecs.AlternateTarget("AlternateTarget",
+                alternate_target_group=green_target_group,
+                production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
+            )
+        )
+        
+        target.attach_to_application_target_group(blue_target_group)
+    '''
+
+    def __init__(
+        self,
+        id: builtins.str,
+        *,
+        alternate_target_group: _ITargetGroup_83c6f8c4,
+        production_listener: ListenerRuleConfiguration,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+        test_listener: typing.Optional[ListenerRuleConfiguration] = None,
+    ) -> None:
+        '''
+        :param id: -
+        :param alternate_target_group: The alternate target group.
+        :param production_listener: The production listener rule ARN (ALB) or listener ARN (NLB).
+        :param role: The IAM role for the configuration. Default: - a new role will be created
+        :param test_listener: The test listener configuration. Default: - none
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa25b044df0e4eef1817fd07bd799a88800df4e6bd79f283ca2657cfee9e4b29)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AlternateTargetProps(
+            alternate_target_group=alternate_target_group,
+            production_listener=production_listener,
+            role=role,
+            test_listener=test_listener,
+        )
+
+        jsii.create(self.__class__, self, [id, props])
+
+    @jsii.member(jsii_name="bind")
+    def bind(self, scope: _constructs_77d1e7e8.IConstruct) -> AlternateTargetConfig:
+        '''Bind this configuration to a service.
+
+        :param scope: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__147067753bcb82b7fc98e3b04dd99ea91c99dac8aec50a2f7076d3593aced862)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast(AlternateTargetConfig, jsii.invoke(self, "bind", [scope]))
+
+
 class AppMeshProxyConfiguration(
     ProxyConfiguration,
     metaclass=jsii.JSIIMeta,
@@ -40733,7 +41943,7 @@ class Cluster(
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param max_capacity: Maximum number of instances in the fleet. Default: desiredCapacity
-        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value, leave this property undefined. Default: none
+        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 86,400 seconds (one day). To clear a previously set value, leave this property undefined. Default: none
         :param min_capacity: Minimum number of instances in the fleet. Default: 1
         :param new_instances_protected_from_scale_in: Whether newly-launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in. By default, Auto Scaling can terminate an instance at any time after launch when scaling in an Auto Scaling Group, subject to the group's termination policy. However, you may wish to protect newly-launched instances from being scaled in if they are going to run critical applications that should not be prematurely terminated. This flag must be enabled if the Auto Scaling Group will be associated with an ECS Capacity Provider with managed termination protection. Default: false
         :param notifications: Configure autoscaling group to send notifications about fleet changes to an SNS topic(s). Default: - No fleet change notifications will be sent.
@@ -41279,6 +42489,95 @@ class DeploymentAlarmConfig(DeploymentAlarmOptions):
         return "DeploymentAlarmConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(IDeploymentLifecycleHookTarget)
+class DeploymentLifecycleLambdaTarget(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ecs.DeploymentLifecycleLambdaTarget",
+):
+    '''Use an AWS Lambda function as a deployment lifecycle hook target.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_lambda as lambda_
+        
+        # cluster: ecs.Cluster
+        # task_definition: ecs.TaskDefinition
+        # lambda_hook: lambda.Function
+        # blue_target_group: elbv2.ApplicationTargetGroup
+        # green_target_group: elbv2.ApplicationTargetGroup
+        # prod_listener_rule: elbv2.ApplicationListenerRule
+        
+        
+        service = ecs.FargateService(self, "Service",
+            cluster=cluster,
+            task_definition=task_definition,
+            deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
+        )
+        
+        service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+            lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+        ))
+        
+        target = service.load_balancer_target(
+            container_name="nginx",
+            container_port=80,
+            protocol=ecs.Protocol.TCP,
+            alternate_target=ecs.AlternateTarget("AlternateTarget",
+                alternate_target_group=green_target_group,
+                production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
+            )
+        )
+        
+        target.attach_to_application_target_group(blue_target_group)
+    '''
+
+    def __init__(
+        self,
+        handler: _IFunction_6adb0ab8,
+        id: builtins.str,
+        *,
+        lifecycle_stages: typing.Sequence[DeploymentLifecycleStage],
+        role: typing.Optional[_IRole_235f5d8e] = None,
+    ) -> None:
+        '''
+        :param handler: -
+        :param id: -
+        :param lifecycle_stages: The lifecycle stages when this hook should be executed.
+        :param role: The IAM role that grants permissions to invoke the lambda target. Default: - A unique role will be generated for this lambda function.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bddcf05621152ce6e8fd520b5a7bb98f63b4f5805beda123da1f9f542d66294e)
+            check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = DeploymentLifecycleLambdaTargetProps(
+            lifecycle_stages=lifecycle_stages, role=role
+        )
+
+        jsii.create(self.__class__, self, [handler, id, props])
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: _constructs_77d1e7e8.IConstruct,
+    ) -> DeploymentLifecycleHookTargetConfig:
+        '''Bind this target to a deployment lifecycle hook.
+
+        :param scope: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6510372e5e0e0b1114c294538138af0f03ebd70441a76bddd8496eca40f2fe8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast(DeploymentLifecycleHookTargetConfig, jsii.invoke(self, "bind", [scope]))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> _IRole_235f5d8e:
+        '''The IAM role for the deployment lifecycle hook target.'''
+        return typing.cast(_IRole_235f5d8e, jsii.get(self, "role"))
 
 
 class FireLensLogDriver(
@@ -41966,6 +43265,17 @@ class BaseService(
             check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
         return typing.cast(IBaseService, jsii.sinvoke(cls, "fromServiceArnWithCluster", [scope, id, service_arn]))
 
+    @jsii.member(jsii_name="addLifecycleHook")
+    def add_lifecycle_hook(self, target: IDeploymentLifecycleHookTarget) -> None:
+        '''Add a deployment lifecycle hook target.
+
+        :param target: The lifecycle hook target to add.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__480743d611a768bf60af18dc6a08c65385351ccd86b4290955b74d1541662389)
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+        return typing.cast(None, jsii.invoke(self, "addLifecycleHook", [target]))
+
     @jsii.member(jsii_name="addVolume")
     def add_volume(self, volume: ServiceManagedVolume) -> None:
         '''Adds a volume to the Service.
@@ -42173,11 +43483,20 @@ class BaseService(
 
         return typing.cast(None, jsii.invoke(self, "enableServiceConnect", [config]))
 
+    @jsii.member(jsii_name="isUsingECSDeploymentController")
+    def is_using_ecs_deployment_controller(self) -> builtins.bool:
+        '''Checks if the service is using the ECS deployment controller.
+
+        :return: true if the service is using the ECS deployment controller or if no deployment controller is specified (defaults to ECS)
+        '''
+        return typing.cast(builtins.bool, jsii.invoke(self, "isUsingECSDeploymentController", []))
+
     @jsii.member(jsii_name="loadBalancerTarget")
     def load_balancer_target(
         self,
         *,
         container_name: builtins.str,
+        alternate_target: typing.Optional[IAlternateTarget] = None,
         container_port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[Protocol] = None,
     ) -> IEcsLoadBalancerTarget:
@@ -42191,6 +43510,7 @@ class BaseService(
         target, instead of the ``Service`` object itself.
 
         :param container_name: The name of the container.
+        :param alternate_target: Alternate target configuration for blue/green deployments. Default: - No alternate target configuration
         :param container_port: The port number of the container. Only applicable when using application/network load balancers. Default: - Container port of the first added port mapping.
         :param protocol: The protocol used for the port mapping. Only applicable when using application load balancers. Default: Protocol.TCP
 
@@ -42209,6 +43529,7 @@ class BaseService(
         '''
         options = LoadBalancerTargetOptions(
             container_name=container_name,
+            alternate_target=alternate_target,
             container_port=container_port,
             protocol=protocol,
         )
@@ -42586,15 +43907,18 @@ class Ec2Service(
         security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
         vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
         cluster: ICluster,
+        bake_time: typing.Optional[_Duration_4839e8c3] = None,
         capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
         circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_strategy: typing.Optional[DeploymentStrategy] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+        lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -42609,22 +43933,25 @@ class Ec2Service(
         :param id: -
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. This property is only used for tasks that use the awsvpc network mode. Default: false
-        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled: ``maxHealthyPercent`` must be greater than 100; ``daemon`` must be false; if there are any ``placementStrategies``, the first must be "spread across Availability Zones"; there must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.DISABLED
+        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled: ``maxHealthyPercent`` must be greater than 100; ``daemon`` must be false; if there are any ``placementStrategies``, the first must be "spread across Availability Zones"; there must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
         :param daemon: Specifies whether the service will use the daemon scheduling strategy. If true, the service scheduler deploys exactly one task on each container instance in your cluster. When you are using this strategy, do not specify a desired number of tasks or any task placement strategies. Default: false
         :param placement_constraints: The placement constraints to use for tasks in the service. For more information, see `Amazon ECS Task Placement Constraints <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-constraints.html>`_. Default: - No constraints.
         :param placement_strategies: The placement strategies to use for tasks in the service. For more information, see `Amazon ECS Task Placement Strategies <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-strategies.html>`_. Default: - No strategies.
         :param security_groups: The security groups to associate with the service. If you do not specify a security group, a new security group is created. This property is only used for tasks that use the awsvpc network mode. Default: - A new security group is created.
         :param vpc_subnets: The subnets to associate with the service. This property is only used for tasks that use the awsvpc network mode. Default: - Public subnets if ``assignPublicIp`` is set, otherwise the first available one of Private, Isolated, Public, in that order.
         :param cluster: The name of the cluster that hosts the service.
+        :param bake_time: bake time minutes for service. Default: - none
         :param capacity_provider_strategies: A list of Capacity Provider strategies used to place a service. Default: - undefined
         :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cloud_map_options: The options for configuring an Amazon ECS service to use service discovery. Default: - AWS Cloud Map service discovery is not enabled.
         :param deployment_alarms: The alarm(s) to monitor during deployment, and behavior to apply if at least one enters a state of alarm during the deployment or bake time. Default: - No alarms will be monitored during deployment.
         :param deployment_controller: Specifies which deployment controller to use for the service. For more information, see `Amazon ECS Deployment Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`_ Default: - Rolling update (ECS)
+        :param deployment_strategy: The deployment strategy to use for the service. Default: ROLLING
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
+        :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param max_healthy_percent: The maximum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that can run in a service during a deployment. Default: - 100 if daemon, otherwise 200
         :param min_healthy_percent: The minimum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that must continue to run and remain healthy during a deployment. Default: - 0 if daemon, otherwise 50
         :param propagate_tags: Specifies whether to propagate the tags from the task definition or the service to the tasks in the service. Valid values are: PropagatedTagSource.SERVICE, PropagatedTagSource.TASK_DEFINITION or PropagatedTagSource.NONE Default: PropagatedTagSource.NONE
@@ -42647,15 +43974,18 @@ class Ec2Service(
             security_groups=security_groups,
             vpc_subnets=vpc_subnets,
             cluster=cluster,
+            bake_time=bake_time,
             capacity_provider_strategies=capacity_provider_strategies,
             circuit_breaker=circuit_breaker,
             cloud_map_options=cloud_map_options,
             deployment_alarms=deployment_alarms,
             deployment_controller=deployment_controller,
+            deployment_strategy=deployment_strategy,
             desired_count=desired_count,
             enable_ecs_managed_tags=enable_ecs_managed_tags,
             enable_execute_command=enable_execute_command,
             health_check_grace_period=health_check_grace_period,
+            lifecycle_hooks=lifecycle_hooks,
             max_healthy_percent=max_healthy_percent,
             min_healthy_percent=min_healthy_percent,
             propagate_tags=propagate_tags,
@@ -43084,15 +44414,18 @@ class ExternalService(
         daemon: typing.Optional[builtins.bool] = None,
         security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
         cluster: ICluster,
+        bake_time: typing.Optional[_Duration_4839e8c3] = None,
         capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
         circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_strategy: typing.Optional[DeploymentStrategy] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+        lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -43109,15 +44442,18 @@ class ExternalService(
         :param daemon: By default, service use REPLICA scheduling strategy, this parameter enable DAEMON scheduling strategy. If true, the service scheduler deploys exactly one task on each container instance in your cluster. When you are using this strategy, do not specify a desired number of tasks or any task placement strategies. Tasks using the Fargate launch type or the CODE_DEPLOY or EXTERNAL deployment controller types don't support the DAEMON scheduling strategy. Default: false
         :param security_groups: The security groups to associate with the service. If you do not specify a security group, a new security group is created. Default: - A new security group is created.
         :param cluster: The name of the cluster that hosts the service.
+        :param bake_time: bake time minutes for service. Default: - none
         :param capacity_provider_strategies: A list of Capacity Provider strategies used to place a service. Default: - undefined
         :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cloud_map_options: The options for configuring an Amazon ECS service to use service discovery. Default: - AWS Cloud Map service discovery is not enabled.
         :param deployment_alarms: The alarm(s) to monitor during deployment, and behavior to apply if at least one enters a state of alarm during the deployment or bake time. Default: - No alarms will be monitored during deployment.
         :param deployment_controller: Specifies which deployment controller to use for the service. For more information, see `Amazon ECS Deployment Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`_ Default: - Rolling update (ECS)
+        :param deployment_strategy: The deployment strategy to use for the service. Default: ROLLING
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
+        :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param max_healthy_percent: The maximum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that can run in a service during a deployment. Default: - 100 if daemon, otherwise 200
         :param min_healthy_percent: The minimum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that must continue to run and remain healthy during a deployment. Default: - 0 if daemon, otherwise 50
         :param propagate_tags: Specifies whether to propagate the tags from the task definition or the service to the tasks in the service. Valid values are: PropagatedTagSource.SERVICE, PropagatedTagSource.TASK_DEFINITION or PropagatedTagSource.NONE Default: PropagatedTagSource.NONE
@@ -43135,15 +44471,18 @@ class ExternalService(
             daemon=daemon,
             security_groups=security_groups,
             cluster=cluster,
+            bake_time=bake_time,
             capacity_provider_strategies=capacity_provider_strategies,
             circuit_breaker=circuit_breaker,
             cloud_map_options=cloud_map_options,
             deployment_alarms=deployment_alarms,
             deployment_controller=deployment_controller,
+            deployment_strategy=deployment_strategy,
             desired_count=desired_count,
             enable_ecs_managed_tags=enable_ecs_managed_tags,
             enable_execute_command=enable_execute_command,
             health_check_grace_period=health_check_grace_period,
+            lifecycle_hooks=lifecycle_hooks,
             max_healthy_percent=max_healthy_percent,
             min_healthy_percent=min_healthy_percent,
             propagate_tags=propagate_tags,
@@ -43319,17 +44658,20 @@ class ExternalService(
         self,
         *,
         container_name: builtins.str,
+        alternate_target: typing.Optional[IAlternateTarget] = None,
         container_port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[Protocol] = None,
     ) -> IEcsLoadBalancerTarget:
         '''Overridden method to throw error as ``loadBalancerTarget`` is not supported for external service.
 
         :param container_name: The name of the container.
+        :param alternate_target: Alternate target configuration for blue/green deployments. Default: - No alternate target configuration
         :param container_port: The port number of the container. Only applicable when using application/network load balancers. Default: - Container port of the first added port mapping.
         :param protocol: The protocol used for the port mapping. Only applicable when using application load balancers. Default: Protocol.TCP
         '''
         _options = LoadBalancerTargetOptions(
             container_name=container_name,
+            alternate_target=alternate_target,
             container_port=container_port,
             protocol=protocol,
         )
@@ -43514,28 +44856,34 @@ class FargateService(
         
         # cluster: ecs.Cluster
         # task_definition: ecs.TaskDefinition
-        # elb_alarm: cw.Alarm
         
-        
+        service_name = "MyFargateService"
         service = ecs.FargateService(self, "Service",
+            service_name=service_name,
             cluster=cluster,
             task_definition=task_definition,
-            min_healthy_percent=100,
-            deployment_alarms=ecs.DeploymentAlarmConfig(
-                alarm_names=[elb_alarm.alarm_name],
-                behavior=ecs.AlarmBehavior.ROLLBACK_ON_ALARM
-            )
+            min_healthy_percent=100
         )
         
-        # Defining a deployment alarm after the service has been created
-        cpu_alarm_name = "MyCpuMetricAlarm"
-        cw.Alarm(self, "CPUAlarm",
-            alarm_name=cpu_alarm_name,
-            metric=service.metric_cpu_utilization(),
+        cpu_metric = cw.Metric(
+            metric_name="CPUUtilization",
+            namespace="AWS/ECS",
+            period=Duration.minutes(5),
+            statistic="Average",
+            dimensions_map={
+                "ClusterName": cluster.cluster_name,
+                # Using `service.serviceName` here will cause a circular dependency
+                "ServiceName": service_name
+            }
+        )
+        my_alarm = cw.Alarm(self, "CPUAlarm",
+            alarm_name="cpuAlarmName",
+            metric=cpu_metric,
             evaluation_periods=2,
             threshold=80
         )
-        service.enable_deployment_alarms([cpu_alarm_name],
+        
+        service.enable_deployment_alarms([my_alarm.alarm_name],
             behavior=ecs.AlarmBehavior.FAIL_ON_ALARM
         )
     '''
@@ -43552,15 +44900,18 @@ class FargateService(
         security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
         vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
         cluster: ICluster,
+        bake_time: typing.Optional[_Duration_4839e8c3] = None,
         capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
         circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
         cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_strategy: typing.Optional[DeploymentStrategy] = None,
         desired_count: typing.Optional[jsii.Number] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+        lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
         max_healthy_percent: typing.Optional[jsii.Number] = None,
         min_healthy_percent: typing.Optional[jsii.Number] = None,
         propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -43575,20 +44926,23 @@ class FargateService(
         :param id: -
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. Default: false
-        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.DISABLED
+        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
         :param platform_version: The platform version on which to run your service. If one is not specified, the LATEST platform version is used by default. For more information, see `AWS Fargate Platform Versions <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/platform_versions.html>`_ in the Amazon Elastic Container Service Developer Guide. Default: Latest
         :param security_groups: The security groups to associate with the service. If you do not specify a security group, a new security group is created. Default: - A new security group is created.
         :param vpc_subnets: The subnets to associate with the service. Default: - Public subnets if ``assignPublicIp`` is set, otherwise the first available one of Private, Isolated, Public, in that order.
         :param cluster: The name of the cluster that hosts the service.
+        :param bake_time: bake time minutes for service. Default: - none
         :param capacity_provider_strategies: A list of Capacity Provider strategies used to place a service. Default: - undefined
         :param circuit_breaker: Whether to enable the deployment circuit breaker. If this property is defined, circuit breaker will be implicitly enabled. Default: - disabled
         :param cloud_map_options: The options for configuring an Amazon ECS service to use service discovery. Default: - AWS Cloud Map service discovery is not enabled.
         :param deployment_alarms: The alarm(s) to monitor during deployment, and behavior to apply if at least one enters a state of alarm during the deployment or bake time. Default: - No alarms will be monitored during deployment.
         :param deployment_controller: Specifies which deployment controller to use for the service. For more information, see `Amazon ECS Deployment Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html>`_ Default: - Rolling update (ECS)
+        :param deployment_strategy: The deployment strategy to use for the service. Default: ROLLING
         :param desired_count: The desired number of instantiations of the task definition to keep running on the service. Default: - When creating the service, default is 1; when updating the service, default uses the current task number.
         :param enable_ecs_managed_tags: Specifies whether to enable Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging Your Amazon ECS Resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ Default: false
         :param enable_execute_command: Whether to enable the ability to execute into a container. Default: - undefined
         :param health_check_grace_period: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing target health checks after a task has first started. Default: - defaults to 60 seconds if at least one load balancer is in-use and it is not already set
+        :param lifecycle_hooks: The lifecycle hooks to execute during deployment stages. Default: - none;
         :param max_healthy_percent: The maximum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that can run in a service during a deployment. Default: - 100 if daemon, otherwise 200
         :param min_healthy_percent: The minimum number of tasks, specified as a percentage of the Amazon ECS service's DesiredCount value, that must continue to run and remain healthy during a deployment. Default: - 0 if daemon, otherwise 50
         :param propagate_tags: Specifies whether to propagate the tags from the task definition or the service to the tasks in the service. Valid values are: PropagatedTagSource.SERVICE, PropagatedTagSource.TASK_DEFINITION or PropagatedTagSource.NONE Default: PropagatedTagSource.NONE
@@ -43609,15 +44963,18 @@ class FargateService(
             security_groups=security_groups,
             vpc_subnets=vpc_subnets,
             cluster=cluster,
+            bake_time=bake_time,
             capacity_provider_strategies=capacity_provider_strategies,
             circuit_breaker=circuit_breaker,
             cloud_map_options=cloud_map_options,
             deployment_alarms=deployment_alarms,
             deployment_controller=deployment_controller,
+            deployment_strategy=deployment_strategy,
             desired_count=desired_count,
             enable_ecs_managed_tags=enable_ecs_managed_tags,
             enable_execute_command=enable_execute_command,
             health_check_grace_period=health_check_grace_period,
+            lifecycle_hooks=lifecycle_hooks,
             max_healthy_percent=max_healthy_percent,
             min_healthy_percent=min_healthy_percent,
             propagate_tags=propagate_tags,
@@ -43889,6 +45246,10 @@ __all__ = [
     "AddAutoScalingGroupCapacityOptions",
     "AddCapacityOptions",
     "AlarmBehavior",
+    "AlternateTarget",
+    "AlternateTargetConfig",
+    "AlternateTargetOptions",
+    "AlternateTargetProps",
     "AmiHardwareType",
     "AppMeshProxyConfiguration",
     "AppMeshProxyConfigurationConfigProps",
@@ -43957,6 +45318,11 @@ __all__ = [
     "DeploymentCircuitBreaker",
     "DeploymentController",
     "DeploymentControllerType",
+    "DeploymentLifecycleHookTargetConfig",
+    "DeploymentLifecycleLambdaTarget",
+    "DeploymentLifecycleLambdaTargetProps",
+    "DeploymentLifecycleStage",
+    "DeploymentStrategy",
     "Device",
     "DevicePermission",
     "DockerVolumeConfiguration",
@@ -44013,8 +45379,10 @@ __all__ = [
     "GenericLogDriverProps",
     "HealthCheck",
     "Host",
+    "IAlternateTarget",
     "IBaseService",
     "ICluster",
+    "IDeploymentLifecycleHookTarget",
     "IEc2Service",
     "IEc2TaskDefinition",
     "IEcsLoadBalancerTarget",
@@ -44035,6 +45403,7 @@ __all__ = [
     "LinuxParameters",
     "LinuxParametersProps",
     "ListenerConfig",
+    "ListenerRuleConfiguration",
     "LoadBalancerTargetOptions",
     "LogDriver",
     "LogDriverConfig",
@@ -44142,6 +45511,34 @@ def _typecheckingstub__64f2d9b3495e3be78346f77d5ad90928968c8ce230e670b6279dc67ad
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     instance_type: _InstanceType_f64915b9,
     machine_image: typing.Optional[_IMachineImage_0e8bd50b] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__792a358f64361d957b07e1ed7f1116dd993837c77bffc674ebb1385615159cd7(
+    *,
+    alternate_target_group_arn: builtins.str,
+    role_arn: builtins.str,
+    production_listener_rule: typing.Optional[builtins.str] = None,
+    test_listener_rule: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__419cc917bedbbd0a41ca044bcc54720f5a35bdc4f2dca6e11ae40da3ed05758d(
+    *,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+    test_listener: typing.Optional[ListenerRuleConfiguration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__308a285b9e7be7ba49d4d78caf88537a973f5504d7b7519fb1fe4ab1c987b690(
+    *,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+    test_listener: typing.Optional[ListenerRuleConfiguration] = None,
+    alternate_target_group: _ITargetGroup_83c6f8c4,
+    production_listener: ListenerRuleConfiguration,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44306,15 +45703,18 @@ def _typecheckingstub__47c51bc38319f21956164fb0fbe2257a72cb1269d763f8a2bf334788b
 def _typecheckingstub__c2e0ba28c74987301a54b0d197b791a6a94084b5f40d15304ffabf113b3f7daa(
     *,
     cluster: ICluster,
+    bake_time: typing.Optional[_Duration_4839e8c3] = None,
     capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
     circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_strategy: typing.Optional[DeploymentStrategy] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -44329,15 +45729,18 @@ def _typecheckingstub__c2e0ba28c74987301a54b0d197b791a6a94084b5f40d15304ffabf113
 def _typecheckingstub__3ecfd95265b873c2042a9d5cb8465a48f9e325e2271c18461e2b266333563d84(
     *,
     cluster: ICluster,
+    bake_time: typing.Optional[_Duration_4839e8c3] = None,
     capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
     circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_strategy: typing.Optional[DeploymentStrategy] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -46311,6 +47714,23 @@ def _typecheckingstub__919598d1dc3ec32befe4a81bbf3a26a387685443884de6cb597180866
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__58b105a4a38be4fd4e5d81c3d78a7d0fc4d3120086f0f1235d58be7e964bf172(
+    *,
+    lifecycle_stages: typing.Sequence[DeploymentLifecycleStage],
+    target_arn: builtins.str,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e812b4c257c9817fdc66c09cfbc9ed6c2dae75feb52fdb91c33339837dbb883c(
+    *,
+    lifecycle_stages: typing.Sequence[DeploymentLifecycleStage],
+    role: typing.Optional[_IRole_235f5d8e] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9cd1dbc2946a0873c593d44d008c4c102f3994a3cd94676ec1816b39d1b46931(
     *,
     host_path: builtins.str,
@@ -46389,15 +47809,18 @@ def _typecheckingstub__ec9bd820dae60c0be34ffc5a5dd28bccc87947dc35dff1502ce12b80a
 def _typecheckingstub__95634258086aa3448fbdfd9896017a2cbeb858f382deb61186bb9e22b1ccd366(
     *,
     cluster: ICluster,
+    bake_time: typing.Optional[_Duration_4839e8c3] = None,
     capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
     circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_strategy: typing.Optional[DeploymentStrategy] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -46592,15 +48015,18 @@ def _typecheckingstub__bb8d7316afb3715109dfb05d3b7460700437fb0490a0e47180a1c5ef5
 def _typecheckingstub__3cc413964caae89bfcfbcabff8356ffe5c054f46824be99731a77b64ec052a8a(
     *,
     cluster: ICluster,
+    bake_time: typing.Optional[_Duration_4839e8c3] = None,
     capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
     circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_strategy: typing.Optional[DeploymentStrategy] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -46650,15 +48076,18 @@ def _typecheckingstub__85c0463354cc6d5a3da5daace0570a015f941bfeb87bb282346c1e2be
 def _typecheckingstub__8290283f61f3e2d289b7e7f81cad1a5d1e9ed9dbc07ccce2b57604682a42ded7(
     *,
     cluster: ICluster,
+    bake_time: typing.Optional[_Duration_4839e8c3] = None,
     capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
     circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_strategy: typing.Optional[DeploymentStrategy] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -46939,6 +48368,18 @@ def _typecheckingstub__0275aca574e1acd41af17b3acaa1528dd0890542d27aeee65489bbd55
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1f10764be69e962209020c3a7e772567f1cbc3d3673cf209506562511ce9cd0a(
+    scope: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cdcc51dc61399e62078243a225e42fd6901317236efebe039a9e3b36834d4b7(
+    scope: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__11773db60f5e0800c7efe817fcc41dcf7af2f8e010e72471c80e23766e96c5ab(
     task_definition: TaskDefinition,
 ) -> None:
@@ -47066,9 +48507,22 @@ def _typecheckingstub__ef0bdf65f82e85f94b1db5a37b900ed9f46429089cbcb4c8d29b283f3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e4bdbe1ec0e220912f9ff8b7769875a4eebd5168734b702329f9d4600ecdb318(
+    rule: _ApplicationListenerRule_f93ff606,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c964a7ba26c195318cd3937b823b36facecf4120aeb9196876feb206f6f9855a(
+    listener: _NetworkListener_539c17bf,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5499166a691d3d9b788ba4a9808f921437da0987c4c4733332600e4e584bf30f(
     *,
     container_name: builtins.str,
+    alternate_target: typing.Optional[IAlternateTarget] = None,
     container_port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[Protocol] = None,
 ) -> None:
@@ -47816,6 +49270,23 @@ def _typecheckingstub__8874c61d65168e60874c9191682af53d5d88352dbfe615fd842f45b2b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__aa25b044df0e4eef1817fd07bd799a88800df4e6bd79f283ca2657cfee9e4b29(
+    id: builtins.str,
+    *,
+    alternate_target_group: _ITargetGroup_83c6f8c4,
+    production_listener: ListenerRuleConfiguration,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+    test_listener: typing.Optional[ListenerRuleConfiguration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__147067753bcb82b7fc98e3b04dd99ea91c99dac8aec50a2f7076d3593aced862(
+    scope: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6aeeebc397e1073be671305f45ff0de1478d4d043824a139c5e52661f7868baf(
     _scope: _constructs_77d1e7e8.Construct,
     _task_definition: TaskDefinition,
@@ -48035,6 +49506,22 @@ def _typecheckingstub__3407e1eace0b05ee1ef50b2d7263c1462cbbc2df7bfe6d22826f0f94f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bddcf05621152ce6e8fd520b5a7bb98f63b4f5805beda123da1f9f542d66294e(
+    handler: _IFunction_6adb0ab8,
+    id: builtins.str,
+    *,
+    lifecycle_stages: typing.Sequence[DeploymentLifecycleStage],
+    role: typing.Optional[_IRole_235f5d8e] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6510372e5e0e0b1114c294538138af0f03ebd70441a76bddd8496eca40f2fe8(
+    scope: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0f3b91860780f56b42f6ab26d1855c0db28e15ef0dc9bcb868556324ed95a96b(
     _scope: _constructs_77d1e7e8.Construct,
     _container_definition: ContainerDefinition,
@@ -48091,6 +49578,12 @@ def _typecheckingstub__3cd0743b65b66534a274ff34e46f82cd780216193c08611a3b4e166e2
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     service_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__480743d611a768bf60af18dc6a08c65385351ccd86b4290955b74d1541662389(
+    target: IDeploymentLifecycleHookTarget,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -48204,15 +49697,18 @@ def _typecheckingstub__1e578461670bd6cdf856f914534e1feff8905e31d33cd7aea2b9f5151
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     cluster: ICluster,
+    bake_time: typing.Optional[_Duration_4839e8c3] = None,
     capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
     circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_strategy: typing.Optional[DeploymentStrategy] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -48354,15 +49850,18 @@ def _typecheckingstub__6ceef4de126cbb6bd6f379ba0b53be2fb61c35761f50685b5d228c682
     daemon: typing.Optional[builtins.bool] = None,
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
     cluster: ICluster,
+    bake_time: typing.Optional[_Duration_4839e8c3] = None,
     capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
     circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_strategy: typing.Optional[DeploymentStrategy] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     propagate_tags: typing.Optional[PropagatedTagSource] = None,
@@ -48460,15 +49959,18 @@ def _typecheckingstub__0ddac6b19472d00f74c1777e699ce5b239dc49e62ff4ab4674c917bbe
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     cluster: ICluster,
+    bake_time: typing.Optional[_Duration_4839e8c3] = None,
     capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[CapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]] = None,
     circuit_breaker: typing.Optional[typing.Union[DeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
     cloud_map_options: typing.Optional[typing.Union[CloudMapOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_alarms: typing.Optional[typing.Union[DeploymentAlarmConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[DeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_strategy: typing.Optional[DeploymentStrategy] = None,
     desired_count: typing.Optional[jsii.Number] = None,
     enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
     enable_execute_command: typing.Optional[builtins.bool] = None,
     health_check_grace_period: typing.Optional[_Duration_4839e8c3] = None,
+    lifecycle_hooks: typing.Optional[typing.Sequence[IDeploymentLifecycleHookTarget]] = None,
     max_healthy_percent: typing.Optional[jsii.Number] = None,
     min_healthy_percent: typing.Optional[jsii.Number] = None,
     propagate_tags: typing.Optional[PropagatedTagSource] = None,

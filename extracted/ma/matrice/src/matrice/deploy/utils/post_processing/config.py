@@ -51,6 +51,9 @@ APP_NAME_TO_USECASE = {
     "human_activity_recognition": "human_activity_recognition",
     "abandoned_object_detection" : "abandoned_object_detection",
     "gas_leak_detection": "gas_leak_detection",
+    "color_detection": "color_detection",
+    "license_plate_monitor" : "license_plate_monitor",
+    
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -106,6 +109,8 @@ APP_NAME_TO_CATEGORY = {
     "human_activity_recognition": "general",
     "abandoned_object_detection" : "security",
     "gas_leak_detection": "oil_gas",
+    "color_detection": "visual_appearance",
+    "license_plate_monitor" : "license_plate_monitor"
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

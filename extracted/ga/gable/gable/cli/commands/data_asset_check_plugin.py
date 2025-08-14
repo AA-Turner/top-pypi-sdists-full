@@ -2,6 +2,8 @@ import json
 from typing import List, Literal
 
 import click
+from loguru import logger
+
 from gable.api.client import GableAPIClient
 from gable.cli.commands.asset_plugins.baseclass import (
     AssetPluginAbstract,
@@ -25,7 +27,6 @@ from gable.openapi import (
     ResponseType,
     SourceType,
 )
-from loguru import logger
 
 output_format_to_response_type = {
     "text": ResponseType.DETAILED,

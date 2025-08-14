@@ -9,73 +9,75 @@
 
 .. moduleauthor:: IBM
 """
+
 from __future__ import annotations
+
+import base64
 import copy
+import json
 import logging
 import os
+from typing import Any, TypeAlias, cast
 from warnings import warn
-from typing import Any, cast, TypeAlias
-import json
-import base64
+
 import httpx
 
 import ibm_watsonx_ai.utils
-from ibm_watsonx_ai.folder_assets import FolderAssets
-from ibm_watsonx_ai.projects import Projects
-from ibm_watsonx_ai.trashed_assets import TrashedAssets
 from ibm_watsonx_ai._wrappers.requests import (
+    _get_async_client,
     _get_httpx_client,
     _httpx_transport_params,
-    _get_async_client,
 )
-from ibm_watsonx_ai.utils.auth import get_auth_method
-from ibm_watsonx_ai.utils import get_user_agent_header
-from ibm_watsonx_ai.utils.auth.base_auth import TokenRemovedDuringClientCopyPlaceholder
-from ibm_watsonx_ai.utils.utils import (
-    _APIClientSession,
-    HttpClientConfig,
-    DEFAULT_HTTP_CLIENT_CONFIG,
-    _create_href_definitions,
-)
-from ibm_watsonx_ai.Set import Set
+from ibm_watsonx_ai.ai_services import AIServices
 from ibm_watsonx_ai.assets import Assets
 from ibm_watsonx_ai.connections import Connections
-from ibm_watsonx_ai import Credentials
+from ibm_watsonx_ai.credentials import Credentials
 from ibm_watsonx_ai.deployments import Deployments
 from ibm_watsonx_ai.experiments import Experiments
 from ibm_watsonx_ai.export_assets import Export
 from ibm_watsonx_ai.factsheets import Factsheets
+from ibm_watsonx_ai.folder_assets import FolderAssets
 from ibm_watsonx_ai.foundation_models_manager import FoundationModelsManager
 from ibm_watsonx_ai.functions import Functions
-from ibm_watsonx_ai.ai_services import AIServices
 from ibm_watsonx_ai.hw_spec import HwSpec
 from ibm_watsonx_ai.import_assets import Import
-from ibm_watsonx_ai.service_instance import ServiceInstance
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.model_definition import ModelDefinition
 from ibm_watsonx_ai.models import Models
 from ibm_watsonx_ai.parameter_sets import ParameterSets
 from ibm_watsonx_ai.pipelines import Pipelines
 from ibm_watsonx_ai.pkg_extn import PkgExtn
-from ibm_watsonx_ai.spaces import Spaces
+from ibm_watsonx_ai.projects import Projects
 from ibm_watsonx_ai.remote_training_system import RemoteTrainingSystem
 from ibm_watsonx_ai.repository import Repository
+from ibm_watsonx_ai.runtime_definitions import RuntimeDefinitions
 from ibm_watsonx_ai.script import Script
+from ibm_watsonx_ai.service_instance import ServiceInstance
+from ibm_watsonx_ai.Set import Set
 from ibm_watsonx_ai.shiny import Shiny
+from ibm_watsonx_ai.spaces import Spaces
 from ibm_watsonx_ai.sw_spec import SwSpec
 from ibm_watsonx_ai.task_credentials import TaskCredentials
 from ibm_watsonx_ai.training import Training
-from ibm_watsonx_ai.utils import CPDVersion
+from ibm_watsonx_ai.trashed_assets import TrashedAssets
+from ibm_watsonx_ai.utils import CPDVersion, get_user_agent_header
+from ibm_watsonx_ai.utils.auth import get_auth_method
+from ibm_watsonx_ai.utils.auth.base_auth import TokenRemovedDuringClientCopyPlaceholder
+from ibm_watsonx_ai.utils.utils import (
+    DEFAULT_HTTP_CLIENT_CONFIG,
+    HttpClientConfig,
+    _APIClientSession,
+    _create_href_definitions,
+)
 from ibm_watsonx_ai.volumes import Volume
-from ibm_watsonx_ai.wml_client_error import NoWMLCredentialsProvided
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_client_error import NoWMLCredentialsProvided, WMLClientError
 
 # requests module or requests.Session
 RequestsLikeType: TypeAlias = Any
 
 
 class APIClient:
-    """The main class of ibm_watsonx_ai. The very heart of the module. APIClient contains objects that manage the service reasources.
+    """The main class of ibm_watsonx_ai. The very heart of the module. APIClient contains objects that manage the service resources.
 
     To explore how to use APIClient, refer to:
 
@@ -272,6 +274,14 @@ class APIClient:
             # Mumbai (AWS)
             "https://ap-south-1.aws.wxai.ibm.com": "https://api.ap-south-1.aws.data.ibm.com",
             "https://private.ap-south-1.aws.wxai.ibm.com": "https://api.ap-south-1.aws.data.ibm.com",
+            # TODO ensure private platform url is correct - changed mapping to private -> public
+            # AWS GovCloud
+            "https://wxai.ibmforusgov.com": "https://api.dai.ibmforusgov.com",
+            "https://private.wxai.ibmforusgov.com": "https://api.dai.ibmforusgov.com",
+            # TODO ensure private platform url is correct - changed mapping to private -> public
+            # PreProd AWS GovCloud
+            "https://wxai.prep.ibmforusgov.com": "https://api.dai.prep.ibmforusgov.com",
+            "https://private.wxai.prep.ibmforusgov.com": "https://api.dai.prep.ibmforusgov.com",
             # TODO ensure private platform url is correct - changed mapping to private -> public
             # YPCR
             "https://yp-cr.ml.cloud.ibm.com": "https://api.dataplatform.test.cloud.ibm.com",
@@ -507,6 +517,7 @@ class APIClient:
             if self.ICP_PLATFORM_SPACES:
                 self.shiny = Shiny(self)
                 self.trashed_assets = TrashedAssets(self)
+                self.runtime_definitions = RuntimeDefinitions(self)
 
             self.script = Script(self)
             self.model_definitions = ModelDefinition(self)
@@ -821,7 +832,6 @@ class APIClient:
         zen: bool = False,
         projects_token: bool = False,
     ) -> dict:
-
         headers = {}
 
         if not no_content_type:
@@ -913,7 +923,7 @@ class APIClient:
 
             warn(authentication_method_changed_warning)
 
-            self._auth_method = TokenAuth(token)
+            self._auth_method = TokenAuth(token=token)
             self._auth_method._on_token_set = self.repository._refresh_repo_client
             self._auth_method._on_token_set()
 
@@ -984,5 +994,5 @@ class APIClient:
                 headers=self._get_headers(),
             )
             return response_ai_services_api.status_code != 404
-        except:
+        except Exception:
             return False

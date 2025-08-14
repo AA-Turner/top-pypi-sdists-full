@@ -3525,6 +3525,8 @@ class CfnDeliveryStream(
         ) -> None:
             '''Describes the configuration of a destination in Apache Iceberg Tables.
 
+            This section is only needed for tables where you want to update or delete data.
+
             :param destination_database_name: The name of the Apache Iceberg database.
             :param destination_table_name: Specifies the name of the Apache Iceberg Table.
             :param partition_spec: The partition spec configuration for a table that is used by automatic table creation. Amazon Data Firehose is in preview release and is subject to change.

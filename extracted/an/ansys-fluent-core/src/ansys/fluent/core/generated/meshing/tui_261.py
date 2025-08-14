@@ -3665,7 +3665,6 @@ class main_menu(TUIMenu):
             Enter to create new project, open project, save and archive project.
             """
             def __init__(self, service, version, mode, path):
-                self.simulation = self.__class__.simulation(service, version, mode, path + ["simulation"])
                 self.archive = self.__class__.archive(service, version, mode, path + ["archive"])
                 self.new = self.__class__.new(service, version, mode, path + ["new"])
                 self.open = self.__class__.open(service, version, mode, path + ["open"])
@@ -3697,51 +3696,6 @@ class main_menu(TUIMenu):
                 """
                 Save As Copy.
                 """
-
-            class simulation(TUIMenu):
-                """
-                Enter to create, duplicate, or delete a simulation.
-                """
-                def __init__(self, service, version, mode, path):
-                    self.run = self.__class__.run(service, version, mode, path + ["run"])
-                    self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                    self.new_simulation = self.__class__.new_simulation(service, version, mode, path + ["new_simulation"])
-                    self.set_as_current = self.__class__.set_as_current(service, version, mode, path + ["set_as_current"])
-                    super().__init__(service, version, mode, path)
-                class delete(TUIMethod):
-                    """
-                    Delete A Simulation.
-                    """
-                class new_simulation(TUIMethod):
-                    """
-                    Create New Simulation.
-                    """
-                class set_as_current(TUIMethod):
-                    """
-                    Set the Current Simulation.
-                    """
-
-                class run(TUIMenu):
-                    """
-                    Enter to create, duplicate, or delete a run.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                        self.new_run = self.__class__.new_run(service, version, mode, path + ["new_run"])
-                        self.set_as_current = self.__class__.set_as_current(service, version, mode, path + ["set_as_current"])
-                        super().__init__(service, version, mode, path)
-                    class delete(TUIMethod):
-                        """
-                        Delete A Run.
-                        """
-                    class new_run(TUIMethod):
-                        """
-                        Create a New Run.
-                        """
-                    class set_as_current(TUIMethod):
-                        """
-                        Set the Current Run.
-                        """
 
     class material_point(TUIMenu):
         """
@@ -5735,15 +5689,15 @@ class main_menu(TUIMenu):
                         """
                     class maximum_angle_threshold(TUIMethod):
                         """
-                        Sets the maximum angle between two facets for angular refinements (e.g., to exclude sharp corners).
+                        Sets the maximum angle between two facets for angular refinements (e.g. to exclude sharp corners).
                         """
                     class minimum_angle_threshold(TUIMethod):
                         """
-                        Sets the minimum angle between two facets for angular refinements (e.g., to prevent spurious refinements).
+                        Sets the minimum angle between two facets for angular refinements (e.g. to prevent spurious refinements).
                         """
                     class switched_criterion_threshold(TUIMethod):
                         """
-                        Specify the angular value to switch between "facets-normal-angle" and "arc-estimate" in the "switched" criterion.
+                        Specify the angular value to switch between "facets-normal-angle" and "arc-estimate" in the "switched" cirterion.
                         """
 
             class refinement_regions(TUIMenu):

@@ -3,20 +3,18 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import json
-
-from typing import Any, Iterator, AsyncIterator
+from typing import Any, AsyncIterator, Iterator
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai import APIClient, Credentials
+from ibm_watsonx_ai.gateway.models import Models
 from ibm_watsonx_ai.gateway.policies import Policies
 from ibm_watsonx_ai.gateway.providers import Providers
-from ibm_watsonx_ai.gateway.models import Models
 from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 
 def _streaming_create(api_client: APIClient, url: str, request_json: dict) -> Iterator:
-
     kw_args: dict = dict(
         method="POST",
         url=url,
@@ -55,7 +53,6 @@ def _streaming_create(api_client: APIClient, url: str, request_json: dict) -> It
 async def _streaming_acreate(
     api_client: APIClient, url: str, request_json: dict
 ) -> AsyncIterator:
-
     kw_args: dict = dict(
         method="POST",
         url=url,

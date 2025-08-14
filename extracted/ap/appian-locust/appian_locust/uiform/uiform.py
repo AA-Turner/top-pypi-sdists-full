@@ -1,14 +1,16 @@
 import datetime
-import enum
 import errno
 import json
 import os
 import random
-import warnings
 from datetime import date
-from typing import Any, Dict, List, Union, Optional, TYPE_CHECKING
-from urllib.parse import quote, urlparse
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from urllib.parse import urlparse
 from copy import deepcopy
+import time
+from sseclient import SSEClient # type: ignore
+from locust import events
+import gevent # type: ignore
 
 from .. import ComponentNotFoundException
 from ..utilities import logger
@@ -29,6 +31,7 @@ KEY_UUID = "uuid"
 KEY_CONTEXT = "context"
 START_PROCESS_LINK_TYPE = 'StartProcessLink'
 PROCESS_TASK_LINK_TYPE = 'ProcessTaskLink'
+ASYNC_VARIABLE_SSE_PATH = "/suite/sail/async-variables/events"
 
 log = logger.getLogger(__name__)
 
@@ -2114,3 +2117,59 @@ class SailUiForm:
     def _get_record_list_identifier(self) -> Optional[Dict[str, Any]]:
         # Base SailUiForm will not have a record_list identifier, return None
         return None
+
+    def reeval_pending_async_variables(self) -> None:
+        """
+        This function reevaluations async variables until there are no
+        remaining async variables remaining on the UI
+        """
+        sse_event_queue: gevent.queue.Queue = gevent.queue.Queue()
+        sse_connection_async_counter_id = ""
+        sse_listener = None
+        while (current_counter := self.get_latest_state().get("asyncVariableCounter")):
+            counter_segments = current_counter.split("/")
+            if (len(counter_segments) != 2):
+                log.error("Unexpected format for asyncVariableCounter. Received " + current_counter)
+
+            current_async_counter_id = counter_segments[0]
+            if (sse_connection_async_counter_id != current_async_counter_id):
+                if (sse_listener):
+                    # We need a new sse connection, stop the existing connection
+                    sse_listener.kill()
+                sse_listener = gevent.spawn(self._add_async_variables_to_queue, sse_event_queue, current_counter)
+                sse_connection_async_counter_id = current_async_counter_id
+
+            self._empty_queue_and_reeval(sse_event_queue)
+            gevent.sleep(0.1)
+
+    def _empty_queue_and_reeval(self, sse_event_queue: gevent.queue.Queue) -> None:
+        has_completed_async_vars = False
+        while not sse_event_queue.empty():
+            sse_event_queue.get_nowait()
+            has_completed_async_vars = True
+        if has_completed_async_vars:
+            self._reevaluate_async_variable()
+
+    def _add_async_variables_to_queue(self, sse_event_queue: gevent.queue.Queue, async_variable_counter: str) -> None:
+        start_time_request = time.monotonic()
+        get_sse = self._interactor.client.get(
+            ASYNC_VARIABLE_SSE_PATH,
+            params={"previousAsyncState": async_variable_counter},
+            name=ASYNC_VARIABLE_SSE_PATH, stream=True)
+
+        messages = SSEClient(get_sse)
+        for event in messages.events():
+            current_time = time.monotonic()
+            response_time = (current_time - start_time_request) * 1000
+            start_time_request = current_time
+            events.request.fire(
+                request_type="SSE_EVENT",
+                name="asyncVariableCompleted",
+                response_time=response_time,
+                response_length=len(str(event)),
+                exception=None,
+                context={"event_id": event.id, "event_data": event.data})
+            sse_event_queue.put(event)
+
+    def _reevaluate_async_variable(self) -> None:
+        self.click('async-variable-refresh')

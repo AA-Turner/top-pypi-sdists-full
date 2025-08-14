@@ -52,6 +52,7 @@ def status_overview() -> dict:
         "tasks_total": 0,
         "tasks_hours": 0,
         "earliest_task": None,
+        "debug": settings.DEBUG if settings.DISPLAY_DEBUG else False,
     }
     response.update(_current_notifications())
     response.update(_current_version_summary())

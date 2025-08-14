@@ -1,5 +1,6 @@
 """Test the pydap client."""
 
+import datetime as dt
 import os
 
 import numpy as np
@@ -9,6 +10,7 @@ import requests
 from ..client import (
     compute_base_url_prefix,
     consolidate_metadata,
+    get_cmr_urls,
     open_dmr,
     open_dods_url,
     open_file,
@@ -16,6 +18,7 @@ from ..client import (
     patch_session_for_shared_dap_cache,
 )
 from ..handlers.lib import BaseHandler
+from ..lib import _quote
 from ..model import BaseType, DatasetType, GridType
 from ..net import create_session
 from .datasets import SimpleGrid, SimpleSequence, SimpleStructure
@@ -55,7 +58,9 @@ def test_open_url_dap4(remote_url):
     # test single data point
     constrain1 = "dap4.ce=/s33[0][0]"
     data_dap4 = open_url(base_url + "?" + constrain1)
-    assert data_dap4["s33"][:].data == data_original["s33"][0, 0].data
+    assert np.asarray(data_dap4["s33"][:].data) == np.asarray(
+        data_original["s33"][0, 0].data
+    )
 
     # subset of vars by indexes
     var1 = "/s33[0:1:2][0:1:2];"
@@ -74,7 +79,7 @@ def test_open_url_dap4_shape():
     filename = "netcdf/examples/200803061600_HFRadar_USEGC_6km_rtv_SIO.nc"
     CE = "?dap4.ce=/lon[100:1:199]"
     ds_ce = open_url(url + filename + CE)
-    data = ds_ce["lon"][:]
+    data = np.asarray(ds_ce["lon"][:].data)
     assert data.shape == (100,)
 
 
@@ -398,7 +403,7 @@ def test_warning_consolidate_metadata():
     cached_session as a parameter.
     """
     urls = ["dap4://localhost:8001/", "dap4://localhost:8002/"]
-    with pytest.warns(Warning):
+    with pytest.warns(UserWarning):
         consolidate_metadata(urls, requests.Session())
 
 
@@ -430,11 +435,61 @@ def test_warning_nondap4urls_consolidate_metadata(urls, cached_session):
     that are do not have `dap4` as their scheme.
     """
     cached_session.cache.clear()
-    with pytest.warns(Warning):
+    with pytest.warns(UserWarning):
         consolidate_metadata(urls, cached_session)
 
 
-ce1 = "?dap4.ce=/i[0:1:1];/j[0:1:2];/bears[0:1:1][0:1:2];/l[0:1:2]"
+ce1 = "?dap4.ce=/i;/j;/l;/bears"
+ce2 = "?dap4.ce=/i;/j;/l;/order"
+
+
+# @pytest.mark.skipif(
+#     os.getenv("LOCAL_DEV") != "1", reason="This test only runs on local development"
+# )
+@pytest.mark.parametrize(
+    "urls",
+    [
+        [
+            "dap4://test.opendap.org/opendap/data/nc/123bears.nc",
+            "dap4://test.opendap.org/opendap/data/nc/123bears.nc" + ce1,
+            "dap4://test.opendap.org/opendap/data/nc/123bears.nc" + ce2,
+        ],
+    ],
+)
+@pytest.mark.parametrize("safe_mode", [True])
+def test_cached_consolidate_metadata_matching_dims(urls, safe_mode):
+    """Test the behavior of the chaching implemented in `consolidate_metadata`.
+    the `safe_mode` parameter means that all dmr urls are cached, and
+    the dimensions of each dmr_url are checked for consistency.
+
+    when `safe_mode` is False, only the first dmr url is cached if
+    all dmr urls CEs are identical. If the CEs are not identical,
+    then a cache is created for each dmr url with different CEs.
+
+    In both scenarios, the dap urls of the dimensions are cached
+    """
+    cached_session = create_session(use_cache=True, cache_kwargs={"backend": "memory"})
+    cached_session.cache.clear()
+    pyds = open_dmr(urls[0].replace("dap4", "http") + ".dmr")
+    dims = sorted(list(pyds.dimensions))  # dimensions of full dataset
+    consolidate_metadata(urls, session=cached_session, safe_mode=safe_mode)
+
+    # check that the cached session has all the dmr urls and
+    # caches the dap response of the dimensions only once
+    # Single dap url for all dimensions downloaded
+    assert len(cached_session.cache.urls()) == len(urls) + 1
+
+    # THE FOLLOWING IS AN IMPORTANT CHECK. All dims are downloaded
+    # within a single dap url. Make sure these appear in order. Order
+    # matters when reusing cached urls.
+
+    ce_dims = cached_session.cache.urls()[0].split("=")[1].split("&")[0].split("%3B")
+
+    assert [item.split("%5B")[0] for item in ce_dims] == dims
+
+
+ce1 = "?dap4.ce=/i;/j;/bears"
+ce2 = "?dap4.ce=/i;/j;/order"
 
 
 @pytest.mark.parametrize(
@@ -443,29 +498,85 @@ ce1 = "?dap4.ce=/i[0:1:1];/j[0:1:2];/bears[0:1:1][0:1:2];/l[0:1:2]"
         [
             "dap4://test.opendap.org/opendap/data/nc/123bears.nc",
             "dap4://test.opendap.org/opendap/data/nc/123bears.nc" + ce1,
+            "dap4://test.opendap.org/opendap/data/nc/123bears.nc" + ce2,
         ],
     ],
 )
-def test_cached_consolidate_metadata(urls, cached_session):
-    """Test that `consolidate_metadata` effectively caches the dmr of the urls, along
-    with the dap4 urls of the dimensions
+@pytest.mark.parametrize("safe_mode", [True])
+def test_cached_consolidate_metadata_inconsistent_dims(urls, safe_mode):
+    """Test the behavior of the chaching implemented in `consolidate_metadata`.
+    the `safe_mode` parameter means that all dmr urls are cached, and
+    the dimensions of each dmr_url are checked for consistency.
+
+    when `safe_mode` is False, only the first dmr url is cached if
+    all dmr urls CEs are identical. If the CEs are not identical,
+    then a cache is created for each dmr url with different CEs.
+
+    In both scenarios, the dap urls of the dimensions are cached
     """
+    cached_session = create_session(use_cache=True, cache_kwargs={"backend": "memory"})
     cached_session.cache.clear()
     pyds = open_dmr(urls[0].replace("dap4", "http") + ".dmr")
-    dims = list(pyds.dimensions)  # dimensions of full dataset
+    dims = list(pyds.dimensions)  # here there are 3 dimensions
+    if safe_mode:
+        with pytest.warns(UserWarning):
+            consolidate_metadata(urls, session=cached_session, safe_mode=safe_mode)
+        assert len(cached_session.cache.urls()) == len(urls)
+        # dmrs where cached, but not the dimensions
+    else:
+        consolidate_metadata(urls, session=cached_session, safe_mode=safe_mode)
+        # caches all DMRs and caches the dap responses of the dimensions
+        # of the first URL
+        assert len(cached_session.cache.urls()) == len(urls) + len(dims)
 
-    consolidate_metadata(urls, cached_session)
-    # check that the cached session has all the dmr urls and
-    # caches the dap response of the dimensions only once
-    assert len(cached_session.cache.urls()) == len(urls) + len(dims)
-    # THE FOLLOWING IS AN IMPORTANT CHECK. THE EXTRA CACHED URLS
-    # ARE THE DAP RESPONSES OF EACH DIMENSION. AND THESE ARE THE LAST
-    # TO CACHE. MEANING THE FIRST ELEMENTS OF THE LIST OF CACHED URLS.
-    dap_urls = [url.replace("dap4", "http") for url in urls]
-    dim_dap_urls = [dap_urls[0] + ".dap?dap4.ce=" + dim for dim in dims]
-    N = len(dims)  # should be 3 for this dataset.
-    for n in range(N):
-        assert cached_session.cache.urls()[n].split("%")[0] == dim_dap_urls[n]
+
+# @pytest.mark.skipif(
+#     os.getenv("LOCAL_DEV") != "1", reason="This test only runs on local development"
+# )
+@pytest.mark.parametrize(
+    "urls",
+    [
+        [
+            "dap4://test.opendap.org/opendap/hyrax/data/nc/coads_climatology.nc",
+            "dap4://test.opendap.org/opendap/hyrax/data/nc/coads_climatology2.nc",
+        ],
+    ],
+)
+@pytest.mark.parametrize("concat_dim", [None, "TIME"])
+def test_consolidate_metadata_concat_dim(urls, concat_dim):
+    """Test the behavior of the chaching implemented in `consolidate_metadata`
+    when there is a concat dimension, and (extra) this concat_dim may be an array
+    of length >= 1.
+
+    If `concat_dim` is None, only 1 dap response per dimension is cached (1 URL),
+    and a special cache key is created for the rest of URLs. If `concat_dim` is set,
+    then N dap responses for that dimension are cached, where N is the number of URLs.
+    The rest of the (non-concat) dimensions behave the same as when `concat_dim` is
+    None.
+
+    """
+    cached_session = create_session(use_cache=True, cache_kwargs={"backend": "memory"})
+    cached_session.cache.clear()
+    # download all dmr for testing - not most performant
+    consolidate_metadata(
+        urls, session=cached_session, safe_mode=True, concat_dim=concat_dim
+    )
+
+    N_dmr_urls = len(urls)  # Since `safe_mode=False`, only 1 DMR is downloaded
+
+    if not concat_dim:
+        # Without `concat_dim` set, only one dap response is downloaded per URL.
+        assert (
+            len(cached_session.cache.urls()) == N_dmr_urls + 1
+        )  # all dims are batched together
+    else:
+        # concat dim is set. Must download N dap responses for the concat_dim.
+        N_concat_dims = len(urls)  # see below !
+        N_non_concat_dims = 1  # all dims are downloaded once, together.
+        assert (
+            len(cached_session.cache.urls())
+            == N_dmr_urls + N_concat_dims + N_non_concat_dims
+        )
 
 
 @pytest.mark.parametrize(
@@ -571,7 +682,7 @@ def test_patch_session_for_shared_dap_cache(urls, cached_session):
     dimensions = ["i[0:1:1]", "j[0:1:2]", "l[0:1:2]"]
 
     patch_session_for_shared_dap_cache(
-        cached_session, shared_vars=dimensions, known_url_list=urls
+        cached_session, shared_vars=dimensions, concat_dim=None, known_url_list=urls
     )
     assert len(cached_session.cache.urls()) == 0
 
@@ -597,3 +708,217 @@ def test_patch_session_for_shared_dap_cache(urls, cached_session):
 
     # assert that there is no new cached key
     assert len(cached_session.cache.urls()) == len(dimensions)
+
+
+ccid = "concept_id=C2076114664-LPCLOUD"
+start_date = dt.datetime(2020, 1, 1)
+end_date = dt.datetime(2020, 1, 31)
+dt_format = "%Y-%m-%dT%H:%M:%SZ"
+bbox1 = "bounding_box%5B%5D=-10%2C-5%2C10%2C5"
+bbox2 = "bounding_box%5B%5D=-11%2C-6%2C11%2C6"
+
+
+@pytest.mark.skipif(
+    os.getenv("LOCAL_DEV") != "1", reason="This test only runs on local development"
+)
+@pytest.mark.parametrize(
+    "param, expected",
+    [
+        [{"doi": "10.5067/ECL5M-OTS44"}, "concept_id=C1991543728-POCLOUD&page_size=50"],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "time_range": [start_date, end_date],
+            },
+            ccid + "&temporal=2020-01-01T00%3A00%3A00Z%2C2020-01-31T00%3A00%3A00Z",
+        ],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "time_range": [
+                    start_date.strftime(dt_format),
+                    end_date.strftime(dt_format),
+                ],
+            },
+            ccid + "&temporal=2020-01-01T00%3A00%3A00Z%2C2020-01-31T00%3A00%3A00Z",
+        ],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "bounding_box": list((-130.8, 41, -124, 45)),
+            },
+            ccid + "&bounding_box%5B%5D=-130.8%2C41%2C-124%2C45",
+        ],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "bounding_box": {
+                    "key1": list((-10, -5, 10, 5)),
+                    "key2": list((-11, -6, 11, 6)),
+                },
+            },
+            ccid + "&" + bbox1 + "&" + bbox2,
+        ],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "bounding_box": {
+                    "key1": list((-10, -5, 10, 5)),
+                    "key2": list((-11, -6, 11, 6)),
+                    "Union": True,
+                },
+            },
+            ccid
+            + "&"
+            + bbox1
+            + "&"
+            + bbox2
+            + "&options%5Bbounding_box%5D%5Bor%5D=true",
+        ],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "point": [100, 20],
+            },
+            ccid + "&point%5B%5D=100%2C20",
+        ],
+        [
+            {
+                "ccid": "C1991543728-POCLOUD",
+                "point": {"point1": [100, 20], "point2": [80, 20]},
+            },
+            "concept_id=C1991543728-POCLOUD"
+            + "&point%5B%5D=100%2C20&point%5B%5D=80%2C20",
+        ],
+        [
+            {
+                "ccid": "C1991543728-POCLOUD",
+                "point": {"point1": [100, 20], "point2": [80, 20], "Union": True},
+            },
+            "concept_id=C1991543728-POCLOUD"
+            + "&point%5B%5D=100%2C20&point%5B%5D=80%2C20"
+            + "&options%5Bpoint%5D%5Bor%5D=true",
+        ],
+        [
+            {
+                "ccid": "C1991543728-POCLOUD",
+                "polygon": [10, 10, 30, 10, 30, 20, 10, 20, 10, 10],
+            },
+            "concept_id=C1991543728-POCLOUD"
+            + "&polygon%5B%5D=10%2C10%2C30%2C10%2C30%2C20%2C10%2C20%2C10%2C10",
+        ],
+        [
+            {
+                "ccid": "C1991543728-POCLOUD",
+                "polygon": {
+                    "p1": [10, 10, 30, 10, 30, 20, 10, 20, 10, 10],
+                    "p2": [11, 11, 31, 11, 31, 21, 11, 21, 11, 11],
+                },
+            },
+            "concept_id=C1991543728-POCLOUD"
+            + "&polygon%5B%5D=10%2C10%2C30%2C10%2C30%2C20%2C10%2C20%2C10%2C10"
+            + "&polygon%5B%5D=11%2C11%2C31%2C11%2C31%2C21%2C11%2C21%2C11%2C11",
+        ],
+        [
+            {
+                "ccid": "C1991543728-POCLOUD",
+                "polygon": {
+                    "p1": [10, 10, 30, 10, 30, 20, 10, 20, 10, 10],
+                    "p2": [11, 11, 31, 11, 31, 21, 11, 21, 11, 11],
+                    "Union": True,
+                },
+            },
+            "concept_id=C1991543728-POCLOUD"
+            + "&polygon%5B%5D=10%2C10%2C30%2C10%2C30%2C20%2C10%2C20%2C10%2C10"
+            + "&polygon%5B%5D=11%2C11%2C31%2C11%2C31%2C21%2C11%2C21%2C11%2C11"
+            + "&options%5Bpolygon%5D%5Bor%5D=true",
+        ],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "line": [-0.37, -14.07, 4.75, 1.27, 25.13, -15.51],
+            },
+            ccid + "&line%5B%5D=-0.37%2C-14.07%2C4.75%2C1.27%2C25.13%2C-15.51",
+        ],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "line": {
+                    "line1": [-0.37, -14.07, 4.75, 1.27, 25.13, -15.51],
+                    "line2": [-1.37, -15.07, 5.75, 2.27, 26.13, -16.51],
+                },
+            },
+            ccid
+            + "&line%5B%5D=-0.37%2C-14.07%2C4.75%2C1.27%2C25.13%2C-15.51"
+            + "&line%5B%5D=-1.37%2C-15.07%2C5.75%2C2.27%2C26.13%2C-16.51",
+        ],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "line": {
+                    "line1": [-0.37, -14.07, 4.75, 1.27, 25.13, -15.51],
+                    "line2": [-1.37, -15.07, 5.75, 2.27, 26.13, -16.51],
+                    "Union": True,
+                },
+            },
+            ccid
+            + "&line%5B%5D=-0.37%2C-14.07%2C4.75%2C1.27%2C25.13%2C-15.51"
+            + "&line%5B%5D=-1.37%2C-15.07%2C5.75%2C2.27%2C26.13%2C-16.51"
+            + "&options%5Bline%5D%5Bor%5D=true",
+        ],
+        [
+            {
+                "ccid": ccid.split("=")[-1],
+                "circle": [-87.629717, 41.878112, 1000],
+            },
+            ccid + "&circle%5B%5D=-87.629717%2C41.878112%2C1000",
+        ],
+        [
+            {
+                "ccid": "C1991543728-POCLOUD",
+                "circle": {
+                    "c1": [-87.629717, 41.878112, 1000],
+                    "c2": [-75, 41.878112, 1000],
+                },
+            },
+            "concept_id=C1991543728-POCLOUD"
+            + "&circle%5B%5D=-87.629717%2C41.878112%2C1000"
+            + "&circle%5B%5D=-75%2C41.878112%2C1000",
+        ],
+        [
+            {
+                "ccid": "C1991543728-POCLOUD",
+                "circle": {
+                    "c1": [-87.629717, 41.878112, 1000],
+                    "c2": [-75, 41.878112, 1000],
+                    "Union": True,
+                },
+            },
+            "concept_id=C1991543728-POCLOUD"
+            + "&circle%5B%5D=-87.629717%2C41.878112%2C1000"
+            + "&circle%5B%5D=-75%2C41.878112%2C1000"
+            + "&options%5Bcircle%5D%5Bor%5D=true",
+        ],
+    ],
+)
+def test_get_cmr_urls(param, expected):
+    """Test that get_cmr_urls returns the correct urls."""
+    session = create_session(use_cache=True, cache_kwargs={"backend": "memory"})
+    cmr_urls = get_cmr_urls(**param, session=session)
+    assert isinstance(cmr_urls, list)
+    assert len(cmr_urls) > 0
+    cmr_url = "https://cmr.earthdata.nasa.gov/search/"
+    cached_urls = session.cache.urls()
+    if "doi" in param.keys():
+        # when searching by doi, first pydap searches for the concept_collection id
+        # and then searches for granules using that id.
+        # the first url is the collection search
+        url = cmr_url + "collections.json?doi="
+        doi_query = _quote(param["doi"]).replace("/", "%2F").replace("%2E", ".")
+        assert url + doi_query == cached_urls[0]
+        cached_urls = cached_urls[1:]  # remove the first url
+    cached_urls = cached_urls[0].split("?")[-1]  # get only the query part of the url
+    if "limit" not in param.keys():
+        # if page_size is not specified, it defaults to 50
+        expected += "&page_size=50"
+    assert set(expected.split("&")) == set(cached_urls.split("&"))

@@ -4,46 +4,38 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-import asyncio
-from enum import Enum
-import types
 import copy
-import functools
+import types
+from dataclasses import KW_ONLY, asdict, dataclass
+from enum import Enum
+from json import loads as json_loads
 from string import Formatter
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
+    Generator,
+    Mapping,
     Sequence,
     cast,
-    Mapping,
-    Type,
-    Generator,
-    Callable,
 )
-from dataclasses import dataclass, KW_ONLY, asdict
-from json import loads as json_loads
-from warnings import warn, simplefilter, catch_warnings
-from pprint import pprint
-import threading
+from warnings import catch_warnings, simplefilter, warn
 
 from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.helpers import DataConnection
+from ibm_watsonx_ai.lifecycle import SpecStates
 from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.utils import get_user_agent_header, next_resource_generator
+from ibm_watsonx_ai.utils.autoai.enums import DataConnectionTypes
+from ibm_watsonx_ai.utils.autoai.utils import load_file_from_file_system_nonautoai
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
     InvalidMultipleArguments,
     InvalidValue,
+    WMLClientError,
 )
-from ibm_watsonx_ai.utils import next_resource_generator, get_user_agent_header
-from ibm_watsonx_ai.utils.autoai.utils import load_file_from_file_system_nonautoai
-from ibm_watsonx_ai.utils.autoai.enums import DataConnectionTypes
-from ibm_watsonx_ai.lifecycle import SpecStates
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
-    from types import TracebackType, FrameType
-    from asyncio import AbstractEventLoop
-    from concurrent.futures import Future
 
 
 @dataclass
@@ -729,7 +721,6 @@ def _copy_function(func: Callable) -> Callable:
 
 
 def _is_fine_tuning_endpoint_available(api_client: APIClient) -> bool:
-
     try:
         url = api_client._href_definitions.get_fine_tunings_href()
 
@@ -740,5 +731,5 @@ def _is_fine_tuning_endpoint_available(api_client: APIClient) -> bool:
         )
         return response_fine_tuning_api.status_code == 200
 
-    except:
+    except Exception:
         return False

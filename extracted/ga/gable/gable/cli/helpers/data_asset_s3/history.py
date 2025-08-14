@@ -4,6 +4,8 @@ from typing import Optional
 
 import click
 import deepdiff
+from loguru import logger
+
 from gable.cli.helpers.data_asset_s3.actions import get_s3_client
 from gable.cli.helpers.data_asset_s3.native_s3_converter import NativeS3Converter
 from gable.cli.helpers.data_asset_s3.path_pattern_manager import (
@@ -18,7 +20,6 @@ from gable.cli.helpers.data_asset_s3.schema_detection import (
     strip_s3_bucket_prefix,
 )
 from gable.cli.option_defaults import DEFAULT_NUM_ROWS_TO_SAMPLE
-from loguru import logger
 
 
 def extract_date_from_pattern(pattern: str) -> Optional[str]:

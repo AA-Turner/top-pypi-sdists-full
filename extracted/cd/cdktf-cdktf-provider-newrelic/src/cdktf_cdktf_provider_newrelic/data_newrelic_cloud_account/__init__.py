@@ -1,7 +1,7 @@
 r'''
 # `data_newrelic_cloud_account`
 
-Refer to the Terraform Registry for docs: [`data_newrelic_cloud_account`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account).
+Refer to the Terraform Registry for docs: [`data_newrelic_cloud_account`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataNewrelicCloudAccount(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataNewrelicCloudAccount.DataNewrelicCloudAccount",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account newrelic_cloud_account}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account newrelic_cloud_account}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataNewrelicCloudAccount(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account newrelic_cloud_account} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account newrelic_cloud_account} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cloud_provider: The cloud provider of the account, e.g. aws, gcp, azure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#cloud_provider DataNewrelicCloudAccount#cloud_provider}
-        :param name: The name of the cloud account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#name DataNewrelicCloudAccount#name}
-        :param account_id: The ID of the New Relic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#account_id DataNewrelicCloudAccount#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#id DataNewrelicCloudAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param cloud_provider: The cloud provider of the account, e.g. aws, gcp, azure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#cloud_provider DataNewrelicCloudAccount#cloud_provider}
+        :param name: The name of the cloud account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#name DataNewrelicCloudAccount#name}
+        :param account_id: The ID of the New Relic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#account_id DataNewrelicCloudAccount#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#id DataNewrelicCloudAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataNewrelicCloudAccount(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataNewrelicCloudAccount to import.
-        :param import_from_id: The id of the existing DataNewrelicCloudAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataNewrelicCloudAccount that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataNewrelicCloudAccount to import is found.
         '''
         if __debug__:
@@ -254,10 +254,10 @@ class DataNewrelicCloudAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cloud_provider: The cloud provider of the account, e.g. aws, gcp, azure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#cloud_provider DataNewrelicCloudAccount#cloud_provider}
-        :param name: The name of the cloud account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#name DataNewrelicCloudAccount#name}
-        :param account_id: The ID of the New Relic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#account_id DataNewrelicCloudAccount#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#id DataNewrelicCloudAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param cloud_provider: The cloud provider of the account, e.g. aws, gcp, azure. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#cloud_provider DataNewrelicCloudAccount#cloud_provider}
+        :param name: The name of the cloud account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#name DataNewrelicCloudAccount#name}
+        :param account_id: The ID of the New Relic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#account_id DataNewrelicCloudAccount#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#id DataNewrelicCloudAccount#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -365,7 +365,7 @@ class DataNewrelicCloudAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cloud_provider(self) -> builtins.str:
         '''The cloud provider of the account, e.g. aws, gcp, azure.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#cloud_provider DataNewrelicCloudAccount#cloud_provider}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#cloud_provider DataNewrelicCloudAccount#cloud_provider}
         '''
         result = self._values.get("cloud_provider")
         assert result is not None, "Required property 'cloud_provider' is missing"
@@ -375,7 +375,7 @@ class DataNewrelicCloudAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the cloud account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#name DataNewrelicCloudAccount#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#name DataNewrelicCloudAccount#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -385,14 +385,14 @@ class DataNewrelicCloudAccountConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The ID of the New Relic account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#account_id DataNewrelicCloudAccount#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#account_id DataNewrelicCloudAccount#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/data-sources/cloud_account#id DataNewrelicCloudAccount#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/data-sources/cloud_account#id DataNewrelicCloudAccount#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

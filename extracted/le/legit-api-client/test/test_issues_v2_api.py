@@ -33,10 +33,59 @@ class TestIssuesV2Api(unittest.TestCase):
         """
         pass
 
+    def test_get_extended_issues(self) -> None:
+        """Test case for get_extended_issues
+
+        Get extended data on issues
+        """
+        pass
+
+    def test_get_issue_action_history(self) -> None:
+        """Test case for get_issue_action_history
+
+        Get the action history of issues
+        """
+        pass
+
     def test_get_issue_by_id_v2(self) -> None:
         """Test case for get_issue_by_id_v2
 
         Get Issue data by id
+        """
+        pass
+
+    def test_get_issue_comments(self) -> None:
+        """Test case for get_issue_comments
+
+        Get the comments on issues
+        """
+        pass
+
+    def test_get_issue_remediation(self) -> None:
+        """Test case for get_issue_remediation
+
+        Get the remediation steps of issues
+        """
+        pass
+
+    def test_get_issue_tags(self) -> None:
+        """Test case for get_issue_tags
+
+        Get the tags on issues
+        """
+        pass
+
+    def test_get_issue_tickets(self) -> None:
+        """Test case for get_issue_tickets
+
+        Get the tickets on issues
+        """
+        pass
+
+    def test_get_issues_additional_data(self) -> None:
+        """Test case for get_issues_additional_data
+
+        Get additional data on issues by their ids
         """
         pass
 
@@ -50,7 +99,14 @@ class TestIssuesV2Api(unittest.TestCase):
     def test_get_issues_v2(self) -> None:
         """Test case for get_issues_v2
 
-        Get issue ids
+        Get issues
+        """
+        pass
+
+    def test_get_issues_vulnerabilities(self) -> None:
+        """Test case for get_issues_vulnerabilities
+
+        Get the vulnerabilities of the given issues
         """
         pass
 

@@ -38,6 +38,7 @@ def get_local_kotlin_script() -> str:
         )
     return path
 
+
 def get_local_sca_prime() -> str:
     """Returns the path to the local SCA Prime binary.
 

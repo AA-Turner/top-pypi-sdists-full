@@ -1772,8 +1772,6 @@ class CfnPlaybackRestrictionPolicy(
         cfn_playback_restriction_policy = ivs.CfnPlaybackRestrictionPolicy(self, "MyCfnPlaybackRestrictionPolicy",
             allowed_countries=["allowedCountries"],
             allowed_origins=["allowedOrigins"],
-        
-            # the properties below are optional
             enable_strict_origin_enforcement=False,
             name="name",
             tags=[CfnTag(
@@ -1788,8 +1786,8 @@ class CfnPlaybackRestrictionPolicy(
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        allowed_countries: typing.Sequence[builtins.str],
-        allowed_origins: typing.Sequence[builtins.str],
+        allowed_countries: typing.Optional[typing.Sequence[builtins.str]] = None,
+        allowed_origins: typing.Optional[typing.Sequence[builtins.str]] = None,
         enable_strict_origin_enforcement: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1871,12 +1869,15 @@ class CfnPlaybackRestrictionPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="allowedCountries")
-    def allowed_countries(self) -> typing.List[builtins.str]:
+    def allowed_countries(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of country codes that control geoblocking restrictions.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "allowedCountries"))
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "allowedCountries"))
 
     @allowed_countries.setter
-    def allowed_countries(self, value: typing.List[builtins.str]) -> None:
+    def allowed_countries(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6636af9e45dbeea2bcf7b5990280edcd8fec18083a4bfe23a76e19bd655ef03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1884,12 +1885,15 @@ class CfnPlaybackRestrictionPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="allowedOrigins")
-    def allowed_origins(self) -> typing.List[builtins.str]:
+    def allowed_origins(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of origin sites that control CORS restriction.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "allowedOrigins"))
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "allowedOrigins"))
 
     @allowed_origins.setter
-    def allowed_origins(self, value: typing.List[builtins.str]) -> None:
+    def allowed_origins(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__773f5ee580b6a7c42904b5a38460c9ae7e7e147bde8b69e1c43edddd32d7dc69)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1955,8 +1959,8 @@ class CfnPlaybackRestrictionPolicyProps:
     def __init__(
         self,
         *,
-        allowed_countries: typing.Sequence[builtins.str],
-        allowed_origins: typing.Sequence[builtins.str],
+        allowed_countries: typing.Optional[typing.Sequence[builtins.str]] = None,
+        allowed_origins: typing.Optional[typing.Sequence[builtins.str]] = None,
         enable_strict_origin_enforcement: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1981,8 +1985,6 @@ class CfnPlaybackRestrictionPolicyProps:
             cfn_playback_restriction_policy_props = ivs.CfnPlaybackRestrictionPolicyProps(
                 allowed_countries=["allowedCountries"],
                 allowed_origins=["allowedOrigins"],
-            
-                # the properties below are optional
                 enable_strict_origin_enforcement=False,
                 name="name",
                 tags=[CfnTag(
@@ -1998,10 +2000,11 @@ class CfnPlaybackRestrictionPolicyProps:
             check_type(argname="argument enable_strict_origin_enforcement", value=enable_strict_origin_enforcement, expected_type=type_hints["enable_strict_origin_enforcement"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "allowed_countries": allowed_countries,
-            "allowed_origins": allowed_origins,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allowed_countries is not None:
+            self._values["allowed_countries"] = allowed_countries
+        if allowed_origins is not None:
+            self._values["allowed_origins"] = allowed_origins
         if enable_strict_origin_enforcement is not None:
             self._values["enable_strict_origin_enforcement"] = enable_strict_origin_enforcement
         if name is not None:
@@ -2010,7 +2013,7 @@ class CfnPlaybackRestrictionPolicyProps:
             self._values["tags"] = tags
 
     @builtins.property
-    def allowed_countries(self) -> typing.List[builtins.str]:
+    def allowed_countries(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of country codes that control geoblocking restrictions.
 
         Allowed values are the officially assigned ISO 3166-1 alpha-2 codes. Default: All countries (an empty array).
@@ -2018,11 +2021,10 @@ class CfnPlaybackRestrictionPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivs-playbackrestrictionpolicy.html#cfn-ivs-playbackrestrictionpolicy-allowedcountries
         '''
         result = self._values.get("allowed_countries")
-        assert result is not None, "Required property 'allowed_countries' is missing"
-        return typing.cast(typing.List[builtins.str], result)
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def allowed_origins(self) -> typing.List[builtins.str]:
+    def allowed_origins(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of origin sites that control CORS restriction.
 
         Allowed values are the same as valid values of the Origin header defined at `https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Origin" <https://docs.aws.amazon.com/https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Origin>`_
@@ -2030,8 +2032,7 @@ class CfnPlaybackRestrictionPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivs-playbackrestrictionpolicy.html#cfn-ivs-playbackrestrictionpolicy-allowedorigins
         '''
         result = self._values.get("allowed_origins")
-        assert result is not None, "Required property 'allowed_origins' is missing"
-        return typing.cast(typing.List[builtins.str], result)
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def enable_strict_origin_enforcement(
@@ -3097,7 +3098,20 @@ class CfnStage(
                 storage_configuration_arn="storageConfigurationArn",
         
                 # the properties below are optional
-                media_types=["mediaTypes"]
+                hls_configuration=ivs.CfnStage.HlsConfigurationProperty(
+                    participant_recording_hls_configuration=ivs.CfnStage.ParticipantRecordingHlsConfigurationProperty(
+                        target_segment_duration_seconds=123
+                    )
+                ),
+                media_types=["mediaTypes"],
+                recording_reconnect_window_seconds=123,
+                thumbnail_configuration=ivs.CfnStage.ThumbnailConfigurationProperty(
+                    participant_thumbnail_configuration=ivs.CfnStage.ParticipantThumbnailConfigurationProperty(
+                        recording_mode="recordingMode",
+                        storage=["storage"],
+                        target_interval_seconds=123
+                    )
+                )
             ),
             name="name",
             tags=[CfnTag(
@@ -3247,7 +3261,10 @@ class CfnStage(
         jsii_struct_bases=[],
         name_mapping={
             "storage_configuration_arn": "storageConfigurationArn",
+            "hls_configuration": "hlsConfiguration",
             "media_types": "mediaTypes",
+            "recording_reconnect_window_seconds": "recordingReconnectWindowSeconds",
+            "thumbnail_configuration": "thumbnailConfiguration",
         },
     )
     class AutoParticipantRecordingConfigurationProperty:
@@ -3255,12 +3272,18 @@ class CfnStage(
             self,
             *,
             storage_configuration_arn: builtins.str,
+            hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStage.HlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            recording_reconnect_window_seconds: typing.Optional[jsii.Number] = None,
+            thumbnail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStage.ThumbnailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``AWS::IVS::AutoParticipantRecordingConfiguration`` property type describes a configuration for individual participant recording.
 
             :param storage_configuration_arn: ARN of the StorageConfiguration resource to use for individual participant recording. Default: "" (empty string, no storage configuration is specified). Individual participant recording cannot be started unless a storage configuration is specified, when a Stage is created or updated.
+            :param hls_configuration: HLS configuration object for individual participant recording.
             :param media_types: Types of media to be recorded. Default: ``AUDIO_VIDEO`` .
+            :param recording_reconnect_window_seconds: If a stage publisher disconnects and then reconnects within the specified interval, the multiple recordings will be considered a single recording and merged together. The default value is 0, which disables merging. Default: - 0
+            :param thumbnail_configuration: A complex type that allows you to enable/disable the recording of thumbnails for individual participant recording and modify the interval at which thumbnails are generated for the live session.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-autoparticipantrecordingconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3275,18 +3298,40 @@ class CfnStage(
                     storage_configuration_arn="storageConfigurationArn",
                 
                     # the properties below are optional
-                    media_types=["mediaTypes"]
+                    hls_configuration=ivs.CfnStage.HlsConfigurationProperty(
+                        participant_recording_hls_configuration=ivs.CfnStage.ParticipantRecordingHlsConfigurationProperty(
+                            target_segment_duration_seconds=123
+                        )
+                    ),
+                    media_types=["mediaTypes"],
+                    recording_reconnect_window_seconds=123,
+                    thumbnail_configuration=ivs.CfnStage.ThumbnailConfigurationProperty(
+                        participant_thumbnail_configuration=ivs.CfnStage.ParticipantThumbnailConfigurationProperty(
+                            recording_mode="recordingMode",
+                            storage=["storage"],
+                            target_interval_seconds=123
+                        )
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__3aeae0e25427fa7c0b735f190d30738c3d5c425f52576a56e84290d192a62871)
                 check_type(argname="argument storage_configuration_arn", value=storage_configuration_arn, expected_type=type_hints["storage_configuration_arn"])
+                check_type(argname="argument hls_configuration", value=hls_configuration, expected_type=type_hints["hls_configuration"])
                 check_type(argname="argument media_types", value=media_types, expected_type=type_hints["media_types"])
+                check_type(argname="argument recording_reconnect_window_seconds", value=recording_reconnect_window_seconds, expected_type=type_hints["recording_reconnect_window_seconds"])
+                check_type(argname="argument thumbnail_configuration", value=thumbnail_configuration, expected_type=type_hints["thumbnail_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "storage_configuration_arn": storage_configuration_arn,
             }
+            if hls_configuration is not None:
+                self._values["hls_configuration"] = hls_configuration
             if media_types is not None:
                 self._values["media_types"] = media_types
+            if recording_reconnect_window_seconds is not None:
+                self._values["recording_reconnect_window_seconds"] = recording_reconnect_window_seconds
+            if thumbnail_configuration is not None:
+                self._values["thumbnail_configuration"] = thumbnail_configuration
 
         @builtins.property
         def storage_configuration_arn(self) -> builtins.str:
@@ -3301,6 +3346,17 @@ class CfnStage(
             return typing.cast(builtins.str, result)
 
         @builtins.property
+        def hls_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.HlsConfigurationProperty"]]:
+            '''HLS configuration object for individual participant recording.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-autoparticipantrecordingconfiguration.html#cfn-ivs-stage-autoparticipantrecordingconfiguration-hlsconfiguration
+            '''
+            result = self._values.get("hls_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.HlsConfigurationProperty"]], result)
+
+        @builtins.property
         def media_types(self) -> typing.Optional[typing.List[builtins.str]]:
             '''Types of media to be recorded.
 
@@ -3311,6 +3367,30 @@ class CfnStage(
             result = self._values.get("media_types")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
+        @builtins.property
+        def recording_reconnect_window_seconds(self) -> typing.Optional[jsii.Number]:
+            '''If a stage publisher disconnects and then reconnects within the specified interval, the multiple recordings will be considered a single recording and merged together.
+
+            The default value is 0, which disables merging.
+
+            :default: - 0
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-autoparticipantrecordingconfiguration.html#cfn-ivs-stage-autoparticipantrecordingconfiguration-recordingreconnectwindowseconds
+            '''
+            result = self._values.get("recording_reconnect_window_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def thumbnail_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.ThumbnailConfigurationProperty"]]:
+            '''A complex type that allows you to enable/disable the recording of thumbnails for individual participant recording and modify the interval at which thumbnails are generated for the live session.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-autoparticipantrecordingconfiguration.html#cfn-ivs-stage-autoparticipantrecordingconfiguration-thumbnailconfiguration
+            '''
+            result = self._values.get("thumbnail_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.ThumbnailConfigurationProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -3319,6 +3399,290 @@ class CfnStage(
 
         def __repr__(self) -> str:
             return "AutoParticipantRecordingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ivs.CfnStage.HlsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "participant_recording_hls_configuration": "participantRecordingHlsConfiguration",
+        },
+    )
+    class HlsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            participant_recording_hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStage.ParticipantRecordingHlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''HLS configuration object for individual participant recording.
+
+            :param participant_recording_hls_configuration: An object representing a configuration of participant HLS recordings for individual participant recording.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-hlsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ivs as ivs
+                
+                hls_configuration_property = ivs.CfnStage.HlsConfigurationProperty(
+                    participant_recording_hls_configuration=ivs.CfnStage.ParticipantRecordingHlsConfigurationProperty(
+                        target_segment_duration_seconds=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f1b24d11d6043ac394cc0aaa82dfbd5a7f260263c0077880f9391897c17f94ab)
+                check_type(argname="argument participant_recording_hls_configuration", value=participant_recording_hls_configuration, expected_type=type_hints["participant_recording_hls_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if participant_recording_hls_configuration is not None:
+                self._values["participant_recording_hls_configuration"] = participant_recording_hls_configuration
+
+        @builtins.property
+        def participant_recording_hls_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.ParticipantRecordingHlsConfigurationProperty"]]:
+            '''An object representing a configuration of participant HLS recordings for individual participant recording.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-hlsconfiguration.html#cfn-ivs-stage-hlsconfiguration-participantrecordinghlsconfiguration
+            '''
+            result = self._values.get("participant_recording_hls_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.ParticipantRecordingHlsConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HlsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ivs.CfnStage.ParticipantRecordingHlsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "target_segment_duration_seconds": "targetSegmentDurationSeconds",
+        },
+    )
+    class ParticipantRecordingHlsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            target_segment_duration_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''An object representing a configuration of participant HLS recordings for individual participant recording.
+
+            :param target_segment_duration_seconds: Defines the target duration for recorded segments generated when recording a stage participant. Segments may have durations longer than the specified value when needed to ensure each segment begins with a keyframe. Default: 6. Default: - 6
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-participantrecordinghlsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ivs as ivs
+                
+                participant_recording_hls_configuration_property = ivs.CfnStage.ParticipantRecordingHlsConfigurationProperty(
+                    target_segment_duration_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c424f313ea62bac79b96e713568a6da8a2f8e4d2f3e202f03e07ee31203d0c9e)
+                check_type(argname="argument target_segment_duration_seconds", value=target_segment_duration_seconds, expected_type=type_hints["target_segment_duration_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if target_segment_duration_seconds is not None:
+                self._values["target_segment_duration_seconds"] = target_segment_duration_seconds
+
+        @builtins.property
+        def target_segment_duration_seconds(self) -> typing.Optional[jsii.Number]:
+            '''Defines the target duration for recorded segments generated when recording a stage participant.
+
+            Segments may have durations longer than the specified value when needed to ensure each segment begins with a keyframe. Default: 6.
+
+            :default: - 6
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-participantrecordinghlsconfiguration.html#cfn-ivs-stage-participantrecordinghlsconfiguration-targetsegmentdurationseconds
+            '''
+            result = self._values.get("target_segment_duration_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParticipantRecordingHlsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ivs.CfnStage.ParticipantThumbnailConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "recording_mode": "recordingMode",
+            "storage": "storage",
+            "target_interval_seconds": "targetIntervalSeconds",
+        },
+    )
+    class ParticipantThumbnailConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            recording_mode: typing.Optional[builtins.str] = None,
+            storage: typing.Optional[typing.Sequence[builtins.str]] = None,
+            target_interval_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''An object representing a configuration of thumbnails for recorded video from an individual participant.
+
+            :param recording_mode: Thumbnail recording mode. Default: DISABLED. Default: - "INTERVAL"
+            :param storage: Indicates the format in which thumbnails are recorded. SEQUENTIAL records all generated thumbnails in a serial manner, to the media/thumbnails/high directory. LATEST saves the latest thumbnail in media/latest_thumbnail/high/thumb.jpg and overwrites it at the interval specified by targetIntervalSeconds. You can enable both SEQUENTIAL and LATEST. Default: SEQUENTIAL.
+            :param target_interval_seconds: The targeted thumbnail-generation interval in seconds. This is configurable only if recordingMode is INTERVAL. Default: 60. Default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-participantthumbnailconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ivs as ivs
+                
+                participant_thumbnail_configuration_property = ivs.CfnStage.ParticipantThumbnailConfigurationProperty(
+                    recording_mode="recordingMode",
+                    storage=["storage"],
+                    target_interval_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b9df09a9ac85620ee575beb443edf9d7cc39be07f22c354bc718bf20fcc31e86)
+                check_type(argname="argument recording_mode", value=recording_mode, expected_type=type_hints["recording_mode"])
+                check_type(argname="argument storage", value=storage, expected_type=type_hints["storage"])
+                check_type(argname="argument target_interval_seconds", value=target_interval_seconds, expected_type=type_hints["target_interval_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if recording_mode is not None:
+                self._values["recording_mode"] = recording_mode
+            if storage is not None:
+                self._values["storage"] = storage
+            if target_interval_seconds is not None:
+                self._values["target_interval_seconds"] = target_interval_seconds
+
+        @builtins.property
+        def recording_mode(self) -> typing.Optional[builtins.str]:
+            '''Thumbnail recording mode.
+
+            Default: DISABLED.
+
+            :default: - "INTERVAL"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-participantthumbnailconfiguration.html#cfn-ivs-stage-participantthumbnailconfiguration-recordingmode
+            '''
+            result = self._values.get("recording_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def storage(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Indicates the format in which thumbnails are recorded.
+
+            SEQUENTIAL records all generated thumbnails in a serial manner, to the media/thumbnails/high directory. LATEST saves the latest thumbnail in media/latest_thumbnail/high/thumb.jpg and overwrites it at the interval specified by targetIntervalSeconds. You can enable both SEQUENTIAL and LATEST. Default: SEQUENTIAL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-participantthumbnailconfiguration.html#cfn-ivs-stage-participantthumbnailconfiguration-storage
+            '''
+            result = self._values.get("storage")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def target_interval_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The targeted thumbnail-generation interval in seconds.
+
+            This is configurable only if recordingMode is INTERVAL. Default: 60.
+
+            :default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-participantthumbnailconfiguration.html#cfn-ivs-stage-participantthumbnailconfiguration-targetintervalseconds
+            '''
+            result = self._values.get("target_interval_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ParticipantThumbnailConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ivs.CfnStage.ThumbnailConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "participant_thumbnail_configuration": "participantThumbnailConfiguration",
+        },
+    )
+    class ThumbnailConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            participant_thumbnail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStage.ParticipantThumbnailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A complex type that allows you to enable/disable the recording of thumbnails for individual participant recording and modify the interval at which thumbnails are generated for the live session.
+
+            :param participant_thumbnail_configuration: An object representing a configuration of thumbnails for recorded video from an individual participant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-thumbnailconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ivs as ivs
+                
+                thumbnail_configuration_property = ivs.CfnStage.ThumbnailConfigurationProperty(
+                    participant_thumbnail_configuration=ivs.CfnStage.ParticipantThumbnailConfigurationProperty(
+                        recording_mode="recordingMode",
+                        storage=["storage"],
+                        target_interval_seconds=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__09c5b4fe96dfd3867e000fc0e9c7da180fd5fca029a0a6c6d438e6ba423b05a8)
+                check_type(argname="argument participant_thumbnail_configuration", value=participant_thumbnail_configuration, expected_type=type_hints["participant_thumbnail_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if participant_thumbnail_configuration is not None:
+                self._values["participant_thumbnail_configuration"] = participant_thumbnail_configuration
+
+        @builtins.property
+        def participant_thumbnail_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.ParticipantThumbnailConfigurationProperty"]]:
+            '''An object representing a configuration of thumbnails for recorded video from an individual participant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-stage-thumbnailconfiguration.html#cfn-ivs-stage-thumbnailconfiguration-participantthumbnailconfiguration
+            '''
+            result = self._values.get("participant_thumbnail_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStage.ParticipantThumbnailConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ThumbnailConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3360,7 +3724,20 @@ class CfnStageProps:
                     storage_configuration_arn="storageConfigurationArn",
             
                     # the properties below are optional
-                    media_types=["mediaTypes"]
+                    hls_configuration=ivs.CfnStage.HlsConfigurationProperty(
+                        participant_recording_hls_configuration=ivs.CfnStage.ParticipantRecordingHlsConfigurationProperty(
+                            target_segment_duration_seconds=123
+                        )
+                    ),
+                    media_types=["mediaTypes"],
+                    recording_reconnect_window_seconds=123,
+                    thumbnail_configuration=ivs.CfnStage.ThumbnailConfigurationProperty(
+                        participant_thumbnail_configuration=ivs.CfnStage.ParticipantThumbnailConfigurationProperty(
+                            recording_mode="recordingMode",
+                            storage=["storage"],
+                            target_interval_seconds=123
+                        )
+                    )
                 ),
                 name="name",
                 tags=[CfnTag(
@@ -4282,8 +4659,8 @@ def _typecheckingstub__987a35e58d5c2ae76d6f7c41b5ef19dc05ac42c651fd8a03f9f28e044
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    allowed_countries: typing.Sequence[builtins.str],
-    allowed_origins: typing.Sequence[builtins.str],
+    allowed_countries: typing.Optional[typing.Sequence[builtins.str]] = None,
+    allowed_origins: typing.Optional[typing.Sequence[builtins.str]] = None,
     enable_strict_origin_enforcement: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4304,13 +4681,13 @@ def _typecheckingstub__0e57b154c63f829875b079b3d6baf6c33a6d6c377987d9ac6e9f45863
     pass
 
 def _typecheckingstub__f6636af9e45dbeea2bcf7b5990280edcd8fec18083a4bfe23a76e19bd655ef03(
-    value: typing.List[builtins.str],
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__773f5ee580b6a7c42904b5a38460c9ae7e7e147bde8b69e1c43edddd32d7dc69(
-    value: typing.List[builtins.str],
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4335,8 +4712,8 @@ def _typecheckingstub__72c43ae8ddd92a7ae402fb8cc1729052bd0d141f4f2106265c702c75b
 
 def _typecheckingstub__feaf48f348987f686c52239e867f8aedc7a8a6debbbc2bec008fea1cc72c201f(
     *,
-    allowed_countries: typing.Sequence[builtins.str],
-    allowed_origins: typing.Sequence[builtins.str],
+    allowed_countries: typing.Optional[typing.Sequence[builtins.str]] = None,
+    allowed_origins: typing.Optional[typing.Sequence[builtins.str]] = None,
     enable_strict_origin_enforcement: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4544,7 +4921,40 @@ def _typecheckingstub__6a345b4498f1ee0487e9359886004162443d2310aa5159615d98ad8d3
 def _typecheckingstub__3aeae0e25427fa7c0b735f190d30738c3d5c425f52576a56e84290d192a62871(
     *,
     storage_configuration_arn: builtins.str,
+    hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStage.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    recording_reconnect_window_seconds: typing.Optional[jsii.Number] = None,
+    thumbnail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStage.ThumbnailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1b24d11d6043ac394cc0aaa82dfbd5a7f260263c0077880f9391897c17f94ab(
+    *,
+    participant_recording_hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStage.ParticipantRecordingHlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c424f313ea62bac79b96e713568a6da8a2f8e4d2f3e202f03e07ee31203d0c9e(
+    *,
+    target_segment_duration_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9df09a9ac85620ee575beb443edf9d7cc39be07f22c354bc718bf20fcc31e86(
+    *,
+    recording_mode: typing.Optional[builtins.str] = None,
+    storage: typing.Optional[typing.Sequence[builtins.str]] = None,
+    target_interval_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09c5b4fe96dfd3867e000fc0e9c7da180fd5fca029a0a6c6d438e6ba423b05a8(
+    *,
+    participant_thumbnail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStage.ParticipantThumbnailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

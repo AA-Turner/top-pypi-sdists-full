@@ -8,8 +8,8 @@ from typing import Any, Literal
 import pandas
 
 from ibm_watsonx_ai import APIClient
-from ibm_watsonx_ai.wml_resource import WMLResource
 from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 
 class VectorIndexes(WMLResource):
@@ -27,7 +27,6 @@ class VectorIndexes(WMLResource):
     """
 
     def __init__(self, api_client: APIClient) -> None:
-
         if api_client.default_project_id is None:
             raise WMLClientError(
                 error_msg=(
@@ -338,9 +337,7 @@ class VectorIndexes(WMLResource):
         :rtype: list
         """
         headers = self._client._get_headers()
-        url = (
-            self._client.service_instance._href_definitions.get_vector_indexes_all_href()
-        )
+        url = self._client.service_instance._href_definitions.get_vector_indexes_all_href()
         json_data: dict[str, int | str] = {
             "query": "asset.asset_type:vector_index",
             "sort": "-asset.created_at<string>",

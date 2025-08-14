@@ -4,7 +4,6 @@ import typing
 from collections.abc import Iterable
 from typing import Any, Protocol
 
-import boost_histogram as bh
 import boost_histogram.axis as bha
 
 import hist
@@ -32,17 +31,19 @@ def __dir__() -> tuple[str, ...]:
 
 
 class CoreAxisProtocol(Protocol):
-    metadata: dict[str, Any]
+    metadata: dict[str, Any]  # boost-histogram < 1.6
+    raw_metadata: dict[str, Any]
 
 
 class AxisProtocol(Protocol):
-    metadata: Any
-
     @property
     def name(self) -> str: ...
 
     label: str
     _ax: CoreAxisProtocol
+
+    @property
+    def _raw_metadata(self) -> dict[str, Any]: ...
 
 
 class AxesMixin:
@@ -53,22 +54,29 @@ class AxesMixin:
         super().__init_subclass__(**kwargs)
 
     @property
+    def _raw_metadata(self: AxisProtocol) -> dict[str, Any]:
+        # boost-histogram < 1.6
+        if hasattr(self._ax, "metadata"):
+            return self._ax.metadata
+        return self._ax.raw_metadata
+
+    @property
     def name(self: AxisProtocol) -> str:
         """
         Get the name for the Regular axis
         """
-        return typing.cast(str, self._ax.metadata.get("name", ""))
+        return typing.cast(str, self._raw_metadata.get("name", ""))
 
     @property
     def label(self: AxisProtocol) -> str:
         """
         Get or set the label for the Regular axis
         """
-        return self._ax.metadata.get("label", "") or self.name
+        return self._raw_metadata.get("label", "") or self.name
 
     @label.setter
     def label(self: AxisProtocol, value: str) -> None:
-        self._ax.metadata["label"] = value
+        self._raw_metadata["label"] = value
 
     def _repr_args_(self: AxisProtocol) -> list[str]:
         """
@@ -117,7 +125,7 @@ class Regular(AxesMixin, bha.Regular, family=hist):
             transform=transform,
             __dict__=__dict__,
         )
-        self._ax.metadata["name"] = name
+        self._raw_metadata["name"] = name
         self.label: str = label
 
 
@@ -136,7 +144,7 @@ class Boolean(AxesMixin, bha.Boolean, family=hist):
             metadata=metadata,
             __dict__=__dict__,
         )
-        self._ax.metadata["name"] = name
+        self._raw_metadata["name"] = name
         self.label: str = label
 
 
@@ -166,7 +174,7 @@ class Variable(AxesMixin, bha.Variable, family=hist):
             circular=circular,
             __dict__=__dict__,
         )
-        self._ax.metadata["name"] = name
+        self._raw_metadata["name"] = name
         self.label: str = label
 
 
@@ -198,7 +206,7 @@ class Integer(AxesMixin, bha.Integer, family=hist):
             circular=circular,
             __dict__=__dict__,
         )
-        self._ax.metadata["name"] = name
+        self._raw_metadata["name"] = name
         self.label: str = label
 
 
@@ -218,21 +226,14 @@ class IntCategory(AxesMixin, bha.IntCategory, family=hist):
         __dict__: dict[str, Any] | None = None,
     ) -> None:
         has_flow = flow if overflow is None else overflow
-        if tuple(int(x) for x in bh.__version__.split(".")[:2]) < (1, 4):
-            if not has_flow:
-                msg = "Boost-histogram 1.4+ required for flowless Category axes"
-                raise TypeError(msg)
-            kwargs = {}
-        else:
-            kwargs = {"overflow": has_flow}
         super().__init__(
             categories,
             metadata=metadata,
             growth=growth,
-            **kwargs,
+            overflow=has_flow,
             __dict__=__dict__,
         )
-        self._ax.metadata["name"] = name
+        self._raw_metadata["name"] = name
         self.label: str = label
 
 
@@ -252,19 +253,12 @@ class StrCategory(AxesMixin, bha.StrCategory, family=hist):
         __dict__: dict[str, Any] | None = None,
     ) -> None:
         has_flow = flow if overflow is None else overflow
-        if tuple(int(x) for x in bh.__version__.split(".")[:2]) < (1, 4):
-            if not has_flow:
-                msg = "Boost-histogram 1.4+ required for flowless Category axes"
-                raise TypeError(msg)
-            kwargs = {}
-        else:
-            kwargs = {"overflow": has_flow}
         super().__init__(
             categories,
             metadata=metadata,
             growth=growth,
-            **kwargs,
+            overflow=has_flow,
             __dict__=__dict__,
         )
-        self._ax.metadata["name"] = name
+        self._raw_metadata["name"] = name
         self.label: str = label

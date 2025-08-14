@@ -1,7 +1,7 @@
 r'''
 # `newrelic_nrql_drop_rule`
 
-Refer to the Terraform Registry for docs: [`newrelic_nrql_drop_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule).
+Refer to the Terraform Registry for docs: [`newrelic_nrql_drop_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NrqlDropRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.nrqlDropRule.NrqlDropRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule newrelic_nrql_drop_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule newrelic_nrql_drop_rule}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class NrqlDropRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule newrelic_nrql_drop_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule newrelic_nrql_drop_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: The drop rule action (drop_data, drop_attributes, or drop_attributes_from_metric_aggregates). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#action NrqlDropRule#action}
-        :param nrql: Explains which data to apply the drop rule to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#nrql NrqlDropRule#nrql}
-        :param account_id: Account with the NRQL drop rule will be put. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#account_id NrqlDropRule#account_id}
-        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#description NrqlDropRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#id NrqlDropRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param action: The drop rule action (drop_data, drop_attributes, or drop_attributes_from_metric_aggregates). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#action NrqlDropRule#action}
+        :param nrql: Explains which data to apply the drop rule to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#nrql NrqlDropRule#nrql}
+        :param account_id: Account with the NRQL drop rule will be put. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#account_id NrqlDropRule#account_id}
+        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#description NrqlDropRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#id NrqlDropRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class NrqlDropRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NrqlDropRule to import.
-        :param import_from_id: The id of the existing NrqlDropRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NrqlDropRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NrqlDropRule to import is found.
         '''
         if __debug__:
@@ -285,11 +285,11 @@ class NrqlDropRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: The drop rule action (drop_data, drop_attributes, or drop_attributes_from_metric_aggregates). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#action NrqlDropRule#action}
-        :param nrql: Explains which data to apply the drop rule to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#nrql NrqlDropRule#nrql}
-        :param account_id: Account with the NRQL drop rule will be put. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#account_id NrqlDropRule#account_id}
-        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#description NrqlDropRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#id NrqlDropRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param action: The drop rule action (drop_data, drop_attributes, or drop_attributes_from_metric_aggregates). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#action NrqlDropRule#action}
+        :param nrql: Explains which data to apply the drop rule to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#nrql NrqlDropRule#nrql}
+        :param account_id: Account with the NRQL drop rule will be put. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#account_id NrqlDropRule#account_id}
+        :param description: Provides additional information about the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#description NrqlDropRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#id NrqlDropRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -400,7 +400,7 @@ class NrqlDropRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def action(self) -> builtins.str:
         '''The drop rule action (drop_data, drop_attributes, or drop_attributes_from_metric_aggregates).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#action NrqlDropRule#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#action NrqlDropRule#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -410,7 +410,7 @@ class NrqlDropRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def nrql(self) -> builtins.str:
         '''Explains which data to apply the drop rule to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#nrql NrqlDropRule#nrql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#nrql NrqlDropRule#nrql}
         '''
         result = self._values.get("nrql")
         assert result is not None, "Required property 'nrql' is missing"
@@ -420,7 +420,7 @@ class NrqlDropRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''Account with the NRQL drop rule will be put.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#account_id NrqlDropRule#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#account_id NrqlDropRule#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -429,14 +429,14 @@ class NrqlDropRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Provides additional information about the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#description NrqlDropRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#description NrqlDropRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/nrql_drop_rule#id NrqlDropRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/nrql_drop_rule#id NrqlDropRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

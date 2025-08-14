@@ -1,7 +1,7 @@
 r'''
 # `data_azuread_service_principal`
 
-Refer to the Terraform Registry for docs: [`data_azuread_service_principal`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal).
+Refer to the Terraform Registry for docs: [`data_azuread_service_principal`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzureadServicePrincipal(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.dataAzureadServicePrincipal.DataAzureadServicePrincipal",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal azuread_service_principal}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal azuread_service_principal}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataAzureadServicePrincipal(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal azuread_service_principal} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal azuread_service_principal} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param client_id: The client ID of the application associated with this service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#client_id DataAzureadServicePrincipal#client_id}
-        :param display_name: The display name of the application associated with this service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#display_name DataAzureadServicePrincipal#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#id DataAzureadServicePrincipal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_id: The object ID of the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#object_id DataAzureadServicePrincipal#object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#timeouts DataAzureadServicePrincipal#timeouts}
+        :param client_id: The client ID of the application associated with this service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#client_id DataAzureadServicePrincipal#client_id}
+        :param display_name: The display name of the application associated with this service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#display_name DataAzureadServicePrincipal#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#id DataAzureadServicePrincipal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_id: The object ID of the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#object_id DataAzureadServicePrincipal#object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#timeouts DataAzureadServicePrincipal#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataAzureadServicePrincipal(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzureadServicePrincipal to import.
-        :param import_from_id: The id of the existing DataAzureadServicePrincipal that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzureadServicePrincipal that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzureadServicePrincipal to import is found.
         '''
         if __debug__:
@@ -129,7 +129,7 @@ class DataAzureadServicePrincipal(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#read DataAzureadServicePrincipal#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#read DataAzureadServicePrincipal#read}.
         '''
         value = DataAzureadServicePrincipalTimeouts(read=read)
 
@@ -583,11 +583,11 @@ class DataAzureadServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param client_id: The client ID of the application associated with this service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#client_id DataAzureadServicePrincipal#client_id}
-        :param display_name: The display name of the application associated with this service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#display_name DataAzureadServicePrincipal#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#id DataAzureadServicePrincipal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_id: The object ID of the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#object_id DataAzureadServicePrincipal#object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#timeouts DataAzureadServicePrincipal#timeouts}
+        :param client_id: The client ID of the application associated with this service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#client_id DataAzureadServicePrincipal#client_id}
+        :param display_name: The display name of the application associated with this service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#display_name DataAzureadServicePrincipal#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#id DataAzureadServicePrincipal#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_id: The object ID of the service principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#object_id DataAzureadServicePrincipal#object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#timeouts DataAzureadServicePrincipal#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -701,7 +701,7 @@ class DataAzureadServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def client_id(self) -> typing.Optional[builtins.str]:
         '''The client ID of the application associated with this service principal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#client_id DataAzureadServicePrincipal#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#client_id DataAzureadServicePrincipal#client_id}
         '''
         result = self._values.get("client_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -710,14 +710,14 @@ class DataAzureadServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the application associated with this service principal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#display_name DataAzureadServicePrincipal#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#display_name DataAzureadServicePrincipal#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#id DataAzureadServicePrincipal#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#id DataAzureadServicePrincipal#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -729,7 +729,7 @@ class DataAzureadServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def object_id(self) -> typing.Optional[builtins.str]:
         '''The object ID of the service principal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#object_id DataAzureadServicePrincipal#object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#object_id DataAzureadServicePrincipal#object_id}
         '''
         result = self._values.get("object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -738,7 +738,7 @@ class DataAzureadServicePrincipalConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataAzureadServicePrincipalTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#timeouts DataAzureadServicePrincipal#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#timeouts DataAzureadServicePrincipal#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzureadServicePrincipalTimeouts"], result)
@@ -1408,7 +1408,7 @@ class DataAzureadServicePrincipalSamlSingleSignOnOutputReference(
 class DataAzureadServicePrincipalTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#read DataAzureadServicePrincipal#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#read DataAzureadServicePrincipal#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43a2a4f8cc8593870a30a1fe59acaca872620bc3fe1ea818db2ebdde4c2e9609)
@@ -1419,7 +1419,7 @@ class DataAzureadServicePrincipalTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principal#read DataAzureadServicePrincipal#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principal#read DataAzureadServicePrincipal#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: colcon-parallel-executor
-Version: 0.3.0
+Version: 0.4.0
 Summary: Extension for colcon to process packages in parallel.
 Home-page: https://colcon.readthedocs.io
 Author: Dirk Thomas
@@ -21,6 +21,7 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Build Tools
+Requires-Python: >=3.6
 Provides-Extra: test
 License-File: LICENSE
 

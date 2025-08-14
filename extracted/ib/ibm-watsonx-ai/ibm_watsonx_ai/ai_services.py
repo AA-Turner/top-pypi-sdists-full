@@ -3,27 +3,29 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
+
+import inspect
 import os
 import re
-from typing import TYPE_CHECKING, Callable, Any, cast, Literal, Generator
-from warnings import warn
 import types
-import inspect
+from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, cast
+from warnings import warn
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import AIServiceMetaNames
 from ibm_watsonx_ai.utils import is_of_python_basic_type
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    UnexpectedType,
     ApiRequestFailure,
+    UnexpectedType,
+    WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
+    import pandas
+
     from ibm_watsonx_ai import APIClient
     from ibm_watsonx_ai.lifecycle import SpecStates
-    import pandas
 
 
 class AIServices(WMLResource):
@@ -270,7 +272,6 @@ class AIServices(WMLResource):
         ai_service_id: str,
         updated_function: str | Callable,
     ) -> None:
-
         AIServices._validate_type(
             updated_function, "updated_function", [str, types.FunctionType], True
         )
@@ -734,8 +735,8 @@ class AIServices(WMLResource):
         else:
             try:
                 import gzip
-                import uuid
                 import shutil
+                import uuid
 
                 code = AIServices._populate_default_params(
                     ai_service_function=ai_service_function
@@ -777,7 +778,6 @@ class AIServices(WMLResource):
     def _populate_default_params(
         ai_service_function: Callable, _validate_values: bool = True
     ) -> str:
-
         # remove indention
         code_lines = inspect.getsource(ai_service_function).split("\n")
         indent = re.match(r"^ *", code_lines[0]).group(0)

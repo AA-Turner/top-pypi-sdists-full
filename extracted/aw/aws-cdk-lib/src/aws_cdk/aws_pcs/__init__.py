@@ -98,6 +98,7 @@ class CfnCluster(
         
         cfn_cluster = pcs.CfnCluster(self, "MyCfnCluster",
             networking=pcs.CfnCluster.NetworkingProperty(
+                network_type="networkType",
                 security_group_ids=["securityGroupIds"],
                 subnet_ids=["subnetIds"]
             ),
@@ -520,6 +521,7 @@ class CfnCluster(
             "port": "port",
             "private_ip_address": "privateIpAddress",
             "type": "type",
+            "ipv6_address": "ipv6Address",
             "public_ip_address": "publicIpAddress",
         },
     )
@@ -530,6 +532,7 @@ class CfnCluster(
             port: builtins.str,
             private_ip_address: builtins.str,
             type: builtins.str,
+            ipv6_address: typing.Optional[builtins.str] = None,
             public_ip_address: typing.Optional[builtins.str] = None,
         ) -> None:
             '''An endpoint available for interaction with the scheduler.
@@ -537,6 +540,7 @@ class CfnCluster(
             :param port: The endpoint's connection port number.
             :param private_ip_address: The endpoint's private IP address.
             :param type: Indicates the type of endpoint running at the specific IP address.
+            :param ipv6_address: The endpoint's IPv6 address.
             :param public_ip_address: The endpoint's public IP address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-endpoint.html
@@ -554,6 +558,7 @@ class CfnCluster(
                     type="type",
                 
                     # the properties below are optional
+                    ipv6_address="ipv6Address",
                     public_ip_address="publicIpAddress"
                 )
             '''
@@ -562,12 +567,15 @@ class CfnCluster(
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
                 check_type(argname="argument private_ip_address", value=private_ip_address, expected_type=type_hints["private_ip_address"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument ipv6_address", value=ipv6_address, expected_type=type_hints["ipv6_address"])
                 check_type(argname="argument public_ip_address", value=public_ip_address, expected_type=type_hints["public_ip_address"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "port": port,
                 "private_ip_address": private_ip_address,
                 "type": type,
             }
+            if ipv6_address is not None:
+                self._values["ipv6_address"] = ipv6_address
             if public_ip_address is not None:
                 self._values["public_ip_address"] = public_ip_address
 
@@ -600,6 +608,15 @@ class CfnCluster(
             result = self._values.get("type")
             assert result is not None, "Required property 'type' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def ipv6_address(self) -> typing.Optional[builtins.str]:
+            '''The endpoint's IPv6 address.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-endpoint.html#cfn-pcs-cluster-endpoint-ipv6address
+            '''
+            result = self._values.get("ipv6_address")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def public_ip_address(self) -> typing.Optional[builtins.str]:
@@ -695,6 +712,7 @@ class CfnCluster(
         jsii_type="aws-cdk-lib.aws_pcs.CfnCluster.NetworkingProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "network_type": "networkType",
             "security_group_ids": "securityGroupIds",
             "subnet_ids": "subnetIds",
         },
@@ -703,11 +721,13 @@ class CfnCluster(
         def __init__(
             self,
             *,
+            network_type: typing.Optional[builtins.str] = None,
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''TThe networking configuration for the cluster's control plane.
 
+            :param network_type: The IP of the cluster (IPV4 or IPV6).
             :param security_group_ids: The list of security group IDs associated with the Elastic Network Interface (ENI) created in subnets.
             :param subnet_ids: The list of subnet IDs where AWS PCS creates an Elastic Network Interface (ENI) to enable communication between managed controllers and AWS PCS resources. The subnet must have an available IP address, cannot reside in AWS Outposts, AWS Wavelength, or an AWS Local Zone. AWS PCS currently supports only 1 subnet in this list.
 
@@ -721,19 +741,32 @@ class CfnCluster(
                 from aws_cdk import aws_pcs as pcs
                 
                 networking_property = pcs.CfnCluster.NetworkingProperty(
+                    network_type="networkType",
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"]
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__82c7f3d28e2ed0d063467ea787c6cfc31c28d4c5f26ef1ddf71940887dea9d1f)
+                check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if network_type is not None:
+                self._values["network_type"] = network_type
             if security_group_ids is not None:
                 self._values["security_group_ids"] = security_group_ids
             if subnet_ids is not None:
                 self._values["subnet_ids"] = subnet_ids
+
+        @builtins.property
+        def network_type(self) -> typing.Optional[builtins.str]:
+            '''The IP of the cluster (IPV4 or IPV6).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-networking.html#cfn-pcs-cluster-networking-networktype
+            '''
+            result = self._values.get("network_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1080,6 +1113,7 @@ class CfnClusterProps:
             
             cfn_cluster_props = pcs.CfnClusterProps(
                 networking=pcs.CfnCluster.NetworkingProperty(
+                    network_type="networkType",
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"]
                 ),
@@ -2874,6 +2908,7 @@ def _typecheckingstub__fb46faa4736fd5bede060ea1460c35898193ef49ace1726974a1db895
     port: builtins.str,
     private_ip_address: builtins.str,
     type: builtins.str,
+    ipv6_address: typing.Optional[builtins.str] = None,
     public_ip_address: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2889,6 +2924,7 @@ def _typecheckingstub__b9e127e61b0ea75f45a99bba1dcc51875a9ecf36ea91f697889ebe4cb
 
 def _typecheckingstub__82c7f3d28e2ed0d063467ea787c6cfc31c28d4c5f26ef1ddf71940887dea9d1f(
     *,
+    network_type: typing.Optional[builtins.str] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:

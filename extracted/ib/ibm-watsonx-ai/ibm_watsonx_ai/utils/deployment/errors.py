@@ -79,7 +79,7 @@ class DeploymentNotSupported(WMLClientError, ValueError):
 class MissingSpace(WMLClientError, ValueError):
     def __init__(self, value_name: str | None = None, reason: str | None = None):
         WMLClientError.__init__(
-            self, f"Deployment needs to have space specified", reason
+            self, "Deployment needs to have space specified", reason
         )
 
 

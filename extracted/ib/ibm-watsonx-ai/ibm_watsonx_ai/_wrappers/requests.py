@@ -3,23 +3,21 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
+
+import asyncio
+import json as js
 import os
 import queue
-import time
-
-import requests
-import httpx
-import json as js
-import asyncio
-import random
 import threading
-
+import time
+from contextlib import asynccontextmanager, contextmanager
 from functools import wraps
-from typing import AsyncGenerator
 from random import random
-from requests import packages, exceptions
-from typing import Any, Iterator, AsyncIterator, Callable, TYPE_CHECKING
-from contextlib import contextmanager, asynccontextmanager
+from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Callable, Iterator
+
+import httpx
+import requests
+from requests import exceptions, packages  # noqa: F401
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -49,7 +47,6 @@ def _httpx_transport_params(
     api_client: APIClient,
     limits: httpx.Limits = HTTPX_DEFAULT_LIMIT,
 ) -> dict:
-
     return {
         "verify": (
             api_client.credentials.verify
@@ -84,7 +81,6 @@ def set_verify_for_requests(func):
             res = func(*args, **kw)
 
         except OSError as e:
-
             # User can pass verify the path to a CA_BUNDLE file or directory with certificates of trusted CAs
             if isinstance(verify, str) and verify != "False":
                 raise OSError(
@@ -359,7 +355,6 @@ class HTTPXAsyncClient(httpx.AsyncClient):
         params: dict | None = None,
         **kwargs: Any,
     ) -> httpx.Response:
-
         if json is not None and content is None:
             from ibm_watsonx_ai.utils.utils import NumpyTypeEncoder
 
@@ -389,7 +384,6 @@ class HTTPXAsyncClient(httpx.AsyncClient):
         params: dict | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[httpx.Response]:
-
         if json is not None and content is None:
             from ibm_watsonx_ai.utils.utils import NumpyTypeEncoder
 
@@ -631,7 +625,6 @@ class HTTPXClient(httpx.Client):
         params: dict | None = None,
         **kwargs: Any,
     ) -> httpx.Response:
-
         if json is not None and content is None:
             from ibm_watsonx_ai.utils.utils import NumpyTypeEncoder
 
@@ -661,7 +654,6 @@ class HTTPXClient(httpx.Client):
         params: dict | None = None,
         **kwargs: Any,
     ) -> Iterator[httpx.Response]:
-
         if json is not None and content is None:
             from ibm_watsonx_ai.utils.utils import NumpyTypeEncoder
 

@@ -358,6 +358,74 @@ paths:
               type: object
               allOf:
                 - $ref: '#/components/schemas/AppInfoRequest'
+  /{connector_id}/assign_application:
+    post:
+      operationId: assign_application
+      description: |-
+        Assigns an application in the third-party system.
+
+        Note: Only entitlements that are required for account assignment should be specified here.
+        Optional entitlements should be assigned after assignment using the assign_entitlement operation.
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/AssignApplicationResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Write Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/AssignApplication'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/assign_entitlement:
     post:
       operationId: assign_entitlement
@@ -1007,6 +1075,146 @@ paths:
                         not specified by the capability schema.
                   description: Generic request model.
               description: Authenticated request.
+  /{connector_id}/get_application:
+    post:
+      operationId: get_application
+      description: |-
+        Retrieve a single application by its ID
+
+        Common use cases include:
+        - Getting detailed information about a specific application
+        - Validating application existence and status
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetApplicationResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/GetApplication'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
+  /{connector_id}/get_application_account:
+    post:
+      operationId: get_application_account
+      description: |-
+        Retrieves a single assignment for an account to an application. This will return
+        a NOT_FOUND error if the assignment does not exist.
+
+        This operation fetchs a single account assignment to an application.
+        It can be used to:
+        - Validate the assignment of a user to an application
+        - Audit a user's application access
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetApplicationAccountResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/GetApplicationAccount'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/get_authorization_url:
     post:
       operationId: get_authorization_url
@@ -1344,6 +1552,354 @@ paths:
                         not specified by the capability schema.
                   description: Generic request model.
               description: Authenticated request.
+  /{connector_id}/list_applications:
+    post:
+      operationId: list_applications
+      description: |-
+        Retrieve a list of applications associated with the given credentials
+
+        Common use cases include:
+        - Discovering applications managed by this integration
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListApplicationsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/ListApplications'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
+  /{connector_id}/list_applications_accounts:
+    post:
+      operationId: list_applications_accounts
+      description: |-
+        Retrieve a list of account ids associated to assigned application ids
+
+        Common use cases include:
+        - Auditing connected accounts
+        - Account discovery and synchronization
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListApplicationsAccountsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/ListApplicationsAccounts'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
+  /{connector_id}/list_applications_activity_records:
+    post:
+      operationId: list_applications_activity_records
+      description: |-
+        List activity records for applications within a time window.
+
+        This is commonly used for audit use cases, such as:
+        - Reviewing recent entitlement usage (e.g., licenses used in the last 90 days)
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListApplicationsActivityRecordsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/ListApplicationsActivityRecords'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
+  /{connector_id}/list_applications_entitlements:
+    post:
+      operationId: list_applications_entitlements
+      description: |-
+        List all entitlements available in the applications of the connected system.
+
+        The response includes details about each entitlement including:
+        - The type of entitlement (e.g. group, role, workspace)
+        - The resource it applies to (empty string for global resource)
+        - Integration-specific identifiers
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListApplicationsEntitlementsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/ListApplicationsEntitlements'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
+  /{connector_id}/list_applications_resources:
+    post:
+      operationId: list_applications_resources
+      description: |-
+        List all resources available in the applications of the connected system.
+
+        The response includes details about each resource including:
+        - The type of resource (e.g. workspace, team, repository)
+        - Integration-specific identifier
+        - Human readable label
+
+        Resources help establish the contextual hierarchy for entitlements, showing which entities
+        can contain or be assigned different types of access controls.
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListApplicationsResourcesResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/ListApplicationsResources'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/list_custom_attributes_schema:
     post:
       operationId: list_custom_attributes_schema
@@ -1644,10 +2200,10 @@ paths:
 
         This operation supports delta queries for incremental synchronization:
 
-        - **Initial Request**: Provide a `since_date` to get all accounts updated since that time
-        - **Subsequent Requests**: Use the `delta_cursor` from the previous response for
+        - **Initial Request**: Provide a `since` to get all accounts updated since that time
+        - **Subsequent Requests**: Use the `cursor` from the previous response for
         efficient incremental updates
-        - **Cursor Management**: Each response includes a new `delta_cursor` for the next request
+        - **Cursor Management**: Each response includes a new `cursor` for the next request
 
         ## Account Update Detection
 
@@ -1896,6 +2452,70 @@ paths:
                     request:
                       allOf:
                         - $ref: '#/components/schemas/TransferData'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
+  /{connector_id}/unassign_application:
+    post:
+      operationId: unassign_application
+      description: Unassigns an account from an application in an integration system.
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/UnassignApplicationResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Write Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/UnassignApplication'
                       description: The main request payload.
                     include_raw_data:
                       type: boolean
@@ -2398,6 +3018,72 @@ components:
             page:
               $ref: '#/components/schemas/Page'
           description: Response containing the main response payload, raw data, and pagination information.
+    ApplicationAccount:
+      type: object
+      required:
+        - account_id
+        - application_id
+      properties:
+        account_id:
+          type: string
+          x-semantic: account-id
+        application_id:
+          type: string
+          x-semantic: application-id
+      description: Model containing information about an application an account has access to
+      x-unique-hash:
+        - account_id
+        - application_id
+    ApplicationActivityRecord:
+      type: object
+      required:
+        - application_id
+      properties:
+        application_id:
+          type: string
+          x-semantic: application-id
+      allOf:
+        - $ref: '#/components/schemas/ActivityRecord'
+      description: A single record of an activity that occurred within the system.
+      x-unique-hash:
+        - id
+    ApplicationStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+      description: Enum representing the possible statuses of an application.
+    AssignApplication:
+      type: object
+      required:
+        - application_id
+        - account_id
+      properties:
+        application_id:
+          type: string
+          description: The id of the application to create the account in
+          x-semantic: application-id
+        account_id:
+          type: string
+          description: The integration specific id of the account to assign the application to
+          x-semantic: account-id
+      description: |-
+        Base request payload to assign an application to an account. Each connector can extend this class
+        to add connector-specific fields.
+      x-capability-level: write
+    AssignApplicationResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              $ref: '#/components/schemas/AssignedApplication'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
     AssignEntitlement:
       type: object
       required:
@@ -2441,6 +3127,23 @@ components:
               $ref: '#/components/schemas/Page'
           description: Response containing the main response payload, raw data, and pagination information.
       description: Response containing the result of the entitlement assignment
+    AssignedApplication:
+      type: object
+      required:
+        - assigned
+        - provisioned
+      properties:
+        assigned:
+          type: boolean
+          description: |-
+            Indicates if an account is assigned to an application via the integration.
+            This does not reflect if the account has actually been created in the application.
+        provisioned:
+          type: boolean
+          description: |-
+            Indicates if an account has been created in the application via the integration
+            This does not indicate if the integration account has been assigned via the integration
+      description: Details about the assigned application
     AssignedEntitlement:
       type: object
       required:
@@ -2820,7 +3523,7 @@ components:
     Delta:
       type: object
       properties:
-        delta_cursor:
+        cursor:
           type: string
           description: |-
             Cursor token for delta synchronization.
@@ -2829,7 +3532,7 @@ components:
             requests to receive only the changes that occurred since that point.
 
             - **First request**: Omit this parameter to get all available data
-            - **Subsequent requests**: Include the `delta_cursor` from the previous response
+            - **Subsequent requests**: Include the `cursor` from the previous response
 
             The cursor is typically a base64-encoded string containing timestamp and
             other metadata needed for the delta synchronization.
@@ -2843,14 +3546,14 @@ components:
 
         ## How Delta Queries Work
 
-        1. **Initial Request**: When no `delta_cursor` is provided, the endpoint returns
-        all available data along with a `delta_cursor` in the response.
+        1. **Initial Request**: When no `cursor` is provided, the endpoint returns
+        all available data along with a `cursor` in the response.
 
-        2. **Subsequent Requests**: Include the `delta_cursor` from the previous response
+        2. **Subsequent Requests**: Include the `cursor` from the previous response
         to receive only the changes (additions, updates, deletions) that occurred
         since that point.
 
-        3. **Cursor Management**: The response will include a new `delta_cursor` that
+        3. **Cursor Management**: The response will include a new `cursor` that
         should be used for the next delta request.
 
         ## Usage Examples
@@ -2858,18 +3561,18 @@ components:
         ```typescript
         // First request - get all data
         const response = await api.getUsers();
-        // response.delta_cursor = "eyJ0aW1lc3RhbXAiOiIyMDI0LTAxLTE1VDEwOjAwOjAwWiJ9"
+        // response.cursor = "eyJ0aW1lc3RhbXAiOiIyMDI0LTAxLTE1VDEwOjAwOjAwWiJ9"
 
         // Subsequent request - get only changes
-        const deltaResponse = await api.getUsers({ delta_cursor: response.delta_cursor });
+        const deltaResponse = await api.getUsers({ cursor: response.cursor });
         // Only returns users that were created, updated, or deleted since the last request
         ```
 
         ## Best Practices
 
-        - Store the `delta_cursor` persistently (database, file, etc.) to maintain
+        - Store the `cursor` persistently (database, file, etc.) to maintain
         synchronization state across application restarts
-        - Handle the case where `delta_cursor` becomes invalid (expired, corrupted)
+        - Handle the case where `cursor` becomes invalid (expired, corrupted)
         by falling back to a full data fetch
         - Implement exponential backoff for delta requests to handle rate limiting
         - Consider implementing a "full sync" mechanism that periodically fetches all
@@ -2877,9 +3580,9 @@ components:
 
         ## Error Handling
 
-        - If the `delta_cursor` is invalid or expired, the endpoint may return an error
+        - If the `cursor` is invalid or expired, the endpoint may return an error
         or automatically fall back to returning all data
-        - Always handle the case where the response doesn't include a `delta_cursor`
+        - Always handle the case where the response doesn't include a `cursor`
         (indicating the endpoint doesn't support delta queries)
     DowngradeLicense:
       type: object
@@ -3314,6 +4017,81 @@ components:
         refer to the [info endpoint](#tag/Describe/operation/info).
       x-unique-hash:
         - integration_specific_id
+    FoundApplication:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - sign_on_mode
+      properties:
+        id:
+          type: string
+          description: |-
+            Integration specific identifier that uniquely identifies an application instance or tenant.
+            Example: lumos.slack.com or lumostester.slack.com
+          x-semantic: application-id
+        name:
+          type: string
+          description: 'The name or identifier of the application. ex: slack.com'
+        display_name:
+          type: string
+          description: 'The user friendly label for the application ex: Slack'
+        description:
+          type: string
+          description: The description of a application
+        status:
+          allOf:
+            - $ref: '#/components/schemas/ApplicationStatus'
+          description: The current status of an application within an integration
+        logo:
+          type: string
+          description: A URL that can be resolved to the logo of an application
+        sign_on_mode:
+          allOf:
+            - $ref: '#/components/schemas/SignOnMode'
+          description: The sign on mode of an application
+        sso_login_url:
+          type: string
+          description: The login URL for an application
+      description: Model containing information about an application
+      x-unique-hash:
+        - id
+    FoundApplicationEntitlementData:
+      type: object
+      required:
+        - application_id
+      properties:
+        application_id:
+          type: string
+          x-semantic: application-id
+      allOf:
+        - $ref: '#/components/schemas/FoundEntitlementData'
+      description: An entitlement representing an authorization or permission that can be granted to users within the connector.
+      example:
+        application_id: slack.com
+        entitlement_type: org_role
+        integration_specific_id: member
+        integration_specific_resource_id: ''
+        label: Org Member
+      x-unique-hash:
+        - integration_specific_id
+        - integration_specific_resource_id
+        - application_id
+    FoundApplicationResourceData:
+      type: object
+      required:
+        - application_id
+      properties:
+        application_id:
+          type: string
+          x-semantic: application-id
+      allOf:
+        - $ref: '#/components/schemas/FoundResourceData'
+      description: Resource data describing a resource within the connector.
+      x-unique-hash:
+        - integration_specific_id
+        - application_id
     FoundEntitlementAssociation:
       type: object
       required:
@@ -3482,6 +4260,61 @@ components:
               $ref: '#/components/schemas/Page'
           description: Response containing the main response payload, raw data, and pagination information.
       description: Response containing detailed information about the requested account.
+    GetApplication:
+      type: object
+      required:
+        - application_id
+      properties:
+        application_id:
+          type: string
+          description: The ID of the application to retrieve
+          x-semantic: application-id
+      description: Request parameters for getting a specific application.
+      x-capability-level: read
+    GetApplicationAccount:
+      type: object
+      required:
+        - application_id
+        - account_id
+      properties:
+        application_id:
+          type: string
+          description: The unique id of the application to fetch the application assignment for.
+          x-semantic: application-id
+        account_id:
+          type: string
+          description: The unique id of the account to fetch application assignemnt for.
+          x-semantic: account-id
+      description: Request parameters for retrieving a single account's application assignemnt
+      x-capability-level: read
+    GetApplicationAccountResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              $ref: '#/components/schemas/ApplicationAccount'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing the information about an accounts assigned applications
+    GetApplicationResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              $ref: '#/components/schemas/FoundApplication'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing information about the requested application
     GetAuthorizationUrl:
       type: object
       required:
@@ -4046,6 +4879,116 @@ components:
               $ref: '#/components/schemas/Page'
           description: Response containing the main response payload, raw data, and pagination information.
       description: Response containing a list of activity records.
+    ListApplications:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/EmptyButCreateAnyway'
+      description: Request parameters for listing accounts.
+      x-capability-level: read
+    ListApplicationsAccounts:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/EmptyButCreateAnyway'
+      description: Request parameters for listing application accounts.
+      x-capability-level: read
+    ListApplicationsAccountsResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/ApplicationAccount'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing information about accounts assigned to applications
+    ListApplicationsActivityRecords:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ListActivityRecords'
+      description: Request payload for listing activity records.
+      x-capability-level: read
+    ListApplicationsActivityRecordsResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/ApplicationActivityRecord'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing a list of activity records.
+    ListApplicationsEntitlements:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ListEntitlements'
+      description: Request parameters for listing application entitlements.
+      x-capability-level: read
+    ListApplicationsEntitlementsResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/FoundApplicationEntitlementData'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing the list of available entitlements and their details
+    ListApplicationsResources:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ListResources'
+      description: Request parameters for listing resources.
+      x-capability-level: read
+    ListApplicationsResourcesResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/FoundApplicationResourceData'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing the list of available resources and their details
+    ListApplicationsResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/FoundApplication'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing information about the applications
     ListCustomAttributesSchema:
       type: object
       allOf:
@@ -4145,10 +5088,8 @@ components:
       description: Response containing the list of available resources and their details
     ListUpdatedAccounts:
       type: object
-      required:
-        - since_date
       properties:
-        since_date:
+        since:
           type: string
           format: date-time
           description: |-
@@ -4176,8 +5117,8 @@ components:
 
             - Use for initial synchronization or when resuming after a long gap
             - Consider the connector's data retention policies when setting this value
-            - For ongoing syncs, prefer using `delta_cursor` instead
-        delta_cursor:
+            - For ongoing syncs, prefer using `cursor` instead
+        cursor:
           type: string
           description: |-
             Cursor token for delta synchronization.
@@ -4186,7 +5127,7 @@ components:
             requests to receive only the changes that occurred since that point.
 
             - **First request**: Omit this parameter to get all available data
-            - **Subsequent requests**: Include the `delta_cursor` from the previous response
+            - **Subsequent requests**: Include the `cursor` from the previous response
 
             The cursor is typically a base64-encoded string containing timestamp and
             other metadata needed for the delta synchronization.
@@ -4224,24 +5165,24 @@ components:
         Request parameters for listing updated accounts with delta query support.
 
         This model extends the Delta model to provide both traditional date-based
-        filtering and efficient delta cursor-based incremental synchronization.
+        filtering and efficient cursor-based incremental synchronization.
 
         ## Parameter Priority
 
-        When both `delta_cursor` and `since_date` are provided:
-        - The `delta_cursor` takes precedence for delta-based synchronization
-        - The `since_date` is ignored in favor of the cursor's timestamp
+        When both `cursor` and `since` are provided:
+        - The `cursor` takes precedence for delta-based synchronization
+        - The `since` is ignored in favor of the cursor's timestamp
 
         ## Best Practices
 
-        - Use `delta_cursor` for ongoing synchronization to minimize data transfer
-        - Use `since_date` for initial syncs or when resuming after a long gap
+        - Use `cursor` for ongoing synchronization to minimize data transfer
+        - Use `since` for initial syncs or when resuming after a long gap
         - Include only necessary `custom_attributes` to optimize response size
-        - Store the returned `delta_cursor` persistently for reliable sync state
+        - Store the returned `cursor` persistently for reliable sync state
 
         ## Error Scenarios
 
-        - **Invalid Delta Cursor**: May return an error or fall back to full data fetch
+        - **Invalid Cursor**: May return an error or fall back to full data fetch
         - **Expired Cursor**: Connector may return all data since the cursor's timestamp
         - **Unsupported Attributes**: Custom attributes not available in the connector
         may be ignored or cause errors depending on the connector implementation
@@ -4623,6 +5564,14 @@ components:
         - google_cloud
         - google_drive
         - aws
+    SignOnMode:
+      type: string
+      enum:
+        - SAML
+        - OIDC
+        - BOOKMARK
+        - UNKNOWN
+      description: Enum representing different sign on modes for an application.
     SpendUser:
       type: object
       properties:
@@ -4672,6 +5621,15 @@ components:
         - transfer_data
         - release_resources
         - downgrade_license
+        - assign_application
+        - get_application
+        - get_application_account
+        - list_applications
+        - list_applications_accounts
+        - list_applications_activity_records
+        - list_applications_entitlements
+        - list_applications_resources
+        - unassign_application
       description: Enum representing the standard capabilities we expect most connectors to provide.
     TimeRange:
       type: object
@@ -4756,6 +5714,36 @@ components:
             optional, but if the status was not successful, this should contain
             details about the failure.
       description: Details about the transfer
+    UnassignApplication:
+      type: object
+      required:
+        - application_id
+        - account_id
+      properties:
+        application_id:
+          type: string
+          description: The id of the application to create the account in
+          x-semantic: application-id
+        account_id:
+          type: string
+          description: The integration specific id of the account to assign the application to
+          x-semantic: account-id
+      description: Request parameters for unassigning an application
+      x-capability-level: write
+    UnassignApplicationResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              $ref: '#/components/schemas/UnassignedApplication'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing the result of the unassignment
     UnassignEntitlement:
       type: object
       required:
@@ -4798,6 +5786,23 @@ components:
               $ref: '#/components/schemas/Page'
           description: Response containing the main response payload, raw data, and pagination information.
       description: Response containing the result of the unassign entitlement operation
+    UnassignedApplication:
+      type: object
+      required:
+        - unassigned
+        - deprovisioned
+      properties:
+        unassigned:
+          type: boolean
+          description: |-
+            Indicates if an account's assignment to the application via the integration has been removed.
+            This does not indicate if the account was removed in the application.
+        deprovisioned:
+          type: boolean
+          description: |-
+            Indicates if the account in the application was removed. This does not indicate
+            if the assignment via the integration was removed.
+      description: Details about the deactivated account
     UnassignedEntitlement:
       type: object
       required:
@@ -4847,7 +5852,7 @@ components:
             Array of account data for accounts that have been updated.
 
             Each account in this array represents an account that has been modified
-            since the specified `since_date` or since the `delta_cursor` timestamp.
+            since the specified `since` or since the `cursor` timestamp.
 
             ## Account Data Structure
 
@@ -4860,7 +5865,7 @@ components:
 
             An empty array indicates:
             - No accounts were updated in the specified time period
-            - The delta cursor is up to date (no new changes)
+            - The cursor is up to date (no new changes)
             - The connector successfully processed the request
 
             ## Response Size
@@ -4869,7 +5874,7 @@ components:
             - Number of updated accounts
             - Number of requested custom attributes
             - Connector-specific data richness
-        delta_cursor:
+        cursor:
           type: string
           description: |-
             Cursor token for delta synchronization.
@@ -4878,14 +5883,14 @@ components:
             requests to receive only the changes that occurred since that point.
 
             - **First request**: Omit this parameter to get all available data
-            - **Subsequent requests**: Include the `delta_cursor` from the previous response
+            - **Subsequent requests**: Include the `cursor` from the previous response
 
             The cursor is typically a base64-encoded string containing timestamp and
             other metadata needed for the delta synchronization.
       description: |-
         Response model containing updated accounts with delta synchronization support.
 
-        This model extends the Delta model to include delta cursor information
+        This model extends the Delta model to include cursor information
         for efficient incremental synchronization.
     ValidateCredentials:
       type: object

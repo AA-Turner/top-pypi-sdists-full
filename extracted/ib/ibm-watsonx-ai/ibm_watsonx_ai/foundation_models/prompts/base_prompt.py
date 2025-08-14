@@ -3,9 +3,10 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
+
+from abc import ABC
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Iterable
-from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .prompt_template import PromptTemplateLock
@@ -69,4 +70,4 @@ class BasePrompt(ABC):
             for key, value in self.__dict__.items()
             if not key.startswith("_") and value is not None
         ]
-        return f"{type(self).__name__}({ ', '.join(args)})"
+        return f"{type(self).__name__}({', '.join(args)})"

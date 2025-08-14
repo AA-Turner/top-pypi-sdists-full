@@ -6,6 +6,7 @@ from typing import Callable, List, Mapping, TypedDict
 
 import click
 import jsonref
+
 from gable.api.client import GableAPIClient
 from gable.cli.commands.asset_plugins.baseclass import (
     AssetPluginAbstract,

@@ -1,18 +1,25 @@
 import os
 import pathlib
 import stat
+import subprocess
 import sys
+from collections import namedtuple
+from contextlib import nullcontext
+from functools import partial
 from io import StringIO
-
-import pytest
+from pathlib import Path
+from tempfile import tempdir
+from unittest.mock import patch
 
 import asyncclick as click
 import asyncclick._termui_impl
 import asyncclick.utils
+import pytest
 from asyncclick._compat import WIN
 
 
-def test_echo(runner):
+@pytest.mark.anyio
+async def test_echo(runner):
     with runner.isolation() as outstreams:
         click.echo("\N{SNOWMAN}")
         click.echo(b"\x44\x44")
@@ -27,7 +34,7 @@ def test_echo(runner):
     def cli():
         click.echo(b"\xf6")
 
-    result = runner.invoke(cli, [])
+    result = await runner.invoke(cli, [])
     assert result.stdout_bytes == b"\xf6\n"
 
     # Ensure we do not strip for bytes.
@@ -106,10 +113,11 @@ def test_filename_formatting():
     assert click.format_filename(b"/x/foo.txt") == "/x/foo.txt"
     assert click.format_filename("/x/foo.txt") == "/x/foo.txt"
     assert click.format_filename("/x/foo.txt", shorten=True) == "foo.txt"
-    assert click.format_filename(b"/x/\xff.txt", shorten=True) == "�.txt"
+    assert click.format_filename("/x/\ufffd.txt", shorten=True) == "�.txt"
 
 
-def test_prompts(runner):
+@pytest.mark.anyio
+async def test_prompts(runner):
     @click.command()
     def test():
         if click.confirm("Foo"):
@@ -117,17 +125,17 @@ def test_prompts(runner):
         else:
             click.echo("no :(")
 
-    result = runner.invoke(test, input="y\n")
+    result = await runner.invoke(test, input="y\n")
     assert not result.exception
-    assert result.output == "Foo [y/N]: y\nyes!\n"
+    assert result.output == "Foo [y/N]: yes!\n"
 
-    result = runner.invoke(test, input="\n")
+    result = await runner.invoke(test, input="\n")
     assert not result.exception
-    assert result.output == "Foo [y/N]: \nno :(\n"
+    assert result.output == "Foo [y/N]: no :(\n"
 
-    result = runner.invoke(test, input="n\n")
+    result = await runner.invoke(test, input="n\n")
     assert not result.exception
-    assert result.output == "Foo [y/N]: n\nno :(\n"
+    assert result.output == "Foo [y/N]: no :(\n"
 
     @click.command()
     def test_no():
@@ -136,25 +144,26 @@ def test_prompts(runner):
         else:
             click.echo("no :(")
 
-    result = runner.invoke(test_no, input="y\n")
+    result = await runner.invoke(test_no, input="y\n")
     assert not result.exception
-    assert result.output == "Foo [Y/n]: y\nyes!\n"
+    assert result.output == "Foo [Y/n]: yes!\n"
 
-    result = runner.invoke(test_no, input="\n")
+    result = await runner.invoke(test_no, input="\n")
     assert not result.exception
-    assert result.output == "Foo [Y/n]: \nyes!\n"
+    assert result.output == "Foo [Y/n]: yes!\n"
 
-    result = runner.invoke(test_no, input="n\n")
+    result = await runner.invoke(test_no, input="n\n")
     assert not result.exception
-    assert result.output == "Foo [Y/n]: n\nno :(\n"
+    assert result.output == "Foo [Y/n]: no :(\n"
 
 
-def test_confirm_repeat(runner):
+@pytest.mark.anyio
+async def test_confirm_repeat(runner):
     cli = click.Command(
         "cli", params=[click.Option(["--a/--no-a"], default=None, prompt=True)]
     )
-    result = runner.invoke(cli, input="\ny\n")
-    assert result.output == "A [y/n]: \nError: invalid input\nA [y/n]: y\n"
+    result = await runner.invoke(cli, input="\ny\n")
+    assert result.output == "A [y/n]: Error: invalid input\nA [y/n]: "
 
 
 @pytest.mark.skipif(WIN, reason="Different behavior on windows.")
@@ -173,6 +182,20 @@ def test_prompts_abort(monkeypatch, capsys):
     assert out == "Password:\ninterrupted\n"
 
 
+@pytest.mark.anyio
+async def test_prompts_eof(runner):
+    """If too few lines of input are given, prompt should exit, not hang."""
+
+    @click.command
+    def echo():
+        for _ in range(3):
+            click.echo(click.prompt("", type=int))
+
+    # only provide two lines of input for three prompts
+    result = await runner.invoke(echo, input="1\n2\n")
+    assert result.exit_code == 1
+
+
 def _test_gen_func():
     yield "a"
     yield "b"
@@ -180,31 +203,172 @@ def _test_gen_func():
     yield "abc"
 
 
-@pytest.mark.parametrize("cat", ["cat", "cat ", "cat "])
+def _test_gen_func_fails():
+    yield "test"
+    raise RuntimeError("This is a test.")
+
+
+def _test_gen_func_echo(file=None):
+    yield "test"
+    click.echo("hello", file=file)
+    yield "test"
+
+
+def _test_simulate_keyboard_interrupt(file=None):
+    yield "output_before_keyboard_interrupt"
+    raise KeyboardInterrupt()
+
+
+EchoViaPagerTest = namedtuple(
+    "EchoViaPagerTest",
+    (
+        "description",
+        "test_input",
+        "expected_pager",
+        "expected_stdout",
+        "expected_stderr",
+        "expected_error",
+    ),
+)
+
+
+@pytest.mark.skipif(WIN, reason="Different behavior on windows.")
+@pytest.mark.parametrize(
+    "pager_cmd", ["cat", "cat ", " cat ", "less", " less", " less "]
+)
 @pytest.mark.parametrize(
     "test",
     [
-        # We need lambda here, because pytest will
-        # reuse the parameters, and then the generators
-        # are already used and will not yield anymore
-        ("just text\n", lambda: "just text"),
-        ("iterable\n", lambda: ["itera", "ble"]),
-        ("abcabc\n", lambda: _test_gen_func),
-        ("abcabc\n", lambda: _test_gen_func()),
-        ("012345\n", lambda: (c for c in range(6))),
+        # We need to pass a parameter function instead of a plain param
+        # as pytest.mark.parametrize will reuse the parameters causing the
+        # generators to be used up so they will not yield anymore
+        EchoViaPagerTest(
+            description="Plain string argument",
+            test_input=lambda: "just text",
+            expected_pager="just text\n",
+            expected_stdout="",
+            expected_stderr="",
+            expected_error=None,
+        ),
+        EchoViaPagerTest(
+            description="Iterable argument",
+            test_input=lambda: ["itera", "ble"],
+            expected_pager="iterable\n",
+            expected_stdout="",
+            expected_stderr="",
+            expected_error=None,
+        ),
+        EchoViaPagerTest(
+            description="Generator function argument",
+            test_input=lambda: _test_gen_func,
+            expected_pager="abcabc\n",
+            expected_stdout="",
+            expected_stderr="",
+            expected_error=None,
+        ),
+        EchoViaPagerTest(
+            description="String generator argument",
+            test_input=lambda: _test_gen_func(),
+            expected_pager="abcabc\n",
+            expected_stdout="",
+            expected_stderr="",
+            expected_error=None,
+        ),
+        EchoViaPagerTest(
+            description="Number generator expression argument",
+            test_input=lambda: (c for c in range(6)),
+            expected_pager="012345\n",
+            expected_stdout="",
+            expected_stderr="",
+            expected_error=None,
+        ),
+        EchoViaPagerTest(
+            description="Exception in generator function argument",
+            test_input=lambda: _test_gen_func_fails,
+            # Because generator throws early on, the pager did not have
+            # a chance yet to write the file.
+            expected_pager="",
+            expected_stdout="",
+            expected_stderr="",
+            expected_error=RuntimeError,
+        ),
+        EchoViaPagerTest(
+            description="Exception in generator argument",
+            test_input=lambda: _test_gen_func_fails,
+            # Because generator throws early on, the pager did not have a
+            # chance yet to write the file.
+            expected_pager="",
+            expected_stdout="",
+            expected_stderr="",
+            expected_error=RuntimeError,
+        ),
+        EchoViaPagerTest(
+            description="Keyboard interrupt should not terminate the pager",
+            test_input=lambda: _test_simulate_keyboard_interrupt(),
+            # Due to the keyboard interrupt during pager execution, click program
+            # should abort, but the pager should stay open.
+            # This allows users to cancel the program and search in the pager
+            # output, before they decide to terminate the pager.
+            expected_pager="output_before_keyboard_interrupt",
+            expected_stdout="",
+            expected_stderr="",
+            expected_error=KeyboardInterrupt,
+        ),
+        EchoViaPagerTest(
+            description="Writing to stdout during generator execution",
+            test_input=lambda: _test_gen_func_echo(),
+            expected_pager="testtest\n",
+            expected_stdout="hello\n",
+            expected_stderr="",
+            expected_error=None,
+        ),
+        EchoViaPagerTest(
+            description="Writing to stderr during generator execution",
+            test_input=lambda: _test_gen_func_echo(file=sys.stderr),
+            expected_pager="testtest\n",
+            expected_stdout="",
+            expected_stderr="hello\n",
+            expected_error=None,
+        ),
     ],
 )
-def test_echo_via_pager(monkeypatch, capfd, cat, test):
-    monkeypatch.setitem(os.environ, "PAGER", cat)
+def test_echo_via_pager(monkeypatch, capfd, pager_cmd, test):
+    monkeypatch.setitem(os.environ, "PAGER", pager_cmd)
     monkeypatch.setattr(asyncclick._termui_impl, "isatty", lambda x: True)
 
-    expected_output = test[0]
-    test_input = test[1]()
+    test_input = test.test_input()
+    expected_pager = test.expected_pager
+    expected_stdout = test.expected_stdout
+    expected_stderr = test.expected_stderr
+    expected_error = test.expected_error
 
-    click.echo_via_pager(test_input)
+    check_raise = pytest.raises(expected_error) if expected_error else nullcontext()
+
+    pager_out_tmp = Path(tempdir) / "pager_out.txt"
+    pager_out_tmp.unlink(missing_ok=True)
+    with pager_out_tmp.open("w") as f:
+        force_subprocess_stdout = patch.object(
+            subprocess,
+            "Popen",
+            partial(subprocess.Popen, stdout=f),
+        )
+        with force_subprocess_stdout:
+            with check_raise:
+                click.echo_via_pager(test_input)
 
     out, err = capfd.readouterr()
-    assert out == expected_output
+
+    pager = pager_out_tmp.read_text()
+
+    assert pager == expected_pager, (
+        f"Unexpected pager output in test case '{test.description}'"
+    )
+    assert out == expected_stdout, (
+        f"Unexpected stdout in test case '{test.description}'"
+    )
+    assert err == expected_stderr, (
+        f"Unexpected stderr in test case '{test.description}'"
+    )
 
 
 def test_echo_color_flag(monkeypatch, capfd):
@@ -245,7 +409,7 @@ def test_prompt_cast_default(capfd, monkeypatch):
     monkeypatch.setattr(sys, "stdin", StringIO("\n"))
     value = click.prompt("value", default="100", type=int)
     capfd.readouterr()
-    assert type(value) is int  # noqa E721
+    assert isinstance(value, int)
 
 
 @pytest.mark.skipif(WIN, reason="Test too complex to make work windows.")
@@ -308,7 +472,8 @@ def test_echo_with_capsys(capsys):
     assert out == "Capture me.\n"
 
 
-def test_open_file(runner):
+@pytest.mark.anyio
+async def test_open_file(runner):
     @click.command()
     @click.argument("filename")
     def cli(filename):
@@ -321,39 +486,41 @@ def test_open_file(runner):
         with open("hello.txt", "w") as f:
             f.write("Cool stuff")
 
-        result = runner.invoke(cli, ["hello.txt"])
+        result = await runner.invoke(cli, ["hello.txt"])
         assert result.exception is None
         assert result.output == "Cool stuff\nmeep\n"
 
-        result = runner.invoke(cli, ["-"], input="foobar")
+        result = await runner.invoke(cli, ["-"], input="foobar")
         assert result.exception is None
         assert result.output == "foobar\nmeep\n"
 
 
-def test_open_file_pathlib_dash(runner):
+@pytest.mark.anyio
+async def test_open_file_pathlib_dash(runner):
     @click.command()
     @click.argument(
         "filename", type=click.Path(allow_dash=True, path_type=pathlib.Path)
     )
-    def cli(filename):
+    async def cli(filename):
         click.echo(str(type(filename)))
 
         with click.open_file(filename) as f:
             click.echo(f.read())
 
-        result = runner.invoke(cli, ["-"], input="value")
+        result = await runner.invoke(cli, ["-"], input="value")
         assert result.exception is None
         assert result.output == "pathlib.Path\nvalue\n"
 
 
-def test_open_file_ignore_errors_stdin(runner):
+@pytest.mark.anyio
+async def test_open_file_ignore_errors_stdin(runner):
     @click.command()
     @click.argument("filename")
     def cli(filename):
         with click.open_file(filename, errors="ignore") as f:
             click.echo(f.read())
 
-    result = runner.invoke(cli, ["-"], input=os.urandom(16))
+    result = await runner.invoke(cli, ["-"], input=os.urandom(16))
     assert result.exception is None
 
 
@@ -386,7 +553,8 @@ def test_open_file_ignore_no_encoding(runner):
 
 @pytest.mark.skipif(WIN, reason="os.chmod() is not fully supported on Windows.")
 @pytest.mark.parametrize("permissions", [0o400, 0o444, 0o600, 0o644])
-def test_open_file_atomic_permissions_existing_file(runner, permissions):
+@pytest.mark.anyio
+async def test_open_file_atomic_permissions_existing_file(runner, permissions):
     with runner.isolated_filesystem():
         with open("existing.txt", "w") as f:
             f.write("content")
@@ -397,13 +565,14 @@ def test_open_file_atomic_permissions_existing_file(runner, permissions):
         def cli(filename):
             click.open_file(filename, "w", atomic=True).close()
 
-        result = runner.invoke(cli, ["existing.txt"])
+        result = await runner.invoke(cli, ["existing.txt"])
         assert result.exception is None
         assert stat.S_IMODE(os.stat("existing.txt").st_mode) == permissions
 
 
 @pytest.mark.skipif(WIN, reason="os.stat() is not fully supported on Windows.")
-def test_open_file_atomic_permissions_new_file(runner):
+@pytest.mark.anyio
+async def test_open_file_atomic_permissions_new_file(runner):
     with runner.isolated_filesystem():
 
         @click.command()
@@ -417,7 +586,7 @@ def test_open_file_atomic_permissions_new_file(runner):
             pass
         permissions = stat.S_IMODE(os.stat("test.txt").st_mode)
 
-        result = runner.invoke(cli, ["new.txt"])
+        result = await runner.invoke(cli, ["new.txt"])
         assert result.exception is None
         assert stat.S_IMODE(os.stat("new.txt").st_mode) == permissions
 
@@ -427,7 +596,7 @@ def test_iter_keepopenfile(tmpdir):
     p = tmpdir.mkdir("testdir").join("testfile")
     p.write("\n".join(expected))
     with p.open() as f:
-        for e_line, a_line in zip(expected, asyncclick.utils.KeepOpenFile(f)):
+        for e_line, a_line in zip(expected, click.utils.KeepOpenFile(f), strict=False):
             assert e_line == a_line.strip()
 
 
@@ -436,8 +605,8 @@ def test_iter_lazyfile(tmpdir):
     p = tmpdir.mkdir("testdir").join("testfile")
     p.write("\n".join(expected))
     with p.open() as f:
-        with asyncclick.utils.LazyFile(f.name) as lf:
-            for e_line, a_line in zip(expected, lf):
+        with click.utils.LazyFile(f.name) as lf:
+            for e_line, a_line in zip(expected, lf, strict=False):
                 assert e_line == a_line.strip()
 
 

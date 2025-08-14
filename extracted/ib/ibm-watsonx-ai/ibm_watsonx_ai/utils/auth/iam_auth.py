@@ -3,17 +3,18 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
-from typing import TYPE_CHECKING, Callable, Any
-import json
 
-from ibm_watsonx_ai.utils.utils import _requests_retry_session
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+import json
+from typing import TYPE_CHECKING, Any, Callable
+
 from ibm_watsonx_ai.utils.auth.base_auth import (
+    STATUS_FORCELIST,
     RefreshableTokenAuth,
     TokenInfo,
-    STATUS_FORCELIST,
     _get_token_info,
 )
+from ibm_watsonx_ai.utils.utils import _requests_retry_session
+from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient

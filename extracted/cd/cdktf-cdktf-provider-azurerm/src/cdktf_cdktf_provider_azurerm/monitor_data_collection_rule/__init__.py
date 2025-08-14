@@ -1,7 +1,7 @@
 r'''
 # `azurerm_monitor_data_collection_rule`
 
-Refer to the Terraform Registry for docs: [`azurerm_monitor_data_collection_rule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule).
+Refer to the Terraform Registry for docs: [`azurerm_monitor_data_collection_rule`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MonitorDataCollectionRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.monitorDataCollectionRule.MonitorDataCollectionRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule azurerm_monitor_data_collection_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule azurerm_monitor_data_collection_rule}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class MonitorDataCollectionRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule azurerm_monitor_data_collection_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule azurerm_monitor_data_collection_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_flow: data_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_flow MonitorDataCollectionRule#data_flow}
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#location MonitorDataCollectionRule#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#resource_group_name MonitorDataCollectionRule#resource_group_name}.
-        :param data_collection_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_collection_endpoint_id MonitorDataCollectionRule#data_collection_endpoint_id}.
-        :param data_sources: data_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_sources MonitorDataCollectionRule#data_sources}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#description MonitorDataCollectionRule#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#id MonitorDataCollectionRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#identity MonitorDataCollectionRule#identity}
-        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#kind MonitorDataCollectionRule#kind}.
-        :param stream_declaration: stream_declaration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#stream_declaration MonitorDataCollectionRule#stream_declaration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#tags MonitorDataCollectionRule#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#timeouts MonitorDataCollectionRule#timeouts}
+        :param data_flow: data_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_flow MonitorDataCollectionRule#data_flow}
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#location MonitorDataCollectionRule#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#resource_group_name MonitorDataCollectionRule#resource_group_name}.
+        :param data_collection_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_collection_endpoint_id MonitorDataCollectionRule#data_collection_endpoint_id}.
+        :param data_sources: data_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_sources MonitorDataCollectionRule#data_sources}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#description MonitorDataCollectionRule#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#id MonitorDataCollectionRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#identity MonitorDataCollectionRule#identity}
+        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#kind MonitorDataCollectionRule#kind}.
+        :param stream_declaration: stream_declaration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#stream_declaration MonitorDataCollectionRule#stream_declaration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#tags MonitorDataCollectionRule#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#timeouts MonitorDataCollectionRule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class MonitorDataCollectionRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MonitorDataCollectionRule to import.
-        :param import_from_id: The id of the existing MonitorDataCollectionRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MonitorDataCollectionRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MonitorDataCollectionRule to import is found.
         '''
         if __debug__:
@@ -182,16 +182,16 @@ class MonitorDataCollectionRule(
         windows_firewall_log: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MonitorDataCollectionRuleDataSourcesWindowsFirewallLog", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param data_import: data_import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_import MonitorDataCollectionRule#data_import}
-        :param extension: extension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#extension MonitorDataCollectionRule#extension}
-        :param iis_log: iis_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#iis_log MonitorDataCollectionRule#iis_log}
-        :param log_file: log_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_file MonitorDataCollectionRule#log_file}
-        :param performance_counter: performance_counter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#performance_counter MonitorDataCollectionRule#performance_counter}
-        :param platform_telemetry: platform_telemetry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#platform_telemetry MonitorDataCollectionRule#platform_telemetry}
-        :param prometheus_forwarder: prometheus_forwarder block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#prometheus_forwarder MonitorDataCollectionRule#prometheus_forwarder}
-        :param syslog: syslog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#syslog MonitorDataCollectionRule#syslog}
-        :param windows_event_log: windows_event_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#windows_event_log MonitorDataCollectionRule#windows_event_log}
-        :param windows_firewall_log: windows_firewall_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#windows_firewall_log MonitorDataCollectionRule#windows_firewall_log}
+        :param data_import: data_import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_import MonitorDataCollectionRule#data_import}
+        :param extension: extension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#extension MonitorDataCollectionRule#extension}
+        :param iis_log: iis_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#iis_log MonitorDataCollectionRule#iis_log}
+        :param log_file: log_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_file MonitorDataCollectionRule#log_file}
+        :param performance_counter: performance_counter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#performance_counter MonitorDataCollectionRule#performance_counter}
+        :param platform_telemetry: platform_telemetry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#platform_telemetry MonitorDataCollectionRule#platform_telemetry}
+        :param prometheus_forwarder: prometheus_forwarder block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#prometheus_forwarder MonitorDataCollectionRule#prometheus_forwarder}
+        :param syslog: syslog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#syslog MonitorDataCollectionRule#syslog}
+        :param windows_event_log: windows_event_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#windows_event_log MonitorDataCollectionRule#windows_event_log}
+        :param windows_firewall_log: windows_firewall_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#windows_firewall_log MonitorDataCollectionRule#windows_firewall_log}
         '''
         value = MonitorDataCollectionRuleDataSources(
             data_import=data_import,
@@ -222,14 +222,14 @@ class MonitorDataCollectionRule(
         storage_table_direct: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MonitorDataCollectionRuleDestinationsStorageTableDirect", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param azure_monitor_metrics: azure_monitor_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#azure_monitor_metrics MonitorDataCollectionRule#azure_monitor_metrics}
-        :param event_hub: event_hub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub MonitorDataCollectionRule#event_hub}
-        :param event_hub_direct: event_hub_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_direct MonitorDataCollectionRule#event_hub_direct}
-        :param log_analytics: log_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_analytics MonitorDataCollectionRule#log_analytics}
-        :param monitor_account: monitor_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#monitor_account MonitorDataCollectionRule#monitor_account}
-        :param storage_blob: storage_blob block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_blob MonitorDataCollectionRule#storage_blob}
-        :param storage_blob_direct: storage_blob_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_blob_direct MonitorDataCollectionRule#storage_blob_direct}
-        :param storage_table_direct: storage_table_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_table_direct MonitorDataCollectionRule#storage_table_direct}
+        :param azure_monitor_metrics: azure_monitor_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#azure_monitor_metrics MonitorDataCollectionRule#azure_monitor_metrics}
+        :param event_hub: event_hub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub MonitorDataCollectionRule#event_hub}
+        :param event_hub_direct: event_hub_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_direct MonitorDataCollectionRule#event_hub_direct}
+        :param log_analytics: log_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_analytics MonitorDataCollectionRule#log_analytics}
+        :param monitor_account: monitor_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#monitor_account MonitorDataCollectionRule#monitor_account}
+        :param storage_blob: storage_blob block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_blob MonitorDataCollectionRule#storage_blob}
+        :param storage_blob_direct: storage_blob_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_blob_direct MonitorDataCollectionRule#storage_blob_direct}
+        :param storage_table_direct: storage_table_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_table_direct MonitorDataCollectionRule#storage_table_direct}
         '''
         value = MonitorDataCollectionRuleDestinations(
             azure_monitor_metrics=azure_monitor_metrics,
@@ -252,8 +252,8 @@ class MonitorDataCollectionRule(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#identity_ids MonitorDataCollectionRule#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#identity_ids MonitorDataCollectionRule#identity_ids}.
         '''
         value = MonitorDataCollectionRuleIdentity(type=type, identity_ids=identity_ids)
 
@@ -282,10 +282,10 @@ class MonitorDataCollectionRule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#create MonitorDataCollectionRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#delete MonitorDataCollectionRule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#read MonitorDataCollectionRule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#update MonitorDataCollectionRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#create MonitorDataCollectionRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#delete MonitorDataCollectionRule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#read MonitorDataCollectionRule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#update MonitorDataCollectionRule#update}.
         '''
         value = MonitorDataCollectionRuleTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -615,20 +615,20 @@ class MonitorDataCollectionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_flow: data_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_flow MonitorDataCollectionRule#data_flow}
-        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#location MonitorDataCollectionRule#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#resource_group_name MonitorDataCollectionRule#resource_group_name}.
-        :param data_collection_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_collection_endpoint_id MonitorDataCollectionRule#data_collection_endpoint_id}.
-        :param data_sources: data_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_sources MonitorDataCollectionRule#data_sources}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#description MonitorDataCollectionRule#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#id MonitorDataCollectionRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#identity MonitorDataCollectionRule#identity}
-        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#kind MonitorDataCollectionRule#kind}.
-        :param stream_declaration: stream_declaration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#stream_declaration MonitorDataCollectionRule#stream_declaration}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#tags MonitorDataCollectionRule#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#timeouts MonitorDataCollectionRule#timeouts}
+        :param data_flow: data_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_flow MonitorDataCollectionRule#data_flow}
+        :param destinations: destinations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#location MonitorDataCollectionRule#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#resource_group_name MonitorDataCollectionRule#resource_group_name}.
+        :param data_collection_endpoint_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_collection_endpoint_id MonitorDataCollectionRule#data_collection_endpoint_id}.
+        :param data_sources: data_sources block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_sources MonitorDataCollectionRule#data_sources}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#description MonitorDataCollectionRule#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#id MonitorDataCollectionRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#identity MonitorDataCollectionRule#identity}
+        :param kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#kind MonitorDataCollectionRule#kind}.
+        :param stream_declaration: stream_declaration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#stream_declaration MonitorDataCollectionRule#stream_declaration}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#tags MonitorDataCollectionRule#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#timeouts MonitorDataCollectionRule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -773,7 +773,7 @@ class MonitorDataCollectionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataFlow"]]:
         '''data_flow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_flow MonitorDataCollectionRule#data_flow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_flow MonitorDataCollectionRule#data_flow}
         '''
         result = self._values.get("data_flow")
         assert result is not None, "Required property 'data_flow' is missing"
@@ -783,7 +783,7 @@ class MonitorDataCollectionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def destinations(self) -> "MonitorDataCollectionRuleDestinations":
         '''destinations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}
         '''
         result = self._values.get("destinations")
         assert result is not None, "Required property 'destinations' is missing"
@@ -791,28 +791,28 @@ class MonitorDataCollectionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#location MonitorDataCollectionRule#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#location MonitorDataCollectionRule#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#resource_group_name MonitorDataCollectionRule#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#resource_group_name MonitorDataCollectionRule#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_collection_endpoint_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_collection_endpoint_id MonitorDataCollectionRule#data_collection_endpoint_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_collection_endpoint_id MonitorDataCollectionRule#data_collection_endpoint_id}.'''
         result = self._values.get("data_collection_endpoint_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -820,20 +820,20 @@ class MonitorDataCollectionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_sources(self) -> typing.Optional["MonitorDataCollectionRuleDataSources"]:
         '''data_sources block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_sources MonitorDataCollectionRule#data_sources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_sources MonitorDataCollectionRule#data_sources}
         '''
         result = self._values.get("data_sources")
         return typing.cast(typing.Optional["MonitorDataCollectionRuleDataSources"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#description MonitorDataCollectionRule#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#description MonitorDataCollectionRule#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#id MonitorDataCollectionRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#id MonitorDataCollectionRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -845,14 +845,14 @@ class MonitorDataCollectionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["MonitorDataCollectionRuleIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#identity MonitorDataCollectionRule#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#identity MonitorDataCollectionRule#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["MonitorDataCollectionRuleIdentity"], result)
 
     @builtins.property
     def kind(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#kind MonitorDataCollectionRule#kind}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#kind MonitorDataCollectionRule#kind}.'''
         result = self._values.get("kind")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -862,14 +862,14 @@ class MonitorDataCollectionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleStreamDeclaration"]]]:
         '''stream_declaration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#stream_declaration MonitorDataCollectionRule#stream_declaration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#stream_declaration MonitorDataCollectionRule#stream_declaration}
         '''
         result = self._values.get("stream_declaration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleStreamDeclaration"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#tags MonitorDataCollectionRule#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#tags MonitorDataCollectionRule#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -877,7 +877,7 @@ class MonitorDataCollectionRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MonitorDataCollectionRuleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#timeouts MonitorDataCollectionRule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#timeouts MonitorDataCollectionRule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MonitorDataCollectionRuleTimeouts"], result)
@@ -916,11 +916,11 @@ class MonitorDataCollectionRuleDataFlow:
         transform_kql: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destinations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
-        :param built_in_transform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#built_in_transform MonitorDataCollectionRule#built_in_transform}.
-        :param output_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#output_stream MonitorDataCollectionRule#output_stream}.
-        :param transform_kql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#transform_kql MonitorDataCollectionRule#transform_kql}.
+        :param destinations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param built_in_transform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#built_in_transform MonitorDataCollectionRule#built_in_transform}.
+        :param output_stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#output_stream MonitorDataCollectionRule#output_stream}.
+        :param transform_kql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#transform_kql MonitorDataCollectionRule#transform_kql}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__31534c94d7dd3dad441dc0a88e1e01b345b0d2771935ed98ae8cfa810007c1b8)
@@ -942,33 +942,33 @@ class MonitorDataCollectionRuleDataFlow:
 
     @builtins.property
     def destinations(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#destinations MonitorDataCollectionRule#destinations}.'''
         result = self._values.get("destinations")
         assert result is not None, "Required property 'destinations' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def built_in_transform(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#built_in_transform MonitorDataCollectionRule#built_in_transform}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#built_in_transform MonitorDataCollectionRule#built_in_transform}.'''
         result = self._values.get("built_in_transform")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def output_stream(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#output_stream MonitorDataCollectionRule#output_stream}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#output_stream MonitorDataCollectionRule#output_stream}.'''
         result = self._values.get("output_stream")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transform_kql(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#transform_kql MonitorDataCollectionRule#transform_kql}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#transform_kql MonitorDataCollectionRule#transform_kql}.'''
         result = self._values.get("transform_kql")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1250,16 +1250,16 @@ class MonitorDataCollectionRuleDataSources:
         windows_firewall_log: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MonitorDataCollectionRuleDataSourcesWindowsFirewallLog", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param data_import: data_import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_import MonitorDataCollectionRule#data_import}
-        :param extension: extension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#extension MonitorDataCollectionRule#extension}
-        :param iis_log: iis_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#iis_log MonitorDataCollectionRule#iis_log}
-        :param log_file: log_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_file MonitorDataCollectionRule#log_file}
-        :param performance_counter: performance_counter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#performance_counter MonitorDataCollectionRule#performance_counter}
-        :param platform_telemetry: platform_telemetry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#platform_telemetry MonitorDataCollectionRule#platform_telemetry}
-        :param prometheus_forwarder: prometheus_forwarder block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#prometheus_forwarder MonitorDataCollectionRule#prometheus_forwarder}
-        :param syslog: syslog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#syslog MonitorDataCollectionRule#syslog}
-        :param windows_event_log: windows_event_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#windows_event_log MonitorDataCollectionRule#windows_event_log}
-        :param windows_firewall_log: windows_firewall_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#windows_firewall_log MonitorDataCollectionRule#windows_firewall_log}
+        :param data_import: data_import block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_import MonitorDataCollectionRule#data_import}
+        :param extension: extension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#extension MonitorDataCollectionRule#extension}
+        :param iis_log: iis_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#iis_log MonitorDataCollectionRule#iis_log}
+        :param log_file: log_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_file MonitorDataCollectionRule#log_file}
+        :param performance_counter: performance_counter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#performance_counter MonitorDataCollectionRule#performance_counter}
+        :param platform_telemetry: platform_telemetry block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#platform_telemetry MonitorDataCollectionRule#platform_telemetry}
+        :param prometheus_forwarder: prometheus_forwarder block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#prometheus_forwarder MonitorDataCollectionRule#prometheus_forwarder}
+        :param syslog: syslog block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#syslog MonitorDataCollectionRule#syslog}
+        :param windows_event_log: windows_event_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#windows_event_log MonitorDataCollectionRule#windows_event_log}
+        :param windows_firewall_log: windows_firewall_log block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#windows_firewall_log MonitorDataCollectionRule#windows_firewall_log}
         '''
         if isinstance(data_import, dict):
             data_import = MonitorDataCollectionRuleDataSourcesDataImport(**data_import)
@@ -1303,7 +1303,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional["MonitorDataCollectionRuleDataSourcesDataImport"]:
         '''data_import block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#data_import MonitorDataCollectionRule#data_import}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#data_import MonitorDataCollectionRule#data_import}
         '''
         result = self._values.get("data_import")
         return typing.cast(typing.Optional["MonitorDataCollectionRuleDataSourcesDataImport"], result)
@@ -1314,7 +1314,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesExtension"]]]:
         '''extension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#extension MonitorDataCollectionRule#extension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#extension MonitorDataCollectionRule#extension}
         '''
         result = self._values.get("extension")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesExtension"]]], result)
@@ -1325,7 +1325,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesIisLog"]]]:
         '''iis_log block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#iis_log MonitorDataCollectionRule#iis_log}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#iis_log MonitorDataCollectionRule#iis_log}
         '''
         result = self._values.get("iis_log")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesIisLog"]]], result)
@@ -1336,7 +1336,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesLogFile"]]]:
         '''log_file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_file MonitorDataCollectionRule#log_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_file MonitorDataCollectionRule#log_file}
         '''
         result = self._values.get("log_file")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesLogFile"]]], result)
@@ -1347,7 +1347,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesPerformanceCounter"]]]:
         '''performance_counter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#performance_counter MonitorDataCollectionRule#performance_counter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#performance_counter MonitorDataCollectionRule#performance_counter}
         '''
         result = self._values.get("performance_counter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesPerformanceCounter"]]], result)
@@ -1358,7 +1358,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesPlatformTelemetry"]]]:
         '''platform_telemetry block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#platform_telemetry MonitorDataCollectionRule#platform_telemetry}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#platform_telemetry MonitorDataCollectionRule#platform_telemetry}
         '''
         result = self._values.get("platform_telemetry")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesPlatformTelemetry"]]], result)
@@ -1369,7 +1369,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesPrometheusForwarder"]]]:
         '''prometheus_forwarder block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#prometheus_forwarder MonitorDataCollectionRule#prometheus_forwarder}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#prometheus_forwarder MonitorDataCollectionRule#prometheus_forwarder}
         '''
         result = self._values.get("prometheus_forwarder")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesPrometheusForwarder"]]], result)
@@ -1380,7 +1380,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesSyslog"]]]:
         '''syslog block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#syslog MonitorDataCollectionRule#syslog}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#syslog MonitorDataCollectionRule#syslog}
         '''
         result = self._values.get("syslog")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesSyslog"]]], result)
@@ -1391,7 +1391,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesWindowsEventLog"]]]:
         '''windows_event_log block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#windows_event_log MonitorDataCollectionRule#windows_event_log}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#windows_event_log MonitorDataCollectionRule#windows_event_log}
         '''
         result = self._values.get("windows_event_log")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesWindowsEventLog"]]], result)
@@ -1402,7 +1402,7 @@ class MonitorDataCollectionRuleDataSources:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesWindowsFirewallLog"]]]:
         '''windows_firewall_log block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#windows_firewall_log MonitorDataCollectionRule#windows_firewall_log}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#windows_firewall_log MonitorDataCollectionRule#windows_firewall_log}
         '''
         result = self._values.get("windows_firewall_log")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesWindowsFirewallLog"]]], result)
@@ -1431,7 +1431,7 @@ class MonitorDataCollectionRuleDataSourcesDataImport:
         event_hub_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MonitorDataCollectionRuleDataSourcesDataImportEventHubDataSource", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param event_hub_data_source: event_hub_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_data_source MonitorDataCollectionRule#event_hub_data_source}
+        :param event_hub_data_source: event_hub_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_data_source MonitorDataCollectionRule#event_hub_data_source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3262b7e4fba65b85ae0a8271ed3df0413aef70895f9bb24c6fc6610da49d2bae)
@@ -1446,7 +1446,7 @@ class MonitorDataCollectionRuleDataSourcesDataImport:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesDataImportEventHubDataSource"]]:
         '''event_hub_data_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_data_source MonitorDataCollectionRule#event_hub_data_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_data_source MonitorDataCollectionRule#event_hub_data_source}
         '''
         result = self._values.get("event_hub_data_source")
         assert result is not None, "Required property 'event_hub_data_source' is missing"
@@ -1482,9 +1482,9 @@ class MonitorDataCollectionRuleDataSourcesDataImportEventHubDataSource:
         consumer_group: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#stream MonitorDataCollectionRule#stream}.
-        :param consumer_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#consumer_group MonitorDataCollectionRule#consumer_group}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param stream: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#stream MonitorDataCollectionRule#stream}.
+        :param consumer_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#consumer_group MonitorDataCollectionRule#consumer_group}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f2f3b342185c9de637d137d175678eff77f778fda571cc847a8c5b4828c5323)
@@ -1500,21 +1500,21 @@ class MonitorDataCollectionRuleDataSourcesDataImportEventHubDataSource:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def stream(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#stream MonitorDataCollectionRule#stream}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#stream MonitorDataCollectionRule#stream}.'''
         result = self._values.get("stream")
         assert result is not None, "Required property 'stream' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def consumer_group(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#consumer_group MonitorDataCollectionRule#consumer_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#consumer_group MonitorDataCollectionRule#consumer_group}.'''
         result = self._values.get("consumer_group")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1809,11 +1809,11 @@ class MonitorDataCollectionRuleDataSourcesExtension:
         input_data_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param extension_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#extension_name MonitorDataCollectionRule#extension_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
-        :param extension_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#extension_json MonitorDataCollectionRule#extension_json}.
-        :param input_data_sources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#input_data_sources MonitorDataCollectionRule#input_data_sources}.
+        :param extension_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#extension_name MonitorDataCollectionRule#extension_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param extension_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#extension_json MonitorDataCollectionRule#extension_json}.
+        :param input_data_sources: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#input_data_sources MonitorDataCollectionRule#input_data_sources}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__880b7ad1e3b0bd0ba7e0151d7e7567c5d08b9cbdfc6d38d39417b12702a3368f)
@@ -1834,34 +1834,34 @@ class MonitorDataCollectionRuleDataSourcesExtension:
 
     @builtins.property
     def extension_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#extension_name MonitorDataCollectionRule#extension_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#extension_name MonitorDataCollectionRule#extension_name}.'''
         result = self._values.get("extension_name")
         assert result is not None, "Required property 'extension_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def extension_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#extension_json MonitorDataCollectionRule#extension_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#extension_json MonitorDataCollectionRule#extension_json}.'''
         result = self._values.get("extension_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def input_data_sources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#input_data_sources MonitorDataCollectionRule#input_data_sources}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#input_data_sources MonitorDataCollectionRule#input_data_sources}.'''
         result = self._values.get("input_data_sources")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2125,9 +2125,9 @@ class MonitorDataCollectionRuleDataSourcesIisLog:
         log_directories: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
-        :param log_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_directories MonitorDataCollectionRule#log_directories}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param log_directories: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_directories MonitorDataCollectionRule#log_directories}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ef8c9fca9c8b9b79002539a94df023be6df964f6f39c0d558c3a4777c90ccd3)
@@ -2143,21 +2143,21 @@ class MonitorDataCollectionRuleDataSourcesIisLog:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def log_directories(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_directories MonitorDataCollectionRule#log_directories}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_directories MonitorDataCollectionRule#log_directories}.'''
         result = self._values.get("log_directories")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2387,11 +2387,11 @@ class MonitorDataCollectionRuleDataSourcesLogFile:
         settings: typing.Optional[typing.Union["MonitorDataCollectionRuleDataSourcesLogFileSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param file_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#file_patterns MonitorDataCollectionRule#file_patterns}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#format MonitorDataCollectionRule#format}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
-        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#settings MonitorDataCollectionRule#settings}
+        :param file_patterns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#file_patterns MonitorDataCollectionRule#file_patterns}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#format MonitorDataCollectionRule#format}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param settings: settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#settings MonitorDataCollectionRule#settings}
         '''
         if isinstance(settings, dict):
             settings = MonitorDataCollectionRuleDataSourcesLogFileSettings(**settings)
@@ -2413,28 +2413,28 @@ class MonitorDataCollectionRuleDataSourcesLogFile:
 
     @builtins.property
     def file_patterns(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#file_patterns MonitorDataCollectionRule#file_patterns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#file_patterns MonitorDataCollectionRule#file_patterns}.'''
         result = self._values.get("file_patterns")
         assert result is not None, "Required property 'file_patterns' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#format MonitorDataCollectionRule#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#format MonitorDataCollectionRule#format}.'''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2445,7 +2445,7 @@ class MonitorDataCollectionRuleDataSourcesLogFile:
     ) -> typing.Optional["MonitorDataCollectionRuleDataSourcesLogFileSettings"]:
         '''settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#settings MonitorDataCollectionRule#settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#settings MonitorDataCollectionRule#settings}
         '''
         result = self._values.get("settings")
         return typing.cast(typing.Optional["MonitorDataCollectionRuleDataSourcesLogFileSettings"], result)
@@ -2588,7 +2588,7 @@ class MonitorDataCollectionRuleDataSourcesLogFileOutputReference(
         text: typing.Union["MonitorDataCollectionRuleDataSourcesLogFileSettingsText", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#text MonitorDataCollectionRule#text}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#text MonitorDataCollectionRule#text}
         '''
         value = MonitorDataCollectionRuleDataSourcesLogFileSettings(text=text)
 
@@ -2710,7 +2710,7 @@ class MonitorDataCollectionRuleDataSourcesLogFileSettings:
         text: typing.Union["MonitorDataCollectionRuleDataSourcesLogFileSettingsText", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#text MonitorDataCollectionRule#text}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#text MonitorDataCollectionRule#text}
         '''
         if isinstance(text, dict):
             text = MonitorDataCollectionRuleDataSourcesLogFileSettingsText(**text)
@@ -2725,7 +2725,7 @@ class MonitorDataCollectionRuleDataSourcesLogFileSettings:
     def text(self) -> "MonitorDataCollectionRuleDataSourcesLogFileSettingsText":
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#text MonitorDataCollectionRule#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#text MonitorDataCollectionRule#text}
         '''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
@@ -2766,7 +2766,7 @@ class MonitorDataCollectionRuleDataSourcesLogFileSettingsOutputReference(
     @jsii.member(jsii_name="putText")
     def put_text(self, *, record_start_timestamp_format: builtins.str) -> None:
         '''
-        :param record_start_timestamp_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#record_start_timestamp_format MonitorDataCollectionRule#record_start_timestamp_format}.
+        :param record_start_timestamp_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#record_start_timestamp_format MonitorDataCollectionRule#record_start_timestamp_format}.
         '''
         value = MonitorDataCollectionRuleDataSourcesLogFileSettingsText(
             record_start_timestamp_format=record_start_timestamp_format
@@ -2814,7 +2814,7 @@ class MonitorDataCollectionRuleDataSourcesLogFileSettingsOutputReference(
 class MonitorDataCollectionRuleDataSourcesLogFileSettingsText:
     def __init__(self, *, record_start_timestamp_format: builtins.str) -> None:
         '''
-        :param record_start_timestamp_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#record_start_timestamp_format MonitorDataCollectionRule#record_start_timestamp_format}.
+        :param record_start_timestamp_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#record_start_timestamp_format MonitorDataCollectionRule#record_start_timestamp_format}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95255289c5e4137d42b09cc7a318a73acb6d1dc2303b37ef18d657e89efe34b7)
@@ -2825,7 +2825,7 @@ class MonitorDataCollectionRuleDataSourcesLogFileSettingsText:
 
     @builtins.property
     def record_start_timestamp_format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#record_start_timestamp_format MonitorDataCollectionRule#record_start_timestamp_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#record_start_timestamp_format MonitorDataCollectionRule#record_start_timestamp_format}.'''
         result = self._values.get("record_start_timestamp_format")
         assert result is not None, "Required property 'record_start_timestamp_format' is missing"
         return typing.cast(builtins.str, result)
@@ -2924,7 +2924,7 @@ class MonitorDataCollectionRuleDataSourcesOutputReference(
         event_hub_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[MonitorDataCollectionRuleDataSourcesDataImportEventHubDataSource, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param event_hub_data_source: event_hub_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_data_source MonitorDataCollectionRule#event_hub_data_source}
+        :param event_hub_data_source: event_hub_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_data_source MonitorDataCollectionRule#event_hub_data_source}
         '''
         value = MonitorDataCollectionRuleDataSourcesDataImport(
             event_hub_data_source=event_hub_data_source
@@ -3257,10 +3257,10 @@ class MonitorDataCollectionRuleDataSourcesPerformanceCounter:
         streams: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param counter_specifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#counter_specifiers MonitorDataCollectionRule#counter_specifiers}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param sampling_frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#sampling_frequency_in_seconds MonitorDataCollectionRule#sampling_frequency_in_seconds}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param counter_specifiers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#counter_specifiers MonitorDataCollectionRule#counter_specifiers}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param sampling_frequency_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#sampling_frequency_in_seconds MonitorDataCollectionRule#sampling_frequency_in_seconds}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78ba1f5d9613309985657fe5930e78b29ab6382c52d1effa76c6bbec356ed669)
@@ -3277,28 +3277,28 @@ class MonitorDataCollectionRuleDataSourcesPerformanceCounter:
 
     @builtins.property
     def counter_specifiers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#counter_specifiers MonitorDataCollectionRule#counter_specifiers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#counter_specifiers MonitorDataCollectionRule#counter_specifiers}.'''
         result = self._values.get("counter_specifiers")
         assert result is not None, "Required property 'counter_specifiers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sampling_frequency_in_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#sampling_frequency_in_seconds MonitorDataCollectionRule#sampling_frequency_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#sampling_frequency_in_seconds MonitorDataCollectionRule#sampling_frequency_in_seconds}.'''
         result = self._values.get("sampling_frequency_in_seconds")
         assert result is not None, "Required property 'sampling_frequency_in_seconds' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3533,8 +3533,8 @@ class MonitorDataCollectionRuleDataSourcesPlatformTelemetry:
         streams: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__893b7642dc4492cb01e1fc646c94a91668454a46f91008a4605d9b08fe53b0f7)
@@ -3547,14 +3547,14 @@ class MonitorDataCollectionRuleDataSourcesPlatformTelemetry:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3760,9 +3760,9 @@ class MonitorDataCollectionRuleDataSourcesPrometheusForwarder:
         label_include_filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MonitorDataCollectionRuleDataSourcesPrometheusForwarderLabelIncludeFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
-        :param label_include_filter: label_include_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#label_include_filter MonitorDataCollectionRule#label_include_filter}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param label_include_filter: label_include_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#label_include_filter MonitorDataCollectionRule#label_include_filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__748a48c639c5c6d46cac71e2d1bbc17ab59f3d95e1ffab7a424dc9b5f78e6297)
@@ -3778,14 +3778,14 @@ class MonitorDataCollectionRuleDataSourcesPrometheusForwarder:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3796,7 +3796,7 @@ class MonitorDataCollectionRuleDataSourcesPrometheusForwarder:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesPrometheusForwarderLabelIncludeFilter"]]]:
         '''label_include_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#label_include_filter MonitorDataCollectionRule#label_include_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#label_include_filter MonitorDataCollectionRule#label_include_filter}
         '''
         result = self._values.get("label_include_filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDataSourcesPrometheusForwarderLabelIncludeFilter"]]], result)
@@ -3821,8 +3821,8 @@ class MonitorDataCollectionRuleDataSourcesPrometheusForwarder:
 class MonitorDataCollectionRuleDataSourcesPrometheusForwarderLabelIncludeFilter:
     def __init__(self, *, label: builtins.str, value: builtins.str) -> None:
         '''
-        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#label MonitorDataCollectionRule#label}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#value MonitorDataCollectionRule#value}.
+        :param label: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#label MonitorDataCollectionRule#label}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#value MonitorDataCollectionRule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7819ef7b9f42ab08f81f81aff0b853cf3db67b21f7054c7e036d5c7010b7941)
@@ -3835,14 +3835,14 @@ class MonitorDataCollectionRuleDataSourcesPrometheusForwarderLabelIncludeFilter:
 
     @builtins.property
     def label(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#label MonitorDataCollectionRule#label}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#label MonitorDataCollectionRule#label}.'''
         result = self._values.get("label")
         assert result is not None, "Required property 'label' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#value MonitorDataCollectionRule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#value MonitorDataCollectionRule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4252,10 +4252,10 @@ class MonitorDataCollectionRuleDataSourcesSyslog:
         streams: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param facility_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#facility_names MonitorDataCollectionRule#facility_names}.
-        :param log_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_levels MonitorDataCollectionRule#log_levels}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param facility_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#facility_names MonitorDataCollectionRule#facility_names}.
+        :param log_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_levels MonitorDataCollectionRule#log_levels}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2a9883e1ae6a4738a241f2d58c530f77392ebf28f4f8bcff16cbb35b180a87dd)
@@ -4272,28 +4272,28 @@ class MonitorDataCollectionRuleDataSourcesSyslog:
 
     @builtins.property
     def facility_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#facility_names MonitorDataCollectionRule#facility_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#facility_names MonitorDataCollectionRule#facility_names}.'''
         result = self._values.get("facility_names")
         assert result is not None, "Required property 'facility_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def log_levels(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_levels MonitorDataCollectionRule#log_levels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_levels MonitorDataCollectionRule#log_levels}.'''
         result = self._values.get("log_levels")
         assert result is not None, "Required property 'log_levels' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -4533,9 +4533,9 @@ class MonitorDataCollectionRuleDataSourcesWindowsEventLog:
         x_path_queries: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
-        :param x_path_queries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#x_path_queries MonitorDataCollectionRule#x_path_queries}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param x_path_queries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#x_path_queries MonitorDataCollectionRule#x_path_queries}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9b557f77d1831e36056c552a32db43c0d6da5fda2d3231c835178e51abd7925a)
@@ -4550,21 +4550,21 @@ class MonitorDataCollectionRuleDataSourcesWindowsEventLog:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def x_path_queries(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#x_path_queries MonitorDataCollectionRule#x_path_queries}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#x_path_queries MonitorDataCollectionRule#x_path_queries}.'''
         result = self._values.get("x_path_queries")
         assert result is not None, "Required property 'x_path_queries' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -4782,8 +4782,8 @@ class MonitorDataCollectionRuleDataSourcesWindowsFirewallLog:
         streams: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param streams: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1a1bd09b1a147bd26074ba3591ac31ffcf67a492a6f3dae379ae3e5a71d754e)
@@ -4796,14 +4796,14 @@ class MonitorDataCollectionRuleDataSourcesWindowsFirewallLog:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def streams(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#streams MonitorDataCollectionRule#streams}.'''
         result = self._values.get("streams")
         assert result is not None, "Required property 'streams' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -5019,14 +5019,14 @@ class MonitorDataCollectionRuleDestinations:
         storage_table_direct: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MonitorDataCollectionRuleDestinationsStorageTableDirect", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param azure_monitor_metrics: azure_monitor_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#azure_monitor_metrics MonitorDataCollectionRule#azure_monitor_metrics}
-        :param event_hub: event_hub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub MonitorDataCollectionRule#event_hub}
-        :param event_hub_direct: event_hub_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_direct MonitorDataCollectionRule#event_hub_direct}
-        :param log_analytics: log_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_analytics MonitorDataCollectionRule#log_analytics}
-        :param monitor_account: monitor_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#monitor_account MonitorDataCollectionRule#monitor_account}
-        :param storage_blob: storage_blob block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_blob MonitorDataCollectionRule#storage_blob}
-        :param storage_blob_direct: storage_blob_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_blob_direct MonitorDataCollectionRule#storage_blob_direct}
-        :param storage_table_direct: storage_table_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_table_direct MonitorDataCollectionRule#storage_table_direct}
+        :param azure_monitor_metrics: azure_monitor_metrics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#azure_monitor_metrics MonitorDataCollectionRule#azure_monitor_metrics}
+        :param event_hub: event_hub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub MonitorDataCollectionRule#event_hub}
+        :param event_hub_direct: event_hub_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_direct MonitorDataCollectionRule#event_hub_direct}
+        :param log_analytics: log_analytics block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_analytics MonitorDataCollectionRule#log_analytics}
+        :param monitor_account: monitor_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#monitor_account MonitorDataCollectionRule#monitor_account}
+        :param storage_blob: storage_blob block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_blob MonitorDataCollectionRule#storage_blob}
+        :param storage_blob_direct: storage_blob_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_blob_direct MonitorDataCollectionRule#storage_blob_direct}
+        :param storage_table_direct: storage_table_direct block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_table_direct MonitorDataCollectionRule#storage_table_direct}
         '''
         if isinstance(azure_monitor_metrics, dict):
             azure_monitor_metrics = MonitorDataCollectionRuleDestinationsAzureMonitorMetrics(**azure_monitor_metrics)
@@ -5068,7 +5068,7 @@ class MonitorDataCollectionRuleDestinations:
     ) -> typing.Optional["MonitorDataCollectionRuleDestinationsAzureMonitorMetrics"]:
         '''azure_monitor_metrics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#azure_monitor_metrics MonitorDataCollectionRule#azure_monitor_metrics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#azure_monitor_metrics MonitorDataCollectionRule#azure_monitor_metrics}
         '''
         result = self._values.get("azure_monitor_metrics")
         return typing.cast(typing.Optional["MonitorDataCollectionRuleDestinationsAzureMonitorMetrics"], result)
@@ -5079,7 +5079,7 @@ class MonitorDataCollectionRuleDestinations:
     ) -> typing.Optional["MonitorDataCollectionRuleDestinationsEventHub"]:
         '''event_hub block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub MonitorDataCollectionRule#event_hub}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub MonitorDataCollectionRule#event_hub}
         '''
         result = self._values.get("event_hub")
         return typing.cast(typing.Optional["MonitorDataCollectionRuleDestinationsEventHub"], result)
@@ -5090,7 +5090,7 @@ class MonitorDataCollectionRuleDestinations:
     ) -> typing.Optional["MonitorDataCollectionRuleDestinationsEventHubDirect"]:
         '''event_hub_direct block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_direct MonitorDataCollectionRule#event_hub_direct}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_direct MonitorDataCollectionRule#event_hub_direct}
         '''
         result = self._values.get("event_hub_direct")
         return typing.cast(typing.Optional["MonitorDataCollectionRuleDestinationsEventHubDirect"], result)
@@ -5101,7 +5101,7 @@ class MonitorDataCollectionRuleDestinations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsLogAnalytics"]]]:
         '''log_analytics block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#log_analytics MonitorDataCollectionRule#log_analytics}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#log_analytics MonitorDataCollectionRule#log_analytics}
         '''
         result = self._values.get("log_analytics")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsLogAnalytics"]]], result)
@@ -5112,7 +5112,7 @@ class MonitorDataCollectionRuleDestinations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsMonitorAccount"]]]:
         '''monitor_account block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#monitor_account MonitorDataCollectionRule#monitor_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#monitor_account MonitorDataCollectionRule#monitor_account}
         '''
         result = self._values.get("monitor_account")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsMonitorAccount"]]], result)
@@ -5123,7 +5123,7 @@ class MonitorDataCollectionRuleDestinations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsStorageBlob"]]]:
         '''storage_blob block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_blob MonitorDataCollectionRule#storage_blob}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_blob MonitorDataCollectionRule#storage_blob}
         '''
         result = self._values.get("storage_blob")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsStorageBlob"]]], result)
@@ -5134,7 +5134,7 @@ class MonitorDataCollectionRuleDestinations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsStorageBlobDirect"]]]:
         '''storage_blob_direct block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_blob_direct MonitorDataCollectionRule#storage_blob_direct}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_blob_direct MonitorDataCollectionRule#storage_blob_direct}
         '''
         result = self._values.get("storage_blob_direct")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsStorageBlobDirect"]]], result)
@@ -5145,7 +5145,7 @@ class MonitorDataCollectionRuleDestinations:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsStorageTableDirect"]]]:
         '''storage_table_direct block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_table_direct MonitorDataCollectionRule#storage_table_direct}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_table_direct MonitorDataCollectionRule#storage_table_direct}
         '''
         result = self._values.get("storage_table_direct")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleDestinationsStorageTableDirect"]]], result)
@@ -5170,7 +5170,7 @@ class MonitorDataCollectionRuleDestinations:
 class MonitorDataCollectionRuleDestinationsAzureMonitorMetrics:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34ecd0556ab897ecc2bca1b5401b8dbd4d672f663daadc537150dba8b8f4fb70)
@@ -5181,7 +5181,7 @@ class MonitorDataCollectionRuleDestinationsAzureMonitorMetrics:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -5261,8 +5261,8 @@ class MonitorDataCollectionRuleDestinationsAzureMonitorMetricsOutputReference(
 class MonitorDataCollectionRuleDestinationsEventHub:
     def __init__(self, *, event_hub_id: builtins.str, name: builtins.str) -> None:
         '''
-        :param event_hub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param event_hub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__160d234c5efb98e7d7aaf8fff166cf2501f5f0da4e0369fa0331cb69400f804b)
@@ -5275,14 +5275,14 @@ class MonitorDataCollectionRuleDestinationsEventHub:
 
     @builtins.property
     def event_hub_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.'''
         result = self._values.get("event_hub_id")
         assert result is not None, "Required property 'event_hub_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -5307,8 +5307,8 @@ class MonitorDataCollectionRuleDestinationsEventHub:
 class MonitorDataCollectionRuleDestinationsEventHubDirect:
     def __init__(self, *, event_hub_id: builtins.str, name: builtins.str) -> None:
         '''
-        :param event_hub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param event_hub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c230c5f49687b4cccd1f72d1306f6771230a133b3d8fedbf9b3091cbf8e020d)
@@ -5321,14 +5321,14 @@ class MonitorDataCollectionRuleDestinationsEventHubDirect:
 
     @builtins.property
     def event_hub_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.'''
         result = self._values.get("event_hub_id")
         assert result is not None, "Required property 'event_hub_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -5502,8 +5502,8 @@ class MonitorDataCollectionRuleDestinationsLogAnalytics:
         workspace_resource_id: builtins.str,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param workspace_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#workspace_resource_id MonitorDataCollectionRule#workspace_resource_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param workspace_resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#workspace_resource_id MonitorDataCollectionRule#workspace_resource_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__251443bc66028e9ec47bb10d9c703e7b79fd9cb49a3de69a82c29a7adf08508d)
@@ -5516,14 +5516,14 @@ class MonitorDataCollectionRuleDestinationsLogAnalytics:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workspace_resource_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#workspace_resource_id MonitorDataCollectionRule#workspace_resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#workspace_resource_id MonitorDataCollectionRule#workspace_resource_id}.'''
         result = self._values.get("workspace_resource_id")
         assert result is not None, "Required property 'workspace_resource_id' is missing"
         return typing.cast(builtins.str, result)
@@ -5719,8 +5719,8 @@ class MonitorDataCollectionRuleDestinationsLogAnalyticsOutputReference(
 class MonitorDataCollectionRuleDestinationsMonitorAccount:
     def __init__(self, *, monitor_account_id: builtins.str, name: builtins.str) -> None:
         '''
-        :param monitor_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#monitor_account_id MonitorDataCollectionRule#monitor_account_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param monitor_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#monitor_account_id MonitorDataCollectionRule#monitor_account_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5b78cb44e678c95f8c57a8899b455f3f9c8bf41c58a6075812fd133343a3925)
@@ -5733,14 +5733,14 @@ class MonitorDataCollectionRuleDestinationsMonitorAccount:
 
     @builtins.property
     def monitor_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#monitor_account_id MonitorDataCollectionRule#monitor_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#monitor_account_id MonitorDataCollectionRule#monitor_account_id}.'''
         result = self._values.get("monitor_account_id")
         assert result is not None, "Required property 'monitor_account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -5951,7 +5951,7 @@ class MonitorDataCollectionRuleDestinationsOutputReference(
     @jsii.member(jsii_name="putAzureMonitorMetrics")
     def put_azure_monitor_metrics(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
         '''
         value = MonitorDataCollectionRuleDestinationsAzureMonitorMetrics(name=name)
 
@@ -5960,8 +5960,8 @@ class MonitorDataCollectionRuleDestinationsOutputReference(
     @jsii.member(jsii_name="putEventHub")
     def put_event_hub(self, *, event_hub_id: builtins.str, name: builtins.str) -> None:
         '''
-        :param event_hub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param event_hub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
         '''
         value = MonitorDataCollectionRuleDestinationsEventHub(
             event_hub_id=event_hub_id, name=name
@@ -5977,8 +5977,8 @@ class MonitorDataCollectionRuleDestinationsOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param event_hub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param event_hub_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#event_hub_id MonitorDataCollectionRule#event_hub_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
         '''
         value = MonitorDataCollectionRuleDestinationsEventHubDirect(
             event_hub_id=event_hub_id, name=name
@@ -6223,9 +6223,9 @@ class MonitorDataCollectionRuleDestinationsStorageBlob:
         storage_account_id: builtins.str,
     ) -> None:
         '''
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#container_name MonitorDataCollectionRule#container_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#container_name MonitorDataCollectionRule#container_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0a5cd93e054aaea4539bb66d675d50c1803bf406ca6a6f7a07181f782b37295)
@@ -6240,21 +6240,21 @@ class MonitorDataCollectionRuleDestinationsStorageBlob:
 
     @builtins.property
     def container_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#container_name MonitorDataCollectionRule#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#container_name MonitorDataCollectionRule#container_name}.'''
         result = self._values.get("container_name")
         assert result is not None, "Required property 'container_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.'''
         result = self._values.get("storage_account_id")
         assert result is not None, "Required property 'storage_account_id' is missing"
         return typing.cast(builtins.str, result)
@@ -6289,9 +6289,9 @@ class MonitorDataCollectionRuleDestinationsStorageBlobDirect:
         storage_account_id: builtins.str,
     ) -> None:
         '''
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#container_name MonitorDataCollectionRule#container_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#container_name MonitorDataCollectionRule#container_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ea149d212a8d21c3ff325f26906453d1f8660d65ce442c890906f81651658a7)
@@ -6306,21 +6306,21 @@ class MonitorDataCollectionRuleDestinationsStorageBlobDirect:
 
     @builtins.property
     def container_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#container_name MonitorDataCollectionRule#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#container_name MonitorDataCollectionRule#container_name}.'''
         result = self._values.get("container_name")
         assert result is not None, "Required property 'container_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.'''
         result = self._values.get("storage_account_id")
         assert result is not None, "Required property 'storage_account_id' is missing"
         return typing.cast(builtins.str, result)
@@ -6731,9 +6731,9 @@ class MonitorDataCollectionRuleDestinationsStorageTableDirect:
         table_name: builtins.str,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.
-        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#table_name MonitorDataCollectionRule#table_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.
+        :param table_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#table_name MonitorDataCollectionRule#table_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f3b1e4f45317733b74c17366e09ec07f8540e18690d0f7d878c8db7017f1ea6d)
@@ -6748,21 +6748,21 @@ class MonitorDataCollectionRuleDestinationsStorageTableDirect:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#storage_account_id MonitorDataCollectionRule#storage_account_id}.'''
         result = self._values.get("storage_account_id")
         assert result is not None, "Required property 'storage_account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def table_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#table_name MonitorDataCollectionRule#table_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#table_name MonitorDataCollectionRule#table_name}.'''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
@@ -6980,8 +6980,8 @@ class MonitorDataCollectionRuleIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#identity_ids MonitorDataCollectionRule#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#identity_ids MonitorDataCollectionRule#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f650c265237317561bc2dfa71cf72f7201660e1f4242f9607a25f5788d6c02d)
@@ -6995,14 +6995,14 @@ class MonitorDataCollectionRuleIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#identity_ids MonitorDataCollectionRule#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#identity_ids MonitorDataCollectionRule#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -7115,8 +7115,8 @@ class MonitorDataCollectionRuleStreamDeclaration:
         stream_name: builtins.str,
     ) -> None:
         '''
-        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#column MonitorDataCollectionRule#column}
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#stream_name MonitorDataCollectionRule#stream_name}.
+        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#column MonitorDataCollectionRule#column}
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#stream_name MonitorDataCollectionRule#stream_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4937c7273ee18bf0afd4efd6156584107b2e8dabda3e2c4b92f75e52942618eb)
@@ -7133,7 +7133,7 @@ class MonitorDataCollectionRuleStreamDeclaration:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MonitorDataCollectionRuleStreamDeclarationColumn"]]:
         '''column block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#column MonitorDataCollectionRule#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#column MonitorDataCollectionRule#column}
         '''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
@@ -7141,7 +7141,7 @@ class MonitorDataCollectionRuleStreamDeclaration:
 
     @builtins.property
     def stream_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#stream_name MonitorDataCollectionRule#stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#stream_name MonitorDataCollectionRule#stream_name}.'''
         result = self._values.get("stream_name")
         assert result is not None, "Required property 'stream_name' is missing"
         return typing.cast(builtins.str, result)
@@ -7166,8 +7166,8 @@ class MonitorDataCollectionRuleStreamDeclaration:
 class MonitorDataCollectionRuleStreamDeclarationColumn:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66fec215009ed2ba77089c862d175dbd4183192a14ff4c2595f13ace96eae357)
@@ -7180,14 +7180,14 @@ class MonitorDataCollectionRuleStreamDeclarationColumn:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#name MonitorDataCollectionRule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#type MonitorDataCollectionRule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -7574,10 +7574,10 @@ class MonitorDataCollectionRuleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#create MonitorDataCollectionRule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#delete MonitorDataCollectionRule#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#read MonitorDataCollectionRule#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#update MonitorDataCollectionRule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#create MonitorDataCollectionRule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#delete MonitorDataCollectionRule#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#read MonitorDataCollectionRule#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#update MonitorDataCollectionRule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f613481b34a9e84eaf7bdfe27afa2f209b9c0450d6f6da0e76bf9978064eb832)
@@ -7597,25 +7597,25 @@ class MonitorDataCollectionRuleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#create MonitorDataCollectionRule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#create MonitorDataCollectionRule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#delete MonitorDataCollectionRule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#delete MonitorDataCollectionRule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#read MonitorDataCollectionRule#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#read MonitorDataCollectionRule#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/monitor_data_collection_rule#update MonitorDataCollectionRule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/monitor_data_collection_rule#update MonitorDataCollectionRule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

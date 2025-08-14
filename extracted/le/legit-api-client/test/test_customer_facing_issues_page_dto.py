@@ -39,7 +39,8 @@ class TestCustomerFacingIssuesPageDto(unittest.TestCase):
                     legit_api_client.models.basic_issue.BasicIssue(
                         issue_type = null, 
                         severity = null, 
-                        id = '', )
+                        id = '', 
+                        score = 1.337, )
                     ],
                 next_token = ''
             )

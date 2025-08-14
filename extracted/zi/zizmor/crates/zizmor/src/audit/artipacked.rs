@@ -8,8 +8,8 @@ use crate::{
     models::{StepBodyCommon, StepCommon, uses::RepositoryUsesExt as _},
     state::AuditState,
     utils::split_patterns,
-    yaml_patch::{Op, Patch},
 };
+use yamlpatch::{Op, Patch};
 
 pub(crate) struct Artipacked;
 
@@ -151,14 +151,10 @@ impl Artipacked {
                 route: step.route(),
                 operation: Op::MergeInto {
                     key: "with".to_string(),
-                    value: {
-                        let mut with_map = serde_yaml::Mapping::new();
-                        with_map.insert(
-                            serde_yaml::Value::String("persist-credentials".to_string()),
-                            serde_yaml::Value::Bool(false),
-                        );
-                        serde_yaml::Value::Mapping(with_map)
-                    },
+                    updates: indexmap::IndexMap::from_iter([(
+                        "persist-credentials".to_string(),
+                        serde_yaml::Value::Bool(false),
+                    )]),
                 },
             }],
         }
@@ -212,8 +208,7 @@ mod tests {
             let audit_state = AuditState {
                 config: &Default::default(),
                 no_online_audits: false,
-                cache_dir: "/tmp/zizmor".into(),
-                gh_token: None,
+                gh_client: None,
                 gh_hostname: GitHubHost::Standard("github.com".into()),
             };
             let audit = <$audit_type>::new(&audit_state).unwrap();

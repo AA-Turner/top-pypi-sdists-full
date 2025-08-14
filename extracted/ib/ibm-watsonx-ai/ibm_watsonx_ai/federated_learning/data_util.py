@@ -11,8 +11,9 @@ Module providing utility functions helpful for preproccessing data
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-import numpy as np
 import logging
+
+import numpy as np
 
 from ibm_watsonx_ai.federated_learning.FLExceptions import FLException
 
@@ -41,7 +42,7 @@ def get_min(data, **kwargs):
         min_vec = np.min(data, axis=0)
     except Exception as ex:
         raise FLException(
-            "Error occurred when calculating " "the minimum value. " + str(ex)
+            "Error occurred when calculating the minimum value. " + str(ex)
         )
     return min_vec
 
@@ -66,7 +67,7 @@ def get_max(data, **kwargs):
         max_vec = np.max(data, axis=0)
     except Exception as ex:
         raise FLException(
-            "Error occurred when calculating " "the maximum value. " + str(ex)
+            "Error occurred when calculating the maximum value. " + str(ex)
         )
     return max_vec
 
@@ -90,9 +91,7 @@ def get_mean(data, **kwargs):
     try:
         var_vec = np.var(data, axis=0)
     except Exception as ex:
-        raise FLException(
-            "Error occurred when calculating " "the mean value. " + str(ex)
-        )
+        raise FLException("Error occurred when calculating the mean value. " + str(ex))
     return var_vec
 
 
@@ -115,7 +114,7 @@ def get_var(data, **kwargs):
     try:
         var_vec = np.var(data, axis=0)
     except Exception as ex:
-        raise FLException("Error occurred when calculating " "the variance. " + str(ex))
+        raise FLException("Error occurred when calculating the variance. " + str(ex))
     return var_vec
 
 
@@ -139,7 +138,7 @@ def get_std(data, **kwargs):
         std_vec = np.std(data, axis=0)
     except Exception as ex:
         raise FLException(
-            "Error occurred when calculating " "the standard deviation. " + str(ex)
+            "Error occurred when calculating the standard deviation. " + str(ex)
         )
     return std_vec
 
@@ -166,7 +165,7 @@ def get_quantile(data, percentage, **kwargs):
     try:
         quantile_vec = np.quantile(data, q=percentage, axis=0)
     except Exception as ex:
-        raise FLException("Error occurred when calculating " "the quantile. " + str(ex))
+        raise FLException("Error occurred when calculating the quantile. " + str(ex))
     return quantile_vec
 
 
@@ -195,7 +194,7 @@ def get_normalizer(data, norm="l2"):
         # test the normalizer
         normalizer.transform(data)
     except Exception as ex:
-        raise FLException("Error occurred when obtaining " "the normalizer. " + str(ex))
+        raise FLException("Error occurred when obtaining the normalizer. " + str(ex))
     return normalizer
 
 
@@ -231,7 +230,7 @@ def get_standardscaler(data, mean_val=None, std=None):
         # set scaler with correct mean_val and std values
         if mean_val is not None:
             logger.info(
-                "Set mean_val value of the StandardScaler " "as the provided mean..."
+                "Set mean_val value of the StandardScaler as the provided mean..."
             )
             scaler.mean_ = mean_val
         if std is not None:
@@ -242,7 +241,7 @@ def get_standardscaler(data, mean_val=None, std=None):
             scaler.scale_ = std
     except Exception as ex:
         raise FLException(
-            "Error occurred when obtaining " "the standardscaler. " + str(ex)
+            "Error occurred when obtaining the standardscaler. " + str(ex)
         )
 
     return scaler
@@ -274,9 +273,7 @@ def get_minmaxscaler(data, feature_range=(0, 1)):
     try:
         scaler = preprocessing.MinMaxScaler(feature_range=feature_range).fit(data)
     except Exception as ex:
-        raise FLException(
-            "Error occurred when obtaining " "the minmaxcaler. " + str(ex)
-        )
+        raise FLException("Error occurred when obtaining the minmaxcaler. " + str(ex))
     return scaler
 
 

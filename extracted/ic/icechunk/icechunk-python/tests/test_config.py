@@ -166,6 +166,7 @@ def test_can_change_deep_config_values() -> None:
     config.storage.storage_class = "STANDARD_IA"
     config.manifest = icechunk.ManifestConfig()
     config.manifest.preload = icechunk.ManifestPreloadConfig(max_total_refs=42)
+    config.max_concurrent_requests = 10
     config.manifest.preload.preload_if = icechunk.ManifestPreloadCondition.and_conditions(
         [
             icechunk.ManifestPreloadCondition.true(),
@@ -188,6 +189,7 @@ def test_can_change_deep_config_values() -> None:
     assert stored_config.inline_chunk_threshold_bytes == 5
     assert stored_config.compression
     assert stored_config.compression.level == 2
+    assert stored_config.max_concurrent_requests == 10
     assert stored_config.caching
     assert stored_config.caching.num_chunk_refs == 8
     assert stored_config.storage
@@ -236,3 +238,38 @@ def test_manifest_preload_magic_methods() -> None:
 
 def test_spec_version() -> None:
     assert icechunk.spec_version() >= 1
+
+
+def test_config_from_store() -> None:
+    config = icechunk.RepositoryConfig.default()
+    config.inline_chunk_threshold_bytes = 5
+
+    store_config = icechunk.s3_store(region="us-east-1")
+    container = icechunk.VirtualChunkContainer("s3://example/", store_config)
+    config.set_virtual_chunk_container(container)
+
+    storage = icechunk.in_memory_storage()
+    repo = icechunk.Repository.create(
+        storage=storage,
+        config=config,
+    )
+    session = repo.writable_session("main")
+    store = session.store
+
+    assert store.session.config == config
+    assert store.session.config.virtual_chunk_containers.keys() == {"s3://example/"}
+
+
+def test_s3_storage_options() -> None:
+    _storage = icechunk.s3_storage(
+        region="us-east-1",
+        endpoint_url="http://localhost:9000",
+        allow_http=True,
+        force_path_style=True,
+        bucket="testbucket",
+        prefix="this-repo-does-not-exist",
+        scatter_initial_credentials=True,
+        network_stream_timeout_seconds=50,
+    )
+    # TODO: add accessors and verify values
+    # currently this is only testing we can construct

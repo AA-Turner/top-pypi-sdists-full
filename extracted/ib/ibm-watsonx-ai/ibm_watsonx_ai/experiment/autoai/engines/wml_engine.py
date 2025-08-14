@@ -3,58 +3,52 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import TYPE_CHECKING, List, Dict, Tuple
-
-from pandas import DataFrame, MultiIndex
 import json
-from time import sleep
 import logging
+from time import sleep
+from typing import TYPE_CHECKING, Dict, List, Tuple
 from warnings import warn
 
 from lomond import WebSocket
+from pandas import DataFrame, MultiIndex
+
+from ibm_watsonx_ai.helpers.connections import DataConnection
 from ibm_watsonx_ai.utils.autoai.enums import (
-    PredictionType,
-    RegressionAlgorithms,
-    ClassificationAlgorithms,
-    RunStateTypes,
     DataConnectionTypes,
     ImputationStrategy,
+    PredictionType,
+    RunStateTypes,
 )
 from ibm_watsonx_ai.utils.autoai.errors import (
-    PipelineNotLoaded,
-    FitNeeded,
-    InvalidPredictionType,
     AutoAIComputeError,
-    ForecastingUnsupportedOperation,
-    NoAvailableMetrics,
-    LibraryNotCompatible,
     CannotConnectToWebsocket,
-    NumericalImputationStrategyValueMisused,
+    FitNeeded,
     InvalidImputationParameterNonTS,
     InvalidImputationParameterTS,
+    InvalidPredictionType,
+    LibraryNotCompatible,
+    NoAvailableMetrics,
+    NumericalImputationStrategyValueMisused,
+    PipelineNotLoaded,
 )
-from ibm_watsonx_ai.wml_client_error import ApiRequestFailure
 from ibm_watsonx_ai.utils.autoai.progress_bar import ProgressBar
 from ibm_watsonx_ai.utils.autoai.utils import (
-    fetch_pipelines,
-    is_ipython,
     ProgressGenerator,
-    check_dependencies_versions,
-    try_import_autoai_libs,
-    create_summary,
-    prepare_auto_ai_model_to_publish_normal_scenario,
-    get_sw_spec_and_type_based_on_sklearn,
-    get_values_for_imputation_strategy,
-    try_import_autoai_ts_libs,
     _download_notebook,
+    create_summary,
+    fetch_pipelines,
+    get_values_for_imputation_strategy,
+    try_import_autoai_libs,
+    try_import_autoai_ts_libs,
 )
+
 from .base_engine import BaseEngine
-from ibm_watsonx_ai.helpers.connections import DataConnection
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai.workspace import WorkSpace
-    from ibm_watsonx_ai.helpers.connections import DataConnection
     from sklearn.pipeline import Pipeline
+
+    from ibm_watsonx_ai.helpers.connections import DataConnection
+    from ibm_watsonx_ai.workspace import WorkSpace
 
 __all__ = ["WMLEngine"]
 
@@ -204,27 +198,21 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                 "holdout_param"
-            ] = self._auto_pipelines_parameters.get(
-                "holdout_size"
-            )
+            ] = self._auto_pipelines_parameters.get("holdout_size")
 
         if self._auto_pipelines_parameters.get("max_num_daub_ensembles") is not None:
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                 "max_num_daub_ensembles"
-            ] = self._auto_pipelines_parameters.get(
-                "max_num_daub_ensembles"
-            )
+            ] = self._auto_pipelines_parameters.get("max_num_daub_ensembles")
 
         if kwargs.get("enable_all_data_sources") is not None:
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "enable_all_data_sources"
-            ] = kwargs[
-                "enable_all_data_sources"
-            ]
+            ] = kwargs["enable_all_data_sources"]
 
         if kwargs.get("use_flight") is not None:
             self._wml_pipeline_metadata[
@@ -250,9 +238,7 @@ class WMLEngine(BaseEngine):
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "text_processing_flag"
-                ] = self._auto_pipelines_parameters.get(
-                    "text_processing"
-                )
+                ] = self._auto_pipelines_parameters.get("text_processing")
 
             if (
                 self._auto_pipelines_parameters.get("word2vec_feature_number")
@@ -274,34 +260,26 @@ class WMLEngine(BaseEngine):
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "text_columns"
-                ] = self._auto_pipelines_parameters.get(
-                    "text_columns_names"
-                )
+                ] = self._auto_pipelines_parameters.get("text_columns_names")
                 # end of Text transformer parameters
             if self._auto_pipelines_parameters.get("retrain_on_holdout") is not None:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "retrain_on_holdout"
-                ] = self._auto_pipelines_parameters.get(
-                    "retrain_on_holdout"
-                )
+                ] = self._auto_pipelines_parameters.get("retrain_on_holdout")
             if self._auto_pipelines_parameters.get("numerical_columns") is not None:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "numerical_columns"
-                ] = self._auto_pipelines_parameters.get(
-                    "numerical_columns"
-                )
+                ] = self._auto_pipelines_parameters.get("numerical_columns")
             if self._auto_pipelines_parameters.get("categorical_columns") is not None:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "categorical_columns"
-                ] = self._auto_pipelines_parameters.get(
-                    "categorical_columns"
-                )
+                ] = self._auto_pipelines_parameters.get("categorical_columns")
 
             # pass fairness info for Cloud or CP4D 4.5
             if (
@@ -313,9 +291,7 @@ class WMLEngine(BaseEngine):
                         self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                     ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                         "fairness_info"
-                    ] = self._auto_pipelines_parameters.get(
-                        "fairness_info"
-                    )
+                    ] = self._auto_pipelines_parameters.get("fairness_info")
             # end of section
 
             # time ordered data, feature selector supported only on Cloud or CPD 4.8.1 and higher
@@ -328,9 +304,7 @@ class WMLEngine(BaseEngine):
                         self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                     ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                         "time_ordered_data"
-                    ] = self._auto_pipelines_parameters.get(
-                        "time_ordered_data"
-                    )
+                    ] = self._auto_pipelines_parameters.get("time_ordered_data")
 
                 if (
                     self._auto_pipelines_parameters.get("feature_selector_mode")
@@ -340,9 +314,7 @@ class WMLEngine(BaseEngine):
                         self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                     ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                         "feature_selector_mode"
-                    ] = self._auto_pipelines_parameters.get(
-                        "feature_selector_mode"
-                    )
+                    ] = self._auto_pipelines_parameters.get("feature_selector_mode")
         # end note
 
         # note: Additional parameters for benchmark subsampling with data detector
@@ -351,36 +323,28 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "sampling_type"
-            ] = self._auto_pipelines_parameters.get(
-                "sampling_type"
-            )
+            ] = self._auto_pipelines_parameters.get("sampling_type")
 
         if self._auto_pipelines_parameters.get("sample_size_limit") is not None:
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "sample_size_limit"
-            ] = self._auto_pipelines_parameters.get(
-                "sample_size_limit"
-            )
+            ] = self._auto_pipelines_parameters.get("sample_size_limit")
 
         if self._auto_pipelines_parameters.get("sample_rows_limit") is not None:
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "sample_rows_limit"
-            ] = self._auto_pipelines_parameters.get(
-                "sample_rows_limit"
-            )
+            ] = self._auto_pipelines_parameters.get("sample_rows_limit")
 
         if self._auto_pipelines_parameters.get("sample_percentage_limit") is not None:
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "sample_percentage_limit"
-            ] = self._auto_pipelines_parameters.get(
-                "sample_percentage_limit"
-            )
+            ] = self._auto_pipelines_parameters.get("sample_percentage_limit")
 
         if (
             self._auto_pipelines_parameters.get("n_parallel_data_connections")
@@ -390,45 +354,35 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "n_parallel_data_connections"
-            ] = self._auto_pipelines_parameters.get(
-                "n_parallel_data_connections"
-            )
+            ] = self._auto_pipelines_parameters.get("n_parallel_data_connections")
 
         if self._auto_pipelines_parameters.get("calculate_data_metrics") is not None:
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "calculate_data_metrics"
-            ] = self._auto_pipelines_parameters.get(
-                "calculate_data_metrics"
-            )
+            ] = self._auto_pipelines_parameters.get("calculate_data_metrics")
 
         if self._auto_pipelines_parameters.get("logical_batch_size") is not None:
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "logical_batch_size"
-            ] = self._auto_pipelines_parameters.get(
-                "logical_batch_size"
-            )
+            ] = self._auto_pipelines_parameters.get("logical_batch_size")
 
         if self._auto_pipelines_parameters.get("metrics_on_logical_batch") is not None:
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "metrics_on_logical_batch"
-            ] = self._auto_pipelines_parameters.get(
-                "metrics_on_logical_batch"
-            )
+            ] = self._auto_pipelines_parameters.get("metrics_on_logical_batch")
 
         if self._auto_pipelines_parameters.get("number_of_batch_rows") is not None:
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "number_of_batch_rows"
-            ] = self._auto_pipelines_parameters.get(
-                "number_of_batch_rows"
-            )
+            ] = self._auto_pipelines_parameters.get("number_of_batch_rows")
         # --- end note
 
         if (
@@ -439,57 +393,43 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                 "target_columns"
-            ] = self._auto_pipelines_parameters[
-                "prediction_columns"
-            ]
+            ] = self._auto_pipelines_parameters["prediction_columns"]
             if self._auto_pipelines_parameters["timestamp_column_name"] is not None:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "timestamp_column"
-                ] = self._auto_pipelines_parameters[
-                    "timestamp_column_name"
-                ]
+                ] = self._auto_pipelines_parameters["timestamp_column_name"]
             if self._auto_pipelines_parameters["backtest_num"]:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "num_backtest"
-                ] = self._auto_pipelines_parameters[
-                    "backtest_num"
-                ]
+                ] = self._auto_pipelines_parameters["backtest_num"]
             if self._auto_pipelines_parameters["lookback_window"]:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "lookback_window"
-                ] = self._auto_pipelines_parameters[
-                    "lookback_window"
-                ]
+                ] = self._auto_pipelines_parameters["lookback_window"]
             if self._auto_pipelines_parameters["forecast_window"]:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "prediction_horizon"
-                ] = self._auto_pipelines_parameters[
-                    "forecast_window"
-                ]
-            if self._auto_pipelines_parameters["backtest_gap_length"] != None:
+                ] = self._auto_pipelines_parameters["forecast_window"]
+            if self._auto_pipelines_parameters["backtest_gap_length"] is not None:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "gap_len"
-                ] = self._auto_pipelines_parameters[
-                    "backtest_gap_length"
-                ]
+                ] = self._auto_pipelines_parameters["backtest_gap_length"]
             if self._auto_pipelines_parameters["feature_columns"]:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "feature_columns"
-                ] = self._auto_pipelines_parameters[
-                    "feature_columns"
-                ]
+                ] = self._auto_pipelines_parameters["feature_columns"]
             if self._auto_pipelines_parameters["pipeline_types"]:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
@@ -506,30 +446,24 @@ class WMLEngine(BaseEngine):
                 ]
             if (
                 self._auto_pipelines_parameters["supporting_features_at_forecast"]
-                != None
+                is not None
             ):
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "future_exogenous_available"
-                ] = self._auto_pipelines_parameters[
-                    "supporting_features_at_forecast"
-                ]
+                ] = self._auto_pipelines_parameters["supporting_features_at_forecast"]
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "compute_pipeline_notebooks_flag"
-            ] = self._auto_pipelines_parameters.get(
-                "notebooks", False
-            )
+            ] = self._auto_pipelines_parameters.get("notebooks", False)
             if self._auto_pipelines_parameters.get("retrain_on_holdout") is not None:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "retrain_on_holdout"
-                ] = self._auto_pipelines_parameters.get(
-                    "retrain_on_holdout"
-                )
+                ] = self._auto_pipelines_parameters.get("retrain_on_holdout")
         elif self._auto_pipelines_parameters.get("prediction_type") in [
             PredictionType.TIMESERIES_ANOMALY_PREDICTION,
             PredictionType.TIMESERIES_ANOMALY_PREDICTION.replace("_", "-"),
@@ -538,17 +472,13 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                 "feature_columns"
-            ] = self._auto_pipelines_parameters[
-                "feature_columns"
-            ]
+            ] = self._auto_pipelines_parameters["feature_columns"]
             if self._auto_pipelines_parameters["timestamp_column_name"] is not None:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "timestamp_column"
-                ] = self._auto_pipelines_parameters[
-                    "timestamp_column_name"
-                ]
+                ] = self._auto_pipelines_parameters["timestamp_column_name"]
             if (
                 self._auto_pipelines_parameters.get("max_num_daub_ensembles")
                 is not None
@@ -557,9 +487,7 @@ class WMLEngine(BaseEngine):
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "max_num_pipelines"
-                ] = self._auto_pipelines_parameters.get(
-                    "max_num_daub_ensembles"
-                )
+                ] = self._auto_pipelines_parameters.get("max_num_daub_ensembles")
             if self._auto_pipelines_parameters["pipeline_types"]:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
@@ -574,32 +502,24 @@ class WMLEngine(BaseEngine):
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "evaluation_metric"
-                ] = self._auto_pipelines_parameters[
-                    "scoring"
-                ]
+                ] = self._auto_pipelines_parameters["scoring"]
             if self._auto_pipelines_parameters.get("confidence_level") is not None:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "confidence_level"
-                ] = self._auto_pipelines_parameters.get(
-                    "confidence_level"
-                )
+                ] = self._auto_pipelines_parameters.get("confidence_level")
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "compute_pipeline_notebooks_flag"
-            ] = self._auto_pipelines_parameters.get(
-                "notebooks", False
-            )
+            ] = self._auto_pipelines_parameters.get("notebooks", False)
             if self._auto_pipelines_parameters.get("retrain_on_holdout") is not None:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "retrain_on_holdout"
-                ] = self._auto_pipelines_parameters.get(
-                    "retrain_on_holdout"
-                )
+                ] = self._auto_pipelines_parameters.get("retrain_on_holdout")
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"].pop(
@@ -620,24 +540,18 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                 "label"
-            ] = self._auto_pipelines_parameters[
-                "prediction_column"
-            ]
+            ] = self._auto_pipelines_parameters["prediction_column"]
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                 "compute_pipeline_notebooks_flag"
-            ] = self._auto_pipelines_parameters.get(
-                "notebooks", False
-            )
+            ] = self._auto_pipelines_parameters.get("notebooks", False)
             if "scoring" in self._auto_pipelines_parameters:
                 self._wml_pipeline_metadata[
                     self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                 ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                     "scorer_for_ranking"
-                ] = self._auto_pipelines_parameters.get(
-                    "scoring"
-                )
+                ] = self._auto_pipelines_parameters.get("scoring")
 
         if self._20_class_limit_removal_test:
             self._wml_pipeline_metadata[
@@ -669,9 +583,7 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                 "train_sample_rows_test_size"
-            ] = self._auto_pipelines_parameters[
-                "train_sample_rows_test_size"
-            ]
+            ] = self._auto_pipelines_parameters["train_sample_rows_test_size"]
 
         if self._auto_pipelines_parameters.get("t_shirt_size") == "s":
             self._wml_pipeline_metadata[
@@ -748,9 +660,7 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                 "positive_label"
-            ] = self._auto_pipelines_parameters.get(
-                "positive_label"
-            )
+            ] = self._auto_pipelines_parameters.get("positive_label")
         # --- end note
 
         # note: only pass daub_give_priority_to_runtime when is not None
@@ -762,9 +672,7 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                 "daub_runtime_ranking_power"
-            ] = self._auto_pipelines_parameters.get(
-                "daub_give_priority_to_runtime"
-            )
+            ] = self._auto_pipelines_parameters.get("daub_give_priority_to_runtime")
         # --- end note
 
         # note: only pass excel_sheet when it is different than 0 and is not None
@@ -776,9 +684,7 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "excel_sheet"
-            ] = self._auto_pipelines_parameters.get(
-                "excel_sheet"
-            )
+            ] = self._auto_pipelines_parameters.get("excel_sheet")
         # --- end note
 
         # note: Fill test data params if specified (not the standard ones)
@@ -787,9 +693,7 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "test_input_file_separator"
-            ] = self._auto_pipelines_parameters.get(
-                "test_data_csv_separator"
-            )
+            ] = self._auto_pipelines_parameters.get("test_data_csv_separator")
 
         if (
             self._auto_pipelines_parameters.get("test_data_excel_sheet")
@@ -799,18 +703,14 @@ class WMLEngine(BaseEngine):
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "test_excel_sheet"
-            ] = self._auto_pipelines_parameters.get(
-                "test_data_excel_sheet"
-            )
+            ] = self._auto_pipelines_parameters.get("test_data_excel_sheet")
 
         if self._auto_pipelines_parameters.get("test_data_encoding") != "utf-8":
             self._wml_pipeline_metadata[
                 self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
             ]["pipelines"][0]["nodes"][0]["parameters"][
                 "test_encoding"
-            ] = self._auto_pipelines_parameters.get(
-                "test_data_encoding"
-            )
+            ] = self._auto_pipelines_parameters.get("test_data_encoding")
         # --- end note
 
         if (
@@ -868,9 +768,7 @@ class WMLEngine(BaseEngine):
                         self._wml_client.pipelines.ConfigurationMetaNames.DOCUMENT
                     ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
                         "imputation_threshold"
-                    ] = self._auto_pipelines_parameters.get(
-                        "imputation_threshold"
-                    )
+                    ] = self._auto_pipelines_parameters.get("imputation_threshold")
         elif self._auto_pipelines_parameters.get("prediction_type") in [
             PredictionType.TIMESERIES_ANOMALY_PREDICTION,
             PredictionType.TIMESERIES_ANOMALY_PREDICTION.replace("_", "-"),
@@ -1059,9 +957,6 @@ class WMLEngine(BaseEngine):
             )
 
         else:
-            wml_pipeline_details = self.get_params()
-            number_of_estimators = wml_pipeline_details.get("max_num_daub_ensembles", 2)
-
             base_url = self._wml_client._href_definitions.get_trainings_href()
             url = f"{base_url.replace('https', 'wss')}/{self._current_run_id}"
 
@@ -1080,8 +975,7 @@ class WMLEngine(BaseEngine):
                 total=gen.get_total(),
                 position=0,
                 ncols=100,
-                bar_format="{l_bar}{bar}| [{elapsed}<{remaining}, "
-                "{rate_fmt}{postfix}]",
+                bar_format="{l_bar}{bar}| [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
             )
 
             progress_bar.set_description(desc="Started waiting for resources")
@@ -1103,7 +997,7 @@ class WMLEngine(BaseEngine):
                     for event in websocket.connect():
                         try:
                             websocket.send_text("Ping")
-                        except:
+                        except Exception:
                             pass
                         if event.name == "text":
                             status = json.loads(event.text)["entity"]["status"]
@@ -1112,7 +1006,7 @@ class WMLEngine(BaseEngine):
                                 process = status["metrics"][0]["context"][
                                     "intermediate_model"
                                 ]["process"]
-                            except:
+                            except Exception:
                                 process = ""
 
                             if status.get("state") == RunStateTypes.FAILED:
@@ -1128,8 +1022,8 @@ class WMLEngine(BaseEngine):
                                 ):
                                     raise AutoAIComputeError(
                                         self._current_run_id,
-                                        reason=f"Fetching training data error. Please check if COS credentials, "
-                                        f"bucket name and path are correct or file system path is correct.",
+                                        reason="Fetching training data error. Please check if COS credentials, "
+                                        "bucket name and path are correct or file system path is correct.",
                                     )
 
                                 elif "Failed_Image" in str(message):
@@ -1188,7 +1082,7 @@ class WMLEngine(BaseEngine):
                             disconnection_no += 1
                             websocket.close()
                             break
-                except:
+                except Exception:
                     websocket.close()
                     break
 
@@ -1333,7 +1227,6 @@ class WMLEngine(BaseEngine):
                 pipeline["context"]["intermediate_model"]["name"].split("P")[-1]
                 == pipeline_name.split("_")[-1]
             ):
-
                 pipeline_parameters["composition_steps"] = pipeline["context"][
                     "intermediate_model"
                 ]["composition_steps"]
@@ -1369,7 +1262,7 @@ class WMLEngine(BaseEngine):
                                 )
                                 break
                     else:
-                        if not "ts_metrics" in pipeline_parameters:
+                        if "ts_metrics" not in pipeline_parameters:
                             pipeline_parameters["ts_metrics"] = {}
                         pipeline_parameters["ts_metrics"].update(
                             self._get_metrics(pipeline)
@@ -1385,7 +1278,6 @@ class WMLEngine(BaseEngine):
                     == "classification"
                     and "binary_classification" in str(run_params)
                 ):
-
                     pipeline_parameters["features_importance"] = (
                         self._get_features_importance(pipeline)
                     )
@@ -1403,7 +1295,6 @@ class WMLEngine(BaseEngine):
                     == "classification"
                     and "multi_class_classification" in str(run_params)
                 ):
-
                     one_vs_all_data = self._get_data_from_property_or_file(
                         "one_vs_all",
                         pipeline["context"].get(

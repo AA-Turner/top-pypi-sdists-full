@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-google-generativeai
-Version: 0.45.0
+Version: 0.45.1
 Summary: OpenTelemetry Google Generative AI instrumentation
 License: Apache-2.0
 Author: Gal Kleinman

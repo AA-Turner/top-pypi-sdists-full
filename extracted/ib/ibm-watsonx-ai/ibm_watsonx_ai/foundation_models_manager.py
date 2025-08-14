@@ -4,16 +4,16 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
 from enum import Enum
 from functools import cached_property
-
-from typing import TYPE_CHECKING, Generator, Literal, overload, Any
+from typing import TYPE_CHECKING, Any, Generator, Literal, overload
 from warnings import warn
 
-from ibm_watsonx_ai.wml_resource import WMLResource
 from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.utils.utils import StrEnum
+from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -47,6 +47,12 @@ class FoundationModelsManager(WMLResource):
     @cached_property
     def TimeSeriesModels(self):
         return StrEnum("TimeSeriesModels", self._get_model_dict("time_series_forecast"))
+
+    @cached_property
+    def AudioTranscriptionsModels(self):
+        return StrEnum(
+            "AudioTranscriptionsModels", self._get_model_dict("audio_transcriptions")
+        )
 
     def _get_spec(
         self,
@@ -120,7 +126,7 @@ class FoundationModelsManager(WMLResource):
         """
         Retrieves a list of specifications for a deployed foundation model.
 
-        :param model_id: ID of the model, defaults to None (all models specifications are returned)
+        :param model_id: id of the model, defaults to None (all models specifications are returned)
         :type model_id: str or ModelTypes, optional
 
         :param limit: limit number of fetched records
@@ -171,16 +177,16 @@ class FoundationModelsManager(WMLResource):
         """
         Operations to retrieve the list of chat foundation models specifications.
 
-        :param model_id: Id of the model, defaults to None (all models specs are returned).
-        :type model_id: str or ModelTypes, optional
+        :param model_id: id of the model, defaults to None (all models specs are returned)
+        :type model_id: str, optional
 
-        :param limit:  limit number of fetched records
+        :param limit: limit number of fetched records
         :type limit: int, optional
 
-        :param asynchronous:  if True, it will work as a generator
+        :param asynchronous: if True, it will work as a generator
         :type asynchronous: bool, optional
 
-        :param get_all:  if True, it will get all entries in 'limited' chunks
+        :param get_all: if True, it will get all entries in 'limited' chunks
         :type get_all: bool, optional
 
         :return: list of deployed foundation model specs
@@ -217,16 +223,16 @@ class FoundationModelsManager(WMLResource):
         """
         Operations to retrieve the list of chat foundation models specifications with function calling support .
 
-        :param model_id: Id of the model, defaults to None (all models specs are returned).
-        :type model_id: str or ModelTypes, optional
+        :param model_id: id of the model, defaults to None (all models specs are returned)
+        :type model_id: str, optional
 
-        :param limit:  limit number of fetched records
+        :param limit: limit number of fetched records
         :type limit: int, optional
 
-        :param asynchronous:  if True, it will work as a generator
+        :param asynchronous: if True, it will work as a generator
         :type asynchronous: bool, optional
 
-        :param get_all:  if True, it will get all entries in 'limited' chunks
+        :param get_all: if True, it will get all entries in 'limited' chunks
         :type get_all: bool, optional
 
         :return: list of deployed foundation model specs
@@ -253,6 +259,52 @@ class FoundationModelsManager(WMLResource):
             get_all=get_all,
         )
 
+    def get_audio_chat_model_specs(
+        self,
+        model_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+    ) -> dict | Generator | None:
+        """
+        Operations to retrieve the list of audio chat foundation models specifications.
+
+        :param model_id: id of the model, defaults to None (all models specs are returned)
+        :type model_id: str, optional
+
+        :param limit: limit number of fetched records
+        :type limit: int, optional
+
+        :param asynchronous: if True, it will work as a generator
+        :type asynchronous: bool, optional
+
+        :param get_all: if True, it will get all entries in 'limited' chunks
+        :type get_all: bool, optional
+
+        :return: list of deployed foundation model specs
+        :rtype: dict or generator
+
+        **Example**
+
+        .. code-block:: python
+
+            # GET AUDIO CHAT MODEL SPECS
+            client.foundation_models.get_audio_chat_model_specs()
+
+            # GET AUDIO CHAT MODEL SPECS BY MODEL_ID
+            client.foundation_models.get_audio_chat_model_specs(model_id="ibm/granite-speech-3-3-8b")
+        """
+        return self._get_spec(
+            url=self._client._href_definitions.get_fm_specifications_href(),
+            operation_name="Get available audio chat models",
+            error_msg_id="fm_prompt_tuning_no_model_specs",
+            model_id=model_id,
+            filters="function_audio_chat,!lifecycle_withdrawn:and",
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+        )
+
     def get_custom_model_specs(
         self,
         model_id: str | None = None,
@@ -263,7 +315,7 @@ class FoundationModelsManager(WMLResource):
         """Get details on available custom model(s) as a dictionary or as a generator (``asynchronous``).
         If ``asynchronous`` or ``get_all`` is set, then ``model_id`` is ignored.
 
-        :param model_id: ID of the model, defaults to None (all models specifications are returned)
+        :param model_id: id of the model, defaults to None (all models specifications are returned)
         :type model_id: str, optional
 
         :param limit: limit number of fetched records
@@ -322,7 +374,7 @@ class FoundationModelsManager(WMLResource):
         """
         Retrieves the specifications of an embeddings model.
 
-        :param model_id: ID of the model, defaults to None (all models specifications are returned)
+        :param model_id: id of the model, defaults to None (all models specifications are returned)
         :type model_id: str, optional
 
         :param limit: limit number of fetched records
@@ -365,7 +417,7 @@ class FoundationModelsManager(WMLResource):
         """
         Retrieves the specifications of an time series model.
 
-        :param model_id: ID of the model, defaults to None (all models specifications are returned)
+        :param model_id: id of the model, defaults to None (all models specifications are returned)
         :type model_id: str, optional
 
         :param limit: limit number of fetched records
@@ -408,7 +460,7 @@ class FoundationModelsManager(WMLResource):
         """
         Retrieves the specifications of a rerank model.
 
-        :param model_id: ID of the model, defaults to None (all models specifications are returned)
+        :param model_id: id of the model, defaults to None (all models specifications are returned)
         :type model_id: str, optional
 
         :param limit: limit number of fetched records
@@ -442,6 +494,50 @@ class FoundationModelsManager(WMLResource):
             get_all=get_all,
         )
 
+    def get_audio_transcriptions_model_specs(
+        self,
+        model_id: str | None = None,
+        limit: int | None = None,
+        asynchronous: bool = False,
+        get_all: bool = False,
+    ) -> dict | Generator | None:
+        """
+        Retrieves the specifications of an audio transcriptions model.
+
+        :param model_id: id of the model, defaults to None (all models specifications are returned)
+        :type model_id: str, optional
+
+        :param limit: limit number of fetched records
+        :type limit: int, optional
+
+        :param asynchronous: if True, will work as a generator
+        :type asynchronous: bool, optional
+
+        :param get_all: if True, will get all entries in 'limited' chunks
+        :type get_all: bool, optional
+
+        :return: specifications of the audio transcriptions model
+        :rtype: dict or generator
+
+        **Example:**
+
+        .. code-block:: python
+
+            client.foundation_models.get_audio_transcriptions_model_specs()
+            client.foundation_models.get_audio_transcriptions_model_specs('openai/whisper-tiny')
+
+        """
+        return self._get_spec(
+            url=self._client._href_definitions.get_fm_specifications_href(),
+            operation_name="Get available audio transcriptions models",
+            error_msg_id="fm_prompt_tuning_no_model_specs",
+            model_id=model_id,
+            filters="function_audio_transcriptions,!lifecycle_withdrawn:and",
+            limit=limit,
+            asynchronous=asynchronous,
+            get_all=get_all,
+        )
+
     def get_base_foundation_model_deployable_specs(
         self,
         model_id: str | None = None,
@@ -452,7 +548,7 @@ class FoundationModelsManager(WMLResource):
         """
         Retrieve the specifications of a base deployable foundation models
 
-        :param model_id: ID of the model, defaults to None (all models specifications are returned)
+        :param model_id: id of the model, defaults to None (all models specifications are returned)
         :type model_id: str, optional
 
         :param limit: limit number of fetched records
@@ -514,7 +610,7 @@ class FoundationModelsManager(WMLResource):
         """
         Queries the details of deployed foundation models with prompt tuning support.
 
-        :param model_id: ID of the model, defaults to None (all models specifications are returned)
+        :param model_id: id of the model, defaults to None (all models specifications are returned)
         :type model_id: str, optional
 
         :param limit: limit number of fetched records
@@ -557,7 +653,7 @@ class FoundationModelsManager(WMLResource):
         """
         Operations to query the details of the deployed foundation models with fine-tuning support.
 
-        :param model_id: Id of the model, defaults to None (all models specs are returned).
+        :param model_id: id of the model, defaults to None (all models specs are returned)
         :type model_id: str, optional
 
         :param limit:  limit number of fetched records
@@ -600,7 +696,7 @@ class FoundationModelsManager(WMLResource):
         """
         Operations to query the details of the deployed foundation models with lora fine-tuning support.
 
-        :param model_id: Id of the model, defaults to None (all models specs are returned).
+        :param model_id: id of the model, defaults to None (all models specs are returned)
         :type model_id: str, optional
 
         :param limit:  limit number of fetched records
@@ -638,7 +734,7 @@ class FoundationModelsManager(WMLResource):
         """
         Retrieves a list of lifecycle data of a foundation model.
 
-        :param model_id: ID of the model
+        :param model_id: id of the model
         :type model_id: str
 
         :return: list of lifecycle data of a foundation model
@@ -666,13 +762,14 @@ class FoundationModelsManager(WMLResource):
             "text_chat",
             "rerank",
             "time_series_forecast",
+            "audio_transcriptions",
         ],
     ) -> dict:
         """
         Retrieves the dictionary of models to Enum.
 
         :param model_type: type of model function
-        :type model_type: Literal["base", "embedding", "prompt_tuning", "text_chat", "rerank", "time_series_forecast"]
+        :type model_type: Literal["base", "embedding", "prompt_tuning", "text_chat", "rerank", "time_series_forecast", "audio_transcriptions"]
 
         :return: dictionary of models to Enum
         :rtype: dict
@@ -684,6 +781,7 @@ class FoundationModelsManager(WMLResource):
             "text_chat": self.get_chat_model_specs,
             "rerank": self.get_rerank_model_specs,
             "time_series_forecast": self.get_time_series_model_specs,
+            "audio_transcriptions": self.get_audio_transcriptions_model_specs,
         }
         model_specs_dict = {}
         for model_spec in function_dict[model_type]()["resources"]:

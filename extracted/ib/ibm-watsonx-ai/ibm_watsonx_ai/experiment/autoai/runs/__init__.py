@@ -7,3 +7,5 @@ from ibm_watsonx_ai.experiment.autoai.runs.auto_pipelines_runs import AutoPipeli
 from ibm_watsonx_ai.experiment.autoai.runs.local_auto_pipelines_runs import (
     LocalAutoPipelinesRuns,
 )
+
+__all__ = ["AutoPipelinesRuns", "LocalAutoPipelinesRuns"]

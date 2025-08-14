@@ -1,7 +1,7 @@
 r'''
 # `aws_bedrock_guardrail`
 
-Refer to the Terraform Registry for docs: [`aws_bedrock_guardrail`](https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail).
+Refer to the Terraform Registry for docs: [`aws_bedrock_guardrail`](https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BedrockGuardrail(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.bedrockGuardrail.BedrockGuardrail",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail aws_bedrock_guardrail}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail aws_bedrock_guardrail}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class BedrockGuardrail(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail aws_bedrock_guardrail} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail aws_bedrock_guardrail} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param blocked_input_messaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#blocked_input_messaging BedrockGuardrail#blocked_input_messaging}.
-        :param blocked_outputs_messaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#blocked_outputs_messaging BedrockGuardrail#blocked_outputs_messaging}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.
-        :param content_policy_config: content_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#content_policy_config BedrockGuardrail#content_policy_config}
-        :param contextual_grounding_policy_config: contextual_grounding_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#contextual_grounding_policy_config BedrockGuardrail#contextual_grounding_policy_config}
-        :param cross_region_config: cross_region_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#cross_region_config BedrockGuardrail#cross_region_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#kms_key_arn BedrockGuardrail#kms_key_arn}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#region BedrockGuardrail#region}
-        :param sensitive_information_policy_config: sensitive_information_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#sensitive_information_policy_config BedrockGuardrail#sensitive_information_policy_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tags BedrockGuardrail#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#timeouts BedrockGuardrail#timeouts}
-        :param topic_policy_config: topic_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#topic_policy_config BedrockGuardrail#topic_policy_config}
-        :param word_policy_config: word_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#word_policy_config BedrockGuardrail#word_policy_config}
+        :param blocked_input_messaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#blocked_input_messaging BedrockGuardrail#blocked_input_messaging}.
+        :param blocked_outputs_messaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#blocked_outputs_messaging BedrockGuardrail#blocked_outputs_messaging}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.
+        :param content_policy_config: content_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#content_policy_config BedrockGuardrail#content_policy_config}
+        :param contextual_grounding_policy_config: contextual_grounding_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#contextual_grounding_policy_config BedrockGuardrail#contextual_grounding_policy_config}
+        :param cross_region_config: cross_region_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#cross_region_config BedrockGuardrail#cross_region_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#kms_key_arn BedrockGuardrail#kms_key_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#region BedrockGuardrail#region}
+        :param sensitive_information_policy_config: sensitive_information_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#sensitive_information_policy_config BedrockGuardrail#sensitive_information_policy_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tags BedrockGuardrail#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#timeouts BedrockGuardrail#timeouts}
+        :param topic_policy_config: topic_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#topic_policy_config BedrockGuardrail#topic_policy_config}
+        :param word_policy_config: word_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#word_policy_config BedrockGuardrail#word_policy_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class BedrockGuardrail(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BedrockGuardrail to import.
-        :param import_from_id: The id of the existing BedrockGuardrail that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BedrockGuardrail that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BedrockGuardrail to import is found.
         '''
         if __debug__:
@@ -214,9 +214,9 @@ class BedrockGuardrail(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#create BedrockGuardrail#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#delete BedrockGuardrail#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#update BedrockGuardrail#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#create BedrockGuardrail#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#delete BedrockGuardrail#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#update BedrockGuardrail#update}
         '''
         value = BedrockGuardrailTimeouts(create=create, delete=delete, update=update)
 
@@ -604,20 +604,20 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param blocked_input_messaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#blocked_input_messaging BedrockGuardrail#blocked_input_messaging}.
-        :param blocked_outputs_messaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#blocked_outputs_messaging BedrockGuardrail#blocked_outputs_messaging}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.
-        :param content_policy_config: content_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#content_policy_config BedrockGuardrail#content_policy_config}
-        :param contextual_grounding_policy_config: contextual_grounding_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#contextual_grounding_policy_config BedrockGuardrail#contextual_grounding_policy_config}
-        :param cross_region_config: cross_region_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#cross_region_config BedrockGuardrail#cross_region_config}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#kms_key_arn BedrockGuardrail#kms_key_arn}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#region BedrockGuardrail#region}
-        :param sensitive_information_policy_config: sensitive_information_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#sensitive_information_policy_config BedrockGuardrail#sensitive_information_policy_config}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tags BedrockGuardrail#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#timeouts BedrockGuardrail#timeouts}
-        :param topic_policy_config: topic_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#topic_policy_config BedrockGuardrail#topic_policy_config}
-        :param word_policy_config: word_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#word_policy_config BedrockGuardrail#word_policy_config}
+        :param blocked_input_messaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#blocked_input_messaging BedrockGuardrail#blocked_input_messaging}.
+        :param blocked_outputs_messaging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#blocked_outputs_messaging BedrockGuardrail#blocked_outputs_messaging}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.
+        :param content_policy_config: content_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#content_policy_config BedrockGuardrail#content_policy_config}
+        :param contextual_grounding_policy_config: contextual_grounding_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#contextual_grounding_policy_config BedrockGuardrail#contextual_grounding_policy_config}
+        :param cross_region_config: cross_region_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#cross_region_config BedrockGuardrail#cross_region_config}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#kms_key_arn BedrockGuardrail#kms_key_arn}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#region BedrockGuardrail#region}
+        :param sensitive_information_policy_config: sensitive_information_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#sensitive_information_policy_config BedrockGuardrail#sensitive_information_policy_config}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tags BedrockGuardrail#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#timeouts BedrockGuardrail#timeouts}
+        :param topic_policy_config: topic_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#topic_policy_config BedrockGuardrail#topic_policy_config}
+        :param word_policy_config: word_policy_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#word_policy_config BedrockGuardrail#word_policy_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -754,21 +754,21 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def blocked_input_messaging(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#blocked_input_messaging BedrockGuardrail#blocked_input_messaging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#blocked_input_messaging BedrockGuardrail#blocked_input_messaging}.'''
         result = self._values.get("blocked_input_messaging")
         assert result is not None, "Required property 'blocked_input_messaging' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def blocked_outputs_messaging(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#blocked_outputs_messaging BedrockGuardrail#blocked_outputs_messaging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#blocked_outputs_messaging BedrockGuardrail#blocked_outputs_messaging}.'''
         result = self._values.get("blocked_outputs_messaging")
         assert result is not None, "Required property 'blocked_outputs_messaging' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -779,7 +779,7 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContentPolicyConfig"]]]:
         '''content_policy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#content_policy_config BedrockGuardrail#content_policy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#content_policy_config BedrockGuardrail#content_policy_config}
         '''
         result = self._values.get("content_policy_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContentPolicyConfig"]]], result)
@@ -790,7 +790,7 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContextualGroundingPolicyConfig"]]]:
         '''contextual_grounding_policy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#contextual_grounding_policy_config BedrockGuardrail#contextual_grounding_policy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#contextual_grounding_policy_config BedrockGuardrail#contextual_grounding_policy_config}
         '''
         result = self._values.get("contextual_grounding_policy_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContextualGroundingPolicyConfig"]]], result)
@@ -801,20 +801,20 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailCrossRegionConfig"]]]:
         '''cross_region_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#cross_region_config BedrockGuardrail#cross_region_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#cross_region_config BedrockGuardrail#cross_region_config}
         '''
         result = self._values.get("cross_region_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailCrossRegionConfig"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#kms_key_arn BedrockGuardrail#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#kms_key_arn BedrockGuardrail#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -822,7 +822,7 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#region BedrockGuardrail#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#region BedrockGuardrail#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -833,14 +833,14 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailSensitiveInformationPolicyConfig"]]]:
         '''sensitive_information_policy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#sensitive_information_policy_config BedrockGuardrail#sensitive_information_policy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#sensitive_information_policy_config BedrockGuardrail#sensitive_information_policy_config}
         '''
         result = self._values.get("sensitive_information_policy_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailSensitiveInformationPolicyConfig"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tags BedrockGuardrail#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tags BedrockGuardrail#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -848,7 +848,7 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BedrockGuardrailTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#timeouts BedrockGuardrail#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#timeouts BedrockGuardrail#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BedrockGuardrailTimeouts"], result)
@@ -859,7 +859,7 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailTopicPolicyConfig"]]]:
         '''topic_policy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#topic_policy_config BedrockGuardrail#topic_policy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#topic_policy_config BedrockGuardrail#topic_policy_config}
         '''
         result = self._values.get("topic_policy_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailTopicPolicyConfig"]]], result)
@@ -870,7 +870,7 @@ class BedrockGuardrailConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailWordPolicyConfig"]]]:
         '''word_policy_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#word_policy_config BedrockGuardrail#word_policy_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#word_policy_config BedrockGuardrail#word_policy_config}
         '''
         result = self._values.get("word_policy_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailWordPolicyConfig"]]], result)
@@ -900,8 +900,8 @@ class BedrockGuardrailContentPolicyConfig:
         tier_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockGuardrailContentPolicyConfigTierConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param filters_config: filters_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#filters_config BedrockGuardrail#filters_config}
-        :param tier_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tier_config BedrockGuardrail#tier_config}.
+        :param filters_config: filters_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#filters_config BedrockGuardrail#filters_config}
+        :param tier_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tier_config BedrockGuardrail#tier_config}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__057197ef64631d0ea4644f890cdc2112a7236ebe6ba1a345a5373e53cf36860f)
@@ -919,7 +919,7 @@ class BedrockGuardrailContentPolicyConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContentPolicyConfigFiltersConfig"]]]:
         '''filters_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#filters_config BedrockGuardrail#filters_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#filters_config BedrockGuardrail#filters_config}
         '''
         result = self._values.get("filters_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContentPolicyConfigFiltersConfig"]]], result)
@@ -928,7 +928,7 @@ class BedrockGuardrailContentPolicyConfig:
     def tier_config(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContentPolicyConfigTierConfig"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tier_config BedrockGuardrail#tier_config}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tier_config BedrockGuardrail#tier_config}.'''
         result = self._values.get("tier_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContentPolicyConfigTierConfig"]]], result)
 
@@ -962,9 +962,9 @@ class BedrockGuardrailContentPolicyConfigFiltersConfig:
         type: builtins.str,
     ) -> None:
         '''
-        :param input_strength: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#input_strength BedrockGuardrail#input_strength}.
-        :param output_strength: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#output_strength BedrockGuardrail#output_strength}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
+        :param input_strength: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_strength BedrockGuardrail#input_strength}.
+        :param output_strength: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_strength BedrockGuardrail#output_strength}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9960c5ca16418a053ccde10102fbc566127021184671b6f7221ab8d633a1ed77)
@@ -979,21 +979,21 @@ class BedrockGuardrailContentPolicyConfigFiltersConfig:
 
     @builtins.property
     def input_strength(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#input_strength BedrockGuardrail#input_strength}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_strength BedrockGuardrail#input_strength}.'''
         result = self._values.get("input_strength")
         assert result is not None, "Required property 'input_strength' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def output_strength(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#output_strength BedrockGuardrail#output_strength}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_strength BedrockGuardrail#output_strength}.'''
         result = self._values.get("output_strength")
         assert result is not None, "Required property 'output_strength' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1401,7 +1401,7 @@ class BedrockGuardrailContentPolicyConfigOutputReference(
 class BedrockGuardrailContentPolicyConfigTierConfig:
     def __init__(self, *, tier_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param tier_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tier_name BedrockGuardrail#tier_name}.
+        :param tier_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tier_name BedrockGuardrail#tier_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1caa913e491fa16d565516424de01a357c8ce09cf1b7202a3636e04399d29be2)
@@ -1412,7 +1412,7 @@ class BedrockGuardrailContentPolicyConfigTierConfig:
 
     @builtins.property
     def tier_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tier_name BedrockGuardrail#tier_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tier_name BedrockGuardrail#tier_name}.'''
         result = self._values.get("tier_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1598,7 +1598,7 @@ class BedrockGuardrailContextualGroundingPolicyConfig:
         filters_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockGuardrailContextualGroundingPolicyConfigFiltersConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param filters_config: filters_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#filters_config BedrockGuardrail#filters_config}
+        :param filters_config: filters_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#filters_config BedrockGuardrail#filters_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0abe79e5bbd98c37209c3fa952e9d4a2d933b75b66e5340379af12e22730e450)
@@ -1613,7 +1613,7 @@ class BedrockGuardrailContextualGroundingPolicyConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContextualGroundingPolicyConfigFiltersConfig"]]]:
         '''filters_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#filters_config BedrockGuardrail#filters_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#filters_config BedrockGuardrail#filters_config}
         '''
         result = self._values.get("filters_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailContextualGroundingPolicyConfigFiltersConfig"]]], result)
@@ -1638,8 +1638,8 @@ class BedrockGuardrailContextualGroundingPolicyConfig:
 class BedrockGuardrailContextualGroundingPolicyConfigFiltersConfig:
     def __init__(self, *, threshold: jsii.Number, type: builtins.str) -> None:
         '''
-        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#threshold BedrockGuardrail#threshold}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
+        :param threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#threshold BedrockGuardrail#threshold}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7382c1fbc54c71bfba0020dbbba891c9f09c7b7778f0b2ad9ad2589f0b71782d)
@@ -1652,14 +1652,14 @@ class BedrockGuardrailContextualGroundingPolicyConfigFiltersConfig:
 
     @builtins.property
     def threshold(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#threshold BedrockGuardrail#threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#threshold BedrockGuardrail#threshold}.'''
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -2023,7 +2023,7 @@ class BedrockGuardrailContextualGroundingPolicyConfigOutputReference(
 class BedrockGuardrailCrossRegionConfig:
     def __init__(self, *, guardrail_profile_identifier: builtins.str) -> None:
         '''
-        :param guardrail_profile_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#guardrail_profile_identifier BedrockGuardrail#guardrail_profile_identifier}.
+        :param guardrail_profile_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#guardrail_profile_identifier BedrockGuardrail#guardrail_profile_identifier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d904b644db29bea78dfcba67f6357411fbbb2b5b73be4ff8727b2674932a5b4a)
@@ -2034,7 +2034,7 @@ class BedrockGuardrailCrossRegionConfig:
 
     @builtins.property
     def guardrail_profile_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#guardrail_profile_identifier BedrockGuardrail#guardrail_profile_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#guardrail_profile_identifier BedrockGuardrail#guardrail_profile_identifier}.'''
         result = self._values.get("guardrail_profile_identifier")
         assert result is not None, "Required property 'guardrail_profile_identifier' is missing"
         return typing.cast(builtins.str, result)
@@ -2221,8 +2221,8 @@ class BedrockGuardrailSensitiveInformationPolicyConfig:
         regexes_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param pii_entities_config: pii_entities_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#pii_entities_config BedrockGuardrail#pii_entities_config}
-        :param regexes_config: regexes_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#regexes_config BedrockGuardrail#regexes_config}
+        :param pii_entities_config: pii_entities_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#pii_entities_config BedrockGuardrail#pii_entities_config}
+        :param regexes_config: regexes_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#regexes_config BedrockGuardrail#regexes_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90ad92b13c9aceedc1d694696f63d28f76cae52f6a08755e04c8712b472980d6)
@@ -2240,7 +2240,7 @@ class BedrockGuardrailSensitiveInformationPolicyConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailSensitiveInformationPolicyConfigPiiEntitiesConfig"]]]:
         '''pii_entities_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#pii_entities_config BedrockGuardrail#pii_entities_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#pii_entities_config BedrockGuardrail#pii_entities_config}
         '''
         result = self._values.get("pii_entities_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailSensitiveInformationPolicyConfigPiiEntitiesConfig"]]], result)
@@ -2251,7 +2251,7 @@ class BedrockGuardrailSensitiveInformationPolicyConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfig"]]]:
         '''regexes_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#regexes_config BedrockGuardrail#regexes_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#regexes_config BedrockGuardrail#regexes_config}
         '''
         result = self._values.get("regexes_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfig"]]], result)
@@ -2470,36 +2470,96 @@ class BedrockGuardrailSensitiveInformationPolicyConfigOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.bedrockGuardrail.BedrockGuardrailSensitiveInformationPolicyConfigPiiEntitiesConfig",
     jsii_struct_bases=[],
-    name_mapping={"action": "action", "type": "type"},
+    name_mapping={
+        "action": "action",
+        "type": "type",
+        "input_action": "inputAction",
+        "input_enabled": "inputEnabled",
+        "output_action": "outputAction",
+        "output_enabled": "outputEnabled",
+    },
 )
 class BedrockGuardrailSensitiveInformationPolicyConfigPiiEntitiesConfig:
-    def __init__(self, *, action: builtins.str, type: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        action: builtins.str,
+        type: builtins.str,
+        input_action: typing.Optional[builtins.str] = None,
+        input_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        output_action: typing.Optional[builtins.str] = None,
+        output_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#action BedrockGuardrail#action}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#action BedrockGuardrail#action}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
+        :param input_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_action BedrockGuardrail#input_action}.
+        :param input_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_enabled BedrockGuardrail#input_enabled}.
+        :param output_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_action BedrockGuardrail#output_action}.
+        :param output_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_enabled BedrockGuardrail#output_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a1be4e35c32ddc85631273b535f237a86f5e9ae1819980c0d6a0cae6bf4a6ce)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument input_action", value=input_action, expected_type=type_hints["input_action"])
+            check_type(argname="argument input_enabled", value=input_enabled, expected_type=type_hints["input_enabled"])
+            check_type(argname="argument output_action", value=output_action, expected_type=type_hints["output_action"])
+            check_type(argname="argument output_enabled", value=output_enabled, expected_type=type_hints["output_enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "action": action,
             "type": type,
         }
+        if input_action is not None:
+            self._values["input_action"] = input_action
+        if input_enabled is not None:
+            self._values["input_enabled"] = input_enabled
+        if output_action is not None:
+            self._values["output_action"] = output_action
+        if output_enabled is not None:
+            self._values["output_enabled"] = output_enabled
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#action BedrockGuardrail#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#action BedrockGuardrail#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def input_action(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_action BedrockGuardrail#input_action}.'''
+        result = self._values.get("input_action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_enabled BedrockGuardrail#input_enabled}.'''
+        result = self._values.get("input_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def output_action(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_action BedrockGuardrail#output_action}.'''
+        result = self._values.get("output_action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def output_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_enabled BedrockGuardrail#output_enabled}.'''
+        result = self._values.get("output_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2632,10 +2692,50 @@ class BedrockGuardrailSensitiveInformationPolicyConfigPiiEntitiesConfigOutputRef
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
+    @jsii.member(jsii_name="resetInputAction")
+    def reset_input_action(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInputAction", []))
+
+    @jsii.member(jsii_name="resetInputEnabled")
+    def reset_input_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInputEnabled", []))
+
+    @jsii.member(jsii_name="resetOutputAction")
+    def reset_output_action(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetOutputAction", []))
+
+    @jsii.member(jsii_name="resetOutputEnabled")
+    def reset_output_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetOutputEnabled", []))
+
     @builtins.property
     @jsii.member(jsii_name="actionInput")
     def action_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "actionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inputActionInput")
+    def input_action_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "inputActionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inputEnabledInput")
+    def input_enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "inputEnabledInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="outputActionInput")
+    def output_action_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "outputActionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="outputEnabledInput")
+    def output_enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "outputEnabledInput"))
 
     @builtins.property
     @jsii.member(jsii_name="typeInput")
@@ -2653,6 +2753,62 @@ class BedrockGuardrailSensitiveInformationPolicyConfigPiiEntitiesConfigOutputRef
             type_hints = typing.get_type_hints(_typecheckingstub__92163a8ba83f9b5b6c92435003ef25f01bd92ee38aa1f443e635e780b18f2b49)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "action", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="inputAction")
+    def input_action(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "inputAction"))
+
+    @input_action.setter
+    def input_action(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95b3d51a83ef68d562cbc82f89eb6a9c504ee9cf50d1551c4ca47ac9dfeb5523)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inputAction", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="inputEnabled")
+    def input_enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "inputEnabled"))
+
+    @input_enabled.setter
+    def input_enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b817fea9eb5dac9259fca78ce997c1880d715b6ff2efe997f3102db86664ccb5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inputEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="outputAction")
+    def output_action(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "outputAction"))
+
+    @output_action.setter
+    def output_action(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b17a6928460c0631b99dabd0c5b8e25b9faa49b528416e1a8206927d907cc17d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "outputAction", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="outputEnabled")
+    def output_enabled(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "outputEnabled"))
+
+    @output_enabled.setter
+    def output_enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7578b36678914a5f06a5cd9d84554164233ec55916ba4f4da2f315f02d11d5d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "outputEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -2692,6 +2848,10 @@ class BedrockGuardrailSensitiveInformationPolicyConfigPiiEntitiesConfigOutputRef
         "name": "name",
         "pattern": "pattern",
         "description": "description",
+        "input_action": "inputAction",
+        "input_enabled": "inputEnabled",
+        "output_action": "outputAction",
+        "output_enabled": "outputEnabled",
     },
 )
 class BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfig:
@@ -2702,12 +2862,20 @@ class BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfig:
         name: builtins.str,
         pattern: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        input_action: typing.Optional[builtins.str] = None,
+        input_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        output_action: typing.Optional[builtins.str] = None,
+        output_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#action BedrockGuardrail#action}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.
-        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#pattern BedrockGuardrail#pattern}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#action BedrockGuardrail#action}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.
+        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#pattern BedrockGuardrail#pattern}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.
+        :param input_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_action BedrockGuardrail#input_action}.
+        :param input_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_enabled BedrockGuardrail#input_enabled}.
+        :param output_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_action BedrockGuardrail#output_action}.
+        :param output_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_enabled BedrockGuardrail#output_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f88c916f5c10afabda7f22fd708f33208b6718fae542da8f4ec293b26394d2e7)
@@ -2715,6 +2883,10 @@ class BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfig:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument input_action", value=input_action, expected_type=type_hints["input_action"])
+            check_type(argname="argument input_enabled", value=input_enabled, expected_type=type_hints["input_enabled"])
+            check_type(argname="argument output_action", value=output_action, expected_type=type_hints["output_action"])
+            check_type(argname="argument output_enabled", value=output_enabled, expected_type=type_hints["output_enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "action": action,
             "name": name,
@@ -2722,33 +2894,69 @@ class BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfig:
         }
         if description is not None:
             self._values["description"] = description
+        if input_action is not None:
+            self._values["input_action"] = input_action
+        if input_enabled is not None:
+            self._values["input_enabled"] = input_enabled
+        if output_action is not None:
+            self._values["output_action"] = output_action
+        if output_enabled is not None:
+            self._values["output_enabled"] = output_enabled
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#action BedrockGuardrail#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#action BedrockGuardrail#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def pattern(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#pattern BedrockGuardrail#pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#pattern BedrockGuardrail#pattern}.'''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#description BedrockGuardrail#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_action(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_action BedrockGuardrail#input_action}.'''
+        result = self._values.get("input_action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#input_enabled BedrockGuardrail#input_enabled}.'''
+        result = self._values.get("input_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def output_action(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_action BedrockGuardrail#output_action}.'''
+        result = self._values.get("output_action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def output_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#output_enabled BedrockGuardrail#output_enabled}.'''
+        result = self._values.get("output_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2885,6 +3093,22 @@ class BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfigOutputReferen
     def reset_description(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDescription", []))
 
+    @jsii.member(jsii_name="resetInputAction")
+    def reset_input_action(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInputAction", []))
+
+    @jsii.member(jsii_name="resetInputEnabled")
+    def reset_input_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInputEnabled", []))
+
+    @jsii.member(jsii_name="resetOutputAction")
+    def reset_output_action(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetOutputAction", []))
+
+    @jsii.member(jsii_name="resetOutputEnabled")
+    def reset_output_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetOutputEnabled", []))
+
     @builtins.property
     @jsii.member(jsii_name="actionInput")
     def action_input(self) -> typing.Optional[builtins.str]:
@@ -2896,9 +3120,33 @@ class BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfigOutputReferen
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "descriptionInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="inputActionInput")
+    def input_action_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "inputActionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inputEnabledInput")
+    def input_enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "inputEnabledInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="nameInput")
     def name_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="outputActionInput")
+    def output_action_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "outputActionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="outputEnabledInput")
+    def output_enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "outputEnabledInput"))
 
     @builtins.property
     @jsii.member(jsii_name="patternInput")
@@ -2930,6 +3178,33 @@ class BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfigOutputReferen
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="inputAction")
+    def input_action(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "inputAction"))
+
+    @input_action.setter
+    def input_action(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d638d02835fb7432126248de28b684b5cbeac243e0a14f120fcfb2761b168410)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inputAction", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="inputEnabled")
+    def input_enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "inputEnabled"))
+
+    @input_enabled.setter
+    def input_enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b61b5a8a0067dbec356ddc14f02ff7eac5f0ed32ee2ca7f37136cc95a050f33)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inputEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "name"))
@@ -2940,6 +3215,35 @@ class BedrockGuardrailSensitiveInformationPolicyConfigRegexesConfigOutputReferen
             type_hints = typing.get_type_hints(_typecheckingstub__252dee2b61042d2c4e6d7371b6d2ac17afd0baf1c07713ec8501ebbd383d92da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="outputAction")
+    def output_action(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "outputAction"))
+
+    @output_action.setter
+    def output_action(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c666fd8ea5cc976f978dd2dd3da7f44bda9c6be74e0d34c9cd96fb1a3a2bd1e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "outputAction", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="outputEnabled")
+    def output_enabled(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "outputEnabled"))
+
+    @output_enabled.setter
+    def output_enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__568e0bc7ef1f47a1095b8d3cd7f5048072bd5286c8958e070377060799158137)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "outputEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="pattern")
@@ -2985,9 +3289,9 @@ class BedrockGuardrailTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#create BedrockGuardrail#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#delete BedrockGuardrail#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#update BedrockGuardrail#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#create BedrockGuardrail#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#delete BedrockGuardrail#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#update BedrockGuardrail#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51bd3859146e11613b9c12569257a2ea43251eb62ad8f960fabe33c6b7dbdda7)
@@ -3006,7 +3310,7 @@ class BedrockGuardrailTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#create BedrockGuardrail#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#create BedrockGuardrail#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3015,7 +3319,7 @@ class BedrockGuardrailTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#delete BedrockGuardrail#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#delete BedrockGuardrail#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3024,7 +3328,7 @@ class BedrockGuardrailTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#update BedrockGuardrail#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#update BedrockGuardrail#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3155,8 +3459,8 @@ class BedrockGuardrailTopicPolicyConfig:
         topics_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockGuardrailTopicPolicyConfigTopicsConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param tier_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tier_config BedrockGuardrail#tier_config}.
-        :param topics_config: topics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#topics_config BedrockGuardrail#topics_config}
+        :param tier_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tier_config BedrockGuardrail#tier_config}.
+        :param topics_config: topics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#topics_config BedrockGuardrail#topics_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de7de23fc5bccf1296f2b3eaeef7d3c38e1a753712d2d69b81e6db3f72bbd0d2)
@@ -3172,7 +3476,7 @@ class BedrockGuardrailTopicPolicyConfig:
     def tier_config(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailTopicPolicyConfigTierConfig"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tier_config BedrockGuardrail#tier_config}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tier_config BedrockGuardrail#tier_config}.'''
         result = self._values.get("tier_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailTopicPolicyConfigTierConfig"]]], result)
 
@@ -3182,7 +3486,7 @@ class BedrockGuardrailTopicPolicyConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailTopicPolicyConfigTopicsConfig"]]]:
         '''topics_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#topics_config BedrockGuardrail#topics_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#topics_config BedrockGuardrail#topics_config}
         '''
         result = self._values.get("topics_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailTopicPolicyConfigTopicsConfig"]]], result)
@@ -3402,7 +3706,7 @@ class BedrockGuardrailTopicPolicyConfigOutputReference(
 class BedrockGuardrailTopicPolicyConfigTierConfig:
     def __init__(self, *, tier_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param tier_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tier_name BedrockGuardrail#tier_name}.
+        :param tier_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tier_name BedrockGuardrail#tier_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40d627cedf5361fd03792003e5c64befbd991a362df46026b66ddf3b47775c37)
@@ -3413,7 +3717,7 @@ class BedrockGuardrailTopicPolicyConfigTierConfig:
 
     @builtins.property
     def tier_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#tier_name BedrockGuardrail#tier_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#tier_name BedrockGuardrail#tier_name}.'''
         result = self._values.get("tier_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3607,10 +3911,10 @@ class BedrockGuardrailTopicPolicyConfigTopicsConfig:
         examples: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#definition BedrockGuardrail#definition}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
-        :param examples: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#examples BedrockGuardrail#examples}.
+        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#definition BedrockGuardrail#definition}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
+        :param examples: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#examples BedrockGuardrail#examples}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c66a2afed83a2c2c6ea87ddebabc01db3584653f462db73ac5ddb3e41c8add0)
@@ -3628,28 +3932,28 @@ class BedrockGuardrailTopicPolicyConfigTopicsConfig:
 
     @builtins.property
     def definition(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#definition BedrockGuardrail#definition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#definition BedrockGuardrail#definition}.'''
         result = self._values.get("definition")
         assert result is not None, "Required property 'definition' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#name BedrockGuardrail#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def examples(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#examples BedrockGuardrail#examples}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#examples BedrockGuardrail#examples}.'''
         result = self._values.get("examples")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3890,8 +4194,8 @@ class BedrockGuardrailWordPolicyConfig:
         words_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockGuardrailWordPolicyConfigWordsConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param managed_word_lists_config: managed_word_lists_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#managed_word_lists_config BedrockGuardrail#managed_word_lists_config}
-        :param words_config: words_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#words_config BedrockGuardrail#words_config}
+        :param managed_word_lists_config: managed_word_lists_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#managed_word_lists_config BedrockGuardrail#managed_word_lists_config}
+        :param words_config: words_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#words_config BedrockGuardrail#words_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dca7c1491e19979cd41758a9f9634e2d23c6e0b5f3589b741788e9aa1eaae71a)
@@ -3909,7 +4213,7 @@ class BedrockGuardrailWordPolicyConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailWordPolicyConfigManagedWordListsConfig"]]]:
         '''managed_word_lists_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#managed_word_lists_config BedrockGuardrail#managed_word_lists_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#managed_word_lists_config BedrockGuardrail#managed_word_lists_config}
         '''
         result = self._values.get("managed_word_lists_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailWordPolicyConfigManagedWordListsConfig"]]], result)
@@ -3920,7 +4224,7 @@ class BedrockGuardrailWordPolicyConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailWordPolicyConfigWordsConfig"]]]:
         '''words_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#words_config BedrockGuardrail#words_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#words_config BedrockGuardrail#words_config}
         '''
         result = self._values.get("words_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockGuardrailWordPolicyConfigWordsConfig"]]], result)
@@ -4038,7 +4342,7 @@ class BedrockGuardrailWordPolicyConfigList(
 class BedrockGuardrailWordPolicyConfigManagedWordListsConfig:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e88f338061bcf73d411e394aabf18a6299218ca606cf5a5cd3deba8527e216a3)
@@ -4049,7 +4353,7 @@ class BedrockGuardrailWordPolicyConfigManagedWordListsConfig:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#type BedrockGuardrail#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -4332,7 +4636,7 @@ class BedrockGuardrailWordPolicyConfigOutputReference(
 class BedrockGuardrailWordPolicyConfigWordsConfig:
     def __init__(self, *, text: builtins.str) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#text BedrockGuardrail#text}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#text BedrockGuardrail#text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2863445b3b139e95b7a168b1a34fd2f625e8a8af6efbed0741b4bb195bd43a6)
@@ -4343,7 +4647,7 @@ class BedrockGuardrailWordPolicyConfigWordsConfig:
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/resources/bedrock_guardrail#text BedrockGuardrail#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/bedrock_guardrail#text BedrockGuardrail#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
@@ -5212,6 +5516,10 @@ def _typecheckingstub__7a1be4e35c32ddc85631273b535f237a86f5e9ae1819980c0d6a0cae6
     *,
     action: builtins.str,
     type: builtins.str,
+    input_action: typing.Optional[builtins.str] = None,
+    input_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    output_action: typing.Optional[builtins.str] = None,
+    output_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5269,6 +5577,30 @@ def _typecheckingstub__92163a8ba83f9b5b6c92435003ef25f01bd92ee38aa1f443e635e780b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__95b3d51a83ef68d562cbc82f89eb6a9c504ee9cf50d1551c4ca47ac9dfeb5523(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b817fea9eb5dac9259fca78ce997c1880d715b6ff2efe997f3102db86664ccb5(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b17a6928460c0631b99dabd0c5b8e25b9faa49b528416e1a8206927d907cc17d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7578b36678914a5f06a5cd9d84554164233ec55916ba4f4da2f315f02d11d5d(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8154812542615bb730653c186bff9ab2cbd07e0df6b3942bd1cef833aaad31a3(
     value: builtins.str,
 ) -> None:
@@ -5287,6 +5619,10 @@ def _typecheckingstub__f88c916f5c10afabda7f22fd708f33208b6718fae542da8f4ec293b26
     name: builtins.str,
     pattern: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    input_action: typing.Optional[builtins.str] = None,
+    input_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    output_action: typing.Optional[builtins.str] = None,
+    output_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5350,8 +5686,32 @@ def _typecheckingstub__18385efa70624e534e880136851c8a60779e0f25a5d48f5952728ce75
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d638d02835fb7432126248de28b684b5cbeac243e0a14f120fcfb2761b168410(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b61b5a8a0067dbec356ddc14f02ff7eac5f0ed32ee2ca7f37136cc95a050f33(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__252dee2b61042d2c4e6d7371b6d2ac17afd0baf1c07713ec8501ebbd383d92da(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c666fd8ea5cc976f978dd2dd3da7f44bda9c6be74e0d34c9cd96fb1a3a2bd1e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__568e0bc7ef1f47a1095b8d3cd7f5048072bd5286c8958e070377060799158137(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass

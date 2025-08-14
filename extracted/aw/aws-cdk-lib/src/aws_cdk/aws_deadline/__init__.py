@@ -508,7 +508,10 @@ class CfnFleet(
                     ),
         
                     # the properties below are optional
-                    storage_profile_id="storageProfileId"
+                    storage_profile_id="storageProfileId",
+                    vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
+                        resource_configuration_arns=["resourceConfigurationArns"]
+                    )
                 )
             ),
             display_name="displayName",
@@ -1973,7 +1976,10 @@ class CfnFleet(
                         ),
                 
                         # the properties below are optional
-                        storage_profile_id="storageProfileId"
+                        storage_profile_id="storageProfileId",
+                        vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
+                            resource_configuration_arns=["resourceConfigurationArns"]
+                        )
                     )
                 )
             '''
@@ -2194,6 +2200,7 @@ class CfnFleet(
             "instance_capabilities": "instanceCapabilities",
             "instance_market_options": "instanceMarketOptions",
             "storage_profile_id": "storageProfileId",
+            "vpc_configuration": "vpcConfiguration",
         },
     )
     class ServiceManagedEc2FleetConfigurationProperty:
@@ -2203,12 +2210,14 @@ class CfnFleet(
             instance_capabilities: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]],
             instance_market_options: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
             storage_profile_id: typing.Optional[builtins.str] = None,
+            vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration details for a service managed Amazon EC2 fleet.
 
             :param instance_capabilities: The Amazon EC2 instance capabilities.
             :param instance_market_options: The Amazon EC2 market type.
             :param storage_profile_id: The storage profile ID.
+            :param vpc_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2277,7 +2286,10 @@ class CfnFleet(
                     ),
                 
                     # the properties below are optional
-                    storage_profile_id="storageProfileId"
+                    storage_profile_id="storageProfileId",
+                    vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
+                        resource_configuration_arns=["resourceConfigurationArns"]
+                    )
                 )
             '''
             if __debug__:
@@ -2285,12 +2297,15 @@ class CfnFleet(
                 check_type(argname="argument instance_capabilities", value=instance_capabilities, expected_type=type_hints["instance_capabilities"])
                 check_type(argname="argument instance_market_options", value=instance_market_options, expected_type=type_hints["instance_market_options"])
                 check_type(argname="argument storage_profile_id", value=storage_profile_id, expected_type=type_hints["storage_profile_id"])
+                check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_capabilities": instance_capabilities,
                 "instance_market_options": instance_market_options,
             }
             if storage_profile_id is not None:
                 self._values["storage_profile_id"] = storage_profile_id
+            if vpc_configuration is not None:
+                self._values["vpc_configuration"] = vpc_configuration
 
         @builtins.property
         def instance_capabilities(
@@ -2324,6 +2339,16 @@ class CfnFleet(
             '''
             result = self._values.get("storage_profile_id")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vpc_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.VpcConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-vpcconfiguration
+            '''
+            result = self._values.get("vpc_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.VpcConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2715,6 +2740,61 @@ class CfnFleet(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnFleet.VpcConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"resource_configuration_arns": "resourceConfigurationArns"},
+    )
+    class VpcConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            resource_configuration_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param resource_configuration_arns: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-vpcconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                vpc_configuration_property = deadline.CfnFleet.VpcConfigurationProperty(
+                    resource_configuration_arns=["resourceConfigurationArns"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__54c02580b19d5690de8f0571b8939331063fdba5295262f67c0ffacd47b723f1)
+                check_type(argname="argument resource_configuration_arns", value=resource_configuration_arns, expected_type=type_hints["resource_configuration_arns"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if resource_configuration_arns is not None:
+                self._values["resource_configuration_arns"] = resource_configuration_arns
+
+        @builtins.property
+        def resource_configuration_arns(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-vpcconfiguration.html#cfn-deadline-fleet-vpcconfiguration-resourceconfigurationarns
+            '''
+            result = self._values.get("resource_configuration_arns")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_deadline.CfnFleetProps",
@@ -2875,7 +2955,10 @@ class CfnFleetProps:
                         ),
             
                         # the properties below are optional
-                        storage_profile_id="storageProfileId"
+                        storage_profile_id="storageProfileId",
+                        vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
+                            resource_configuration_arns=["resourceConfigurationArns"]
+                        )
                     )
                 ),
                 display_name="displayName",
@@ -3908,7 +3991,7 @@ class CfnMeteredProductProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnMonitor(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3932,7 +4015,13 @@ class CfnMonitor(
             display_name="displayName",
             identity_center_instance_arn="identityCenterInstanceArn",
             role_arn="roleArn",
-            subdomain="subdomain"
+            subdomain="subdomain",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -3945,6 +4034,7 @@ class CfnMonitor(
         identity_center_instance_arn: builtins.str,
         role_arn: builtins.str,
         subdomain: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -3953,6 +4043,7 @@ class CfnMonitor(
         :param identity_center_instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance responsible for authenticating monitor users.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role for the monitor. Users of the monitor use this role to access Deadline Cloud resources.
         :param subdomain: The subdomain used for the monitor URL. The full URL of the monitor is subdomain.Region.deadlinecloud.amazonaws.com.
+        :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4edf45db3ae8781366a254b5ea792b290cf7822e23073f5b7f959959eb7658ab)
@@ -3963,6 +4054,7 @@ class CfnMonitor(
             identity_center_instance_arn=identity_center_instance_arn,
             role_arn=role_arn,
             subdomain=subdomain,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -4036,6 +4128,12 @@ class CfnMonitor(
         return typing.cast(builtins.str, jsii.get(self, "attrUrl"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -4092,6 +4190,19 @@ class CfnMonitor(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subdomain", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d79166c0c9556907ea6c9def114020487a556a49bf64ecf1e6334c0fe7e8efac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_deadline.CfnMonitorProps",
@@ -4101,6 +4212,7 @@ class CfnMonitor(
         "identity_center_instance_arn": "identityCenterInstanceArn",
         "role_arn": "roleArn",
         "subdomain": "subdomain",
+        "tags": "tags",
     },
 )
 class CfnMonitorProps:
@@ -4111,6 +4223,7 @@ class CfnMonitorProps:
         identity_center_instance_arn: builtins.str,
         role_arn: builtins.str,
         subdomain: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMonitor``.
 
@@ -4118,6 +4231,7 @@ class CfnMonitorProps:
         :param identity_center_instance_arn: The Amazon Resource Name (ARN) of the IAM Identity Center instance responsible for authenticating monitor users.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role for the monitor. Users of the monitor use this role to access Deadline Cloud resources.
         :param subdomain: The subdomain used for the monitor URL. The full URL of the monitor is subdomain.Region.deadlinecloud.amazonaws.com.
+        :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-monitor.html
         :exampleMetadata: fixture=_generated
@@ -4132,7 +4246,13 @@ class CfnMonitorProps:
                 display_name="displayName",
                 identity_center_instance_arn="identityCenterInstanceArn",
                 role_arn="roleArn",
-                subdomain="subdomain"
+                subdomain="subdomain",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -4141,12 +4261,15 @@ class CfnMonitorProps:
             check_type(argname="argument identity_center_instance_arn", value=identity_center_instance_arn, expected_type=type_hints["identity_center_instance_arn"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument subdomain", value=subdomain, expected_type=type_hints["subdomain"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "display_name": display_name,
             "identity_center_instance_arn": identity_center_instance_arn,
             "role_arn": role_arn,
             "subdomain": subdomain,
         }
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def display_name(self) -> builtins.str:
@@ -4195,6 +4318,15 @@ class CfnMonitorProps:
         result = self._values.get("subdomain")
         assert result is not None, "Required property 'subdomain' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-monitor.html#cfn-deadline-monitor-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6456,6 +6588,7 @@ def _typecheckingstub__a24a660b503191048581077a517891d27502b69620643c50907360328
     instance_capabilities: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]],
     instance_market_options: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
     storage_profile_id: typing.Optional[builtins.str] = None,
+    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6487,6 +6620,13 @@ def _typecheckingstub__fcd8ae2a83778ec7a6d7445fcea241d1ce2694a66c1ccc07c23cdd1c8
     *,
     min: jsii.Number,
     max: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54c02580b19d5690de8f0571b8939331063fdba5295262f67c0ffacd47b723f1(
+    *,
+    resource_configuration_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6680,6 +6820,7 @@ def _typecheckingstub__4edf45db3ae8781366a254b5ea792b290cf7822e23073f5b7f959959e
     identity_center_instance_arn: builtins.str,
     role_arn: builtins.str,
     subdomain: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6720,12 +6861,19 @@ def _typecheckingstub__92a6ea9073f47adeb866001ba027d5701cc6d06e3e3b1842bc227c770
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d79166c0c9556907ea6c9def114020487a556a49bf64ecf1e6334c0fe7e8efac(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__491e65cd80e97b2076199940d899980b250e96b9da8d5783d92f236ae1c6e7f4(
     *,
     display_name: builtins.str,
     identity_center_instance_arn: builtins.str,
     role_arn: builtins.str,
     subdomain: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

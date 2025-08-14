@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numba import njit
 
-from CyRK import pysolve_ivp, WrapCySolverResult
+from CyRK import pysolve_ivp, WrapCySolverResult, CyrkErrorCodes
 
 
 # To reduce number of tests, only test RK23 once since RK45 should capture all its functionality
@@ -188,39 +188,43 @@ def test_pysolve_ivp(use_scipy_style, use_args, use_njit_always,
     else:
         num_extra = 0
 
-    result = \
-        pysolve_ivp(diffeq_to_use, time_span_touse, initial_conds,
-                    method=integration_method,
-                    args=args_touse, rtol=rtols_use, atol=atols_use,
-                    num_extra=num_extra, first_step=first_step, max_step=max_step,
-                    pass_dy_as_arg=(not use_scipy_style))
+    result = None
+    reuses = 0
+    while reuses < 4:
+        result = \
+            pysolve_ivp(diffeq_to_use, time_span_touse, initial_conds,
+                        method=integration_method,
+                        args=args_touse, rtol=rtols_use, atol=atols_use,
+                        num_extra=num_extra, first_step=first_step, max_step=max_step,
+                        pass_dy_as_arg=(not use_scipy_style),
+                        solution_reuse=result)
 
-    assert isinstance(result, WrapCySolverResult)
-    assert result.success
-    assert result.error_code == 1
-    assert result.size > 1
-    assert result.steps_taken > 1
-    assert result.message == "Integration completed without issue."
-    # Check that the ndarrays make sense
-    assert type(result.t) == np.ndarray
-    assert result.t.dtype == np.float64
-    assert result.y.dtype == np.float64
-    assert result.t.size > 1
-    assert result.t.size == result.y[0].size
-    assert len(result.y.shape) == 2
-    assert result.y[0].size == result.y[1].size
-    assert result.t.size == result.size
-    assert result.y[0].size == result.size
+        assert isinstance(result, WrapCySolverResult)
+        assert result.success
+        assert result.error_code == 1
+        assert result.size > 1
+        assert result.steps_taken > 1
+        assert result.message == "Integration completed without issue."
+        # Check that the ndarrays make sense
+        assert type(result.t) == np.ndarray
+        assert result.t.dtype == np.float64
+        assert result.y.dtype == np.float64
+        assert result.t.size > 1
+        assert result.t.size == result.y[0].size
+        assert len(result.y.shape) == 2
+        assert result.y[0].size == result.y[1].size
+        assert result.t.size == result.size
+        assert result.y[0].size == result.size
 
-    if capture_extra:
-        assert result.y.shape[0] == 4
-        assert result.y[2].size == result.y[1].size
-        assert result.y[3].size == result.y[1].size
-    else:
-        assert result.y.shape[0] == 2
+        if capture_extra:
+            assert result.y.shape[0] == 4
+            assert result.y[2].size == result.y[1].size
+            assert result.y[3].size == result.y[1].size
+        else:
+            assert result.y.shape[0] == 2
 
-    assert type(result.message) == str
-
+        assert type(result.message) == str
+        reuses += 1
 
 
 def test_pysolve_ivp_errors():
@@ -258,7 +262,7 @@ def test_pysolve_ivp_errors():
                         pass_dy_as_arg=False)
 
     assert not result.success
-    assert result.error_code == -2
+    assert result.error_code == CyrkErrorCodes.MAX_STEPS_USER_EXCEEDED
     assert result.message == "Maximum number of steps (set by user) exceeded during integration."
 
     # Do the same thing but now for max ram
@@ -269,7 +273,7 @@ def test_pysolve_ivp_errors():
                         pass_dy_as_arg=False)
     
     assert not result.success
-    assert result.error_code == -3
+    assert result.error_code == CyrkErrorCodes.MAX_STEPS_SYSARCH_EXCEEDED
     assert result.message == "Maximum number of steps (set by system architecture) exceeded during integration."
 
     # Do an integration with tolerances that are just way too small for the method
@@ -279,8 +283,8 @@ def test_pysolve_ivp_errors():
                         pass_dy_as_arg=False)
     
     assert not result.success
-    assert result.error_code == -1
-    assert result.message == "Error in step size calculation:\n\tRequired step size is less than spacing between numbers."
+    assert result.error_code == CyrkErrorCodes.STEP_SIZE_ERROR_SPACING
+    assert result.message == "Error in step size calculation: Required step size is less than spacing between numbers."
 
 @pytest.mark.parametrize('integration_method', ("RK23", "RK45", "DOP853"))
 @pytest.mark.parametrize('t_eval_end', (None, 0.5, 1.0))
@@ -417,3 +421,8 @@ def test_pysolve_ivp_readonly(integration_method):
     assert result.y[0].size == result.size
     assert result.y.shape[0] == 2
     assert type(result.message) == str
+
+if __name__ == "__main__":
+    test_pysolve_ivp(False, False, False, 
+                    False, False, False, False, "RK45", 0.0, 100_000.0, False)
+    print("Finished!")

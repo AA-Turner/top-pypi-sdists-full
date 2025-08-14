@@ -2,12 +2,9 @@
 #  (C) Copyright IBM Corp. 2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
-from typing import Literal
-
 import pandas as pd
 
 from ibm_watsonx_ai import APIClient
-from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 

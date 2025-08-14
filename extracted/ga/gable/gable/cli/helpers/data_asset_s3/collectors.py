@@ -2,12 +2,13 @@
 Concrete metadata collector implementations for the inventory metadata builder.
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import datetime
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
 from tqdm import tqdm
+
 from .cache_manager import InventoryCacheManager
 from .data_loader import InventoryDataLoader
 from .metadata_builder import MetadataCollector

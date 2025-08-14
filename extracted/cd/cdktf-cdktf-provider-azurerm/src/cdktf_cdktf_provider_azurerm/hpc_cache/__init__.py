@@ -1,7 +1,7 @@
 r'''
 # `azurerm_hpc_cache`
 
-Refer to the Terraform Registry for docs: [`azurerm_hpc_cache`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache).
+Refer to the Terraform Registry for docs: [`azurerm_hpc_cache`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class HpcCache(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.hpcCache.HpcCache",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache azurerm_hpc_cache}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache azurerm_hpc_cache}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class HpcCache(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache azurerm_hpc_cache} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache azurerm_hpc_cache} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cache_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#cache_size_in_gb HpcCache#cache_size_in_gb}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#location HpcCache#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#name HpcCache#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#resource_group_name HpcCache#resource_group_name}.
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#sku_name HpcCache#sku_name}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#subnet_id HpcCache#subnet_id}.
-        :param automatically_rotate_key_to_latest_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#automatically_rotate_key_to_latest_enabled HpcCache#automatically_rotate_key_to_latest_enabled}.
-        :param default_access_policy: default_access_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#default_access_policy HpcCache#default_access_policy}
-        :param directory_active_directory: directory_active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#directory_active_directory HpcCache#directory_active_directory}
-        :param directory_flat_file: directory_flat_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#directory_flat_file HpcCache#directory_flat_file}
-        :param directory_ldap: directory_ldap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#directory_ldap HpcCache#directory_ldap}
-        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dns HpcCache#dns}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#id HpcCache#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#identity HpcCache#identity}
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#key_vault_key_id HpcCache#key_vault_key_id}.
-        :param mtu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#mtu HpcCache#mtu}.
-        :param ntp_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#ntp_server HpcCache#ntp_server}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#tags HpcCache#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#timeouts HpcCache#timeouts}
+        :param cache_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#cache_size_in_gb HpcCache#cache_size_in_gb}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#location HpcCache#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#name HpcCache#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#resource_group_name HpcCache#resource_group_name}.
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#sku_name HpcCache#sku_name}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#subnet_id HpcCache#subnet_id}.
+        :param automatically_rotate_key_to_latest_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#automatically_rotate_key_to_latest_enabled HpcCache#automatically_rotate_key_to_latest_enabled}.
+        :param default_access_policy: default_access_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#default_access_policy HpcCache#default_access_policy}
+        :param directory_active_directory: directory_active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#directory_active_directory HpcCache#directory_active_directory}
+        :param directory_flat_file: directory_flat_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#directory_flat_file HpcCache#directory_flat_file}
+        :param directory_ldap: directory_ldap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#directory_ldap HpcCache#directory_ldap}
+        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dns HpcCache#dns}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#id HpcCache#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#identity HpcCache#identity}
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#key_vault_key_id HpcCache#key_vault_key_id}.
+        :param mtu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#mtu HpcCache#mtu}.
+        :param ntp_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#ntp_server HpcCache#ntp_server}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#tags HpcCache#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#timeouts HpcCache#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class HpcCache(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the HpcCache to import.
-        :param import_from_id: The id of the existing HpcCache that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing HpcCache that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the HpcCache to import is found.
         '''
         if __debug__:
@@ -175,7 +175,7 @@ class HpcCache(
         access_rule: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["HpcCacheDefaultAccessPolicyAccessRule", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param access_rule: access_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#access_rule HpcCache#access_rule}
+        :param access_rule: access_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#access_rule HpcCache#access_rule}
         '''
         value = HpcCacheDefaultAccessPolicy(access_rule=access_rule)
 
@@ -194,13 +194,13 @@ class HpcCache(
         dns_secondary_ip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cache_netbios_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#cache_netbios_name HpcCache#cache_netbios_name}.
-        :param dns_primary_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dns_primary_ip HpcCache#dns_primary_ip}.
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#domain_name HpcCache#domain_name}.
-        :param domain_netbios_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#domain_netbios_name HpcCache#domain_netbios_name}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#password HpcCache#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#username HpcCache#username}.
-        :param dns_secondary_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dns_secondary_ip HpcCache#dns_secondary_ip}.
+        :param cache_netbios_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#cache_netbios_name HpcCache#cache_netbios_name}.
+        :param dns_primary_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dns_primary_ip HpcCache#dns_primary_ip}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#domain_name HpcCache#domain_name}.
+        :param domain_netbios_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#domain_netbios_name HpcCache#domain_netbios_name}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#password HpcCache#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#username HpcCache#username}.
+        :param dns_secondary_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dns_secondary_ip HpcCache#dns_secondary_ip}.
         '''
         value = HpcCacheDirectoryActiveDirectory(
             cache_netbios_name=cache_netbios_name,
@@ -222,8 +222,8 @@ class HpcCache(
         password_file_uri: builtins.str,
     ) -> None:
         '''
-        :param group_file_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#group_file_uri HpcCache#group_file_uri}.
-        :param password_file_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#password_file_uri HpcCache#password_file_uri}.
+        :param group_file_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#group_file_uri HpcCache#group_file_uri}.
+        :param password_file_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#password_file_uri HpcCache#password_file_uri}.
         '''
         value = HpcCacheDirectoryFlatFile(
             group_file_uri=group_file_uri, password_file_uri=password_file_uri
@@ -243,12 +243,12 @@ class HpcCache(
         encrypted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param base_dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#base_dn HpcCache#base_dn}.
-        :param server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#server HpcCache#server}.
-        :param bind: bind block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#bind HpcCache#bind}
-        :param certificate_validation_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#certificate_validation_uri HpcCache#certificate_validation_uri}.
-        :param download_certificate_automatically: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#download_certificate_automatically HpcCache#download_certificate_automatically}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#encrypted HpcCache#encrypted}.
+        :param base_dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#base_dn HpcCache#base_dn}.
+        :param server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#server HpcCache#server}.
+        :param bind: bind block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#bind HpcCache#bind}
+        :param certificate_validation_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#certificate_validation_uri HpcCache#certificate_validation_uri}.
+        :param download_certificate_automatically: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#download_certificate_automatically HpcCache#download_certificate_automatically}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#encrypted HpcCache#encrypted}.
         '''
         value = HpcCacheDirectoryLdap(
             base_dn=base_dn,
@@ -269,8 +269,8 @@ class HpcCache(
         search_domain: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#servers HpcCache#servers}.
-        :param search_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#search_domain HpcCache#search_domain}.
+        :param servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#servers HpcCache#servers}.
+        :param search_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#search_domain HpcCache#search_domain}.
         '''
         value = HpcCacheDns(servers=servers, search_domain=search_domain)
 
@@ -284,8 +284,8 @@ class HpcCache(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#type HpcCache#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#identity_ids HpcCache#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#type HpcCache#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#identity_ids HpcCache#identity_ids}.
         '''
         value = HpcCacheIdentity(type=type, identity_ids=identity_ids)
 
@@ -301,10 +301,10 @@ class HpcCache(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#create HpcCache#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#delete HpcCache#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#read HpcCache#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#update HpcCache#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#create HpcCache#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#delete HpcCache#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#read HpcCache#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#update HpcCache#update}.
         '''
         value = HpcCacheTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -743,25 +743,25 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cache_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#cache_size_in_gb HpcCache#cache_size_in_gb}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#location HpcCache#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#name HpcCache#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#resource_group_name HpcCache#resource_group_name}.
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#sku_name HpcCache#sku_name}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#subnet_id HpcCache#subnet_id}.
-        :param automatically_rotate_key_to_latest_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#automatically_rotate_key_to_latest_enabled HpcCache#automatically_rotate_key_to_latest_enabled}.
-        :param default_access_policy: default_access_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#default_access_policy HpcCache#default_access_policy}
-        :param directory_active_directory: directory_active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#directory_active_directory HpcCache#directory_active_directory}
-        :param directory_flat_file: directory_flat_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#directory_flat_file HpcCache#directory_flat_file}
-        :param directory_ldap: directory_ldap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#directory_ldap HpcCache#directory_ldap}
-        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dns HpcCache#dns}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#id HpcCache#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#identity HpcCache#identity}
-        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#key_vault_key_id HpcCache#key_vault_key_id}.
-        :param mtu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#mtu HpcCache#mtu}.
-        :param ntp_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#ntp_server HpcCache#ntp_server}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#tags HpcCache#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#timeouts HpcCache#timeouts}
+        :param cache_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#cache_size_in_gb HpcCache#cache_size_in_gb}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#location HpcCache#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#name HpcCache#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#resource_group_name HpcCache#resource_group_name}.
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#sku_name HpcCache#sku_name}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#subnet_id HpcCache#subnet_id}.
+        :param automatically_rotate_key_to_latest_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#automatically_rotate_key_to_latest_enabled HpcCache#automatically_rotate_key_to_latest_enabled}.
+        :param default_access_policy: default_access_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#default_access_policy HpcCache#default_access_policy}
+        :param directory_active_directory: directory_active_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#directory_active_directory HpcCache#directory_active_directory}
+        :param directory_flat_file: directory_flat_file block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#directory_flat_file HpcCache#directory_flat_file}
+        :param directory_ldap: directory_ldap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#directory_ldap HpcCache#directory_ldap}
+        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dns HpcCache#dns}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#id HpcCache#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#identity HpcCache#identity}
+        :param key_vault_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#key_vault_key_id HpcCache#key_vault_key_id}.
+        :param mtu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#mtu HpcCache#mtu}.
+        :param ntp_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#ntp_server HpcCache#ntp_server}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#tags HpcCache#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#timeouts HpcCache#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -922,42 +922,42 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cache_size_in_gb(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#cache_size_in_gb HpcCache#cache_size_in_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#cache_size_in_gb HpcCache#cache_size_in_gb}.'''
         result = self._values.get("cache_size_in_gb")
         assert result is not None, "Required property 'cache_size_in_gb' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#location HpcCache#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#location HpcCache#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#name HpcCache#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#name HpcCache#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#resource_group_name HpcCache#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#resource_group_name HpcCache#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sku_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#sku_name HpcCache#sku_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#sku_name HpcCache#sku_name}.'''
         result = self._values.get("sku_name")
         assert result is not None, "Required property 'sku_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#subnet_id HpcCache#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#subnet_id HpcCache#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
@@ -966,7 +966,7 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def automatically_rotate_key_to_latest_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#automatically_rotate_key_to_latest_enabled HpcCache#automatically_rotate_key_to_latest_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#automatically_rotate_key_to_latest_enabled HpcCache#automatically_rotate_key_to_latest_enabled}.'''
         result = self._values.get("automatically_rotate_key_to_latest_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -974,7 +974,7 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def default_access_policy(self) -> typing.Optional["HpcCacheDefaultAccessPolicy"]:
         '''default_access_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#default_access_policy HpcCache#default_access_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#default_access_policy HpcCache#default_access_policy}
         '''
         result = self._values.get("default_access_policy")
         return typing.cast(typing.Optional["HpcCacheDefaultAccessPolicy"], result)
@@ -985,7 +985,7 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["HpcCacheDirectoryActiveDirectory"]:
         '''directory_active_directory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#directory_active_directory HpcCache#directory_active_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#directory_active_directory HpcCache#directory_active_directory}
         '''
         result = self._values.get("directory_active_directory")
         return typing.cast(typing.Optional["HpcCacheDirectoryActiveDirectory"], result)
@@ -994,7 +994,7 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def directory_flat_file(self) -> typing.Optional["HpcCacheDirectoryFlatFile"]:
         '''directory_flat_file block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#directory_flat_file HpcCache#directory_flat_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#directory_flat_file HpcCache#directory_flat_file}
         '''
         result = self._values.get("directory_flat_file")
         return typing.cast(typing.Optional["HpcCacheDirectoryFlatFile"], result)
@@ -1003,7 +1003,7 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def directory_ldap(self) -> typing.Optional["HpcCacheDirectoryLdap"]:
         '''directory_ldap block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#directory_ldap HpcCache#directory_ldap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#directory_ldap HpcCache#directory_ldap}
         '''
         result = self._values.get("directory_ldap")
         return typing.cast(typing.Optional["HpcCacheDirectoryLdap"], result)
@@ -1012,14 +1012,14 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dns(self) -> typing.Optional["HpcCacheDns"]:
         '''dns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dns HpcCache#dns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dns HpcCache#dns}
         '''
         result = self._values.get("dns")
         return typing.cast(typing.Optional["HpcCacheDns"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#id HpcCache#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#id HpcCache#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1031,32 +1031,32 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["HpcCacheIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#identity HpcCache#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#identity HpcCache#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["HpcCacheIdentity"], result)
 
     @builtins.property
     def key_vault_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#key_vault_key_id HpcCache#key_vault_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#key_vault_key_id HpcCache#key_vault_key_id}.'''
         result = self._values.get("key_vault_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mtu(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#mtu HpcCache#mtu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#mtu HpcCache#mtu}.'''
         result = self._values.get("mtu")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ntp_server(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#ntp_server HpcCache#ntp_server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#ntp_server HpcCache#ntp_server}.'''
         result = self._values.get("ntp_server")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#tags HpcCache#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#tags HpcCache#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1064,7 +1064,7 @@ class HpcCacheConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["HpcCacheTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#timeouts HpcCache#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#timeouts HpcCache#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["HpcCacheTimeouts"], result)
@@ -1093,7 +1093,7 @@ class HpcCacheDefaultAccessPolicy:
         access_rule: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["HpcCacheDefaultAccessPolicyAccessRule", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param access_rule: access_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#access_rule HpcCache#access_rule}
+        :param access_rule: access_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#access_rule HpcCache#access_rule}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1475ab4184aed3e9f8d1f74a49c5db6c02458e141f7a3d80ad269afee71a5af0)
@@ -1108,7 +1108,7 @@ class HpcCacheDefaultAccessPolicy:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["HpcCacheDefaultAccessPolicyAccessRule"]]:
         '''access_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#access_rule HpcCache#access_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#access_rule HpcCache#access_rule}
         '''
         result = self._values.get("access_rule")
         assert result is not None, "Required property 'access_rule' is missing"
@@ -1154,14 +1154,14 @@ class HpcCacheDefaultAccessPolicyAccessRule:
         suid_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#access HpcCache#access}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#scope HpcCache#scope}.
-        :param anonymous_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#anonymous_gid HpcCache#anonymous_gid}.
-        :param anonymous_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#anonymous_uid HpcCache#anonymous_uid}.
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#filter HpcCache#filter}.
-        :param root_squash_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#root_squash_enabled HpcCache#root_squash_enabled}.
-        :param submount_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#submount_access_enabled HpcCache#submount_access_enabled}.
-        :param suid_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#suid_enabled HpcCache#suid_enabled}.
+        :param access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#access HpcCache#access}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#scope HpcCache#scope}.
+        :param anonymous_gid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#anonymous_gid HpcCache#anonymous_gid}.
+        :param anonymous_uid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#anonymous_uid HpcCache#anonymous_uid}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#filter HpcCache#filter}.
+        :param root_squash_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#root_squash_enabled HpcCache#root_squash_enabled}.
+        :param submount_access_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#submount_access_enabled HpcCache#submount_access_enabled}.
+        :param suid_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#suid_enabled HpcCache#suid_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2c7b2a57d4d86aa5a203e413f4efc7d1dd7b8292db140addd0a425979172480)
@@ -1192,33 +1192,33 @@ class HpcCacheDefaultAccessPolicyAccessRule:
 
     @builtins.property
     def access(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#access HpcCache#access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#access HpcCache#access}.'''
         result = self._values.get("access")
         assert result is not None, "Required property 'access' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def scope(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#scope HpcCache#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#scope HpcCache#scope}.'''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def anonymous_gid(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#anonymous_gid HpcCache#anonymous_gid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#anonymous_gid HpcCache#anonymous_gid}.'''
         result = self._values.get("anonymous_gid")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def anonymous_uid(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#anonymous_uid HpcCache#anonymous_uid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#anonymous_uid HpcCache#anonymous_uid}.'''
         result = self._values.get("anonymous_uid")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def filter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#filter HpcCache#filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#filter HpcCache#filter}.'''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1226,7 +1226,7 @@ class HpcCacheDefaultAccessPolicyAccessRule:
     def root_squash_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#root_squash_enabled HpcCache#root_squash_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#root_squash_enabled HpcCache#root_squash_enabled}.'''
         result = self._values.get("root_squash_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1234,7 +1234,7 @@ class HpcCacheDefaultAccessPolicyAccessRule:
     def submount_access_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#submount_access_enabled HpcCache#submount_access_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#submount_access_enabled HpcCache#submount_access_enabled}.'''
         result = self._values.get("submount_access_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1242,7 +1242,7 @@ class HpcCacheDefaultAccessPolicyAccessRule:
     def suid_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#suid_enabled HpcCache#suid_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#suid_enabled HpcCache#suid_enabled}.'''
         result = self._values.get("suid_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1661,13 +1661,13 @@ class HpcCacheDirectoryActiveDirectory:
         dns_secondary_ip: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cache_netbios_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#cache_netbios_name HpcCache#cache_netbios_name}.
-        :param dns_primary_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dns_primary_ip HpcCache#dns_primary_ip}.
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#domain_name HpcCache#domain_name}.
-        :param domain_netbios_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#domain_netbios_name HpcCache#domain_netbios_name}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#password HpcCache#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#username HpcCache#username}.
-        :param dns_secondary_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dns_secondary_ip HpcCache#dns_secondary_ip}.
+        :param cache_netbios_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#cache_netbios_name HpcCache#cache_netbios_name}.
+        :param dns_primary_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dns_primary_ip HpcCache#dns_primary_ip}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#domain_name HpcCache#domain_name}.
+        :param domain_netbios_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#domain_netbios_name HpcCache#domain_netbios_name}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#password HpcCache#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#username HpcCache#username}.
+        :param dns_secondary_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dns_secondary_ip HpcCache#dns_secondary_ip}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2851c790af3ba00d89032bde29d9d2c024729e9cc9de8cad43594d453931dcb9)
@@ -1691,49 +1691,49 @@ class HpcCacheDirectoryActiveDirectory:
 
     @builtins.property
     def cache_netbios_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#cache_netbios_name HpcCache#cache_netbios_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#cache_netbios_name HpcCache#cache_netbios_name}.'''
         result = self._values.get("cache_netbios_name")
         assert result is not None, "Required property 'cache_netbios_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def dns_primary_ip(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dns_primary_ip HpcCache#dns_primary_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dns_primary_ip HpcCache#dns_primary_ip}.'''
         result = self._values.get("dns_primary_ip")
         assert result is not None, "Required property 'dns_primary_ip' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#domain_name HpcCache#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#domain_name HpcCache#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def domain_netbios_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#domain_netbios_name HpcCache#domain_netbios_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#domain_netbios_name HpcCache#domain_netbios_name}.'''
         result = self._values.get("domain_netbios_name")
         assert result is not None, "Required property 'domain_netbios_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#password HpcCache#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#password HpcCache#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#username HpcCache#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#username HpcCache#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def dns_secondary_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dns_secondary_ip HpcCache#dns_secondary_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dns_secondary_ip HpcCache#dns_secondary_ip}.'''
         result = self._values.get("dns_secondary_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1924,8 +1924,8 @@ class HpcCacheDirectoryFlatFile:
         password_file_uri: builtins.str,
     ) -> None:
         '''
-        :param group_file_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#group_file_uri HpcCache#group_file_uri}.
-        :param password_file_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#password_file_uri HpcCache#password_file_uri}.
+        :param group_file_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#group_file_uri HpcCache#group_file_uri}.
+        :param password_file_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#password_file_uri HpcCache#password_file_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c79a24a879d5ee0ad6a62150488abf794c7d9371e0f99c98ef42aa86cc20ef89)
@@ -1938,14 +1938,14 @@ class HpcCacheDirectoryFlatFile:
 
     @builtins.property
     def group_file_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#group_file_uri HpcCache#group_file_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#group_file_uri HpcCache#group_file_uri}.'''
         result = self._values.get("group_file_uri")
         assert result is not None, "Required property 'group_file_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password_file_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#password_file_uri HpcCache#password_file_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#password_file_uri HpcCache#password_file_uri}.'''
         result = self._values.get("password_file_uri")
         assert result is not None, "Required property 'password_file_uri' is missing"
         return typing.cast(builtins.str, result)
@@ -2053,12 +2053,12 @@ class HpcCacheDirectoryLdap:
         encrypted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param base_dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#base_dn HpcCache#base_dn}.
-        :param server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#server HpcCache#server}.
-        :param bind: bind block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#bind HpcCache#bind}
-        :param certificate_validation_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#certificate_validation_uri HpcCache#certificate_validation_uri}.
-        :param download_certificate_automatically: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#download_certificate_automatically HpcCache#download_certificate_automatically}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#encrypted HpcCache#encrypted}.
+        :param base_dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#base_dn HpcCache#base_dn}.
+        :param server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#server HpcCache#server}.
+        :param bind: bind block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#bind HpcCache#bind}
+        :param certificate_validation_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#certificate_validation_uri HpcCache#certificate_validation_uri}.
+        :param download_certificate_automatically: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#download_certificate_automatically HpcCache#download_certificate_automatically}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#encrypted HpcCache#encrypted}.
         '''
         if isinstance(bind, dict):
             bind = HpcCacheDirectoryLdapBind(**bind)
@@ -2085,14 +2085,14 @@ class HpcCacheDirectoryLdap:
 
     @builtins.property
     def base_dn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#base_dn HpcCache#base_dn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#base_dn HpcCache#base_dn}.'''
         result = self._values.get("base_dn")
         assert result is not None, "Required property 'base_dn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def server(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#server HpcCache#server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#server HpcCache#server}.'''
         result = self._values.get("server")
         assert result is not None, "Required property 'server' is missing"
         return typing.cast(builtins.str, result)
@@ -2101,14 +2101,14 @@ class HpcCacheDirectoryLdap:
     def bind(self) -> typing.Optional["HpcCacheDirectoryLdapBind"]:
         '''bind block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#bind HpcCache#bind}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#bind HpcCache#bind}
         '''
         result = self._values.get("bind")
         return typing.cast(typing.Optional["HpcCacheDirectoryLdapBind"], result)
 
     @builtins.property
     def certificate_validation_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#certificate_validation_uri HpcCache#certificate_validation_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#certificate_validation_uri HpcCache#certificate_validation_uri}.'''
         result = self._values.get("certificate_validation_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2116,7 +2116,7 @@ class HpcCacheDirectoryLdap:
     def download_certificate_automatically(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#download_certificate_automatically HpcCache#download_certificate_automatically}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#download_certificate_automatically HpcCache#download_certificate_automatically}.'''
         result = self._values.get("download_certificate_automatically")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2124,7 +2124,7 @@ class HpcCacheDirectoryLdap:
     def encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#encrypted HpcCache#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#encrypted HpcCache#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2148,8 +2148,8 @@ class HpcCacheDirectoryLdap:
 class HpcCacheDirectoryLdapBind:
     def __init__(self, *, dn: builtins.str, password: builtins.str) -> None:
         '''
-        :param dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dn HpcCache#dn}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#password HpcCache#password}.
+        :param dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dn HpcCache#dn}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#password HpcCache#password}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3aca9e9e9f3e7d968d8d434972a254951ec03c038559e1c5fcf919adcc0a1a1f)
@@ -2162,14 +2162,14 @@ class HpcCacheDirectoryLdapBind:
 
     @builtins.property
     def dn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dn HpcCache#dn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dn HpcCache#dn}.'''
         result = self._values.get("dn")
         assert result is not None, "Required property 'dn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#password HpcCache#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#password HpcCache#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
@@ -2276,8 +2276,8 @@ class HpcCacheDirectoryLdapOutputReference(
     @jsii.member(jsii_name="putBind")
     def put_bind(self, *, dn: builtins.str, password: builtins.str) -> None:
         '''
-        :param dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#dn HpcCache#dn}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#password HpcCache#password}.
+        :param dn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#dn HpcCache#dn}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#password HpcCache#password}.
         '''
         value = HpcCacheDirectoryLdapBind(dn=dn, password=password)
 
@@ -2432,8 +2432,8 @@ class HpcCacheDns:
         search_domain: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#servers HpcCache#servers}.
-        :param search_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#search_domain HpcCache#search_domain}.
+        :param servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#servers HpcCache#servers}.
+        :param search_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#search_domain HpcCache#search_domain}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1707cdac33fee3f94e1f776deb60d502f0b2fd9702efba365b075ec0665c94a)
@@ -2447,14 +2447,14 @@ class HpcCacheDns:
 
     @builtins.property
     def servers(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#servers HpcCache#servers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#servers HpcCache#servers}.'''
         result = self._values.get("servers")
         assert result is not None, "Required property 'servers' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def search_domain(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#search_domain HpcCache#search_domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#search_domain HpcCache#search_domain}.'''
         result = self._values.get("search_domain")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2554,8 +2554,8 @@ class HpcCacheIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#type HpcCache#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#identity_ids HpcCache#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#type HpcCache#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#identity_ids HpcCache#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b384fbe602eb24af70470d7630a716b458acdd298372a70a9357b852a5a3b58)
@@ -2569,14 +2569,14 @@ class HpcCacheIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#type HpcCache#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#type HpcCache#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#identity_ids HpcCache#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#identity_ids HpcCache#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2693,10 +2693,10 @@ class HpcCacheTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#create HpcCache#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#delete HpcCache#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#read HpcCache#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#update HpcCache#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#create HpcCache#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#delete HpcCache#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#read HpcCache#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#update HpcCache#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30e5ebc5ba89e2a03886b6bedf024e0bde56c645e26ce7100b628a956dca528a)
@@ -2716,25 +2716,25 @@ class HpcCacheTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#create HpcCache#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#create HpcCache#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#delete HpcCache#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#delete HpcCache#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#read HpcCache#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#read HpcCache#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/hpc_cache#update HpcCache#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/hpc_cache#update HpcCache#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

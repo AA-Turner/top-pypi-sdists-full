@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from orionis.container.enums.lifetimes import Lifetime
 from orionis.container.entities.binding import Binding
+from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
 
 class IContainer(ABC):
     """
@@ -17,7 +18,7 @@ class IContainer(ABC):
         *,
         alias: str = None,
         enforce_decoupling: bool = False
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers a service with a singleton lifetime.
 
@@ -47,7 +48,7 @@ class IContainer(ABC):
         *,
         alias: str = None,
         enforce_decoupling: bool = False
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers a service with a transient lifetime.
 
@@ -77,7 +78,7 @@ class IContainer(ABC):
         *,
         alias: str = None,
         enforce_decoupling: bool = False
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers a service with a scoped lifetime.
 
@@ -107,7 +108,7 @@ class IContainer(ABC):
         *,
         alias: str = None,
         enforce_decoupling: bool = False
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers an instance of a class or interface in the container.
 
@@ -137,7 +138,7 @@ class IContainer(ABC):
         fn: Callable[..., Any],
         *,
         lifetime: Lifetime = Lifetime.TRANSIENT
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers a function or factory under a given alias.
 
@@ -154,32 +155,6 @@ class IContainer(ABC):
         -------
         bool
             True if the function was registered successfully.
-        """
-        pass
-
-    @abstractmethod
-    def make(
-        self,
-        abstract_or_alias: Any,
-        *args: tuple,
-        **kwargs: dict
-    ) -> Any:
-        """
-        Resolves and returns an instance of the requested service.
-
-        Parameters
-        ----------
-        abstract_or_alias : Any
-            The abstract class, interface, or alias (str) to resolve.
-        *args : tuple
-            Positional arguments to pass to the constructor of the resolved service.
-        **kwargs : dict
-            Keyword arguments to pass to the constructor of the resolved service.
-
-        Returns
-        -------
-        Any
-            An instance of the requested service.
         """
         pass
 
@@ -207,7 +182,7 @@ class IContainer(ABC):
     def getBinding(
         self,
         abstract_or_alias: Any
-    ) -> Binding:
+    ) -> Optional[Binding]:
         """
         Retrieves the binding for the requested abstract type or alias.
 
@@ -267,5 +242,181 @@ class IContainer(ABC):
             service = container.make(IScopedService)
             ...
         # Scoped services are automatically disposed here
+        """
+        pass
+
+    @abstractmethod
+    def resolveDependencyArguments(
+        self,
+        name: Optional[str],
+        dependencies: Optional[ResolveArguments]
+    ) -> dict:
+        """
+        Public method to resolve dependencies for a given class or callable.
+
+        This method serves as the public interface for resolving dependencies.
+        It wraps the internal dependency resolution logic and provides error
+        handling to ensure that any exceptions are communicated clearly.
+
+        Parameters
+        ----------
+        name : str or None
+            The name of the class or callable whose dependencies are being resolved.
+            Used for error reporting and context.
+        dependencies : ResolveArguments or None
+            The dependencies object containing resolved and unresolved arguments,
+            as extracted by reflection from the target's signature.
+
+        Returns
+        -------
+        dict
+            A dictionary mapping parameter names to their resolved values. Each key
+            is the name of a constructor or callable parameter, and each value is
+            the resolved dependency instance or value.
+
+        Raises
+        ------
+        OrionisContainerException
+            If any required dependency cannot be resolved, if there are unresolved
+            arguments, or if a dependency refers to a built-in type.
+        """
+        pass
+
+    @abstractmethod
+    def make(
+        self,
+        type_: Any,
+        *args: tuple,
+        **kwargs: dict
+    ) -> Any:
+        """
+        Resolve and instantiate a service or type.
+
+        This method attempts to resolve and instantiate the requested service or type.
+        It first checks if the type is registered in the container and, if so, resolves
+        it according to its binding and lifetime. If the type is not registered but is
+        a class, it attempts to auto-resolve it by constructing it and resolving its
+        dependencies recursively. If neither approach is possible, an exception is raised.
+
+        Parameters
+        ----------
+        type_ : Any
+            The abstract type, class, or alias to resolve. This can be a class, interface,
+            or a string alias registered in the container.
+        *args : tuple
+            Positional arguments to pass to the constructor or factory function.
+        **kwargs : dict
+            Keyword arguments to pass to the constructor or factory function.
+
+        Returns
+        -------
+        Any
+            The resolved and instantiated service or object. If the type is registered,
+            the instance is created according to its binding's lifetime (singleton,
+            transient, or scoped). If the type is not registered but is a class,
+            a new instance is created with its dependencies resolved automatically.
+
+        Raises
+        ------
+        OrionisContainerException
+            If the requested service or type is not registered in the container and
+            cannot be auto-resolved.
+
+        Notes
+        -----
+        - If the type is registered, the container's binding and lifetime rules are used.
+        - If the type is not registered but is a class, auto-resolution is attempted.
+        - If the type cannot be resolved by either method, an exception is raised.
+        """
+        pass
+
+    @abstractmethod
+    def resolve(
+        self,
+        binding: Binding,
+        *args,
+        **kwargs
+    ):
+        """
+        Resolves an instance from a binding according to its lifetime.
+
+        Parameters
+        ----------
+        binding : Binding
+            The binding to resolve.
+        *args : tuple
+            Additional positional arguments to pass to the constructor.
+        **kwargs : dict
+            Additional keyword arguments to pass to the constructor.
+
+        Returns
+        -------
+        Any
+            The resolved instance.
+
+        Raises
+        ------
+        OrionisContainerException
+            If the binding is not an instance of Binding or if the lifetime is not supported.
+        """
+        pass
+
+    @abstractmethod
+    def resolveWithoutContainer(
+        self,
+        type_: Callable[..., Any],
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Forces resolution of a type whether it's registered in the container or not.
+
+        Parameters
+        ----------
+        type_ : Callable[..., Any]
+            The type or callable to resolve.
+        *args : tuple
+            Positional arguments to pass to the constructor/callable.
+        **kwargs : dict
+            Keyword arguments to pass to the constructor/callable.
+
+        Returns
+        -------
+        Any
+            The resolved instance.
+
+        Raises
+        ------
+        OrionisContainerException
+            If the type cannot be resolved.
+        """
+        pass
+
+    @abstractmethod
+    def call(
+        self,
+        instance: Any,
+        method_name: str,
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Call a method on an instance with automatic dependency injection.
+
+        Parameters
+        ----------
+        instance : Any
+            The instance on which to call the method.
+        method_name : str
+            The name of the method to call.
+        *args : tuple
+            Positional arguments to pass to the method.
+        **kwargs : dict
+            Keyword arguments to pass to the method.
+
+        Returns
+        -------
+        Any
+            The result of the method call.
         """
         pass

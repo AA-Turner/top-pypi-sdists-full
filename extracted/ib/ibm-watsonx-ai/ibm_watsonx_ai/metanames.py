@@ -5,18 +5,15 @@
 
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING, cast, Literal
-
-from tabulate import tabulate
 import copy
 import logging
+from typing import TYPE_CHECKING, Any, cast
+
+from tabulate import tabulate
 
 from ibm_watsonx_ai.href_definitions import (
     API_VERSION,
-    PIPELINES,
-    EXPERIMENTS,
     SPACES,
-    RUNTIMES,
 )
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -130,7 +127,6 @@ class MetaNamesBase:
         )
 
     def _generate_doc(self, resource_name: str, note: str | None = None) -> str:
-
         docstring_description = f"""
 Set of MetaNames for {resource_name}.
 
@@ -158,7 +154,6 @@ Available MetaNames:
         format: str = "simple",
         values_format: str = "{}",
     ) -> str:
-
         show_defaults = any(
             meta_prop.default_value != ""
             for meta_prop in filter(
@@ -272,7 +267,6 @@ Available MetaNames:
             lambda x: not x.ignored, self._meta_props_definitions
         ):
             if meta_prop_def.key in meta_props:
-
                 path: list[int | str] = [
                     int(p) if p.isdigit() else p
                     for p in meta_prop_def.path.split("/")[1:]
@@ -360,7 +354,6 @@ Available MetaNames:
                 lambda x: not x.ignored, self._meta_props_definitions
             ):
                 if meta_prop_def.key in meta_props_:
-
                     path: list[int | str] = [
                         int(p) if p.isdigit() else p
                         for p in meta_prop_def.path.split("/")[1:]
@@ -1913,7 +1906,6 @@ class LibraryMetaNames(MetaNamesBase):
 
 
 class SpacesMetaNames(MetaNamesBase):
-
     NAME = "name"
     DESCRIPTION = "description"
     STORAGE = "storage"
@@ -1968,7 +1960,6 @@ class SpacesMetaNames(MetaNamesBase):
 
 
 class ProjectsMetaNames(MetaNamesBase):
-
     NAME = "name"
     DESCRIPTION = "description"
     STORAGE = "storage"
@@ -2606,7 +2597,6 @@ class RemoteTrainingSystemMetaNames(MetaNamesBase):
 
 
 class ExportMetaNames(MetaNamesBase):
-
     NAME = "name"
     DESCRIPTION = "description"
     ALL_ASSETS = "all_assets"
@@ -2641,7 +2631,6 @@ class ExportMetaNames(MetaNamesBase):
 
 
 class VolumeMetaNames(MetaNamesBase):
-
     NAME = "name"
     NAMESPACE = "namespace"
     STORAGE_CLASS = "storageClass"
@@ -2679,7 +2668,6 @@ class VolumeMetaNames(MetaNamesBase):
 
 
 class FactsheetsMetaNames(MetaNamesBase):
-
     ASSET_ID = "model_entry_asset_id"
     NAME = "model_entry_name"
     DESCRIPTION = "model_entry_description"
@@ -2711,7 +2699,6 @@ class FactsheetsMetaNames(MetaNamesBase):
 
 
 class GenChatParamsMetaNames(MetaNamesBase):
-
     FREQUENCY_PENALTY = "frequency_penalty"
     PRESENCE_PENALTY = "presence_penalty"
     TEMPERATURE = "temperature"
@@ -2722,6 +2709,10 @@ class GenChatParamsMetaNames(MetaNamesBase):
     LOGPROBS = "logprobs"
     TOP_LOGPROBS = "top_logprobs"
     RESPONSE_FORMAT = "response_format"
+    MAX_COMPLETION_TOKENS = "max_completion_tokens"
+    LOGIT_BIAS = "logit_bias"
+    SEED = "seed"
+    STOP = "stop"
 
     _meta_props_definitions = [
         MetaProp("FREQUENCY_PENALTY", FREQUENCY_PENALTY, float, False, 1),
@@ -2736,6 +2727,10 @@ class GenChatParamsMetaNames(MetaNamesBase):
         MetaProp(
             "RESPONSE_FORMAT", RESPONSE_FORMAT, dict, False, {"type": "json_object"}
         ),
+        MetaProp("MAX_COMPLETION_TOKENS", MAX_COMPLETION_TOKENS, int, False, 100),
+        MetaProp("LOGIT_BIAS", LOGIT_BIAS, dict, False, {"1003": -100, "1004": -100}),
+        MetaProp("SEED", SEED, int, False, 41),
+        MetaProp("STOP", STOP, list, False, ["this", "the"]),
     ]
 
     __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(
@@ -3190,7 +3185,7 @@ class RAGOptimizerConfigurationMetaNames(MetaNamesBase):
                     "type": "data_asset",
                     "connection": {},
                     "location": {
-                        "href": f"/v2/assets/cbc89dee-a087-420c-9b62-a19931fe3950?project_id=h67df788-73f2-46d0-a787-7453085782ht"
+                        "href": "/v2/assets/cbc89dee-a087-420c-9b62-a19931fe3950?project_id=h67df788-73f2-46d0-a787-7453085782ht"
                     },
                 }
             ],
@@ -3207,7 +3202,7 @@ class RAGOptimizerConfigurationMetaNames(MetaNamesBase):
                     "type": "data_asset",
                     "connection": {},
                     "location": {
-                        "href": f"/v2/assets/cbc89dee-a087-420c-9b62-a19931fe3950?project_id=h67df788-73f2-46d0-a787-7453085782ht"
+                        "href": "/v2/assets/cbc89dee-a087-420c-9b62-a19931fe3950?project_id=h67df788-73f2-46d0-a787-7453085782ht"
                     },
                 }
             ],
@@ -3244,6 +3239,49 @@ class RAGOptimizerConfigurationMetaNames(MetaNamesBase):
     ]
 
     __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc("rag_optimizer")
+
+    def __init__(self) -> None:
+        MetaNamesBase.__init__(self, self._meta_props_definitions)
+
+
+class RuntimeDefinitionsMetaNames(MetaNamesBase):
+    NAME = "name"
+    DISPLAY_NAME = "display_name"
+    LAUNCH_CONFIGURATION = "launch_configuration"
+    SOFTWARE_CONFIGURATION = "software_configuration"
+    DESCRIPTION = "description"
+    AUTHOR = "author"
+    TESTED = "tested"
+    IS_SERVICE = "is_service"
+    BUILT_IN = "built_in"
+    FEATURES = "features"
+    RUNTIME_TYPE = "runtime_type"
+
+    _meta_props_definitions = [
+        MetaProp("NAME", NAME, str, True, "my_runtime_definition_name"),
+        MetaProp(
+            "DISPLAY_NAME",
+            DISPLAY_NAME,
+            str,
+            True,
+            "Runtime Definition Display Name",
+        ),
+        MetaProp("LAUNCH_CONFIGURATION", LAUNCH_CONFIGURATION, dict, True, {}),
+        MetaProp("SOFTWARE_CONFIGURATION", SOFTWARE_CONFIGURATION, dict, True, {}),
+        MetaProp(
+            "DESCRIPTION", DESCRIPTION, str, False, "Runtime Definition Description"
+        ),
+        MetaProp("AUTHOR", AUTHOR, str, False, "IBM"),
+        MetaProp("TESTED", TESTED, bool, False, True),
+        MetaProp("IS_SERVICE", IS_SERVICE, bool, False, True),
+        MetaProp("BUILT_IN", BUILT_IN, bool, False, False),
+        MetaProp("FEATURES", FEATURES, list, False, ["wml"]),
+        MetaProp("RUNTIME_TYPE", RUNTIME_TYPE, str, False, "wml"),
+    ]
+
+    __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(
+        "runtime_definitions"
+    )
 
     def __init__(self) -> None:
         MetaNamesBase.__init__(self, self._meta_props_definitions)

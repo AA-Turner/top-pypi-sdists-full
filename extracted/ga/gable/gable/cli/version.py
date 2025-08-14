@@ -15,6 +15,7 @@ def get_api_version():
     """Get the OpenAPI schema version"""
     try:
         from gable.openapi import OPENAPI_SCHEMA_VERSION
+
         return OPENAPI_SCHEMA_VERSION
     except (ImportError, AttributeError):
         return "unknown"

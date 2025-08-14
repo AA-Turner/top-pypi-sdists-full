@@ -4,8 +4,9 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
 import json
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from warnings import warn
 
 import ibm_watsonx_ai._wrappers.requests as requests
@@ -13,13 +14,13 @@ from ibm_watsonx_ai.lifecycle import SpecStates
 from ibm_watsonx_ai.metanames import SwSpecMetaNames
 from ibm_watsonx_ai.utils import SW_SPEC_DETAILS_TYPE
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
-from ibm_watsonx_ai.wml_client_error import WMLClientError, ResourceIdByNameNotFound
+from ibm_watsonx_ai.wml_client_error import ResourceIdByNameNotFound, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
-
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class SwSpec(WMLResource):
@@ -473,9 +474,7 @@ class SwSpec(WMLResource):
         if spec_details["entity"].get("software_specification").get("type") != "base":
             return ""
         elif "life_cycle" not in spec_details["metadata"]:
-            return (
-                SpecStates.SUPPORTED.value
-            )  # if no lifecycle info in the metadata, then we should assume it is supported
+            return SpecStates.SUPPORTED.value  # if no lifecycle info in the metadata, then we should assume it is supported
         elif SpecStates.RETIRED.value in spec_details["metadata"]["life_cycle"]:
             return SpecStates.RETIRED.value
         elif SpecStates.CONSTRICTED.value in spec_details["metadata"]["life_cycle"]:
@@ -494,7 +493,6 @@ class SwSpec(WMLResource):
     def _get_required_element_from_response(
         self, response_data: dict[str, Any]
     ) -> dict:
-
         WMLResource._validate_type(response_data, "sw_spec_response", dict)
         try:
             new_el = {

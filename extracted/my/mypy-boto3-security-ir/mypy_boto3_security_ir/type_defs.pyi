@@ -28,6 +28,7 @@ from .literals import (
     CustomerTypeType,
     EngagementTypeType,
     MembershipAccountRelationshipStatusType,
+    MembershipAccountRelationshipTypeType,
     MembershipStatusType,
     PendingActionType,
     ResolverTypeType,
@@ -89,6 +90,8 @@ __all__ = (
     "ListMembershipsResponseTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
+    "MembershipAccountsConfigurationsTypeDef",
+    "MembershipAccountsConfigurationsUpdateTypeDef",
     "OptInFeatureTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
@@ -119,7 +122,7 @@ class GetMembershipAccountDetailErrorTypeDef(TypedDict):
 class GetMembershipAccountDetailItemTypeDef(TypedDict):
     accountId: NotRequired[str]
     relationshipStatus: NotRequired[MembershipAccountRelationshipStatusType]
-    relationshipType: NotRequired[Literal["Organization"]]
+    relationshipType: NotRequired[MembershipAccountRelationshipTypeType]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -191,6 +194,10 @@ class GetCaseRequestTypeDef(TypedDict):
 class GetMembershipRequestTypeDef(TypedDict):
     membershipId: str
 
+class MembershipAccountsConfigurationsTypeDef(TypedDict):
+    coverEntireOrganization: NotRequired[bool]
+    organizationalUnits: NotRequired[List[str]]
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -243,6 +250,11 @@ class ListMembershipsRequestTypeDef(TypedDict):
 
 class ListTagsForResourceInputTypeDef(TypedDict):
     resourceArn: str
+
+class MembershipAccountsConfigurationsUpdateTypeDef(TypedDict):
+    coverEntireOrganization: NotRequired[bool]
+    organizationalUnitsToAdd: NotRequired[Sequence[str]]
+    organizationalUnitsToRemove: NotRequired[Sequence[str]]
 
 class TagResourceInputTypeDef(TypedDict):
     resourceArn: str
@@ -384,6 +396,7 @@ class CreateMembershipRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     optInFeatures: NotRequired[Sequence[OptInFeatureTypeDef]]
     tags: NotRequired[Mapping[str, str]]
+    coverEntireOrganization: NotRequired[bool]
 
 class GetMembershipResponseTypeDef(TypedDict):
     membershipId: str
@@ -398,13 +411,8 @@ class GetMembershipResponseTypeDef(TypedDict):
     numberOfAccountsCovered: int
     incidentResponseTeam: List[IncidentResponderTypeDef]
     optInFeatures: List[OptInFeatureTypeDef]
+    membershipAccountsConfigurations: MembershipAccountsConfigurationsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateMembershipRequestTypeDef(TypedDict):
-    membershipId: str
-    membershipName: NotRequired[str]
-    incidentResponseTeam: NotRequired[Sequence[IncidentResponderTypeDef]]
-    optInFeatures: NotRequired[Sequence[OptInFeatureTypeDef]]
 
 class ListCaseEditsRequestPaginateTypeDef(TypedDict):
     caseId: str
@@ -436,3 +444,13 @@ class ListMembershipsResponseTypeDef(TypedDict):
     items: List[ListMembershipItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class UpdateMembershipRequestTypeDef(TypedDict):
+    membershipId: str
+    membershipName: NotRequired[str]
+    incidentResponseTeam: NotRequired[Sequence[IncidentResponderTypeDef]]
+    optInFeatures: NotRequired[Sequence[OptInFeatureTypeDef]]
+    membershipAccountsConfigurationsUpdate: NotRequired[
+        MembershipAccountsConfigurationsUpdateTypeDef
+    ]
+    undoMembershipCancellation: NotRequired[bool]

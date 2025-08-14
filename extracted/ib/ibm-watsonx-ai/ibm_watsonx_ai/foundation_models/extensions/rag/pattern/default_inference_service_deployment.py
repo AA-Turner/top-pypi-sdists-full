@@ -251,7 +251,6 @@ def inference_service(context, vector_store_settings=None):
         yield chunk_response
 
         for chunk in response_stream:
-
             message = {
                 "content": chunk["results"][0]["generated_text"],
             }

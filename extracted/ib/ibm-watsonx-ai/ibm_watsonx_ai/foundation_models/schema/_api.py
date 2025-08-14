@@ -2,12 +2,13 @@
 #  (C) Copyright IBM Corp. 2024-2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
-from typing import Any, Type, TypeVar, get_origin, get_args, TYPE_CHECKING
-from tabulate import tabulate
+from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
+from typing import TYPE_CHECKING, Any, Type, TypeVar, get_args, get_origin
+
+from tabulate import tabulate
 
 from ibm_watsonx_ai.utils.utils import StrEnum
-from dataclasses import dataclass, is_dataclass, fields
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai.foundation_models.extensions.rag.retriever import (
@@ -20,7 +21,6 @@ T = TypeVar("T", bound="BaseSchema")
 
 @dataclass
 class BaseSchema:
-
     @classmethod
     def from_dict(cls: Type[T], data: dict[str, Any]) -> "BaseSchema":
         kwargs = {}
@@ -207,6 +207,7 @@ class TextChatParameters(BaseSchema):
     response_format: dict | TextChatResponseFormat | None = None
     temperature: float | None = None
     max_tokens: int | None = None
+    max_completion_tokens: int | None = None
     time_limit: int | None = None
     top_p: float | None = None
     n: int | None = None
@@ -225,6 +226,7 @@ class TextChatParameters(BaseSchema):
             "response_format": TextChatResponseFormat.get_sample_params(),
             "temperature": 0.7,
             "max_tokens": 100,
+            "max_completion_tokens": 512,
             "time_limit": 600000,
             "top_p": 0.9,
             "n": 1,
@@ -319,7 +321,6 @@ class TSForecastParameters(BaseSchema):
 
 @dataclass
 class PeftParameters(BaseSchema):
-
     type: str
     rank: int | None = None
     target_modules: list | None = None

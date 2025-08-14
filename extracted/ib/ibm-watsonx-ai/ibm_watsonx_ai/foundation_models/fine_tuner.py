@@ -4,30 +4,30 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import TYPE_CHECKING, cast, Any
+
+import datetime
+from typing import TYPE_CHECKING, Any, cast
 
 from ibm_watsonx_ai.foundation_models.base_tuner import BaseTuner
-from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    MissingExtension,
-    UnsupportedOperation,
-)
-from ibm_watsonx_ai.helpers.connections import DataConnection
-from ibm_watsonx_ai.utils.autoai.utils import is_ipython
+from ibm_watsonx_ai.foundation_models.schema import BaseSchema, PeftParameters
 from ibm_watsonx_ai.foundation_models.utils import FineTuningParams
 from ibm_watsonx_ai.foundation_models.utils.utils import (
     _is_fine_tuning_endpoint_available,
 )
-from ibm_watsonx_ai.foundation_models.schema import PeftParameters, BaseSchema
-
-import datetime
-
+from ibm_watsonx_ai.helpers.connections import DataConnection
+from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.utils.autoai.utils import is_ipython
+from ibm_watsonx_ai.wml_client_error import (
+    MissingExtension,
+    UnsupportedOperation,
+    WMLClientError,
+)
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class FineTuner(BaseTuner):
@@ -280,7 +280,9 @@ class FineTuner(BaseTuner):
                 Messages.get_message(message_id="fm_fine_tuning_not_scheduled")
             )
 
-        return self._client.training.get_status(training_id=self.id, _is_fine_tuning=True).get("state")  # type: ignore[return-value]
+        return self._client.training.get_status(
+            training_id=self.id, _is_fine_tuning=True
+        ).get("state")  # type: ignore[return-value]
 
     def get_run_details(self, include_metrics: bool = False) -> dict:
         """Get fine-tuning run details.
@@ -431,7 +433,6 @@ class FineTuner(BaseTuner):
             )
 
     def summary(self, scoring: str = "loss") -> DataFrame:
-
         if self.id is None:
             raise WMLClientError(
                 Messages.get_message(message_id="fm_fine_tuning_not_scheduled")
@@ -457,6 +458,7 @@ class FineTuner(BaseTuner):
             "Auto store",
             "Epochs",
             scoring,
+            "Status",
         ]
         values = []
         model_name = "model_" + self.id
@@ -478,6 +480,8 @@ class FineTuner(BaseTuner):
             base_model_name = details["entity"]["parameters"]["base_model"]["model_id"]
             epochs = details["entity"]["parameters"]["num_epochs"]
 
+        status = details["entity"]["status"]["state"]
+
         values.append(
             (
                 [model_name]
@@ -486,6 +490,7 @@ class FineTuner(BaseTuner):
                 + [details["entity"]["auto_update_model"]]
                 + [epochs]
                 + model_metrics
+                + [status]
             )
         )
 
@@ -565,3 +570,56 @@ class FineTuner(BaseTuner):
             data_connection._run_id = self.id
 
         return data_connections
+
+    def get_logs(self) -> str:
+        """
+        Get logs of a Fine-Tuning training run.
+
+        return: path to saved logs
+        :rtype: str
+
+        """
+
+        details = self.get_run_details()
+
+        results_ref = details["entity"]["results_reference"]
+
+        logs_location = details["entity"]["results_reference"]["location"][
+            "training_log"
+        ]
+
+        data_connection = DataConnection.from_dict(results_ref)
+
+        if data_connection.location is not None:
+            attr_name = (
+                "file_name"
+                if hasattr(data_connection.location, "file_name")
+                else "path"
+            )
+            setattr(data_connection.location, attr_name, logs_location)
+        data_connection.set_client(self._client)
+
+        filename = logs_location.split("/")[-1]
+        try:
+            data_connection.download(filename=filename)
+        except Exception:
+            match details["entity"]["status"]["state"]:
+                case "queued" | "pending" | "running" | "storing":
+                    raise WMLClientError(
+                        "Training logs are not available yet. Please try again when training is completed."
+                    )
+                case "canceled" | "failed" as state:
+                    raise WMLClientError(
+                        f"Training logs are not available for {state} training."
+                    )
+                case _:
+                    raise
+
+        if is_ipython():
+            from IPython.display import display
+
+            from ibm_watsonx_ai.utils import create_download_link
+
+            display(create_download_link(filename))
+
+        return filename

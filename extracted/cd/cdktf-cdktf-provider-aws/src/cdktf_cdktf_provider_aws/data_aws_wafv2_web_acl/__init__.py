@@ -1,7 +1,7 @@
 r'''
 # `data_aws_wafv2_web_acl`
 
-Refer to the Terraform Registry for docs: [`data_aws_wafv2_web_acl`](https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl).
+Refer to the Terraform Registry for docs: [`data_aws_wafv2_web_acl`](https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,17 +44,18 @@ class DataAwsWafv2WebAcl(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsWafv2WebAcl.DataAwsWafv2WebAcl",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl aws_wafv2_web_acl}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl aws_wafv2_web_acl}.'''
 
     def __init__(
         self,
         scope_: _constructs_77d1e7e8.Construct,
         id_: builtins.str,
         *,
-        name: builtins.str,
         scope: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        resource_arn: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -63,14 +64,15 @@ class DataAwsWafv2WebAcl(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl aws_wafv2_web_acl} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl aws_wafv2_web_acl} Data Source.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#name DataAwsWafv2WebAcl#name}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#scope DataAwsWafv2WebAcl#scope}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#id DataAwsWafv2WebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#region DataAwsWafv2WebAcl#region}
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#scope DataAwsWafv2WebAcl#scope}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#id DataAwsWafv2WebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#name DataAwsWafv2WebAcl#name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#region DataAwsWafv2WebAcl#region}
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#resource_arn DataAwsWafv2WebAcl#resource_arn}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -84,10 +86,11 @@ class DataAwsWafv2WebAcl(
             check_type(argname="argument scope_", value=scope_, expected_type=type_hints["scope_"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = DataAwsWafv2WebAclConfig(
-            name=name,
             scope=scope,
             id=id,
+            name=name,
             region=region,
+            resource_arn=resource_arn,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -112,7 +115,7 @@ class DataAwsWafv2WebAcl(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsWafv2WebAcl to import.
-        :param import_from_id: The id of the existing DataAwsWafv2WebAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsWafv2WebAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsWafv2WebAcl to import is found.
         '''
         if __debug__:
@@ -127,9 +130,17 @@ class DataAwsWafv2WebAcl(
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
 
+    @jsii.member(jsii_name="resetName")
+    def reset_name(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetName", []))
+
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
+    @jsii.member(jsii_name="resetResourceArn")
+    def reset_resource_arn(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetResourceArn", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -168,6 +179,11 @@ class DataAwsWafv2WebAcl(
     @jsii.member(jsii_name="regionInput")
     def region_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceArnInput")
+    def resource_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "resourceArnInput"))
 
     @builtins.property
     @jsii.member(jsii_name="scopeInput")
@@ -211,6 +227,18 @@ class DataAwsWafv2WebAcl(
         jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="resourceArn")
+    def resource_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
+
+    @resource_arn.setter
+    def resource_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__688b15a1e6433482a8fa61699b43caec434fdd6a5d290223e56dd96a807f1af9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="scope")
     def scope(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "scope"))
@@ -234,10 +262,11 @@ class DataAwsWafv2WebAcl(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "name": "name",
         "scope": "scope",
         "id": "id",
+        "name": "name",
         "region": "region",
+        "resource_arn": "resourceArn",
     },
 )
 class DataAwsWafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -251,10 +280,11 @@ class DataAwsWafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        name: builtins.str,
         scope: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        resource_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -264,10 +294,11 @@ class DataAwsWafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#name DataAwsWafv2WebAcl#name}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#scope DataAwsWafv2WebAcl#scope}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#id DataAwsWafv2WebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#region DataAwsWafv2WebAcl#region}
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#scope DataAwsWafv2WebAcl#scope}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#id DataAwsWafv2WebAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#name DataAwsWafv2WebAcl#name}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#region DataAwsWafv2WebAcl#region}
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#resource_arn DataAwsWafv2WebAcl#resource_arn}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -280,12 +311,12 @@ class DataAwsWafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
             "scope": scope,
         }
         if connection is not None:
@@ -304,8 +335,12 @@ class DataAwsWafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if name is not None:
+            self._values["name"] = name
         if region is not None:
             self._values["region"] = region
+        if resource_arn is not None:
+            self._values["resource_arn"] = resource_arn
 
     @builtins.property
     def connection(
@@ -372,22 +407,15 @@ class DataAwsWafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#name DataAwsWafv2WebAcl#name}.'''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def scope(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#scope DataAwsWafv2WebAcl#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#scope DataAwsWafv2WebAcl#scope}.'''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#id DataAwsWafv2WebAcl#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#id DataAwsWafv2WebAcl#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -396,12 +424,24 @@ class DataAwsWafv2WebAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#name DataAwsWafv2WebAcl#name}.'''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/wafv2_web_acl#region DataAwsWafv2WebAcl#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#region DataAwsWafv2WebAcl#region}
         '''
         result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_arn(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/wafv2_web_acl#resource_arn DataAwsWafv2WebAcl#resource_arn}.'''
+        result = self._values.get("resource_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -427,10 +467,11 @@ def _typecheckingstub__58a84f027c7f24f84a7841d64e504f6a2c3517b7e768d61faa5f2dfe5
     scope_: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
     *,
-    name: builtins.str,
     scope: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    resource_arn: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -469,6 +510,12 @@ def _typecheckingstub__8f8d64265ff5b8a8e5279800849985c38662df063b029a5765b0aaf17
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__688b15a1e6433482a8fa61699b43caec434fdd6a5d290223e56dd96a807f1af9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__76a0ee05e2aec6bf064781a0e4d3486e0d11f9ca4c144d5095bc7b22fbed0dd8(
     value: builtins.str,
 ) -> None:
@@ -484,10 +531,11 @@ def _typecheckingstub__637c24a619822b8d1742d3276b71b6498f79ff83d63a21d027e3a5024
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    name: builtins.str,
     scope: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    resource_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

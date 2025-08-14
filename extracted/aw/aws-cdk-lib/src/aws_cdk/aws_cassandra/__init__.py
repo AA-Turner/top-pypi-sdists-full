@@ -531,6 +531,10 @@ class CfnTable(
                 status="status",
         
                 # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 view_type="viewType"
             ),
             client_side_timestamps_enabled=False,
@@ -1256,13 +1260,14 @@ class CfnTable(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cassandra.CfnTable.CdcSpecificationProperty",
         jsii_struct_bases=[],
-        name_mapping={"status": "status", "view_type": "viewType"},
+        name_mapping={"status": "status", "tags": "tags", "view_type": "viewType"},
     )
     class CdcSpecificationProperty:
         def __init__(
             self,
             *,
             status: builtins.str,
+            tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
             view_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings for the CDC stream of a table.
@@ -1270,6 +1275,7 @@ class CfnTable(
             For more information about CDC streams, see `Working with change data capture (CDC) streams in Amazon Keyspaces <https://docs.aws.amazon.com/keyspaces/latest/devguide/cdc.html>`_ in the *Amazon Keyspaces Developer Guide* .
 
             :param status: The status of the CDC stream. You can enable or disable a stream for a table.
+            :param tags: The tags (key-value pairs) that you want to apply to the stream.
             :param view_type: The view type specifies the changes Amazon Keyspaces records for each changed row in the stream. After you create the stream, you can't make changes to this selection. The options are: - ``NEW_AND_OLD_IMAGES`` - both versions of the row, before and after the change. This is the default. - ``NEW_IMAGE`` - the version of the row after the change. - ``OLD_IMAGE`` - the version of the row before the change. - ``KEYS_ONLY`` - the partition and clustering keys of the row that was changed. Default: - "NEW_AND_OLD_IMAGES"
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cassandra-table-cdcspecification.html
@@ -1285,16 +1291,23 @@ class CfnTable(
                     status="status",
                 
                     # the properties below are optional
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
                     view_type="viewType"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__504eaef70818f1cb4ead5434397a50494cf33314a00fe4e3045dad5cdcd7b160)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
                 check_type(argname="argument view_type", value=view_type, expected_type=type_hints["view_type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "status": status,
             }
+            if tags is not None:
+                self._values["tags"] = tags
             if view_type is not None:
                 self._values["view_type"] = view_type
 
@@ -1309,6 +1322,15 @@ class CfnTable(
             result = self._values.get("status")
             assert result is not None, "Required property 'status' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+            '''The tags (key-value pairs) that you want to apply to the stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cassandra-table-cdcspecification.html#cfn-cassandra-table-cdcspecification-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
 
         @builtins.property
         def view_type(self) -> typing.Optional[builtins.str]:
@@ -2100,6 +2122,10 @@ class CfnTableProps:
                     status="status",
             
                     # the properties below are optional
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
                     view_type="viewType"
                 ),
                 client_side_timestamps_enabled=False,
@@ -2992,6 +3018,7 @@ def _typecheckingstub__1b57c6da9515480ece2b86b6971f8563bcf0c49dab50c8c6e234c443b
 def _typecheckingstub__504eaef70818f1cb4ead5434397a50494cf33314a00fe4e3045dad5cdcd7b160(
     *,
     status: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     view_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

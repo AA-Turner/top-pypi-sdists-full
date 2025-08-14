@@ -1,7 +1,7 @@
 r'''
 # `newrelic_service_level`
 
-Refer to the Terraform Registry for docs: [`newrelic_service_level`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level).
+Refer to the Terraform Registry for docs: [`newrelic_service_level`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceLevel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.serviceLevel.ServiceLevel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level newrelic_service_level}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level newrelic_service_level}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ServiceLevel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level newrelic_service_level} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level newrelic_service_level} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param events: events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#events ServiceLevel#events}
-        :param guid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#guid ServiceLevel#guid}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#name ServiceLevel#name}.
-        :param objective: objective block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#objective ServiceLevel#objective}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#description ServiceLevel#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#id ServiceLevel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param events: events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#events ServiceLevel#events}
+        :param guid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#guid ServiceLevel#guid}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#name ServiceLevel#name}.
+        :param objective: objective block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#objective ServiceLevel#objective}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#description ServiceLevel#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#id ServiceLevel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ServiceLevel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceLevel to import.
-        :param import_from_id: The id of the existing ServiceLevel that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceLevel that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceLevel to import is found.
         '''
         if __debug__:
@@ -139,10 +139,10 @@ class ServiceLevel(
         good_events: typing.Optional[typing.Union["ServiceLevelEventsGoodEvents", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#account_id ServiceLevel#account_id}.
-        :param valid_events: valid_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#valid_events ServiceLevel#valid_events}
-        :param bad_events: bad_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#bad_events ServiceLevel#bad_events}
-        :param good_events: good_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#good_events ServiceLevel#good_events}
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#account_id ServiceLevel#account_id}.
+        :param valid_events: valid_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#valid_events ServiceLevel#valid_events}
+        :param bad_events: bad_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#bad_events ServiceLevel#bad_events}
+        :param good_events: good_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#good_events ServiceLevel#good_events}
         '''
         value = ServiceLevelEvents(
             account_id=account_id,
@@ -163,10 +163,10 @@ class ServiceLevel(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#target ServiceLevel#target}.
-        :param time_window: time_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#time_window ServiceLevel#time_window}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#description ServiceLevel#description}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#name ServiceLevel#name}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#target ServiceLevel#target}.
+        :param time_window: time_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#time_window ServiceLevel#time_window}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#description ServiceLevel#description}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#name ServiceLevel#name}.
         '''
         value = ServiceLevelObjective(
             target=target, time_window=time_window, description=description, name=name
@@ -339,12 +339,12 @@ class ServiceLevelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param events: events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#events ServiceLevel#events}
-        :param guid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#guid ServiceLevel#guid}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#name ServiceLevel#name}.
-        :param objective: objective block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#objective ServiceLevel#objective}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#description ServiceLevel#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#id ServiceLevel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param events: events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#events ServiceLevel#events}
+        :param guid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#guid ServiceLevel#guid}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#name ServiceLevel#name}.
+        :param objective: objective block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#objective ServiceLevel#objective}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#description ServiceLevel#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#id ServiceLevel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -460,7 +460,7 @@ class ServiceLevelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def events(self) -> "ServiceLevelEvents":
         '''events block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#events ServiceLevel#events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#events ServiceLevel#events}
         '''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
@@ -468,14 +468,14 @@ class ServiceLevelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def guid(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#guid ServiceLevel#guid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#guid ServiceLevel#guid}.'''
         result = self._values.get("guid")
         assert result is not None, "Required property 'guid' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#name ServiceLevel#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#name ServiceLevel#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -484,7 +484,7 @@ class ServiceLevelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def objective(self) -> "ServiceLevelObjective":
         '''objective block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#objective ServiceLevel#objective}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#objective ServiceLevel#objective}
         '''
         result = self._values.get("objective")
         assert result is not None, "Required property 'objective' is missing"
@@ -492,13 +492,13 @@ class ServiceLevelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#description ServiceLevel#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#description ServiceLevel#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#id ServiceLevel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#id ServiceLevel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -538,10 +538,10 @@ class ServiceLevelEvents:
         good_events: typing.Optional[typing.Union["ServiceLevelEventsGoodEvents", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#account_id ServiceLevel#account_id}.
-        :param valid_events: valid_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#valid_events ServiceLevel#valid_events}
-        :param bad_events: bad_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#bad_events ServiceLevel#bad_events}
-        :param good_events: good_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#good_events ServiceLevel#good_events}
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#account_id ServiceLevel#account_id}.
+        :param valid_events: valid_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#valid_events ServiceLevel#valid_events}
+        :param bad_events: bad_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#bad_events ServiceLevel#bad_events}
+        :param good_events: good_events block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#good_events ServiceLevel#good_events}
         '''
         if isinstance(valid_events, dict):
             valid_events = ServiceLevelEventsValidEvents(**valid_events)
@@ -566,7 +566,7 @@ class ServiceLevelEvents:
 
     @builtins.property
     def account_id(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#account_id ServiceLevel#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#account_id ServiceLevel#account_id}.'''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
         return typing.cast(jsii.Number, result)
@@ -575,7 +575,7 @@ class ServiceLevelEvents:
     def valid_events(self) -> "ServiceLevelEventsValidEvents":
         '''valid_events block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#valid_events ServiceLevel#valid_events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#valid_events ServiceLevel#valid_events}
         '''
         result = self._values.get("valid_events")
         assert result is not None, "Required property 'valid_events' is missing"
@@ -585,7 +585,7 @@ class ServiceLevelEvents:
     def bad_events(self) -> typing.Optional["ServiceLevelEventsBadEvents"]:
         '''bad_events block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#bad_events ServiceLevel#bad_events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#bad_events ServiceLevel#bad_events}
         '''
         result = self._values.get("bad_events")
         return typing.cast(typing.Optional["ServiceLevelEventsBadEvents"], result)
@@ -594,7 +594,7 @@ class ServiceLevelEvents:
     def good_events(self) -> typing.Optional["ServiceLevelEventsGoodEvents"]:
         '''good_events block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#good_events ServiceLevel#good_events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#good_events ServiceLevel#good_events}
         '''
         result = self._values.get("good_events")
         return typing.cast(typing.Optional["ServiceLevelEventsGoodEvents"], result)
@@ -625,9 +625,9 @@ class ServiceLevelEventsBadEvents:
         where: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#from ServiceLevel#from}.
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#select ServiceLevel#select}
-        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#where ServiceLevel#where}.
+        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#from ServiceLevel#from}.
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#select ServiceLevel#select}
+        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#where ServiceLevel#where}.
         '''
         if isinstance(select, dict):
             select = ServiceLevelEventsBadEventsSelect(**select)
@@ -646,7 +646,7 @@ class ServiceLevelEventsBadEvents:
 
     @builtins.property
     def from_(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#from ServiceLevel#from}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#from ServiceLevel#from}.'''
         result = self._values.get("from_")
         assert result is not None, "Required property 'from_' is missing"
         return typing.cast(builtins.str, result)
@@ -655,14 +655,14 @@ class ServiceLevelEventsBadEvents:
     def select(self) -> typing.Optional["ServiceLevelEventsBadEventsSelect"]:
         '''select block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#select ServiceLevel#select}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#select ServiceLevel#select}
         '''
         result = self._values.get("select")
         return typing.cast(typing.Optional["ServiceLevelEventsBadEventsSelect"], result)
 
     @builtins.property
     def where(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#where ServiceLevel#where}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#where ServiceLevel#where}.'''
         result = self._values.get("where")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -707,9 +707,9 @@ class ServiceLevelEventsBadEventsOutputReference(
         threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#function ServiceLevel#function}.
-        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
-        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#threshold ServiceLevel#threshold}
+        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#function ServiceLevel#function}.
+        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
+        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#threshold ServiceLevel#threshold}
         '''
         value = ServiceLevelEventsBadEventsSelect(
             function=function, attribute=attribute, threshold=threshold
@@ -803,9 +803,9 @@ class ServiceLevelEventsBadEventsSelect:
         threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#function ServiceLevel#function}.
-        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
-        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#threshold ServiceLevel#threshold}
+        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#function ServiceLevel#function}.
+        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
+        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#threshold ServiceLevel#threshold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c3e010a766d974590ea8e3dacb90a49454df4697492aef625be94a9aee8480b)
@@ -822,14 +822,14 @@ class ServiceLevelEventsBadEventsSelect:
 
     @builtins.property
     def function(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#function ServiceLevel#function}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#function ServiceLevel#function}.'''
         result = self._values.get("function")
         assert result is not None, "Required property 'function' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def attribute(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#attribute ServiceLevel#attribute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#attribute ServiceLevel#attribute}.'''
         result = self._values.get("attribute")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -837,7 +837,7 @@ class ServiceLevelEventsBadEventsSelect:
     def threshold(self) -> typing.Optional[jsii.Number]:
         '''The event threshold to use in the SELECT clause.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#threshold ServiceLevel#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#threshold ServiceLevel#threshold}
         '''
         result = self._values.get("threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -963,9 +963,9 @@ class ServiceLevelEventsGoodEvents:
         where: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#from ServiceLevel#from}.
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#select ServiceLevel#select}
-        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#where ServiceLevel#where}.
+        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#from ServiceLevel#from}.
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#select ServiceLevel#select}
+        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#where ServiceLevel#where}.
         '''
         if isinstance(select, dict):
             select = ServiceLevelEventsGoodEventsSelect(**select)
@@ -984,7 +984,7 @@ class ServiceLevelEventsGoodEvents:
 
     @builtins.property
     def from_(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#from ServiceLevel#from}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#from ServiceLevel#from}.'''
         result = self._values.get("from_")
         assert result is not None, "Required property 'from_' is missing"
         return typing.cast(builtins.str, result)
@@ -993,14 +993,14 @@ class ServiceLevelEventsGoodEvents:
     def select(self) -> typing.Optional["ServiceLevelEventsGoodEventsSelect"]:
         '''select block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#select ServiceLevel#select}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#select ServiceLevel#select}
         '''
         result = self._values.get("select")
         return typing.cast(typing.Optional["ServiceLevelEventsGoodEventsSelect"], result)
 
     @builtins.property
     def where(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#where ServiceLevel#where}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#where ServiceLevel#where}.'''
         result = self._values.get("where")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1045,9 +1045,9 @@ class ServiceLevelEventsGoodEventsOutputReference(
         threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#function ServiceLevel#function}.
-        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
-        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#threshold ServiceLevel#threshold}
+        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#function ServiceLevel#function}.
+        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
+        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#threshold ServiceLevel#threshold}
         '''
         value = ServiceLevelEventsGoodEventsSelect(
             function=function, attribute=attribute, threshold=threshold
@@ -1141,9 +1141,9 @@ class ServiceLevelEventsGoodEventsSelect:
         threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#function ServiceLevel#function}.
-        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
-        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#threshold ServiceLevel#threshold}
+        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#function ServiceLevel#function}.
+        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
+        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#threshold ServiceLevel#threshold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ff02bfd1a99e9d43dcfbf7e9d76999cde19b73b2db1c9cb6ef70c0e369bbf8e)
@@ -1160,14 +1160,14 @@ class ServiceLevelEventsGoodEventsSelect:
 
     @builtins.property
     def function(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#function ServiceLevel#function}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#function ServiceLevel#function}.'''
         result = self._values.get("function")
         assert result is not None, "Required property 'function' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def attribute(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#attribute ServiceLevel#attribute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#attribute ServiceLevel#attribute}.'''
         result = self._values.get("attribute")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1175,7 +1175,7 @@ class ServiceLevelEventsGoodEventsSelect:
     def threshold(self) -> typing.Optional[jsii.Number]:
         '''The event threshold to use in the SELECT clause.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#threshold ServiceLevel#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#threshold ServiceLevel#threshold}
         '''
         result = self._values.get("threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1316,9 +1316,9 @@ class ServiceLevelEventsOutputReference(
         where: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#from ServiceLevel#from}.
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#select ServiceLevel#select}
-        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#where ServiceLevel#where}.
+        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#from ServiceLevel#from}.
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#select ServiceLevel#select}
+        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#where ServiceLevel#where}.
         '''
         value = ServiceLevelEventsBadEvents(from_=from_, select=select, where=where)
 
@@ -1333,9 +1333,9 @@ class ServiceLevelEventsOutputReference(
         where: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#from ServiceLevel#from}.
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#select ServiceLevel#select}
-        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#where ServiceLevel#where}.
+        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#from ServiceLevel#from}.
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#select ServiceLevel#select}
+        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#where ServiceLevel#where}.
         '''
         value = ServiceLevelEventsGoodEvents(from_=from_, select=select, where=where)
 
@@ -1350,9 +1350,9 @@ class ServiceLevelEventsOutputReference(
         where: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#from ServiceLevel#from}.
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#select ServiceLevel#select}
-        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#where ServiceLevel#where}.
+        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#from ServiceLevel#from}.
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#select ServiceLevel#select}
+        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#where ServiceLevel#where}.
         '''
         value = ServiceLevelEventsValidEvents(from_=from_, select=select, where=where)
 
@@ -1440,9 +1440,9 @@ class ServiceLevelEventsValidEvents:
         where: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#from ServiceLevel#from}.
-        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#select ServiceLevel#select}
-        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#where ServiceLevel#where}.
+        :param from_: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#from ServiceLevel#from}.
+        :param select: select block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#select ServiceLevel#select}
+        :param where: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#where ServiceLevel#where}.
         '''
         if isinstance(select, dict):
             select = ServiceLevelEventsValidEventsSelect(**select)
@@ -1461,7 +1461,7 @@ class ServiceLevelEventsValidEvents:
 
     @builtins.property
     def from_(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#from ServiceLevel#from}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#from ServiceLevel#from}.'''
         result = self._values.get("from_")
         assert result is not None, "Required property 'from_' is missing"
         return typing.cast(builtins.str, result)
@@ -1470,14 +1470,14 @@ class ServiceLevelEventsValidEvents:
     def select(self) -> typing.Optional["ServiceLevelEventsValidEventsSelect"]:
         '''select block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#select ServiceLevel#select}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#select ServiceLevel#select}
         '''
         result = self._values.get("select")
         return typing.cast(typing.Optional["ServiceLevelEventsValidEventsSelect"], result)
 
     @builtins.property
     def where(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#where ServiceLevel#where}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#where ServiceLevel#where}.'''
         result = self._values.get("where")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1522,9 +1522,9 @@ class ServiceLevelEventsValidEventsOutputReference(
         threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#function ServiceLevel#function}.
-        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
-        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#threshold ServiceLevel#threshold}
+        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#function ServiceLevel#function}.
+        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
+        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#threshold ServiceLevel#threshold}
         '''
         value = ServiceLevelEventsValidEventsSelect(
             function=function, attribute=attribute, threshold=threshold
@@ -1618,9 +1618,9 @@ class ServiceLevelEventsValidEventsSelect:
         threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#function ServiceLevel#function}.
-        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
-        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#threshold ServiceLevel#threshold}
+        :param function: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#function ServiceLevel#function}.
+        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#attribute ServiceLevel#attribute}.
+        :param threshold: The event threshold to use in the SELECT clause. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#threshold ServiceLevel#threshold}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e31ae9ce08b6b6caf50215fa131116d277a209612270b24dbceb23651d8e2516)
@@ -1637,14 +1637,14 @@ class ServiceLevelEventsValidEventsSelect:
 
     @builtins.property
     def function(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#function ServiceLevel#function}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#function ServiceLevel#function}.'''
         result = self._values.get("function")
         assert result is not None, "Required property 'function' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def attribute(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#attribute ServiceLevel#attribute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#attribute ServiceLevel#attribute}.'''
         result = self._values.get("attribute")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1652,7 +1652,7 @@ class ServiceLevelEventsValidEventsSelect:
     def threshold(self) -> typing.Optional[jsii.Number]:
         '''The event threshold to use in the SELECT clause.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#threshold ServiceLevel#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#threshold ServiceLevel#threshold}
         '''
         result = self._values.get("threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1784,10 +1784,10 @@ class ServiceLevelObjective:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#target ServiceLevel#target}.
-        :param time_window: time_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#time_window ServiceLevel#time_window}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#description ServiceLevel#description}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#name ServiceLevel#name}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#target ServiceLevel#target}.
+        :param time_window: time_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#time_window ServiceLevel#time_window}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#description ServiceLevel#description}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#name ServiceLevel#name}.
         '''
         if isinstance(time_window, dict):
             time_window = ServiceLevelObjectiveTimeWindow(**time_window)
@@ -1808,7 +1808,7 @@ class ServiceLevelObjective:
 
     @builtins.property
     def target(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#target ServiceLevel#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#target ServiceLevel#target}.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
         return typing.cast(jsii.Number, result)
@@ -1817,7 +1817,7 @@ class ServiceLevelObjective:
     def time_window(self) -> "ServiceLevelObjectiveTimeWindow":
         '''time_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#time_window ServiceLevel#time_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#time_window ServiceLevel#time_window}
         '''
         result = self._values.get("time_window")
         assert result is not None, "Required property 'time_window' is missing"
@@ -1825,13 +1825,13 @@ class ServiceLevelObjective:
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#description ServiceLevel#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#description ServiceLevel#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#name ServiceLevel#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#name ServiceLevel#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1874,7 +1874,7 @@ class ServiceLevelObjectiveOutputReference(
         rolling: typing.Union["ServiceLevelObjectiveTimeWindowRolling", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param rolling: rolling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#rolling ServiceLevel#rolling}
+        :param rolling: rolling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#rolling ServiceLevel#rolling}
         '''
         value = ServiceLevelObjectiveTimeWindow(rolling=rolling)
 
@@ -1974,7 +1974,7 @@ class ServiceLevelObjectiveTimeWindow:
         rolling: typing.Union["ServiceLevelObjectiveTimeWindowRolling", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param rolling: rolling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#rolling ServiceLevel#rolling}
+        :param rolling: rolling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#rolling ServiceLevel#rolling}
         '''
         if isinstance(rolling, dict):
             rolling = ServiceLevelObjectiveTimeWindowRolling(**rolling)
@@ -1989,7 +1989,7 @@ class ServiceLevelObjectiveTimeWindow:
     def rolling(self) -> "ServiceLevelObjectiveTimeWindowRolling":
         '''rolling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#rolling ServiceLevel#rolling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#rolling ServiceLevel#rolling}
         '''
         result = self._values.get("rolling")
         assert result is not None, "Required property 'rolling' is missing"
@@ -2030,8 +2030,8 @@ class ServiceLevelObjectiveTimeWindowOutputReference(
     @jsii.member(jsii_name="putRolling")
     def put_rolling(self, *, count: jsii.Number, unit: builtins.str) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#count ServiceLevel#count}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#unit ServiceLevel#unit}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#count ServiceLevel#count}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#unit ServiceLevel#unit}.
         '''
         value = ServiceLevelObjectiveTimeWindowRolling(count=count, unit=unit)
 
@@ -2073,8 +2073,8 @@ class ServiceLevelObjectiveTimeWindowOutputReference(
 class ServiceLevelObjectiveTimeWindowRolling:
     def __init__(self, *, count: jsii.Number, unit: builtins.str) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#count ServiceLevel#count}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#unit ServiceLevel#unit}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#count ServiceLevel#count}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#unit ServiceLevel#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__629bbbebd0b001dc8465f05a38be0a40c6554b2affce099f207d0316e33d5228)
@@ -2087,14 +2087,14 @@ class ServiceLevelObjectiveTimeWindowRolling:
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#count ServiceLevel#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#count ServiceLevel#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/service_level#unit ServiceLevel#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/service_level#unit ServiceLevel#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)

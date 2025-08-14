@@ -151,7 +151,7 @@ class CfnApp(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The app name.
         :param stack_id: The stack ID.
-        :param type: The app type. Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. AWS OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
+        :param type: The app type. Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
         :param app_source: A ``Source`` object that specifies the app repository.
         :param attributes: One or more user-defined key/value pairs to be added to the stack attributes.
         :param data_sources: The app's data source.
@@ -615,9 +615,9 @@ class CfnApp(
             username: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
-            :param password: When included in a request, the parameter depends on the repository type. - For Amazon S3 bundles, set ``Password`` to the appropriate IAM secret access key. - For HTTP bundles and Subversion repositories, set ``Password`` to the password. For more information on how to safely handle IAM credentials, see ` <https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html>`_ . In responses, AWS OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
-            :param revision: The application's version. AWS OpsWorks Stacks enables you to easily deploy new versions of an application. One of the simplest approaches is to have branches or revisions in your repository that represent different versions that can potentially be deployed.
-            :param ssh_key: In requests, the repository's SSH key. In responses, AWS OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
+            :param password: When included in a request, the parameter depends on the repository type. - For Amazon S3 bundles, set ``Password`` to the appropriate IAM secret access key. - For HTTP bundles and Subversion repositories, set ``Password`` to the password. For more information on how to safely handle IAM credentials, see ` <https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html>`_ . In responses, OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
+            :param revision: The application's version. OpsWorks Stacks enables you to easily deploy new versions of an application. One of the simplest approaches is to have branches or revisions in your repository that represent different versions that can potentially be deployed.
+            :param ssh_key: In requests, the repository's SSH key. In responses, OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
             :param type: The repository type.
             :param url: The source URL. The following is an example of an Amazon S3 source URL: ``https://s3.amazonaws.com/opsworks-demo-bucket/opsworks_cookbook_demo.tar.gz`` .
             :param username: This parameter depends on the repository type. - For Amazon S3 bundles, set ``Username`` to the appropriate IAM access key ID. - For HTTP bundles, Git repositories, and Subversion repositories, set ``Username`` to the user name.
@@ -671,7 +671,7 @@ class CfnApp(
 
             For more information on how to safely handle IAM credentials, see ` <https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html>`_ .
 
-            In responses, AWS OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
+            In responses, OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-app-source.html#cfn-opsworks-app-source-password
             '''
@@ -682,7 +682,7 @@ class CfnApp(
         def revision(self) -> typing.Optional[builtins.str]:
             '''The application's version.
 
-            AWS OpsWorks Stacks enables you to easily deploy new versions of an application. One of the simplest approaches is to have branches or revisions in your repository that represent different versions that can potentially be deployed.
+            OpsWorks Stacks enables you to easily deploy new versions of an application. One of the simplest approaches is to have branches or revisions in your repository that represent different versions that can potentially be deployed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-app-source.html#cfn-opsworks-app-source-revision
             '''
@@ -693,7 +693,7 @@ class CfnApp(
         def ssh_key(self) -> typing.Optional[builtins.str]:
             '''In requests, the repository's SSH key.
 
-            In responses, AWS OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
+            In responses, OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-app-source.html#cfn-opsworks-app-source-sshkey
             '''
@@ -875,7 +875,7 @@ class CfnAppProps:
 
         :param name: The app name.
         :param stack_id: The stack ID.
-        :param type: The app type. Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. AWS OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
+        :param type: The app type. Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
         :param app_source: A ``Source`` object that specifies the app repository.
         :param attributes: One or more user-defined key/value pairs to be added to the stack attributes.
         :param data_sources: The app's data source.
@@ -997,7 +997,7 @@ class CfnAppProps:
     def type(self) -> builtins.str:
         '''The app type.
 
-        Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. AWS OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
+        Each supported type is associated with a particular layer. For example, PHP applications are associated with a PHP layer. OpsWorks Stacks deploys an application to those instances that are members of the corresponding layer. If your app isn't one of the standard types, or you prefer to implement your own Deploy recipes, specify ``other`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-app.html#cfn-opsworks-app-type
         '''
@@ -1155,7 +1155,7 @@ class CfnElasticLoadBalancerAttachment(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param elastic_load_balancer_name: The Elastic Load Balancing instance name.
-        :param layer_id: The AWS OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
+        :param layer_id: The OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__486f7e1e8e8052927626441be8be1b13d2a9ce484c4915a83fb32a7def2f835d)
@@ -1226,7 +1226,7 @@ class CfnElasticLoadBalancerAttachment(
     @builtins.property
     @jsii.member(jsii_name="layerId")
     def layer_id(self) -> builtins.str:
-        '''The AWS OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.'''
+        '''The OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.'''
         return typing.cast(builtins.str, jsii.get(self, "layerId"))
 
     @layer_id.setter
@@ -1255,7 +1255,7 @@ class CfnElasticLoadBalancerAttachmentProps:
         '''Properties for defining a ``CfnElasticLoadBalancerAttachment``.
 
         :param elastic_load_balancer_name: The Elastic Load Balancing instance name.
-        :param layer_id: The AWS OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
+        :param layer_id: The OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-elasticloadbalancerattachment.html
         :exampleMetadata: fixture=_generated
@@ -1292,7 +1292,7 @@ class CfnElasticLoadBalancerAttachmentProps:
 
     @builtins.property
     def layer_id(self) -> builtins.str:
-        '''The AWS OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
+        '''The OpsWorks layer ID to which the Elastic Load Balancing load balancer is attached.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-elasticloadbalancerattachment.html#cfn-opsworks-elasticloadbalancerattachment-layerid
         '''
@@ -1423,24 +1423,24 @@ class CfnInstance(
         :param instance_type: The instance type, such as ``t2.micro`` . For a list of supported instance types, open the stack in the console, choose *Instances* , and choose *+ Instance* . The *Size* list contains the currently supported types. For more information, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ . The parameter values that you use to specify the various types are in the *API Name* column of the *Available Instance Types* table.
         :param layer_ids: An array that contains the instance's layer IDs.
         :param stack_id: The stack ID.
-        :param agent_version: The default AWS OpsWorks Stacks agent version. You have the following options:. - ``INHERIT`` - Use the stack's default agent version setting. - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. AWS OpsWorks Stacks installs that version on the instance. The default setting is ``INHERIT`` . To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
+        :param agent_version: The default OpsWorks Stacks agent version. You have the following options:. - ``INHERIT`` - Use the stack's default agent version setting. - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. OpsWorks Stacks installs that version on the instance. The default setting is ``INHERIT`` . To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
         :param ami_id: A custom AMI ID to be used to create the instance. The AMI should be based on one of the supported operating systems. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . .. epigraph:: If you specify a custom AMI, you must set ``Os`` to ``Custom`` .
         :param architecture: The instance architecture. The default option is ``x86_64`` . Instance types do not necessarily support both architectures. For a list of the architectures that are supported by the different instance types, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ .
         :param auto_scaling_type: For load-based or time-based instances, the type. Windows stacks can use only time-based instances.
-        :param availability_zone: The Availability Zone of the AWS OpsWorks instance, such as ``us-east-2a`` .
+        :param availability_zone: The Availability Zone of the OpsWorks instance, such as ``us-east-2a`` .
         :param block_device_mappings: An array of ``BlockDeviceMapping`` objects that specify the instance's block devices. For more information, see `Block Device Mapping <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html>`_ . Note that block device mappings are not supported for custom AMIs.
         :param ebs_optimized: Whether to create an Amazon EBS-optimized instance.
         :param elastic_ips: A list of Elastic IP addresses to associate with the instance.
         :param hostname: The instance host name. The following are character limits for instance host names. - Linux-based instances: 63 characters - Windows-based instances: 15 characters
         :param install_updates_on_boot: Whether to install operating system and package updates when the instance boots. The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances. .. epigraph:: We strongly recommend using the default value of ``true`` to ensure that your instances have the latest security updates.
-        :param os: The instance's operating system, which must be set to one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `AWS OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ . The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with AWS OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
+        :param os: The instance's operating system, which must be set to one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ . The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
         :param root_device_type: The instance root device type. For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
         :param ssh_key_name: The instance's Amazon EC2 key-pair name.
-        :param subnet_id: The ID of the instance's subnet. If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct AWS OpsWorks Stacks to launch the instance in a different subnet.
+        :param subnet_id: The ID of the instance's subnet. If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct OpsWorks Stacks to launch the instance in a different subnet.
         :param tenancy: The instance's tenancy option. The default option is no tenancy, or if the instance is running in a VPC, inherit tenancy settings from the VPC. The following are valid values for this parameter: ``dedicated`` , ``default`` , or ``host`` . Because there are costs associated with changes in tenancy options, we recommend that you research tenancy options before choosing them for your instances. For more information about dedicated hosts, see `Dedicated Hosts Overview <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ and `Amazon EC2 Dedicated Hosts <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ . For more information about dedicated instances, see `Dedicated Instances <https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/dedicated-instance.html>`_ and `Amazon EC2 Dedicated Instances <https://docs.aws.amazon.com/ec2/purchasing-options/dedicated-instances/>`_ .
         :param time_based_auto_scaling: The time-based scaling configuration for the instance.
         :param virtualization_type: The instance's virtualization type, ``paravirtual`` or ``hvm`` .
-        :param volumes: A list of AWS OpsWorks volume IDs to associate with the instance. For more information, see ```AWS::OpsWorks::Volume`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html>`_ .
+        :param volumes: A list of OpsWorks volume IDs to associate with the instance. For more information, see ```AWS::OpsWorks::Volume`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html>`_ .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8b34de3ee05594312f14cce61c717304294b3891e9f25d66dd351119744660a)
@@ -1505,7 +1505,7 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="attrAvailabilityZone")
     def attr_availability_zone(self) -> builtins.str:
-        '''The Availability Zone of the AWS OpsWorks instance, such as ``us-east-2a`` .
+        '''The Availability Zone of the OpsWorks instance, such as ``us-east-2a`` .
 
         :cloudformationAttribute: AvailabilityZone
         '''
@@ -1522,7 +1522,7 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="attrPrivateDnsName")
     def attr_private_dns_name(self) -> builtins.str:
-        '''The private DNS name of the AWS OpsWorks instance.
+        '''The private DNS name of the OpsWorks instance.
 
         :cloudformationAttribute: PrivateDnsName
         '''
@@ -1531,7 +1531,7 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="attrPrivateIp")
     def attr_private_ip(self) -> builtins.str:
-        '''The private IP address of the AWS OpsWorks instance, such as ``192.0.2.0`` .
+        '''The private IP address of the OpsWorks instance, such as ``192.0.2.0`` .
 
         :cloudformationAttribute: PrivateIp
         '''
@@ -1540,7 +1540,7 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="attrPublicDnsName")
     def attr_public_dns_name(self) -> builtins.str:
-        '''The public DNS name of the AWS OpsWorks instance.
+        '''The public DNS name of the OpsWorks instance.
 
         :cloudformationAttribute: PublicDnsName
         '''
@@ -1549,11 +1549,11 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="attrPublicIp")
     def attr_public_ip(self) -> builtins.str:
-        '''The public IP address of the AWS OpsWorks instance, such as ``192.0.2.0`` .
+        '''The public IP address of the OpsWorks instance, such as ``192.0.2.0`` .
 
         .. epigraph::
 
-           Use this attribute only when the AWS OpsWorks instance is in an AWS OpsWorks layer that auto-assigns public IP addresses.
+           Use this attribute only when the OpsWorks instance is in an OpsWorks layer that auto-assigns public IP addresses.
 
         :cloudformationAttribute: PublicIp
         '''
@@ -1606,7 +1606,7 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="agentVersion")
     def agent_version(self) -> typing.Optional[builtins.str]:
-        '''The default AWS OpsWorks Stacks agent version.
+        '''The default OpsWorks Stacks agent version.
 
         You have the following options:.
         '''
@@ -1661,7 +1661,7 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The Availability Zone of the AWS OpsWorks instance, such as ``us-east-2a`` .'''
+        '''The Availability Zone of the OpsWorks instance, such as ``us-east-2a`` .'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZone"))
 
     @availability_zone.setter
@@ -1853,7 +1853,7 @@ class CfnInstance(
     @builtins.property
     @jsii.member(jsii_name="volumes")
     def volumes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of AWS OpsWorks volume IDs to associate with the instance.'''
+        '''A list of OpsWorks volume IDs to associate with the instance.'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "volumes"))
 
     @volumes.setter
@@ -1883,7 +1883,7 @@ class CfnInstance(
             virtual_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
-            :param device_name: The device name that is exposed to the instance, such as ``/dev/sdh`` . For the root device, you can use the explicit device name or you can set this parameter to ``ROOT_DEVICE`` and AWS OpsWorks Stacks will provide the correct device name.
+            :param device_name: The device name that is exposed to the instance, such as ``/dev/sdh`` . For the root device, you can use the explicit device name or you can set this parameter to ``ROOT_DEVICE`` and OpsWorks Stacks will provide the correct device name.
             :param ebs: An ``EBSBlockDevice`` that defines how to configure an Amazon EBS volume when the instance is launched. You can specify either the ``VirtualName`` or ``Ebs`` , but not both.
             :param no_device: Suppresses the specified device included in the AMI's block device mapping.
             :param virtual_name: The virtual device name. For more information, see `BlockDeviceMapping <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_BlockDeviceMapping.html>`_ . You can specify either the ``VirtualName`` or ``Ebs`` , but not both.
@@ -1930,7 +1930,7 @@ class CfnInstance(
         def device_name(self) -> typing.Optional[builtins.str]:
             '''The device name that is exposed to the instance, such as ``/dev/sdh`` .
 
-            For the root device, you can use the explicit device name or you can set this parameter to ``ROOT_DEVICE`` and AWS OpsWorks Stacks will provide the correct device name.
+            For the root device, you can use the explicit device name or you can set this parameter to ``ROOT_DEVICE`` and OpsWorks Stacks will provide the correct device name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-instance-blockdevicemapping.html#cfn-opsworks-instance-blockdevicemapping-devicename
             '''
@@ -2350,24 +2350,24 @@ class CfnInstanceProps:
         :param instance_type: The instance type, such as ``t2.micro`` . For a list of supported instance types, open the stack in the console, choose *Instances* , and choose *+ Instance* . The *Size* list contains the currently supported types. For more information, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ . The parameter values that you use to specify the various types are in the *API Name* column of the *Available Instance Types* table.
         :param layer_ids: An array that contains the instance's layer IDs.
         :param stack_id: The stack ID.
-        :param agent_version: The default AWS OpsWorks Stacks agent version. You have the following options:. - ``INHERIT`` - Use the stack's default agent version setting. - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. AWS OpsWorks Stacks installs that version on the instance. The default setting is ``INHERIT`` . To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
+        :param agent_version: The default OpsWorks Stacks agent version. You have the following options:. - ``INHERIT`` - Use the stack's default agent version setting. - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. OpsWorks Stacks installs that version on the instance. The default setting is ``INHERIT`` . To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
         :param ami_id: A custom AMI ID to be used to create the instance. The AMI should be based on one of the supported operating systems. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . .. epigraph:: If you specify a custom AMI, you must set ``Os`` to ``Custom`` .
         :param architecture: The instance architecture. The default option is ``x86_64`` . Instance types do not necessarily support both architectures. For a list of the architectures that are supported by the different instance types, see `Instance Families and Types <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html>`_ .
         :param auto_scaling_type: For load-based or time-based instances, the type. Windows stacks can use only time-based instances.
-        :param availability_zone: The Availability Zone of the AWS OpsWorks instance, such as ``us-east-2a`` .
+        :param availability_zone: The Availability Zone of the OpsWorks instance, such as ``us-east-2a`` .
         :param block_device_mappings: An array of ``BlockDeviceMapping`` objects that specify the instance's block devices. For more information, see `Block Device Mapping <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html>`_ . Note that block device mappings are not supported for custom AMIs.
         :param ebs_optimized: Whether to create an Amazon EBS-optimized instance.
         :param elastic_ips: A list of Elastic IP addresses to associate with the instance.
         :param hostname: The instance host name. The following are character limits for instance host names. - Linux-based instances: 63 characters - Windows-based instances: 15 characters
         :param install_updates_on_boot: Whether to install operating system and package updates when the instance boots. The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances. .. epigraph:: We strongly recommend using the default value of ``true`` to ensure that your instances have the latest security updates.
-        :param os: The instance's operating system, which must be set to one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `AWS OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ . The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with AWS OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
+        :param os: The instance's operating system, which must be set to one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ . The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
         :param root_device_type: The instance root device type. For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
         :param ssh_key_name: The instance's Amazon EC2 key-pair name.
-        :param subnet_id: The ID of the instance's subnet. If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct AWS OpsWorks Stacks to launch the instance in a different subnet.
+        :param subnet_id: The ID of the instance's subnet. If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct OpsWorks Stacks to launch the instance in a different subnet.
         :param tenancy: The instance's tenancy option. The default option is no tenancy, or if the instance is running in a VPC, inherit tenancy settings from the VPC. The following are valid values for this parameter: ``dedicated`` , ``default`` , or ``host`` . Because there are costs associated with changes in tenancy options, we recommend that you research tenancy options before choosing them for your instances. For more information about dedicated hosts, see `Dedicated Hosts Overview <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ and `Amazon EC2 Dedicated Hosts <https://docs.aws.amazon.com/ec2/dedicated-hosts/>`_ . For more information about dedicated instances, see `Dedicated Instances <https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/dedicated-instance.html>`_ and `Amazon EC2 Dedicated Instances <https://docs.aws.amazon.com/ec2/purchasing-options/dedicated-instances/>`_ .
         :param time_based_auto_scaling: The time-based scaling configuration for the instance.
         :param virtualization_type: The instance's virtualization type, ``paravirtual`` or ``hvm`` .
-        :param volumes: A list of AWS OpsWorks volume IDs to associate with the instance. For more information, see ```AWS::OpsWorks::Volume`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html>`_ .
+        :param volumes: A list of OpsWorks volume IDs to associate with the instance. For more information, see ```AWS::OpsWorks::Volume`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html
         :exampleMetadata: fixture=_generated
@@ -2534,10 +2534,10 @@ class CfnInstanceProps:
 
     @builtins.property
     def agent_version(self) -> typing.Optional[builtins.str]:
-        '''The default AWS OpsWorks Stacks agent version. You have the following options:.
+        '''The default OpsWorks Stacks agent version. You have the following options:.
 
         - ``INHERIT`` - Use the stack's default agent version setting.
-        - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. AWS OpsWorks Stacks installs that version on the instance.
+        - *version_number* - Use the specified agent version. This value overrides the stack's default setting. To update the agent version, edit the instance configuration and specify a new version. OpsWorks Stacks installs that version on the instance.
 
         The default setting is ``INHERIT`` . To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
 
@@ -2584,7 +2584,7 @@ class CfnInstanceProps:
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The Availability Zone of the AWS OpsWorks instance, such as ``us-east-2a`` .
+        '''The Availability Zone of the OpsWorks instance, such as ``us-east-2a`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-availabilityzone
         '''
@@ -2663,9 +2663,9 @@ class CfnInstanceProps:
         - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` .
         - A custom AMI: ``Custom`` .
 
-        Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `AWS OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
+        Not all operating systems are supported with all versions of Chef. For more information about the supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
 
-        The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with AWS OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
+        The default option is the current Amazon Linux version. If you set this parameter to ``Custom`` , you must use the ``CreateInstance`` action's AmiId parameter to specify the custom AMI that you want to use. Block device mappings are not supported if the value is ``Custom`` . For more information about how to use custom AMIs with OpsWorks Stacks, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-os
         '''
@@ -2696,7 +2696,7 @@ class CfnInstanceProps:
     def subnet_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the instance's subnet.
 
-        If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct AWS OpsWorks Stacks to launch the instance in a different subnet.
+        If the stack is running in a VPC, you can use this parameter to override the stack's default subnet ID value and direct OpsWorks Stacks to launch the instance in a different subnet.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-instance.html#cfn-opsworks-instance-subnetid
         '''
@@ -2736,7 +2736,7 @@ class CfnInstanceProps:
 
     @builtins.property
     def volumes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of AWS OpsWorks volume IDs to associate with the instance.
+        '''A list of OpsWorks volume IDs to associate with the instance.
 
         For more information, see ```AWS::OpsWorks::Volume`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-volume.html>`_ .
 
@@ -2876,7 +2876,7 @@ class CfnLayer(
         :param auto_assign_public_ips: For stacks that are running in a VPC, whether to automatically assign a public IP address to the layer's instances. For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
         :param enable_auto_healing: Whether to disable auto healing for the layer.
         :param name: The layer name, which is used by the console. Layer names can be a maximum of 32 characters.
-        :param shortname: For custom layers only, use this parameter to specify the layer's short name, which is used internally by AWS OpsWorks Stacks and by Chef recipes. The short name is also used as the name for the directory where your app files are installed. It can have a maximum of 32 characters, which are limited to the alphanumeric characters, '-', '_', and '.'. Built-in layer short names are defined by AWS OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
+        :param shortname: For custom layers only, use this parameter to specify the layer's short name, which is used internally by OpsWorks Stacks and by Chef recipes. The short name is also used as the name for the directory where your app files are installed. It can have a maximum of 32 characters, which are limited to the alphanumeric characters, '-', '_', and '.'. Built-in layer short names are defined by OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
         :param stack_id: The layer stack ID.
         :param type: The layer type. A stack cannot have more than one built-in layer of the same type. It can have any number of custom layers. Built-in layers are not available in Chef 12 stacks.
         :param attributes: One or more user-defined key-value pairs to be added to the stack attributes. To create a cluster layer, set the ``EcsClusterArn`` attribute to the cluster's ARN.
@@ -2886,9 +2886,9 @@ class CfnLayer(
         :param custom_security_group_ids: An array containing the layer custom security group IDs.
         :param install_updates_on_boot: Whether to install operating system and package updates when the instance boots. The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances. .. epigraph:: To ensure that your instances have the latest security updates, we strongly recommend using the default value of ``true`` .
         :param lifecycle_event_configuration: A ``LifeCycleEventConfiguration`` object that you can use to configure the Shutdown event to specify an execution timeout and enable or disable Elastic Load Balancer connection draining.
-        :param load_based_auto_scaling: The load-based scaling configuration for the AWS OpsWorks layer.
+        :param load_based_auto_scaling: The load-based scaling configuration for the OpsWorks layer.
         :param packages: An array of ``Package`` objects that describes the layer packages.
-        :param tags: Specifies one or more sets of tags (key–value pairs) to associate with this AWS OpsWorks layer. Use tags to manage your resources.
+        :param tags: Specifies one or more sets of tags (key–value pairs) to associate with this OpsWorks layer. Use tags to manage your resources.
         :param use_ebs_optimized_instances: Whether to use Amazon EBS-optimized instances.
         :param volume_configurations: A ``VolumeConfigurations`` object that describes the layer's Amazon EBS volumes.
         '''
@@ -3037,7 +3037,7 @@ class CfnLayer(
     @builtins.property
     @jsii.member(jsii_name="shortname")
     def shortname(self) -> builtins.str:
-        '''For custom layers only, use this parameter to specify the layer's short name, which is used internally by AWS OpsWorks Stacks and by Chef recipes.'''
+        '''For custom layers only, use this parameter to specify the layer's short name, which is used internally by OpsWorks Stacks and by Chef recipes.'''
         return typing.cast(builtins.str, jsii.get(self, "shortname"))
 
     @shortname.setter
@@ -3192,7 +3192,7 @@ class CfnLayer(
     def load_based_auto_scaling(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.LoadBasedAutoScalingProperty"]]:
-        '''The load-based scaling configuration for the AWS OpsWorks layer.'''
+        '''The load-based scaling configuration for the OpsWorks layer.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.LoadBasedAutoScalingProperty"]], jsii.get(self, "loadBasedAutoScaling"))
 
     @load_based_auto_scaling.setter
@@ -3221,7 +3221,7 @@ class CfnLayer(
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
     def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies one or more sets of tags (key–value pairs) to associate with this AWS OpsWorks layer.'''
+        '''Specifies one or more sets of tags (key–value pairs) to associate with this OpsWorks layer.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
@@ -3292,7 +3292,7 @@ class CfnLayer(
         ) -> None:
             '''
             :param cpu_threshold: The CPU utilization threshold, as a percent of the available CPU. A value of -1 disables the threshold.
-            :param ignore_metrics_time: The amount of time (in minutes) after a scaling event occurs that AWS OpsWorks Stacks should ignore metrics and suppress additional scaling events. For example, AWS OpsWorks Stacks adds new instances following an upscaling event but the instances won't start reducing the load until they have been booted and configured. There is no point in raising additional scaling events during that operation, which typically takes several minutes. ``IgnoreMetricsTime`` allows you to direct AWS OpsWorks Stacks to suppress scaling events long enough to get the new instances online.
+            :param ignore_metrics_time: The amount of time (in minutes) after a scaling event occurs that OpsWorks Stacks should ignore metrics and suppress additional scaling events. For example, OpsWorks Stacks adds new instances following an upscaling event but the instances won't start reducing the load until they have been booted and configured. There is no point in raising additional scaling events during that operation, which typically takes several minutes. ``IgnoreMetricsTime`` allows you to direct OpsWorks Stacks to suppress scaling events long enough to get the new instances online.
             :param instance_count: The number of instances to add or remove when the load exceeds a threshold.
             :param load_threshold: The load threshold. A value of -1 disables the threshold. For more information about how load is computed, see `Load (computing) <https://docs.aws.amazon.com/http://en.wikipedia.org/wiki/Load_%28computing%29>`_ .
             :param memory_threshold: The memory utilization threshold, as a percent of the available memory. A value of -1 disables the threshold.
@@ -3351,9 +3351,9 @@ class CfnLayer(
 
         @builtins.property
         def ignore_metrics_time(self) -> typing.Optional[jsii.Number]:
-            '''The amount of time (in minutes) after a scaling event occurs that AWS OpsWorks Stacks should ignore metrics and suppress additional scaling events.
+            '''The amount of time (in minutes) after a scaling event occurs that OpsWorks Stacks should ignore metrics and suppress additional scaling events.
 
-            For example, AWS OpsWorks Stacks adds new instances following an upscaling event but the instances won't start reducing the load until they have been booted and configured. There is no point in raising additional scaling events during that operation, which typically takes several minutes. ``IgnoreMetricsTime`` allows you to direct AWS OpsWorks Stacks to suppress scaling events long enough to get the new instances online.
+            For example, OpsWorks Stacks adds new instances following an upscaling event but the instances won't start reducing the load until they have been booted and configured. There is no point in raising additional scaling events during that operation, which typically takes several minutes. ``IgnoreMetricsTime`` allows you to direct OpsWorks Stacks to suppress scaling events long enough to get the new instances online.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-layer-autoscalingthresholds.html#cfn-opsworks-layer-autoscalingthresholds-ignoremetricstime
             '''
@@ -3488,9 +3488,9 @@ class CfnLayer(
             up_scaling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLayer.AutoScalingThresholdsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
-            :param down_scaling: An ``AutoScalingThresholds`` object that describes the downscaling configuration, which defines how and when AWS OpsWorks Stacks reduces the number of instances.
+            :param down_scaling: An ``AutoScalingThresholds`` object that describes the downscaling configuration, which defines how and when OpsWorks Stacks reduces the number of instances.
             :param enable: Whether load-based auto scaling is enabled for the layer.
-            :param up_scaling: An ``AutoScalingThresholds`` object that describes the upscaling configuration, which defines how and when AWS OpsWorks Stacks increases the number of instances.
+            :param up_scaling: An ``AutoScalingThresholds`` object that describes the upscaling configuration, which defines how and when OpsWorks Stacks increases the number of instances.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-layer-loadbasedautoscaling.html
             :exampleMetadata: fixture=_generated
@@ -3538,7 +3538,7 @@ class CfnLayer(
         def down_scaling(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.AutoScalingThresholdsProperty"]]:
-            '''An ``AutoScalingThresholds`` object that describes the downscaling configuration, which defines how and when AWS OpsWorks Stacks reduces the number of instances.
+            '''An ``AutoScalingThresholds`` object that describes the downscaling configuration, which defines how and when OpsWorks Stacks reduces the number of instances.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-layer-loadbasedautoscaling.html#cfn-opsworks-layer-loadbasedautoscaling-downscaling
             '''
@@ -3560,7 +3560,7 @@ class CfnLayer(
         def up_scaling(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLayer.AutoScalingThresholdsProperty"]]:
-            '''An ``AutoScalingThresholds`` object that describes the upscaling configuration, which defines how and when AWS OpsWorks Stacks increases the number of instances.
+            '''An ``AutoScalingThresholds`` object that describes the upscaling configuration, which defines how and when OpsWorks Stacks increases the number of instances.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-layer-loadbasedautoscaling.html#cfn-opsworks-layer-loadbasedautoscaling-upscaling
             '''
@@ -3715,7 +3715,7 @@ class CfnLayer(
         ) -> None:
             '''
             :param delay_until_elb_connections_drained: Whether to enable Elastic Load Balancing connection draining. For more information, see `Connection Draining <https://docs.aws.amazon.com/ElasticLoadBalancing/latest/DeveloperGuide/TerminologyandKeyConcepts.html#conn-drain>`_
-            :param execution_timeout: The time, in seconds, that AWS OpsWorks Stacks waits after triggering a Shutdown event before shutting down an instance.
+            :param execution_timeout: The time, in seconds, that OpsWorks Stacks waits after triggering a Shutdown event before shutting down an instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-layer-shutdowneventconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3756,7 +3756,7 @@ class CfnLayer(
 
         @builtins.property
         def execution_timeout(self) -> typing.Optional[jsii.Number]:
-            '''The time, in seconds, that AWS OpsWorks Stacks waits after triggering a Shutdown event before shutting down an instance.
+            '''The time, in seconds, that OpsWorks Stacks waits after triggering a Shutdown event before shutting down an instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-layer-shutdowneventconfiguration.html#cfn-opsworks-layer-shutdowneventconfiguration-executiontimeout
             '''
@@ -3998,7 +3998,7 @@ class CfnLayerProps:
         :param auto_assign_public_ips: For stacks that are running in a VPC, whether to automatically assign a public IP address to the layer's instances. For more information, see `How to Edit a Layer <https://docs.aws.amazon.com/opsworks/latest/userguide/workinglayers-basics-edit.html>`_ .
         :param enable_auto_healing: Whether to disable auto healing for the layer.
         :param name: The layer name, which is used by the console. Layer names can be a maximum of 32 characters.
-        :param shortname: For custom layers only, use this parameter to specify the layer's short name, which is used internally by AWS OpsWorks Stacks and by Chef recipes. The short name is also used as the name for the directory where your app files are installed. It can have a maximum of 32 characters, which are limited to the alphanumeric characters, '-', '_', and '.'. Built-in layer short names are defined by AWS OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
+        :param shortname: For custom layers only, use this parameter to specify the layer's short name, which is used internally by OpsWorks Stacks and by Chef recipes. The short name is also used as the name for the directory where your app files are installed. It can have a maximum of 32 characters, which are limited to the alphanumeric characters, '-', '_', and '.'. Built-in layer short names are defined by OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
         :param stack_id: The layer stack ID.
         :param type: The layer type. A stack cannot have more than one built-in layer of the same type. It can have any number of custom layers. Built-in layers are not available in Chef 12 stacks.
         :param attributes: One or more user-defined key-value pairs to be added to the stack attributes. To create a cluster layer, set the ``EcsClusterArn`` attribute to the cluster's ARN.
@@ -4008,9 +4008,9 @@ class CfnLayerProps:
         :param custom_security_group_ids: An array containing the layer custom security group IDs.
         :param install_updates_on_boot: Whether to install operating system and package updates when the instance boots. The default value is ``true`` . To control when updates are installed, set this value to ``false`` . You must then update your instances manually by using ``CreateDeployment`` to run the ``update_dependencies`` stack command or by manually running ``yum`` (Amazon Linux) or ``apt-get`` (Ubuntu) on the instances. .. epigraph:: To ensure that your instances have the latest security updates, we strongly recommend using the default value of ``true`` .
         :param lifecycle_event_configuration: A ``LifeCycleEventConfiguration`` object that you can use to configure the Shutdown event to specify an execution timeout and enable or disable Elastic Load Balancer connection draining.
-        :param load_based_auto_scaling: The load-based scaling configuration for the AWS OpsWorks layer.
+        :param load_based_auto_scaling: The load-based scaling configuration for the OpsWorks layer.
         :param packages: An array of ``Package`` objects that describes the layer packages.
-        :param tags: Specifies one or more sets of tags (key–value pairs) to associate with this AWS OpsWorks layer. Use tags to manage your resources.
+        :param tags: Specifies one or more sets of tags (key–value pairs) to associate with this OpsWorks layer. Use tags to manage your resources.
         :param use_ebs_optimized_instances: Whether to use Amazon EBS-optimized instances.
         :param volume_configurations: A ``VolumeConfigurations`` object that describes the layer's Amazon EBS volumes.
 
@@ -4196,11 +4196,11 @@ class CfnLayerProps:
 
     @builtins.property
     def shortname(self) -> builtins.str:
-        '''For custom layers only, use this parameter to specify the layer's short name, which is used internally by AWS OpsWorks Stacks and by Chef recipes.
+        '''For custom layers only, use this parameter to specify the layer's short name, which is used internally by OpsWorks Stacks and by Chef recipes.
 
         The short name is also used as the name for the directory where your app files are installed. It can have a maximum of 32 characters, which are limited to the alphanumeric characters, '-', '_', and '.'.
 
-        Built-in layer short names are defined by AWS OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
+        Built-in layer short names are defined by OpsWorks Stacks. For more information, see the `Layer Reference <https://docs.aws.amazon.com/opsworks/latest/userguide/layers.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-shortname
         '''
@@ -4316,7 +4316,7 @@ class CfnLayerProps:
     def load_based_auto_scaling(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLayer.LoadBasedAutoScalingProperty]]:
-        '''The load-based scaling configuration for the AWS OpsWorks layer.
+        '''The load-based scaling configuration for the OpsWorks layer.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-layer.html#cfn-opsworks-layer-loadbasedautoscaling
         '''
@@ -4334,7 +4334,7 @@ class CfnLayerProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies one or more sets of tags (key–value pairs) to associate with this AWS OpsWorks layer.
+        '''Specifies one or more sets of tags (key–value pairs) to associate with this OpsWorks layer.
 
         Use tags to manage your resources.
 
@@ -4491,29 +4491,29 @@ class CfnStack(
         :param id: Construct identifier for this resource (unique in its scope).
         :param default_instance_profile_arn: The Amazon Resource Name (ARN) of an IAM profile that is the default profile for all of the stack's EC2 instances. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
         :param name: The stack name. Stack names can be a maximum of 64 characters.
-        :param service_role_arn: The stack's IAM role, which allows AWS OpsWorks Stacks to work with AWS resources on your behalf. You must set this parameter to the Amazon Resource Name (ARN) for an existing IAM role. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
-        :param agent_version: The default AWS OpsWorks Stacks agent version. You have the following options:. - Auto-update - Set this parameter to ``LATEST`` . AWS OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available. - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. AWS OpsWorks Stacks installs that version on the stack's instances. The default setting is the most recent release of the agent. To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2. .. epigraph:: You can also specify an agent version when you create or update an instance, which overrides the stack's default setting.
+        :param service_role_arn: The stack's IAM role, which allows OpsWorks Stacks to work with AWS resources on your behalf. You must set this parameter to the Amazon Resource Name (ARN) for an existing IAM role. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
+        :param agent_version: The default OpsWorks Stacks agent version. You have the following options:. - Auto-update - Set this parameter to ``LATEST`` . OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available. - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. OpsWorks Stacks installs that version on the stack's instances. The default setting is the most recent release of the agent. To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2. .. epigraph:: You can also specify an agent version when you create or update an instance, which overrides the stack's default setting.
         :param attributes: One or more user-defined key-value pairs to be added to the stack attributes.
         :param chef_configuration: A ``ChefConfiguration`` object that specifies whether to enable Berkshelf and the Berkshelf version on Chef 11.10 stacks. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
-        :param clone_app_ids: If you're cloning an AWS OpsWorks stack, a list of AWS OpsWorks application stack IDs from the source stack to include in the cloned stack.
-        :param clone_permissions: If you're cloning an AWS OpsWorks stack, indicates whether to clone the source stack's permissions.
+        :param clone_app_ids: If you're cloning an OpsWorks stack, a list of OpsWorks application stack IDs from the source stack to include in the cloned stack.
+        :param clone_permissions: If you're cloning an OpsWorks stack, indicates whether to clone the source stack's permissions.
         :param configuration_manager: The configuration manager. When you create a stack we recommend that you use the configuration manager to specify the Chef version: 12, 11.10, or 11.4 for Linux stacks, or 12.2 for Windows stacks. The default value for Linux stacks is currently 12.
         :param custom_cookbooks_source: Contains the information required to retrieve an app or cookbook from a repository. For more information, see `Adding Apps <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html>`_ or `Cookbooks and Recipes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook.html>`_ .
         :param custom_json: A string that contains user-defined, custom JSON. It can be used to override the corresponding default stack configuration attribute values or to pass data to recipes. The string should be in the following format: ``"{\\"key1\\": \\"value1\\", \\"key2\\": \\"value2\\",...}"`` For more information about custom JSON, see `Use Custom JSON to Modify the Stack Configuration Attributes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-json.html>`_ .
         :param default_availability_zone: The stack's default Availability Zone, which must be in the specified region. For more information, see `Regions and Endpoints <https://docs.aws.amazon.com/general/latest/gr/rande.html>`_ . If you also specify a value for ``DefaultSubnetId`` , the subnet must be in the same zone. For more information, see the ``VpcId`` parameter description.
-        :param default_os: The stack's default operating system, which is installed on every instance unless you specify a different operating system when you create the instance. You can specify one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . You specify the custom AMI you want to use when you create instances. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `AWS OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
+        :param default_os: The stack's default operating system, which is installed on every instance unless you specify a different operating system when you create the instance. You can specify one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . You specify the custom AMI you want to use when you create instances. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
         :param default_root_device_type: The default root device type. This value is the default for all instances in the stack, but you can override it when you create an instance. The default option is ``instance-store`` . For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
-        :param default_ssh_key_name: A default Amazon EC2 key pair name. The default value is none. If you specify a key pair name, AWS OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
+        :param default_ssh_key_name: A default Amazon EC2 key pair name. The default value is none. If you specify a key pair name, OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
         :param default_subnet_id: The stack's default subnet ID. All instances are launched into this subnet unless you specify another subnet ID when you create the instance. This parameter is required if you specify a value for the ``VpcId`` parameter. If you also specify a value for ``DefaultAvailabilityZone`` , the subnet must be in that zone.
-        :param ecs_cluster_arn: The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the AWS OpsWorks stack. .. epigraph:: If you specify a cluster that's registered with another AWS OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
-        :param elastic_ips: A list of Elastic IP addresses to register with the AWS OpsWorks stack. .. epigraph:: If you specify an IP address that's registered with another AWS OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
+        :param ecs_cluster_arn: The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the OpsWorks stack. .. epigraph:: If you specify a cluster that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
+        :param elastic_ips: A list of Elastic IP addresses to register with the OpsWorks stack. .. epigraph:: If you specify an IP address that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
         :param hostname_theme: The stack's host name theme, with spaces replaced by underscores. The theme is used to generate host names for the stack's instances. By default, ``HostnameTheme`` is set to ``Layer_Dependent`` , which creates host names by appending integers to the layer's short name. The other themes are: - ``Baked_Goods`` - ``Clouds`` - ``Europe_Cities`` - ``Fruits`` - ``Greek_Deities_and_Titans`` - ``Legendary_creatures_from_Japan`` - ``Planets_and_Moons`` - ``Roman_Deities`` - ``Scottish_Islands`` - ``US_Cities`` - ``Wild_Cats`` To obtain a generated host name, call ``GetHostNameSuggestion`` , which returns a host name based on the current theme.
-        :param rds_db_instances: The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the AWS OpsWorks stack. .. epigraph:: If you specify a database instance that's registered with another AWS OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
-        :param source_stack_id: If you're cloning an AWS OpsWorks stack, the stack ID of the source AWS OpsWorks stack to clone.
+        :param rds_db_instances: The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the OpsWorks stack. .. epigraph:: If you specify a database instance that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
+        :param source_stack_id: If you're cloning an OpsWorks stack, the stack ID of the source OpsWorks stack to clone.
         :param tags: A map that contains tag keys and tag values that are attached to a stack or layer. - The key cannot be empty. - The key can be a maximum of 127 characters, and can contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /`` - The value can be a maximum 255 characters, and contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /`` - Leading and trailing white spaces are trimmed from both the key and value. - A maximum of 40 tags is allowed for any resource.
         :param use_custom_cookbooks: Whether the stack uses custom cookbooks.
-        :param use_opsworks_security_groups: Whether to associate the AWS OpsWorks Stacks built-in security groups with the stack's layers. AWS OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings: - True - AWS OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group. - False - AWS OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
-        :param vpc_id: The ID of the VPC that the stack is to be launched into. The VPC must be in the stack's region. All instances are launched into this VPC. You cannot change the ID later. - If your account supports EC2-Classic, the default value is ``no VPC`` . - If your account does not support EC2-Classic, the default value is the default VPC for the specified region. If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, AWS OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, AWS OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively. If you specify a nondefault VPC ID, note the following: - It must belong to a VPC in your account that is in the specified region. - You must specify a value for ``DefaultSubnetId`` . For more information about how to use AWS OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
+        :param use_opsworks_security_groups: Whether to associate the OpsWorks Stacks built-in security groups with the stack's layers. OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings: - True - OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group. - False - OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
+        :param vpc_id: The ID of the VPC that the stack is to be launched into. The VPC must be in the stack's region. All instances are launched into this VPC. You cannot change the ID later. - If your account supports EC2-Classic, the default value is ``no VPC`` . - If your account does not support EC2-Classic, the default value is the default VPC for the specified region. If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively. If you specify a nondefault VPC ID, note the following: - It must belong to a VPC in your account that is in the specified region. - You must specify a value for ``DefaultSubnetId`` . For more information about how to use OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6bf36f6bd552e246cec8163081581d4887e2e1838c2af0dfdfec5a94265183ed)
@@ -4627,7 +4627,7 @@ class CfnStack(
     @builtins.property
     @jsii.member(jsii_name="serviceRoleArn")
     def service_role_arn(self) -> builtins.str:
-        '''The stack's IAM role, which allows AWS OpsWorks Stacks to work with AWS resources on your behalf.'''
+        '''The stack's IAM role, which allows OpsWorks Stacks to work with AWS resources on your behalf.'''
         return typing.cast(builtins.str, jsii.get(self, "serviceRoleArn"))
 
     @service_role_arn.setter
@@ -4640,7 +4640,7 @@ class CfnStack(
     @builtins.property
     @jsii.member(jsii_name="agentVersion")
     def agent_version(self) -> typing.Optional[builtins.str]:
-        '''The default AWS OpsWorks Stacks agent version.
+        '''The default OpsWorks Stacks agent version.
 
         You have the following options:.
         '''
@@ -4692,7 +4692,7 @@ class CfnStack(
     @builtins.property
     @jsii.member(jsii_name="cloneAppIds")
     def clone_app_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''If you're cloning an AWS OpsWorks stack, a list of AWS OpsWorks application stack IDs from the source stack to include in the cloned stack.'''
+        '''If you're cloning an OpsWorks stack, a list of OpsWorks application stack IDs from the source stack to include in the cloned stack.'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "cloneAppIds"))
 
     @clone_app_ids.setter
@@ -4707,7 +4707,7 @@ class CfnStack(
     def clone_permissions(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If you're cloning an AWS OpsWorks stack, indicates whether to clone the source stack's permissions.'''
+        '''If you're cloning an OpsWorks stack, indicates whether to clone the source stack's permissions.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "clonePermissions"))
 
     @clone_permissions.setter
@@ -4837,7 +4837,7 @@ class CfnStack(
     @builtins.property
     @jsii.member(jsii_name="ecsClusterArn")
     def ecs_cluster_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the AWS OpsWorks stack.'''
+        '''The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the OpsWorks stack.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ecsClusterArn"))
 
     @ecs_cluster_arn.setter
@@ -4852,7 +4852,7 @@ class CfnStack(
     def elastic_ips(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.ElasticIpProperty"]]]]:
-        '''A list of Elastic IP addresses to register with the AWS OpsWorks stack.'''
+        '''A list of Elastic IP addresses to register with the OpsWorks stack.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.ElasticIpProperty"]]]], jsii.get(self, "elasticIps"))
 
     @elastic_ips.setter
@@ -4883,7 +4883,7 @@ class CfnStack(
     def rds_db_instances(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.RdsDbInstanceProperty"]]]]:
-        '''The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the AWS OpsWorks stack.'''
+        '''The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the OpsWorks stack.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStack.RdsDbInstanceProperty"]]]], jsii.get(self, "rdsDbInstances"))
 
     @rds_db_instances.setter
@@ -4899,7 +4899,7 @@ class CfnStack(
     @builtins.property
     @jsii.member(jsii_name="sourceStackId")
     def source_stack_id(self) -> typing.Optional[builtins.str]:
-        '''If you're cloning an AWS OpsWorks stack, the stack ID of the source AWS OpsWorks stack to clone.'''
+        '''If you're cloning an OpsWorks stack, the stack ID of the source OpsWorks stack to clone.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceStackId"))
 
     @source_stack_id.setter
@@ -4945,7 +4945,7 @@ class CfnStack(
     def use_opsworks_security_groups(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to associate the AWS OpsWorks Stacks built-in security groups with the stack's layers.'''
+        '''Whether to associate the OpsWorks Stacks built-in security groups with the stack's layers.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "useOpsworksSecurityGroups"))
 
     @use_opsworks_security_groups.setter
@@ -5135,7 +5135,7 @@ class CfnStack(
             rds_db_instance_arn: builtins.str,
         ) -> None:
             '''
-            :param db_password: AWS OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
+            :param db_password: OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
             :param db_user: The master user name.
             :param rds_db_instance_arn: The instance's ARN.
 
@@ -5167,7 +5167,7 @@ class CfnStack(
 
         @builtins.property
         def db_password(self) -> builtins.str:
-            '''AWS OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
+            '''OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-stack-rdsdbinstance.html#cfn-opsworks-stack-rdsdbinstance-dbpassword
             '''
@@ -5230,9 +5230,9 @@ class CfnStack(
             username: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
-            :param password: When included in a request, the parameter depends on the repository type. - For Amazon S3 bundles, set ``Password`` to the appropriate IAM secret access key. - For HTTP bundles and Subversion repositories, set ``Password`` to the password. For more information on how to safely handle IAM credentials, see ` <https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html>`_ . In responses, AWS OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
-            :param revision: The application's version. AWS OpsWorks Stacks enables you to easily deploy new versions of an application. One of the simplest approaches is to have branches or revisions in your repository that represent different versions that can potentially be deployed.
-            :param ssh_key: The repository's SSH key. For more information, see `Using Git Repository SSH Keys <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-deploykeys.html>`_ in the *AWS OpsWorks User Guide* . To pass in an SSH key as a parameter, see the following example: ``"Parameters" : { "GitSSHKey" : { "Description" : "Change SSH key newlines to commas.", "Type" : "CommaDelimitedList", "NoEcho" : "true" }, ... "CustomCookbooksSource": { "Revision" : { "Ref": "GitRevision"}, "SshKey" : { "Fn::Join" : [ "\\n", { "Ref": "GitSSHKey"} ] }, "Type": "git", "Url": { "Ref": "GitURL"} } ...``
+            :param password: When included in a request, the parameter depends on the repository type. - For Amazon S3 bundles, set ``Password`` to the appropriate IAM secret access key. - For HTTP bundles and Subversion repositories, set ``Password`` to the password. For more information on how to safely handle IAM credentials, see ` <https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html>`_ . In responses, OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
+            :param revision: The application's version. OpsWorks Stacks enables you to easily deploy new versions of an application. One of the simplest approaches is to have branches or revisions in your repository that represent different versions that can potentially be deployed.
+            :param ssh_key: The repository's SSH key. For more information, see `Using Git Repository SSH Keys <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-deploykeys.html>`_ in the *OpsWorks User Guide* . To pass in an SSH key as a parameter, see the following example: ``"Parameters" : { "GitSSHKey" : { "Description" : "Change SSH key newlines to commas.", "Type" : "CommaDelimitedList", "NoEcho" : "true" }, ... "CustomCookbooksSource": { "Revision" : { "Ref": "GitRevision"}, "SshKey" : { "Fn::Join" : [ "\\n", { "Ref": "GitSSHKey"} ] }, "Type": "git", "Url": { "Ref": "GitURL"} } ...``
             :param type: The repository type.
             :param url: The source URL. The following is an example of an Amazon S3 source URL: ``https://s3.amazonaws.com/opsworks-demo-bucket/opsworks_cookbook_demo.tar.gz`` .
             :param username: This parameter depends on the repository type. - For Amazon S3 bundles, set ``Username`` to the appropriate IAM access key ID. - For HTTP bundles, Git repositories, and Subversion repositories, set ``Username`` to the user name.
@@ -5286,7 +5286,7 @@ class CfnStack(
 
             For more information on how to safely handle IAM credentials, see ` <https://docs.aws.amazon.com/general/latest/gr/aws-access-keys-best-practices.html>`_ .
 
-            In responses, AWS OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
+            In responses, OpsWorks Stacks returns ``*****FILTERED*****`` instead of the actual value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-stack-source.html#cfn-opsworks-stack-source-password
             '''
@@ -5297,7 +5297,7 @@ class CfnStack(
         def revision(self) -> typing.Optional[builtins.str]:
             '''The application's version.
 
-            AWS OpsWorks Stacks enables you to easily deploy new versions of an application. One of the simplest approaches is to have branches or revisions in your repository that represent different versions that can potentially be deployed.
+            OpsWorks Stacks enables you to easily deploy new versions of an application. One of the simplest approaches is to have branches or revisions in your repository that represent different versions that can potentially be deployed.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opsworks-stack-source.html#cfn-opsworks-stack-source-revision
             '''
@@ -5308,7 +5308,7 @@ class CfnStack(
         def ssh_key(self) -> typing.Optional[builtins.str]:
             '''The repository's SSH key.
 
-            For more information, see `Using Git Repository SSH Keys <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-deploykeys.html>`_ in the *AWS OpsWorks User Guide* . To pass in an SSH key as a parameter, see the following example:
+            For more information, see `Using Git Repository SSH Keys <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-deploykeys.html>`_ in the *OpsWorks User Guide* . To pass in an SSH key as a parameter, see the following example:
 
             ``"Parameters" : { "GitSSHKey" : { "Description" : "Change SSH key newlines to commas.", "Type" : "CommaDelimitedList", "NoEcho" : "true" }, ... "CustomCookbooksSource": { "Revision" : { "Ref": "GitRevision"}, "SshKey" : { "Fn::Join" : [ "\\n", { "Ref": "GitSSHKey"} ] }, "Type": "git", "Url": { "Ref": "GitURL"} } ...``
 
@@ -5499,29 +5499,29 @@ class CfnStackProps:
 
         :param default_instance_profile_arn: The Amazon Resource Name (ARN) of an IAM profile that is the default profile for all of the stack's EC2 instances. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
         :param name: The stack name. Stack names can be a maximum of 64 characters.
-        :param service_role_arn: The stack's IAM role, which allows AWS OpsWorks Stacks to work with AWS resources on your behalf. You must set this parameter to the Amazon Resource Name (ARN) for an existing IAM role. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
-        :param agent_version: The default AWS OpsWorks Stacks agent version. You have the following options:. - Auto-update - Set this parameter to ``LATEST`` . AWS OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available. - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. AWS OpsWorks Stacks installs that version on the stack's instances. The default setting is the most recent release of the agent. To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2. .. epigraph:: You can also specify an agent version when you create or update an instance, which overrides the stack's default setting.
+        :param service_role_arn: The stack's IAM role, which allows OpsWorks Stacks to work with AWS resources on your behalf. You must set this parameter to the Amazon Resource Name (ARN) for an existing IAM role. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
+        :param agent_version: The default OpsWorks Stacks agent version. You have the following options:. - Auto-update - Set this parameter to ``LATEST`` . OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available. - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. OpsWorks Stacks installs that version on the stack's instances. The default setting is the most recent release of the agent. To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2. .. epigraph:: You can also specify an agent version when you create or update an instance, which overrides the stack's default setting.
         :param attributes: One or more user-defined key-value pairs to be added to the stack attributes.
         :param chef_configuration: A ``ChefConfiguration`` object that specifies whether to enable Berkshelf and the Berkshelf version on Chef 11.10 stacks. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
-        :param clone_app_ids: If you're cloning an AWS OpsWorks stack, a list of AWS OpsWorks application stack IDs from the source stack to include in the cloned stack.
-        :param clone_permissions: If you're cloning an AWS OpsWorks stack, indicates whether to clone the source stack's permissions.
+        :param clone_app_ids: If you're cloning an OpsWorks stack, a list of OpsWorks application stack IDs from the source stack to include in the cloned stack.
+        :param clone_permissions: If you're cloning an OpsWorks stack, indicates whether to clone the source stack's permissions.
         :param configuration_manager: The configuration manager. When you create a stack we recommend that you use the configuration manager to specify the Chef version: 12, 11.10, or 11.4 for Linux stacks, or 12.2 for Windows stacks. The default value for Linux stacks is currently 12.
         :param custom_cookbooks_source: Contains the information required to retrieve an app or cookbook from a repository. For more information, see `Adding Apps <https://docs.aws.amazon.com/opsworks/latest/userguide/workingapps-creating.html>`_ or `Cookbooks and Recipes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingcookbook.html>`_ .
         :param custom_json: A string that contains user-defined, custom JSON. It can be used to override the corresponding default stack configuration attribute values or to pass data to recipes. The string should be in the following format: ``"{\\"key1\\": \\"value1\\", \\"key2\\": \\"value2\\",...}"`` For more information about custom JSON, see `Use Custom JSON to Modify the Stack Configuration Attributes <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-json.html>`_ .
         :param default_availability_zone: The stack's default Availability Zone, which must be in the specified region. For more information, see `Regions and Endpoints <https://docs.aws.amazon.com/general/latest/gr/rande.html>`_ . If you also specify a value for ``DefaultSubnetId`` , the subnet must be in the same zone. For more information, see the ``VpcId`` parameter description.
-        :param default_os: The stack's default operating system, which is installed on every instance unless you specify a different operating system when you create the instance. You can specify one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . You specify the custom AMI you want to use when you create instances. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `AWS OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
+        :param default_os: The stack's default operating system, which is installed on every instance unless you specify a different operating system when you create the instance. You can specify one of the following. - A supported Linux operating system: An Amazon Linux version, such as ``Amazon Linux 2`` , ``Amazon Linux 2018.03`` , ``Amazon Linux 2017.09`` , ``Amazon Linux 2017.03`` , ``Amazon Linux 2016.09`` , ``Amazon Linux 2016.03`` , ``Amazon Linux 2015.09`` , or ``Amazon Linux 2015.03`` . - A supported Ubuntu operating system, such as ``Ubuntu 18.04 LTS`` , ``Ubuntu 16.04 LTS`` , ``Ubuntu 14.04 LTS`` , or ``Ubuntu 12.04 LTS`` . - ``CentOS Linux 7`` - ``Red Hat Enterprise Linux 7`` - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` . - A custom AMI: ``Custom`` . You specify the custom AMI you want to use when you create instances. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ . The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
         :param default_root_device_type: The default root device type. This value is the default for all instances in the stack, but you can override it when you create an instance. The default option is ``instance-store`` . For more information, see `Storage for the Root Device <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ComponentsAMIs.html#storage-for-the-root-device>`_ .
-        :param default_ssh_key_name: A default Amazon EC2 key pair name. The default value is none. If you specify a key pair name, AWS OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
+        :param default_ssh_key_name: A default Amazon EC2 key pair name. The default value is none. If you specify a key pair name, OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
         :param default_subnet_id: The stack's default subnet ID. All instances are launched into this subnet unless you specify another subnet ID when you create the instance. This parameter is required if you specify a value for the ``VpcId`` parameter. If you also specify a value for ``DefaultAvailabilityZone`` , the subnet must be in that zone.
-        :param ecs_cluster_arn: The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the AWS OpsWorks stack. .. epigraph:: If you specify a cluster that's registered with another AWS OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
-        :param elastic_ips: A list of Elastic IP addresses to register with the AWS OpsWorks stack. .. epigraph:: If you specify an IP address that's registered with another AWS OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
+        :param ecs_cluster_arn: The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the OpsWorks stack. .. epigraph:: If you specify a cluster that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
+        :param elastic_ips: A list of Elastic IP addresses to register with the OpsWorks stack. .. epigraph:: If you specify an IP address that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
         :param hostname_theme: The stack's host name theme, with spaces replaced by underscores. The theme is used to generate host names for the stack's instances. By default, ``HostnameTheme`` is set to ``Layer_Dependent`` , which creates host names by appending integers to the layer's short name. The other themes are: - ``Baked_Goods`` - ``Clouds`` - ``Europe_Cities`` - ``Fruits`` - ``Greek_Deities_and_Titans`` - ``Legendary_creatures_from_Japan`` - ``Planets_and_Moons`` - ``Roman_Deities`` - ``Scottish_Islands`` - ``US_Cities`` - ``Wild_Cats`` To obtain a generated host name, call ``GetHostNameSuggestion`` , which returns a host name based on the current theme.
-        :param rds_db_instances: The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the AWS OpsWorks stack. .. epigraph:: If you specify a database instance that's registered with another AWS OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
-        :param source_stack_id: If you're cloning an AWS OpsWorks stack, the stack ID of the source AWS OpsWorks stack to clone.
+        :param rds_db_instances: The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the OpsWorks stack. .. epigraph:: If you specify a database instance that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
+        :param source_stack_id: If you're cloning an OpsWorks stack, the stack ID of the source OpsWorks stack to clone.
         :param tags: A map that contains tag keys and tag values that are attached to a stack or layer. - The key cannot be empty. - The key can be a maximum of 127 characters, and can contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /`` - The value can be a maximum 255 characters, and contain only Unicode letters, numbers, or separators, or the following special characters: ``+ - = . _ : /`` - Leading and trailing white spaces are trimmed from both the key and value. - A maximum of 40 tags is allowed for any resource.
         :param use_custom_cookbooks: Whether the stack uses custom cookbooks.
-        :param use_opsworks_security_groups: Whether to associate the AWS OpsWorks Stacks built-in security groups with the stack's layers. AWS OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings: - True - AWS OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group. - False - AWS OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
-        :param vpc_id: The ID of the VPC that the stack is to be launched into. The VPC must be in the stack's region. All instances are launched into this VPC. You cannot change the ID later. - If your account supports EC2-Classic, the default value is ``no VPC`` . - If your account does not support EC2-Classic, the default value is the default VPC for the specified region. If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, AWS OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, AWS OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively. If you specify a nondefault VPC ID, note the following: - It must belong to a VPC in your account that is in the specified region. - You must specify a value for ``DefaultSubnetId`` . For more information about how to use AWS OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
+        :param use_opsworks_security_groups: Whether to associate the OpsWorks Stacks built-in security groups with the stack's layers. OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings: - True - OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group. - False - OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings. For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
+        :param vpc_id: The ID of the VPC that the stack is to be launched into. The VPC must be in the stack's region. All instances are launched into this VPC. You cannot change the ID later. - If your account supports EC2-Classic, the default value is ``no VPC`` . - If your account does not support EC2-Classic, the default value is the default VPC for the specified region. If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively. If you specify a nondefault VPC ID, note the following: - It must belong to a VPC in your account that is in the specified region. - You must specify a value for ``DefaultSubnetId`` . For more information about how to use OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html
         :exampleMetadata: fixture=_generated
@@ -5694,7 +5694,7 @@ class CfnStackProps:
 
     @builtins.property
     def service_role_arn(self) -> builtins.str:
-        '''The stack's IAM role, which allows AWS OpsWorks Stacks to work with AWS resources on your behalf.
+        '''The stack's IAM role, which allows OpsWorks Stacks to work with AWS resources on your behalf.
 
         You must set this parameter to the Amazon Resource Name (ARN) for an existing IAM role. For more information about IAM ARNs, see `Using Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ .
 
@@ -5706,10 +5706,10 @@ class CfnStackProps:
 
     @builtins.property
     def agent_version(self) -> typing.Optional[builtins.str]:
-        '''The default AWS OpsWorks Stacks agent version. You have the following options:.
+        '''The default OpsWorks Stacks agent version. You have the following options:.
 
-        - Auto-update - Set this parameter to ``LATEST`` . AWS OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available.
-        - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. AWS OpsWorks Stacks installs that version on the stack's instances.
+        - Auto-update - Set this parameter to ``LATEST`` . OpsWorks Stacks automatically installs new agent versions on the stack's instances as soon as they are available.
+        - Fixed version - Set this parameter to your preferred agent version. To update the agent version, you must edit the stack configuration and specify a new version. OpsWorks Stacks installs that version on the stack's instances.
 
         The default setting is the most recent release of the agent. To specify an agent version, you must use the complete version number, not the abbreviated number shown on the console. For a list of available agent version numbers, call ``DescribeAgentVersions`` . AgentVersion cannot be set to Chef 12.2.
         .. epigraph::
@@ -5745,7 +5745,7 @@ class CfnStackProps:
 
     @builtins.property
     def clone_app_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''If you're cloning an AWS OpsWorks stack, a list of AWS OpsWorks application stack IDs from the source stack to include in the cloned stack.
+        '''If you're cloning an OpsWorks stack, a list of OpsWorks application stack IDs from the source stack to include in the cloned stack.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-cloneappids
         '''
@@ -5756,7 +5756,7 @@ class CfnStackProps:
     def clone_permissions(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''If you're cloning an AWS OpsWorks stack, indicates whether to clone the source stack's permissions.
+        '''If you're cloning an OpsWorks stack, indicates whether to clone the source stack's permissions.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-clonepermissions
         '''
@@ -5828,7 +5828,7 @@ class CfnStackProps:
         - A supported Windows operating system, such as ``Microsoft Windows Server 2012 R2 Base`` , ``Microsoft Windows Server 2012 R2 with SQL Server Express`` , ``Microsoft Windows Server 2012 R2 with SQL Server Standard`` , or ``Microsoft Windows Server 2012 R2 with SQL Server Web`` .
         - A custom AMI: ``Custom`` . You specify the custom AMI you want to use when you create instances. For more information, see `Using Custom AMIs <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-custom-ami.html>`_ .
 
-        The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `AWS OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
+        The default option is the current Amazon Linux version. Not all operating systems are supported with all versions of Chef. For more information about supported operating systems, see `OpsWorks Stacks Operating Systems <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-os.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultos
         '''
@@ -5850,7 +5850,7 @@ class CfnStackProps:
     def default_ssh_key_name(self) -> typing.Optional[builtins.str]:
         '''A default Amazon EC2 key pair name.
 
-        The default value is none. If you specify a key pair name, AWS OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
+        The default value is none. If you specify a key pair name, OpsWorks installs the public key on the instance and you can use the private key with an SSH client to log in to the instance. For more information, see `Using SSH to Communicate with an Instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-ssh.html>`_ and `Managing SSH Access <https://docs.aws.amazon.com/opsworks/latest/userguide/security-ssh-access.html>`_ . You can override this setting by specifying a different key pair, or no key pair, when you `create an instance <https://docs.aws.amazon.com/opsworks/latest/userguide/workinginstances-add.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-defaultsshkeyname
         '''
@@ -5870,11 +5870,11 @@ class CfnStackProps:
 
     @builtins.property
     def ecs_cluster_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the AWS OpsWorks stack.
+        '''The Amazon Resource Name (ARN) of the Amazon Elastic Container Service ( Amazon ECS ) cluster to register with the OpsWorks stack.
 
         .. epigraph::
 
-           If you specify a cluster that's registered with another AWS OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
+           If you specify a cluster that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-ecsclusterarn
         '''
@@ -5885,11 +5885,11 @@ class CfnStackProps:
     def elastic_ips(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.ElasticIpProperty]]]]:
-        '''A list of Elastic IP addresses to register with the AWS OpsWorks stack.
+        '''A list of Elastic IP addresses to register with the OpsWorks stack.
 
         .. epigraph::
 
-           If you specify an IP address that's registered with another AWS OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
+           If you specify an IP address that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the IP address.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-elasticips
         '''
@@ -5925,11 +5925,11 @@ class CfnStackProps:
     def rds_db_instances(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnStack.RdsDbInstanceProperty]]]]:
-        '''The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the AWS OpsWorks stack.
+        '''The Amazon Relational Database Service ( Amazon RDS ) database instance to register with the OpsWorks stack.
 
         .. epigraph::
 
-           If you specify a database instance that's registered with another AWS OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
+           If you specify a database instance that's registered with another OpsWorks stack, AWS CloudFormation deregisters the existing association before registering the database instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-rdsdbinstances
         '''
@@ -5938,7 +5938,7 @@ class CfnStackProps:
 
     @builtins.property
     def source_stack_id(self) -> typing.Optional[builtins.str]:
-        '''If you're cloning an AWS OpsWorks stack, the stack ID of the source AWS OpsWorks stack to clone.
+        '''If you're cloning an OpsWorks stack, the stack ID of the source OpsWorks stack to clone.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-sourcestackid
         '''
@@ -5975,12 +5975,12 @@ class CfnStackProps:
     def use_opsworks_security_groups(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether to associate the AWS OpsWorks Stacks built-in security groups with the stack's layers.
+        '''Whether to associate the OpsWorks Stacks built-in security groups with the stack's layers.
 
-        AWS OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings:
+        OpsWorks Stacks provides a standard set of built-in security groups, one for each layer, which are associated with layers by default. With ``UseOpsworksSecurityGroups`` you can instead provide your own custom security groups. ``UseOpsworksSecurityGroups`` has the following settings:
 
-        - True - AWS OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group.
-        - False - AWS OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings.
+        - True - OpsWorks Stacks automatically associates the appropriate built-in security group with each layer (default setting). You can associate additional security groups with a layer after you create it, but you cannot delete the built-in security group.
+        - False - OpsWorks Stacks does not associate built-in security groups with layers. You must create appropriate EC2 security groups and associate a security group with each layer that you create. However, you can still manually associate a built-in security group with a layer on creation; custom security groups are required only for those layers that need custom settings.
 
         For more information, see `Create a New Stack <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-creating.html>`_ .
 
@@ -5998,14 +5998,14 @@ class CfnStackProps:
         - If your account supports EC2-Classic, the default value is ``no VPC`` .
         - If your account does not support EC2-Classic, the default value is the default VPC for the specified region.
 
-        If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, AWS OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, AWS OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively.
+        If the VPC ID corresponds to a default VPC and you have specified either the ``DefaultAvailabilityZone`` or the ``DefaultSubnetId`` parameter only, OpsWorks Stacks infers the value of the other parameter. If you specify neither parameter, OpsWorks Stacks sets these parameters to the first valid Availability Zone for the specified region and the corresponding default VPC subnet ID, respectively.
 
         If you specify a nondefault VPC ID, note the following:
 
         - It must belong to a VPC in your account that is in the specified region.
         - You must specify a value for ``DefaultSubnetId`` .
 
-        For more information about how to use AWS OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
+        For more information about how to use OpsWorks Stacks with a VPC, see `Running a Stack in a VPC <https://docs.aws.amazon.com/opsworks/latest/userguide/workingstacks-vpc.html>`_ . For more information about default VPC and EC2-Classic, see `Supported Platforms <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-supported-platforms.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opsworks-stack.html#cfn-opsworks-stack-vpcid
         '''

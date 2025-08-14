@@ -4,24 +4,24 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
+import datetime
 from typing import TYPE_CHECKING, cast
 
 from ibm_watsonx_ai.foundation_models.base_tuner import BaseTuner
-from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.foundation_models.utils import PromptTuningParams
 from ibm_watsonx_ai.helpers.connections import (
     DataConnection,
 )
+from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.utils.autoai.utils import is_ipython
-from ibm_watsonx_ai.foundation_models.utils import PromptTuningParams
-
-import datetime
-
+from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class PromptTuner(BaseTuner):
@@ -348,8 +348,9 @@ class PromptTuner(BaseTuner):
             raise WMLClientError(
                 "Function `plot_learning_curve` is available only for Jupyter notebooks."
             )
-        from ibm_watsonx_ai.utils.autoai.incremental import plot_learning_curve
         import matplotlib.pyplot as plt
+
+        from ibm_watsonx_ai.utils.autoai.incremental import plot_learning_curve
 
         tuning_details = self.get_run_details(include_metrics=True)
 

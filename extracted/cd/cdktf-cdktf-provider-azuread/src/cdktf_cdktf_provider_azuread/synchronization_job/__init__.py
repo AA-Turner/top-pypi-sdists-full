@@ -1,7 +1,7 @@
 r'''
 # `azuread_synchronization_job`
 
-Refer to the Terraform Registry for docs: [`azuread_synchronization_job`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job).
+Refer to the Terraform Registry for docs: [`azuread_synchronization_job`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SynchronizationJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.synchronizationJob.SynchronizationJob",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job azuread_synchronization_job}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job azuread_synchronization_job}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class SynchronizationJob(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job azuread_synchronization_job} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job azuread_synchronization_job} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param service_principal_id: The ID of the service principal for which this synchronization job should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#service_principal_id SynchronizationJob#service_principal_id}
-        :param template_id: Identifier of the synchronization template this job is based on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#template_id SynchronizationJob#template_id}
-        :param enabled: Whether or not the synchronization job is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#enabled SynchronizationJob#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#id SynchronizationJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#timeouts SynchronizationJob#timeouts}
+        :param service_principal_id: The ID of the service principal for which this synchronization job should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#service_principal_id SynchronizationJob#service_principal_id}
+        :param template_id: Identifier of the synchronization template this job is based on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#template_id SynchronizationJob#template_id}
+        :param enabled: Whether or not the synchronization job is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#enabled SynchronizationJob#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#id SynchronizationJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#timeouts SynchronizationJob#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class SynchronizationJob(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SynchronizationJob to import.
-        :param import_from_id: The id of the existing SynchronizationJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SynchronizationJob that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SynchronizationJob to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class SynchronizationJob(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#create SynchronizationJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#delete SynchronizationJob#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#read SynchronizationJob#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#update SynchronizationJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#create SynchronizationJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#delete SynchronizationJob#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#read SynchronizationJob#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#update SynchronizationJob#update}.
         '''
         value = SynchronizationJobTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -306,11 +306,11 @@ class SynchronizationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param service_principal_id: The ID of the service principal for which this synchronization job should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#service_principal_id SynchronizationJob#service_principal_id}
-        :param template_id: Identifier of the synchronization template this job is based on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#template_id SynchronizationJob#template_id}
-        :param enabled: Whether or not the synchronization job is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#enabled SynchronizationJob#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#id SynchronizationJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#timeouts SynchronizationJob#timeouts}
+        :param service_principal_id: The ID of the service principal for which this synchronization job should be created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#service_principal_id SynchronizationJob#service_principal_id}
+        :param template_id: Identifier of the synchronization template this job is based on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#template_id SynchronizationJob#template_id}
+        :param enabled: Whether or not the synchronization job is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#enabled SynchronizationJob#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#id SynchronizationJob#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#timeouts SynchronizationJob#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -423,7 +423,7 @@ class SynchronizationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_principal_id(self) -> builtins.str:
         '''The ID of the service principal for which this synchronization job should be created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#service_principal_id SynchronizationJob#service_principal_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#service_principal_id SynchronizationJob#service_principal_id}
         '''
         result = self._values.get("service_principal_id")
         assert result is not None, "Required property 'service_principal_id' is missing"
@@ -433,7 +433,7 @@ class SynchronizationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template_id(self) -> builtins.str:
         '''Identifier of the synchronization template this job is based on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#template_id SynchronizationJob#template_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#template_id SynchronizationJob#template_id}
         '''
         result = self._values.get("template_id")
         assert result is not None, "Required property 'template_id' is missing"
@@ -445,14 +445,14 @@ class SynchronizationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether or not the synchronization job is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#enabled SynchronizationJob#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#enabled SynchronizationJob#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#id SynchronizationJob#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#id SynchronizationJob#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -464,7 +464,7 @@ class SynchronizationJobConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SynchronizationJobTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#timeouts SynchronizationJob#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#timeouts SynchronizationJob#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SynchronizationJobTimeouts"], result)
@@ -652,10 +652,10 @@ class SynchronizationJobTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#create SynchronizationJob#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#delete SynchronizationJob#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#read SynchronizationJob#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#update SynchronizationJob#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#create SynchronizationJob#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#delete SynchronizationJob#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#read SynchronizationJob#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#update SynchronizationJob#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__612e48281d30fbf6fc43337f60bacb80af7677511c12a8771c833df23b1b5069)
@@ -675,25 +675,25 @@ class SynchronizationJobTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#create SynchronizationJob#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#create SynchronizationJob#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#delete SynchronizationJob#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#delete SynchronizationJob#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#read SynchronizationJob#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#read SynchronizationJob#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/synchronization_job#update SynchronizationJob#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/synchronization_job#update SynchronizationJob#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

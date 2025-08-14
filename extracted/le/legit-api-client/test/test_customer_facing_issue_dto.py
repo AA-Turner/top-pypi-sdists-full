@@ -47,51 +47,23 @@ class TestCustomerFacingIssueDto(unittest.TestCase):
                 closing_reason = 'Unknown',
                 closing_location = 'Unknown',
                 status_changed_note = '',
-                remediation_steps = [
-                    ''
-                    ],
                 snoozed_type = 'DueDate',
                 snoozed_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 score = 1.337,
-                epss_score = 1.337,
-                additional_data = None,
-                ai_validation_result = 'NotValidated',
-                dast_confidence_level = 'Unknown',
-                validity_status = 'NotApplicable',
-                validity_check_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                verified_validation_url = '',
-                minimal_dependency_fix_type = 'NotApplicable',
-                sources = [
-                    legit_api_client.models.customer_facing_issue_source_dto.CustomerFacingIssueSourceDto(
-                        integration_id = '', 
-                        name = '', )
-                    ],
-                comments = [
-                    legit_api_client.models.issue_comment_dto.IssueCommentDto(
-                        id = '', 
-                        commented_by = '', 
-                        comment = '', 
-                        creation_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        is_edited = True, 
-                        is_deleted = True, )
-                    ],
-                tags = [
-                    legit_api_client.models.issue_tag_dto.IssueTagDto(
-                        tag_id = '', 
-                        tag_name = '', 
-                        time_added = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), )
-                    ],
-                tickets = [
-                    ''
-                    ],
+                secretes_data_dto = legit_api_client.models.secretes_data_dto.SecretesDataDto(
+                    ai_validation_result = null, 
+                    validity_status = null, 
+                    validity_check_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                    verified_validation_url = '', ),
+                dependency_vulnerability_data_dto = legit_api_client.models.dependency_vulnerability_data_dto.DependencyVulnerabilityDataDto(
+                    minimal_dependency_fix_type = null, ),
+                dast_data_dto = legit_api_client.models.dast_data_dto.DastDataDto(
+                    dast_confidence_level = null, ),
                 origin_id = '',
                 origin_type = 'Collaborator',
                 origin_link = '',
                 action_id = '',
                 policy_name = '',
-                product_ids = [
-                    ''
-                    ],
                 assigned_user_id = ''
             )
         else:

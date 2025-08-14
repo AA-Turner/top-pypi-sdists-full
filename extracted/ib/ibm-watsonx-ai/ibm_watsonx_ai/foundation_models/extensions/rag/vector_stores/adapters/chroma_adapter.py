@@ -4,6 +4,7 @@
 #  -----------------------------------------------------------------------------------------
 
 from typing import Any
+
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
     LangChainVectorStoreAdapter,
 )
@@ -16,7 +17,6 @@ except ImportError:
 
 
 class ChromaVectorStore(LangChainVectorStoreAdapter[Chroma]):
-
     def __init__(self, vector_store: Chroma | None = None, **kwargs: Any) -> None:
         if vector_store is None:
             vector_store = Chroma(**kwargs)
@@ -42,7 +42,9 @@ class ChromaVectorStore(LangChainVectorStoreAdapter[Chroma]):
         max_batch_size = kwargs.get("max_batch_size")
         if max_batch_size is None:
             try:
-                max_batch_size = self._langchain_vector_store._client.get_max_batch_size()  # type: ignore[attr-defined]
+                max_batch_size = (
+                    self._langchain_vector_store._client.get_max_batch_size()
+                )  # type: ignore[attr-defined]
             except AttributeError:
                 max_batch_size = 10_000
 

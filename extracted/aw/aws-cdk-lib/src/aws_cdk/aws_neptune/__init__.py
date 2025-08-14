@@ -2899,7 +2899,8 @@ class CfnEventSubscription(
             event_categories=["eventCategories"],
             sns_topic_arn="snsTopicArn",
             source_ids=["sourceIds"],
-            source_type="sourceType"
+            source_type="sourceType",
+            subscription_name="subscriptionName"
         )
     '''
 
@@ -2913,6 +2914,7 @@ class CfnEventSubscription(
         sns_topic_arn: typing.Optional[builtins.str] = None,
         source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         source_type: typing.Optional[builtins.str] = None,
+        subscription_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -2922,6 +2924,7 @@ class CfnEventSubscription(
         :param sns_topic_arn: The topic ARN of the event notification subscription.
         :param source_ids: 
         :param source_type: The source type for the event notification subscription.
+        :param subscription_name: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4853d81bb6e17fc63404c1d9d1bd303b3e043850ca95ab4456a810f0cc64fe78)
@@ -2933,6 +2936,7 @@ class CfnEventSubscription(
             sns_topic_arn=sns_topic_arn,
             source_ids=source_ids,
             source_type=source_type,
+            subscription_name=subscription_name,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -3051,6 +3055,18 @@ class CfnEventSubscription(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceType", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="subscriptionName")
+    def subscription_name(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "subscriptionName"))
+
+    @subscription_name.setter
+    def subscription_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__093da317650d77ec45933024165e4f9a2676b7fdeca4b47386fba06b268a1e67)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subscriptionName", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_neptune.CfnEventSubscriptionProps",
@@ -3061,6 +3077,7 @@ class CfnEventSubscription(
         "sns_topic_arn": "snsTopicArn",
         "source_ids": "sourceIds",
         "source_type": "sourceType",
+        "subscription_name": "subscriptionName",
     },
 )
 class CfnEventSubscriptionProps:
@@ -3072,6 +3089,7 @@ class CfnEventSubscriptionProps:
         sns_topic_arn: typing.Optional[builtins.str] = None,
         source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         source_type: typing.Optional[builtins.str] = None,
+        subscription_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnEventSubscription``.
 
@@ -3080,6 +3098,7 @@ class CfnEventSubscriptionProps:
         :param sns_topic_arn: The topic ARN of the event notification subscription.
         :param source_ids: 
         :param source_type: The source type for the event notification subscription.
+        :param subscription_name: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-eventsubscription.html
         :exampleMetadata: fixture=_generated
@@ -3095,7 +3114,8 @@ class CfnEventSubscriptionProps:
                 event_categories=["eventCategories"],
                 sns_topic_arn="snsTopicArn",
                 source_ids=["sourceIds"],
-                source_type="sourceType"
+                source_type="sourceType",
+                subscription_name="subscriptionName"
             )
         '''
         if __debug__:
@@ -3105,6 +3125,7 @@ class CfnEventSubscriptionProps:
             check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
             check_type(argname="argument source_ids", value=source_ids, expected_type=type_hints["source_ids"])
             check_type(argname="argument source_type", value=source_type, expected_type=type_hints["source_type"])
+            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
             self._values["enabled"] = enabled
@@ -3116,6 +3137,8 @@ class CfnEventSubscriptionProps:
             self._values["source_ids"] = source_ids
         if source_type is not None:
             self._values["source_type"] = source_type
+        if subscription_name is not None:
+            self._values["subscription_name"] = subscription_name
 
     @builtins.property
     def enabled(
@@ -3162,6 +3185,14 @@ class CfnEventSubscriptionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-eventsubscription.html#cfn-neptune-eventsubscription-sourcetype
         '''
         result = self._values.get("source_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subscription_name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-eventsubscription.html#cfn-neptune-eventsubscription-subscriptionname
+        '''
+        result = self._values.get("subscription_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3748,6 +3779,7 @@ def _typecheckingstub__4853d81bb6e17fc63404c1d9d1bd303b3e043850ca95ab4456a810f0c
     sns_topic_arn: typing.Optional[builtins.str] = None,
     source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_type: typing.Optional[builtins.str] = None,
+    subscription_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3794,6 +3826,12 @@ def _typecheckingstub__4743dbdfbbc96ad79cdb0ad58c8eb57c79460b33c86861de97ff6a633
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__093da317650d77ec45933024165e4f9a2676b7fdeca4b47386fba06b268a1e67(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__be12afbc64d35614ba28986fc60eff385d7080e57aabefaff50d73a28f572237(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -3801,6 +3839,7 @@ def _typecheckingstub__be12afbc64d35614ba28986fc60eff385d7080e57aabefaff50d73a28
     sns_topic_arn: typing.Optional[builtins.str] = None,
     source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_type: typing.Optional[builtins.str] = None,
+    subscription_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

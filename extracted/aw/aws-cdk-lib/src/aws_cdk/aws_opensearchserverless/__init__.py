@@ -2267,7 +2267,7 @@ class CfnSecurityConfig(
 
             :param metadata: The XML IdP metadata file generated from your identity provider.
             :param group_attribute: The group attribute for this SAML integration.
-            :param open_search_serverless_entity_id: Custom entity id attribute to override default entity id for this saml integration.
+            :param open_search_serverless_entity_id: Custom entity ID attribute to override the default entity ID for this SAML integration.
             :param session_timeout: The session timeout, in minutes. Default is 60 minutes (12 hours).
             :param user_attribute: A user attribute for this SAML integration.
 
@@ -2330,7 +2330,7 @@ class CfnSecurityConfig(
 
         @builtins.property
         def open_search_serverless_entity_id(self) -> typing.Optional[builtins.str]:
-            '''Custom entity id attribute to override default entity id for this saml integration.
+            '''Custom entity ID attribute to override the default entity ID for this SAML integration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-securityconfig-samlconfigoptions.html#cfn-opensearchserverless-securityconfig-samlconfigoptions-opensearchserverlessentityid
             '''

@@ -52,9 +52,7 @@ class LocalTrainingMessageHandler:
                 "hpo_c_running_output",
                 "hpo_d_running_output",
             ]:
-
                 if (stage in metric) and (metric[stage] is not None):
-
                     if self.progress_bar is not None:
                         self.progress_bar.set_description(desc=stage)
                         if self.total - self.progress_bar.counter <= 5:
@@ -65,7 +63,6 @@ class LocalTrainingMessageHandler:
                             self.progress_bar.update()
 
                     else:
-
                         if self.previous_stage != stage:
                             self.previous_stage = stage
                             self.progress_bar_2.last_update()

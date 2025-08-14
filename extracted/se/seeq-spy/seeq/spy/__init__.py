@@ -62,4 +62,4 @@ __all__ = ['acl', 'addons', 'archive', 'assets', 'docs', 'workbooks', 'widgets',
            'server_version', 'jobs', 'notifications', 'upgrade', 'utils', 'errors',
            'SPyValueError', 'SPyTypeError', 'SPyRuntimeError', 'SPyKeyboardInterrupt', 'SPyDependencyNotFound']
 
-__version__ = '%d.%d' % (int('197'), int('8'))
+__version__ = '%d.%d' % (int('197'), int('9'))

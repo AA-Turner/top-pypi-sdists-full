@@ -60,6 +60,7 @@ __all__ = (
     "LustreDeploymentTypeType",
     "LustreReadCacheSizingModeType",
     "MetadataConfigurationModeType",
+    "NetworkTypeType",
     "NfsVersionType",
     "OntapDeploymentTypeType",
     "OntapVolumeTypeType",
@@ -187,6 +188,7 @@ LustreReadCacheSizingModeType = Literal[
     "NO_CACHE", "PROPORTIONAL_TO_THROUGHPUT_CAPACITY", "USER_PROVISIONED"
 ]
 MetadataConfigurationModeType = Literal["AUTOMATIC", "USER_PROVISIONED"]
+NetworkTypeType = Literal["DUAL", "IPV4"]
 NfsVersionType = Literal["NFS3"]
 OntapDeploymentTypeType = Literal["MULTI_AZ_1", "MULTI_AZ_2", "SINGLE_AZ_1", "SINGLE_AZ_2"]
 OntapVolumeTypeType = Literal["DP", "LS", "RW"]

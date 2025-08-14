@@ -35,6 +35,7 @@ from .get_host import *
 from .get_instance import *
 from .get_instance_connect_endpoint import *
 from .get_internet_gateway import *
+from .get_ip_pool_route_table_association import *
 from .get_ipam import *
 from .get_ipam_allocation import *
 from .get_ipam_pool import *
@@ -75,6 +76,7 @@ from .get_subnet_network_acl_association import *
 from .get_subnet_route_table_association import *
 from .get_traffic_mirror_filter import *
 from .get_traffic_mirror_filter_rule import *
+from .get_traffic_mirror_session import *
 from .get_traffic_mirror_target import *
 from .get_transit_gateway import *
 from .get_transit_gateway_attachment import *
@@ -107,6 +109,7 @@ from .host import *
 from .instance import *
 from .instance_connect_endpoint import *
 from .internet_gateway import *
+from .ip_pool_route_table_association import *
 from .ipam import *
 from .ipam_allocation import *
 from .ipam_pool import *
@@ -150,6 +153,7 @@ from .subnet_network_acl_association import *
 from .subnet_route_table_association import *
 from .traffic_mirror_filter import *
 from .traffic_mirror_filter_rule import *
+from .traffic_mirror_session import *
 from .traffic_mirror_target import *
 from .transit_gateway import *
 from .transit_gateway_attachment import *

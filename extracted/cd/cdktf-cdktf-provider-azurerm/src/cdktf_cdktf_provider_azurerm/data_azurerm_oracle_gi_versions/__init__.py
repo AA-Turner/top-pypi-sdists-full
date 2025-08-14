@@ -1,7 +1,7 @@
 r'''
 # `data_azurerm_oracle_gi_versions`
 
-Refer to the Terraform Registry for docs: [`data_azurerm_oracle_gi_versions`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions).
+Refer to the Terraform Registry for docs: [`data_azurerm_oracle_gi_versions`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzurermOracleGiVersions(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.dataAzurermOracleGiVersions.DataAzurermOracleGiVersions",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions azurerm_oracle_gi_versions}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions azurerm_oracle_gi_versions}.'''
 
     def __init__(
         self,
@@ -53,7 +53,9 @@ class DataAzurermOracleGiVersions(
         *,
         location: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        shape: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["DataAzurermOracleGiVersionsTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        zone: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +64,15 @@ class DataAzurermOracleGiVersions(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions azurerm_oracle_gi_versions} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions azurerm_oracle_gi_versions} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#location DataAzurermOracleGiVersions#location}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#id DataAzurermOracleGiVersions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#timeouts DataAzurermOracleGiVersions#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#location DataAzurermOracleGiVersions#location}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#id DataAzurermOracleGiVersions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param shape: Filter the versions by system shape. Possible values are 'ExaDbXS', 'Exadata.X9M', and 'Exadata.X11M'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#shape DataAzurermOracleGiVersions#shape}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#timeouts DataAzurermOracleGiVersions#timeouts}
+        :param zone: Filter the versions by zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#zone DataAzurermOracleGiVersions#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -84,7 +88,9 @@ class DataAzurermOracleGiVersions(
         config = DataAzurermOracleGiVersionsConfig(
             location=location,
             id=id,
+            shape=shape,
             timeouts=timeouts,
+            zone=zone,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +115,7 @@ class DataAzurermOracleGiVersions(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzurermOracleGiVersions to import.
-        :param import_from_id: The id of the existing DataAzurermOracleGiVersions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzurermOracleGiVersions that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzurermOracleGiVersions to import is found.
         '''
         if __debug__:
@@ -123,7 +129,7 @@ class DataAzurermOracleGiVersions(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#read DataAzurermOracleGiVersions#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#read DataAzurermOracleGiVersions#read}.
         '''
         value = DataAzurermOracleGiVersionsTimeouts(read=read)
 
@@ -133,9 +139,17 @@ class DataAzurermOracleGiVersions(
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
 
+    @jsii.member(jsii_name="resetShape")
+    def reset_shape(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetShape", []))
+
     @jsii.member(jsii_name="resetTimeouts")
     def reset_timeouts(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTimeouts", []))
+
+    @jsii.member(jsii_name="resetZone")
+    def reset_zone(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetZone", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -171,11 +185,21 @@ class DataAzurermOracleGiVersions(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "locationInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="shapeInput")
+    def shape_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "shapeInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="timeoutsInput")
     def timeouts_input(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "DataAzurermOracleGiVersionsTimeouts"]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "DataAzurermOracleGiVersionsTimeouts"]], jsii.get(self, "timeoutsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="zoneInput")
+    def zone_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "zoneInput"))
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -201,6 +225,30 @@ class DataAzurermOracleGiVersions(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="shape")
+    def shape(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "shape"))
+
+    @shape.setter
+    def shape(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70670a703fc51ac332cb602f0b06f064184258f372950a237eeb8aaa0b7b4781)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "shape", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="zone")
+    def zone(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "zone"))
+
+    @zone.setter
+    def zone(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e9295e81802c4a051c02aaf7272d1f9b008c59f21cd4874c3b950b1e8fe51ee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "zone", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-azurerm.dataAzurermOracleGiVersions.DataAzurermOracleGiVersionsConfig",
@@ -215,7 +263,9 @@ class DataAzurermOracleGiVersions(
         "provisioners": "provisioners",
         "location": "location",
         "id": "id",
+        "shape": "shape",
         "timeouts": "timeouts",
+        "zone": "zone",
     },
 )
 class DataAzurermOracleGiVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -231,7 +281,9 @@ class DataAzurermOracleGiVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         location: builtins.str,
         id: typing.Optional[builtins.str] = None,
+        shape: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["DataAzurermOracleGiVersionsTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -241,9 +293,11 @@ class DataAzurermOracleGiVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#location DataAzurermOracleGiVersions#location}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#id DataAzurermOracleGiVersions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#timeouts DataAzurermOracleGiVersions#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#location DataAzurermOracleGiVersions#location}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#id DataAzurermOracleGiVersions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param shape: Filter the versions by system shape. Possible values are 'ExaDbXS', 'Exadata.X9M', and 'Exadata.X11M'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#shape DataAzurermOracleGiVersions#shape}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#timeouts DataAzurermOracleGiVersions#timeouts}
+        :param zone: Filter the versions by zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#zone DataAzurermOracleGiVersions#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -260,7 +314,9 @@ class DataAzurermOracleGiVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument shape", value=shape, expected_type=type_hints["shape"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
+            check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location": location,
         }
@@ -280,8 +336,12 @@ class DataAzurermOracleGiVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
+        if shape is not None:
+            self._values["shape"] = shape
         if timeouts is not None:
             self._values["timeouts"] = timeouts
+        if zone is not None:
+            self._values["zone"] = zone
 
     @builtins.property
     def connection(
@@ -349,14 +409,14 @@ class DataAzurermOracleGiVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#location DataAzurermOracleGiVersions#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#location DataAzurermOracleGiVersions#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#id DataAzurermOracleGiVersions#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#id DataAzurermOracleGiVersions#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -365,13 +425,31 @@ class DataAzurermOracleGiVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def shape(self) -> typing.Optional[builtins.str]:
+        '''Filter the versions by system shape. Possible values are 'ExaDbXS', 'Exadata.X9M', and 'Exadata.X11M'.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#shape DataAzurermOracleGiVersions#shape}
+        '''
+        result = self._values.get("shape")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def timeouts(self) -> typing.Optional["DataAzurermOracleGiVersionsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#timeouts DataAzurermOracleGiVersions#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#timeouts DataAzurermOracleGiVersions#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzurermOracleGiVersionsTimeouts"], result)
+
+    @builtins.property
+    def zone(self) -> typing.Optional[builtins.str]:
+        '''Filter the versions by zone.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#zone DataAzurermOracleGiVersions#zone}
+        '''
+        result = self._values.get("zone")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -393,7 +471,7 @@ class DataAzurermOracleGiVersionsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataAzurermOracleGiVersionsTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#read DataAzurermOracleGiVersions#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#read DataAzurermOracleGiVersions#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__debec23a0726b9afa6bb10b6c881afb231b6ba3a1d69713395577008fa3cb146)
@@ -404,7 +482,7 @@ class DataAzurermOracleGiVersionsTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_gi_versions#read DataAzurermOracleGiVersions#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_gi_versions#read DataAzurermOracleGiVersions#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -494,7 +572,9 @@ def _typecheckingstub__4f64f2bed553264dafcc273d33de634c5f9a81a5874f8930f8aa99029
     *,
     location: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    shape: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[DataAzurermOracleGiVersionsTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    zone: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -527,6 +607,18 @@ def _typecheckingstub__93d760ac1df69e3e196dc414a6370becfbbbfa53b0d21696f7dfd5c2b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__70670a703fc51ac332cb602f0b06f064184258f372950a237eeb8aaa0b7b4781(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e9295e81802c4a051c02aaf7272d1f9b008c59f21cd4874c3b950b1e8fe51ee(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__abe1436bac9b2e024a8c8d14305cb3de8c06a823a2bf2c4b9d346f131d822246(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -538,7 +630,9 @@ def _typecheckingstub__abe1436bac9b2e024a8c8d14305cb3de8c06a823a2bf2c4b9d346f131
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     location: builtins.str,
     id: typing.Optional[builtins.str] = None,
+    shape: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[DataAzurermOracleGiVersionsTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    zone: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

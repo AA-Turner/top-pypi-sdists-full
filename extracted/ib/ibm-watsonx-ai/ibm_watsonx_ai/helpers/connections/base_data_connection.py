@@ -10,42 +10,45 @@ __all__ = ["BaseDataConnection"]
 import io
 import json
 import os
-
 from abc import ABC, abstractmethod
-from typing import Union, Tuple, TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Tuple, Union
 from warnings import warn
 
 import pandas as pd
-
-import ibm_watsonx_ai._wrappers.requests as requests
 from pandas import DataFrame, read_csv
 
-from ibm_watsonx_ai.utils.autoai.utils import (
-    try_load_dataset,
-    try_load_tar_gz,
-    _error_on_duplicate_columns_csv,
+import ibm_watsonx_ai._wrappers.requests as requests
+from ibm_watsonx_ai.data_loaders.datasets.experiment import (
+    DEFAULT_SAMPLE_SIZE_LIMIT,
+    DEFAULT_SAMPLING_TYPE,
 )
 from ibm_watsonx_ai.utils.autoai.enums import DataConnectionTypes
 from ibm_watsonx_ai.utils.autoai.errors import (
     CannotReadSavedRemoteDataBeforeFit,
     NotS3Connection,
 )
-from ibm_watsonx_ai.wml_client_error import ApiRequestFailure, DataStreamError
+from ibm_watsonx_ai.utils.autoai.utils import (
+    _error_on_duplicate_columns_csv,
+    try_load_dataset,
+    try_load_tar_gz,
+)
 from ibm_watsonx_ai.utils.utils import is_lib_installed
-from ibm_watsonx_ai.data_loaders.datasets.experiment import (
-    DEFAULT_SAMPLING_TYPE,
-    DEFAULT_SAMPLE_SIZE_LIMIT,
+from ibm_watsonx_ai.wml_client_error import (
+    ApiRequestFailure,
+    DataStreamError,
 )
 
 if TYPE_CHECKING:
     from ibm_boto3 import resource
+
+    from ibm_watsonx_ai import APIClient
+    from ibm_watsonx_ai.helpers.connections import DataConnection
 
 
 class BaseDataConnection(ABC):
     """Base class for DataConnection."""
 
     def __init__(self):
-
         self.type = None
         self.connection = None
         self.location = None
@@ -131,7 +134,7 @@ class BaseDataConnection(ABC):
 
                 if isinstance(self.connection, _AmazonS3Connection):
                     raise NotImplementedError(
-                        f"The operation is not supported for AmazonS3 connection. Try with Flight Service enabled"
+                        "The operation is not supported for AmazonS3 connection. Try with Flight Service enabled"
                     )
                 cos_client = self._init_cos_client()
 
@@ -235,7 +238,6 @@ class BaseDataConnection(ABC):
                     "bucket", data_conn.get("connection", {}).get("bucket")
                 )  # AWS containers has bucket in connection
                 if bucket is None:
-
                     raise ValueError(
                         "Missing bucket in connection or location of the DataConnection object."
                     )
@@ -269,14 +271,15 @@ class BaseDataConnection(ABC):
 
         return json_content
 
-    def _get_attachment_details(self, data_asset_id: str):
+    @staticmethod
+    def _get_attachment_details(data_asset_id: str, api_client: APIClient) -> dict:
         response = requests.get(
-            self._api_client._href_definitions.get_data_asset_href(data_asset_id),
-            params=self._api_client._params(),
-            headers=self._api_client._get_headers(),
+            api_client._href_definitions.get_data_asset_href(data_asset_id),
+            params=api_client._params(),
+            headers=api_client._get_headers(),
         )
-        data_asset_details = self._api_client.data_assets._handle_response(
-            200, "Cannot get data asset details", response
+        data_asset_details = api_client.data_assets._handle_response(
+            200, "GET data asset details", response
         )
 
         attachments_data_asset_details = data_asset_details.get("attachments", [{}])[0]
@@ -288,31 +291,22 @@ class BaseDataConnection(ABC):
             return attachments_data_asset_details
         else:
             attachment_id = attachments_data_asset_details.get("id")
-            if not self._api_client.ICP_PLATFORM_SPACES:
-                response = requests.get(
-                    self._api_client._href_definitions.get_attachment_href(
-                        data_asset_id, attachment_id
-                    ),
-                    params=self._api_client._params(),
-                    headers=self._api_client._get_headers(),
-                )
-            else:
-                response = requests.get(
-                    self._api_client._href_definitions.get_attachment_href(
-                        data_asset_id, attachment_id
-                    ),
-                    params=self._api_client._params(),
-                    headers=self._api_client._get_headers(),
-                    verify=False,
-                )
+            response = requests.get(
+                api_client._href_definitions.get_attachment_href(
+                    data_asset_id, attachment_id
+                ),
+                params=api_client._params(),
+                headers=api_client._get_headers(),
+                verify=False if api_client.ICP_PLATFORM_SPACES else None,
+            )
 
-            self._api_client.data_assets._handle_response(
-                200, "Cannot get attachment details", response
+            api_client.data_assets._handle_response(
+                200, "GET attachment details", response
             )
 
             return response.json()
 
-    def _prepare_connection_details(self) -> tuple[dict, dict]:
+    def _prepare_connection_details(self) -> dict:
         connection_details = {}
 
         if self.type == DataConnectionTypes.CA:
@@ -329,7 +323,7 @@ class BaseDataConnection(ABC):
 
                 except ModuleNotFoundError:
                     raise NotImplementedError(
-                        f"This functionality can be run only on Watson Studio."
+                        "This functionality can be run only on Watson Studio."
                     )
 
         elif self.type == DataConnectionTypes.CN:
@@ -339,6 +333,14 @@ class BaseDataConnection(ABC):
             raise NotS3Connection(_internal=True)
 
         return connection_details
+
+    def _is_shared_bucket(self) -> bool:
+        try:
+            connection_details = self._prepare_connection_details()
+        except NotS3Connection:
+            return False
+
+        return connection_details["entity"].get("properties", {}).get("shared", False)
 
     def _check_if_connection_asset_is_s3(self) -> bool:
         try:
@@ -473,8 +475,8 @@ class BaseDataConnection(ABC):
 
     def _init_s3_aws_connection(self, connection_details: dict) -> None:
         """
-        Helper function that initializes internal `AmazonS3Connection` object based on connection_details retrieved
-         from container (IBM Cloud on AWS).
+        Helper function that initializes internal `_AmazonS3Connection` object
+        based on `connection_details` retrieved from container (IBM Cloud on AWS).
         """
         from .connections import _AmazonS3Connection
 
@@ -515,7 +517,9 @@ class BaseDataConnection(ABC):
                 data_asset_id = items[-1].split("?")[0]
 
                 if self._api_client is not None:
-                    attachment_details = self._get_attachment_details(data_asset_id)
+                    attachment_details = self._get_attachment_details(
+                        data_asset_id, self._api_client
+                    )
                     return bool("connection_id" not in attachment_details)
                 else:
                     try:
@@ -534,7 +538,7 @@ class BaseDataConnection(ABC):
 
                     except ModuleNotFoundError:
                         raise NotImplementedError(
-                            f"This functionality can be run only on Watson Studio."
+                            "This functionality can be run only on Watson Studio."
                         )
 
         except Exception as e:
@@ -557,7 +561,9 @@ class BaseDataConnection(ABC):
             data_asset_id = items[-1].split("?")[0]
 
             if self._api_client is not None:
-                attachment_details = self._get_attachment_details(data_asset_id)
+                attachment_details = self._get_attachment_details(
+                    data_asset_id, self._api_client
+                )
 
                 return "connection_id" in attachment_details and attachment_details.get(
                     "datasource_type"
@@ -573,7 +579,7 @@ class BaseDataConnection(ABC):
 
         try:
             file = cos_client.Object(self.location.bucket, location_path).get()
-        except:
+        except Exception:
             file = list(
                 cos_client.Bucket(self.location.bucket).objects.filter(
                     Prefix=location_path
@@ -751,7 +757,7 @@ class BaseDataConnection(ABC):
                 wslib = access_project_or_space()
             except ModuleNotFoundError:
                 raise NotImplementedError(
-                    f"This functionality can be run only on Watson Studio."
+                    "This functionality can be run only on Watson Studio."
                 )
 
             asset_id = self.location.href.split("?")[0].split("/")[-1]
@@ -763,7 +769,7 @@ class BaseDataConnection(ABC):
                     data_asset_name = asset["name"]
 
             if data_asset_name is None:
-                raise FileNotFoundError(f"Cannot find data asset with id: {asset_id}")
+                raise FileNotFoundError("Cannot find data asset with id: {asset_id}")
 
             buffer = wslib.load_data(data_asset_name)
 
@@ -1060,6 +1066,9 @@ class BaseDataConnection(ABC):
                     }
                 case "amazon_s3":
                     properties = details["entity"]["storage"]["properties"]
+                    properties["url"] = (
+                        f"https://s3.{properties['bucket_region']}.amazonaws.com"
+                    )
                     connection_details = {
                         "entity": {
                             "datasource_type": "amazons3",
@@ -1069,7 +1078,7 @@ class BaseDataConnection(ABC):
 
                 case _:
                     raise ValueError(
-                        f'Container type not supported in the project with storage {details["entity"]["storage"]["type"]}.'
+                        f"Container type not supported in the project with storage {details['entity']['storage']['type']}."
                     )
 
         else:
@@ -1080,7 +1089,7 @@ class BaseDataConnection(ABC):
 
                 if token is None:
                     raise NotImplementedError(
-                        f"""To succesfully read the training data used in AutoAI experiment, you need to provide the project token.
+                        """To succesfully read the training data used in AutoAI experiment, you need to provide the project token.
                     **To insert the project token to your notebook:**
                         Click the More icon on your notebook toolbar and then click Insert project token.
                         Run the inserted code cell.
@@ -1113,7 +1122,7 @@ class BaseDataConnection(ABC):
 
             except ModuleNotFoundError:
                 raise NotImplementedError(
-                    f"This functionality can be run only on Watson Studio."
+                    "This functionality can be run only on Watson Studio."
                 )
 
         return connection_details
@@ -1134,14 +1143,13 @@ class BaseDataConnection(ABC):
         total_nrows_limit=None,
         total_percentage_limit=1.0,
     ):
-
         is_lib_installed(lib_name="pyarrow", minimum_version="3.0.0", install=True)
 
         # import the class only if flight scenario is enabled - do not import it in main import section
-        from ibm_watsonx_ai.data_loaders.experiment import ExperimentDataLoader
         from ibm_watsonx_ai.data_loaders.datasets.experiment import (
             TabularIterableDataset,
         )
+        from ibm_watsonx_ai.data_loaders.experiment import ExperimentDataLoader
 
         if flight_parameters is None:
             flight_parameters = {"num_partitions": 4}
@@ -1186,7 +1194,6 @@ class BaseDataConnection(ABC):
         data_loader = ExperimentDataLoader(dataset=iterable_dataset)
 
         try:
-
             if not return_data_as_iterator:
                 for data in data_loader:
                     return data
@@ -1305,7 +1312,6 @@ class BaseDataConnection(ABC):
     def _upload_data_to_file_system(
         self, location: str, data: io.BufferedReader, remote_name: str
     ) -> None:
-
         if location and "." in location and "." in location.split("/")[-1]:
             is_filename_location = True
         else:

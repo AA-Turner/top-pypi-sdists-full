@@ -7,22 +7,22 @@ from __future__ import annotations
 
 __all__ = ["TabularIterableDataset"]
 
-from functools import cached_property
-import os
 import logging
-from typing import TYPE_CHECKING, Iterator, Any, cast
+import os
 from collections.abc import Callable
+from functools import cached_property
+from typing import TYPE_CHECKING, Any, Iterator, cast
 from warnings import warn
 
 import pandas as pd
 
 from ibm_watsonx_ai.helpers.connections.local import LocalBatchReader
-from ibm_watsonx_ai.utils.autoai.enums import SamplingTypes, DocumentsSamplingTypes
+from ibm_watsonx_ai.utils.autoai.enums import DocumentsSamplingTypes, SamplingTypes
 from ibm_watsonx_ai.utils.autoai.errors import InvalidSizeLimit
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai.helpers.connections import DataConnection
     from ibm_watsonx_ai import APIClient
+    from ibm_watsonx_ai.helpers.connections import DataConnection
     from ibm_watsonx_ai.helpers.connections.flight_service import FlightConnection
 
 # Note: try to import torch lib if available, this fallback is done based on
@@ -96,6 +96,9 @@ class TabularIterableDataset(IterableDataset):
     :param apply_literal_eval: when True then ast.literal_eval will be applied to all string columns.
     :type apply_literal_eval: bool, optional
 
+    :param cast_strings: when True then all string columns are cast to float or bool if applicable
+    :type cast_strings: bool, optional
+
     **Example:**
 
         .. code-block:: python
@@ -154,6 +157,7 @@ class TabularIterableDataset(IterableDataset):
         total_nrows_limit: int | None = None,
         total_percentage_limit: float = 1.0,
         apply_literal_eval: bool = False,
+        cast_strings: bool = True,
         **kwargs: Any,
     ):
         super().__init__()
@@ -175,6 +179,7 @@ class TabularIterableDataset(IterableDataset):
         self.total_nrows_limit = total_nrows_limit
         self.total_percentage_limit = total_percentage_limit
         self.apply_literal_eval = apply_literal_eval
+        self.cast_strings = cast_strings
 
         # Note: convert to dictionary if we have object from API client
         if not isinstance(connection, dict):
@@ -280,6 +285,7 @@ class TabularIterableDataset(IterableDataset):
                     total_nrows_limit=self.total_nrows_limit,
                     total_percentage_limit=self.total_percentage_limit,
                     apply_literal_eval=self.apply_literal_eval,
+                    cast_strings=self.cast_strings,
                 )
 
                 if "infer_as_varchar" in kwargs:
@@ -424,7 +430,6 @@ class TabularIterableDataset(IterableDataset):
         flight_parameters: dict,
         api_client: APIClient | None = None,
     ) -> dict:
-
         if (
             not flight_parameters.get("connection_properties")
             and connection.get("type") == "container"

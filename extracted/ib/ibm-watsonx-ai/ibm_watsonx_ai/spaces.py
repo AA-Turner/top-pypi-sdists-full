@@ -7,32 +7,33 @@ from __future__ import annotations
 
 import time
 from typing import TYPE_CHECKING, Any, Literal
-from cachetools import cached, TTLCache
+
+from cachetools import TTLCache, cached
 
 from ibm_watsonx_ai._wrappers import requests
-from ibm_watsonx_ai.service_instance import ServiceInstance
 from ibm_watsonx_ai.messages.messages import Messages
-
 from ibm_watsonx_ai.metanames import (
-    SpacesMetaNames,
     MemberMetaNames,
+    SpacesMetaNames,
 )
+from ibm_watsonx_ai.service_instance import ServiceInstance
 from ibm_watsonx_ai.utils import (
-    print_text_header_h1,
     StatusLogger,
+    print_text_header_h1,
     print_text_header_h2,
 )
 from ibm_watsonx_ai.utils.deployment.errors import PromotionFailed
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    ResourceIdByNameNotFound,
     MultipleResourceIdByNameFound,
+    ResourceIdByNameNotFound,
+    WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Spaces(WMLResource):
@@ -47,9 +48,6 @@ class Spaces(WMLResource):
     def __init__(self, client: APIClient):
         WMLResource.__init__(self, __name__, client)
         self._client = client
-
-        if not (self._client.default_project_id or self._client.default_space_id):
-            self._connection_validation()
 
     def _get_resources(
         self, url: str, op_name: str, params: dict | None = None
@@ -67,7 +65,6 @@ class Spaces(WMLResource):
 
             return self._handle_response(200, op_name, response_get)
         else:
-
             resources = []
 
             while True:
@@ -162,7 +159,7 @@ class Spaces(WMLResource):
                 meta_props["compute"]["type"] = "machine_learning"
 
         if "stage" in meta_props and self._client.CLOUD_PLATFORM_SPACES:
-            if not type(meta_props["stage"]["production"]) == bool:
+            if not isinstance(meta_props["stage"]["production"], bool):
                 raise WMLClientError("'production' for 'STAGE' must be boolean")
 
         space_meta = self.ConfigurationMetaNames._generate_resource_metadata(
@@ -904,7 +901,7 @@ class Spaces(WMLResource):
             promote_href, headers=self._client._get_headers(), json=promote_payload
         )
         promotion_details = self._client.repository._handle_response(
-            200, f"promote asset", response
+            200, "promote asset", response
         )
 
         try:

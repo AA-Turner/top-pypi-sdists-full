@@ -1,12 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cqlsh
-Version: 6.2.0
+Version: 6.2.1
 Summary: cqlsh is a Python-based command-line client for running CQL commands on a cassandra cluster.
-Home-page: https://github.com/jeffwidman/cqlsh
-Author: Jeff Widman
-Author-email: jeff@jeffwidman.com
-Project-URL: Changelog, https://github.com/jeffwidman/cqlsh#changelog
+Author: Brad Schoening
+Author-email: Jeff Widman <jeff@jeffwidman.com>
 Project-URL: Documentation, https://cassandra.apache.org/doc/latest/tools/cqlsh.html
+Project-URL: Issues, https://github.com/jeffwidman/cqlsh/issues
+Project-URL: Changelog, https://github.com/jeffwidman/cqlsh#changelog
 Keywords: cql,cassandra,cqlsh
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -14,17 +14,17 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cassandra-driver
 Requires-Dist: pure-sasl
 Requires-Dist: wcwidth
+Dynamic: license-file
 
 [![PyPI version](https://badge.fury.io/py/cqlsh.svg)](https://badge.fury.io/py/cqlsh)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/cqlsh)
@@ -52,7 +52,7 @@ $ cqlsh --help
 
 ### Documentation:
 
-Documentation is available as part of the official [Apache Cassandra™ documentation](https://cassandra.apache.org/doc/latest/tools/cqlsh.html).
+Documentation is available as part of the official [Apache Cassandra™ documentation](https://cassandra.apache.org/doc/latest/cassandra/managing/tools/cqlsh.html).
 
 ### Contributing:
 
@@ -63,6 +63,12 @@ Steps to sanity check that the packaging works as expected:
 1. Install `cqlsh` locally (probably in a `virtualenv`):
 ```
 $ pip install -e .  # run from within the cqlsh directory
+```
+or build and install it
+
+```
+$ python -m build
+$ python -m pip install dist/*.whl
 ```
 2. Start a local copy of Cassandra:
 ```
@@ -87,6 +93,13 @@ This PyPI package is maintained by [Jeff Widman](https://github.com/jeffwidman) 
 Unfortunately the Cassandra project does not always increment the `cqlsh` version number, so for every
 release we need to document not only the `cqlsh` version but also the `cassandra` version in which it
 shipped.
+
+#### 6.2.1 (August 6, 2025)
+
+This packages `cqlsh` `6.2.0` from [Cassandra 5.0.5](https://github.com/apache/cassandra/blob/cassandra-5.0.5/pylib/cqlshlib):
+ * Avoid CQLSH throwing an exception loading .cqlshrc on non-supported platforms (CASSANDRA-20478)
+ * Fix text containing "/*" being interpreted as multiline comment in cqlsh (CASSANDRA-17667)
+ * Fix autocompletion for role names/user names (CASSANDRA-20175)
 
 #### 6.2.0 (September 16, 2024)
 

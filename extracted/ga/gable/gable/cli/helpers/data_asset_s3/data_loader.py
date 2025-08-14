@@ -61,20 +61,25 @@ class InventoryDataLoader:
         cwd = os.getcwd()
         self.logger.info(f"Using current working directory for inventory files: {cwd}")
         return cwd
-    
+
     def _get_csv_column_prefix(self, inventory_files: Dict[str, List[str]]) -> str:
         """Get the column prefix for csv inventory files.
         This is used to avoid the issue where the column name is 'column00' instead of 'column0'
         """
-        resilient_duckdb = get_resilient_duckdb(db_path=":memory:", is_shared_thread=False)
+        resilient_duckdb = get_resilient_duckdb(
+            db_path=":memory:", is_shared_thread=False
+        )
         column_prefix = "column"
         try:
-            if "csv_gz_files" in inventory_files and len(inventory_files["csv_gz_files"]) > 0:
+            if (
+                "csv_gz_files" in inventory_files
+                and len(inventory_files["csv_gz_files"]) > 0
+            ):
                 sniff_result = resilient_duckdb.execute(
                     f"""SELECT Columns FROM sniff_csv('{inventory_files["csv_gz_files"][0]}', sample_size = 1)"""
                 ).fetchone()
-                sniffed_column_name = sniff_result[0][0].get('name')
-                if sniffed_column_name == 'column00':
+                sniffed_column_name = sniff_result[0][0].get("name")
+                if sniffed_column_name == "column00":
                     column_prefix = "column0"
         except Exception as e:
             self.logger.error(f"Error sniffing CSV file: {str(e)}")
@@ -103,9 +108,7 @@ class InventoryDataLoader:
         }
 
         if not files:
-            self.logger.error(
-                "No inventory files found in %s", self.inventory_dir
-            )
+            self.logger.error("No inventory files found in %s", self.inventory_dir)
         else:
             self.logger.info(
                 "Discovered %d .csv.gz and %d .parquet files for metadata summary.",
@@ -143,12 +146,18 @@ class InventoryDataLoader:
             pattern = "^(" + "|".join(re.escape(p) for p in include_prefixes) + ")/"
             prefix_clause = f"REGEXP_MATCHES(Key, '{pattern}') AND "
 
-        if "parquet_files" in inventory_files and len(inventory_files["parquet_files"]) > 0:
+        if (
+            "parquet_files" in inventory_files
+            and len(inventory_files["parquet_files"]) > 0
+        ):
             query = f"""
                 SELECT Key FROM read_parquet({inventory_files["parquet_files"]})
                 WHERE {prefix_clause}{exclude_clause} AND CAST(Size AS BIGINT) > 0
             """
-        elif "csv_gz_files" in inventory_files and len(inventory_files["csv_gz_files"]) > 0:
+        elif (
+            "csv_gz_files" in inventory_files
+            and len(inventory_files["csv_gz_files"]) > 0
+        ):
             column_prefix = self._get_csv_column_prefix(inventory_files)
             self.logger.debug(f"Using column prefix: {column_prefix}")
             query = f"""
@@ -167,7 +176,9 @@ class InventoryDataLoader:
     ) -> List[str]:
         """Load keys from inventory files with optional prefix filtering"""
         inventory_files = self.find_inventory_files()
-        if not inventory_files or all(len(files) == 0 for files in inventory_files.values()):
+        if not inventory_files or all(
+            len(files) == 0 for files in inventory_files.values()
+        ):
             return []
 
         query = self.build_duckdb_query(
@@ -176,7 +187,9 @@ class InventoryDataLoader:
 
         try:
             # Use resilient connection wrapper
-            resilient_duckdb = get_resilient_duckdb(db_path=":memory:", is_shared_thread=False)
+            resilient_duckdb = get_resilient_duckdb(
+                db_path=":memory:", is_shared_thread=False
+            )
             keys = resilient_duckdb.execute(query).fetchall()
             keys = [k[0] for k in keys]
         except Exception as e:
@@ -210,7 +223,9 @@ class InventoryDataLoader:
 
         # If not in cache, load data and cache it
         inventory_files = self.find_inventory_files()
-        if not inventory_files or all(len(files) == 0 for files in inventory_files.values()):
+        if not inventory_files or all(
+            len(files) == 0 for files in inventory_files.values()
+        ):
             return pa.table([])
 
         exclude_clause = " AND ".join(
@@ -228,7 +243,10 @@ class InventoryDataLoader:
             prefix_clause = ""
 
         # Build query based on available file types
-        if "parquet_files" in inventory_files and len(inventory_files["parquet_files"]) > 0:
+        if (
+            "parquet_files" in inventory_files
+            and len(inventory_files["parquet_files"]) > 0
+        ):
             query = f"""
                 SELECT key as Key,
                        CAST(size AS BIGINT) AS Size,
@@ -256,7 +274,9 @@ class InventoryDataLoader:
 
         try:
             # Use resilient connection wrapper
-            resilient_duckdb = get_resilient_duckdb(db_path=":memory:", is_shared_thread=False)
+            resilient_duckdb = get_resilient_duckdb(
+                db_path=":memory:", is_shared_thread=False
+            )
             arrow_table = resilient_duckdb.execute(query).arrow()
             self.logger.info("Loaded %d file records.", arrow_table.num_rows)
 
@@ -310,7 +330,9 @@ class InventoryDataLoader:
 
         try:
             # Use resilient connection wrapper
-            resilient_duckdb = get_resilient_duckdb(db_path=":memory:", is_shared_thread=False)
+            resilient_duckdb = get_resilient_duckdb(
+                db_path=":memory:", is_shared_thread=False
+            )
             resilient_duckdb.register("arrow_table", arrow_table)
             result = resilient_duckdb.execute(query).arrow()
 

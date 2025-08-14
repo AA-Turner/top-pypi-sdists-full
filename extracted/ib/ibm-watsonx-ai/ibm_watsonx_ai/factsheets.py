@@ -4,12 +4,14 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.utils import print_text_header_h2
 from ibm_watsonx_ai.wml_client_error import WMLClientError, WrongMetaProps
 from ibm_watsonx_ai.wml_resource import WMLResource
+
 from .metanames import FactsheetsMetaNames
 
 if TYPE_CHECKING:

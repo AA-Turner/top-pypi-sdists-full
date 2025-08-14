@@ -384,7 +384,7 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             for item in itens_to_select:
                 if uf_posto:
                     if uf_posto != uf_cliente:
-                        if '2662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
+                        if '2662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower() or 'c finan' in item.lower())):
                             nop_to_be_select = item
                             break
                     else:

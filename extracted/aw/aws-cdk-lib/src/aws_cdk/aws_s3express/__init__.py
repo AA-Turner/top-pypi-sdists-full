@@ -79,7 +79,7 @@ from .. import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnAccessPoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -118,6 +118,10 @@ class CfnAccessPoint(
                 permissions=["permissions"],
                 prefixes=["prefixes"]
             ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             vpc_configuration=s3express.CfnAccessPoint.VpcConfigurationProperty(
                 vpc_id="vpcId"
             )
@@ -135,6 +139,7 @@ class CfnAccessPoint(
         policy: typing.Any = None,
         public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.PublicAccessBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.ScopeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAccessPoint.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
@@ -146,6 +151,7 @@ class CfnAccessPoint(
         :param policy: The access point policy associated with the specified access point.
         :param public_access_block_configuration: Public access is blocked by default to access points for directory buckets.
         :param scope: You can use the access point scope to restrict access to specific prefixes, API operations, or a combination of both. For more information, see `Manage the scope of your access points for directory buckets. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-directory-buckets-manage-scope.html>`_
+        :param tags: 
         :param vpc_configuration: If you include this field, Amazon S3 restricts access to this access point to requests from the specified virtual private cloud (VPC).
         '''
         if __debug__:
@@ -159,6 +165,7 @@ class CfnAccessPoint(
             policy=policy,
             public_access_block_configuration=public_access_block_configuration,
             scope=scope,
+            tags=tags,
             vpc_configuration=vpc_configuration,
         )
 
@@ -211,6 +218,12 @@ class CfnAccessPoint(
         :cloudformationAttribute: NetworkOrigin
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrNetworkOrigin"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -304,6 +317,18 @@ class CfnAccessPoint(
             type_hints = typing.get_type_hints(_typecheckingstub__48d7fd3100a689dec8bdc6613bf9b51376dd53745e5ef8f3e45a997d4050fbd5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e608b2906b65b5e91d11512e46e4a81458516822fd076cc4c4cfa631021f147)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpcConfiguration")
@@ -590,6 +615,7 @@ class CfnAccessPoint(
         "policy": "policy",
         "public_access_block_configuration": "publicAccessBlockConfiguration",
         "scope": "scope",
+        "tags": "tags",
         "vpc_configuration": "vpcConfiguration",
     },
 )
@@ -603,6 +629,7 @@ class CfnAccessPointProps:
         policy: typing.Any = None,
         public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccessPoint``.
@@ -613,6 +640,7 @@ class CfnAccessPointProps:
         :param policy: The access point policy associated with the specified access point.
         :param public_access_block_configuration: Public access is blocked by default to access points for directory buckets.
         :param scope: You can use the access point scope to restrict access to specific prefixes, API operations, or a combination of both. For more information, see `Manage the scope of your access points for directory buckets. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-directory-buckets-manage-scope.html>`_
+        :param tags: 
         :param vpc_configuration: If you include this field, Amazon S3 restricts access to this access point to requests from the specified virtual private cloud (VPC).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html
@@ -643,6 +671,10 @@ class CfnAccessPointProps:
                     permissions=["permissions"],
                     prefixes=["prefixes"]
                 ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 vpc_configuration=s3express.CfnAccessPoint.VpcConfigurationProperty(
                     vpc_id="vpcId"
                 )
@@ -656,6 +688,7 @@ class CfnAccessPointProps:
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument public_access_block_configuration", value=public_access_block_configuration, expected_type=type_hints["public_access_block_configuration"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "bucket": bucket,
@@ -670,6 +703,8 @@ class CfnAccessPointProps:
             self._values["public_access_block_configuration"] = public_access_block_configuration
         if scope is not None:
             self._values["scope"] = scope
+        if tags is not None:
+            self._values["tags"] = tags
         if vpc_configuration is not None:
             self._values["vpc_configuration"] = vpc_configuration
 
@@ -735,6 +770,14 @@ class CfnAccessPointProps:
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.ScopeProperty]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
 
     @builtins.property
     def vpc_configuration(
@@ -2019,6 +2062,7 @@ def _typecheckingstub__e5fc3ca5d7f872be531c5db2f2626dbbab094b459144a7d293c09461f
     policy: typing.Any = None,
     public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2072,6 +2116,12 @@ def _typecheckingstub__48d7fd3100a689dec8bdc6613bf9b51376dd53745e5ef8f3e45a997d4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0e608b2906b65b5e91d11512e46e4a81458516822fd076cc4c4cfa631021f147(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__854fbbe66a8f2a9a585ce20da917f5abf17e2ec117ac4321757853590651821a(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty]],
 ) -> None:
@@ -2111,6 +2161,7 @@ def _typecheckingstub__2ec03a7d5826304628784add6c3daf7da7d66e0c0d94fd92f203f6842
     policy: typing.Any = None,
     public_access_block_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.PublicAccessBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scope: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.ScopeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAccessPoint.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from math import ceil
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 from flask.sansio.blueprints import Blueprint
@@ -288,12 +289,15 @@ class RateLimiter:
             key = await self._create_key(endpoint, rate_limit)
             # This is the GCRA rate limiting system and tat stands for
             # the theoretical arrival time.
-            tat = max(await self.store.get(key, now), now)
+            stored = await self.store.get(key, now)
+            if stored.tzinfo is None:
+                stored = stored.astimezone(UTC)
+            tat = max(stored, now)
             separation = (tat - now).total_seconds()
             max_interval = rate_limit.period.total_seconds() - rate_limit.inverse
             if separation > max_interval:
                 retry_after = ((tat - timedelta(seconds=max_interval)) - now).total_seconds()
-                raise RateLimitExceeded(int(retry_after))
+                raise RateLimitExceeded(int(ceil(retry_after)))
 
     async def _update_limits(self, endpoint: str, rate_limits: List[RateLimit]) -> None:
         # Update the tats for all the rate limits. This must only
@@ -301,7 +305,10 @@ class RateLimiter:
         now = datetime.now(UTC)
         for rate_limit in rate_limits:
             key = await self._create_key(endpoint, rate_limit)
-            tat = max(await self.store.get(key, now), now)
+            stored = await self.store.get(key, now)
+            if stored.tzinfo is None:
+                stored = stored.astimezone(UTC)
+            tat = max(stored, now)
             new_tat = max(tat, now) + timedelta(seconds=rate_limit.inverse)
             await self.store.set(key, new_tat)
 
@@ -320,12 +327,15 @@ class RateLimiter:
         else:
             key = await self._create_key(endpoint, min_limit)
             now = datetime.now(UTC)
-            tat = max(await self.store.get(key, now), now)
+            stored = await self.store.get(key, now)
+            if stored.tzinfo is None:
+                stored = stored.astimezone(UTC)
+            tat = max(stored, now)
             separation = (tat - now).total_seconds()
             remaining = int((min_limit.period.total_seconds() - separation) / min_limit.inverse)
             response.headers["RateLimit-Limit"] = str(min_limit.count)
             response.headers["RateLimit-Remaining"] = str(remaining)
-            response.headers["RateLimit-Reset"] = str(int(separation))
+            response.headers["RateLimit-Reset"] = str(int(ceil(separation)))
 
         return response
 

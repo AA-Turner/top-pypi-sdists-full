@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: quart-rate-limiter
-Version: 0.12.0
+Version: 0.12.1
 Summary: A Quart extension to provide rate limiting support
 Author-Email: pgjones <philip.graham.jones@googlemail.com>
 License: MIT
@@ -106,7 +106,7 @@ Quart-Rate-Limiter is developed on `GitHub
 <https://github.com/pgjones/quart-rate-limiter>`_. You are very welcome to
 open `issues <https://github.com/pgjones/quart-rate-limiter/issues>`_ or
 propose `merge requests
-<https://github.com/pgjones/quart-rate-limiter/merge_requests>`_.
+<https://github.com/pgjones/quart-rate-limiter/pulls>`_.
 
 Testing
 ~~~~~~~

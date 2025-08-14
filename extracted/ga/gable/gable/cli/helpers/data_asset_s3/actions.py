@@ -7,6 +7,9 @@ from typing import Optional, Union
 import boto3
 import click
 from click.core import Context as ClickContext
+from loguru import logger
+from mypy_boto3_s3 import S3Client
+
 from gable.api.client import GableAPIClient
 from gable.cli.helpers.data_asset_s3.inventory_discovery import run_inventory_discovery
 from gable.cli.helpers.data_asset_s3.pattern_discovery import (
@@ -14,9 +17,9 @@ from gable.cli.helpers.data_asset_s3.pattern_discovery import (
 )
 from gable.cli.helpers.data_asset_s3.schema_detection import (
     S3DetectionResult,
+    append_s3_url_prefix,
     read_s3_files_with_schema_inference,
     strip_s3_bucket_prefix,
-    append_s3_url_prefix
 )
 from gable.cli.helpers.emoji import EMOJI
 from gable.openapi import (
@@ -30,8 +33,6 @@ from gable.openapi import (
     ResponseType,
     S3Asset,
 )
-from loguru import logger
-from mypy_boto3_s3 import S3Client
 
 RegisterS3Response = tuple[
     Union[IngestDataAssetResponse, ErrorResponseDeprecated], bool, int
@@ -305,8 +306,7 @@ def _register_and_check_s3_files(
     """
     full_urls = [
         append_s3_url_prefix(
-            strip_s3_bucket_prefix(bucket),
-            key.lstrip("/")                     # ← remove any leading “/”
+            strip_s3_bucket_prefix(bucket), key.lstrip("/")  # ← remove any leading “/”
         )
         for key in s3_urls
     ]
@@ -317,7 +317,7 @@ def _register_and_check_s3_files(
         recent_file_count=recent_file_count,
         skip_profiling=skip_profiling,
     )
-    if result :
+    if result:
         logger.info(
             f"Pattern: {event_name}\nSchema: {json.dumps(result.schema, indent=4)}"
         )
@@ -389,19 +389,16 @@ def _get_and_check_compliance_merged_def_from_s3_files(
         tuple[dict, Optional[DataProfileFieldsMapping]]: Merged definition and data profile if able to be computed.
     """
     full_urls = [
-        append_s3_url_prefix(
-            strip_s3_bucket_prefix(bucket),
-            key.lstrip("/")
-        )
+        append_s3_url_prefix(strip_s3_bucket_prefix(bucket), key.lstrip("/"))
         for key in s3_urls
     ]
     result: S3DetectionResult | None = read_s3_files_with_schema_inference(
-       s3_urls=full_urls,
-       row_sample_count=row_sample_count,
-       event_name=event_name,
-       recent_file_count=recent_file_count,
-       skip_profiling=skip_profiling,
-   )
+        s3_urls=full_urls,
+        row_sample_count=row_sample_count,
+        event_name=event_name,
+        recent_file_count=recent_file_count,
+        skip_profiling=skip_profiling,
+    )
     if result:
         return get_check_compliance_s3_results(
             result, bucket, event_name, response_type, client, include_unchanged_assets

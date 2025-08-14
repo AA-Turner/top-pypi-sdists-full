@@ -1,7 +1,7 @@
 import inspect
 from orionis.services.asynchrony.coroutines import Coroutine
 from orionis.services.introspection.callables.contracts.reflection import IReflectionCallable
-from orionis.services.introspection.dependencies.entities.callable_dependencies import CallableDependency
+from orionis.services.introspection.dependencies.entities.resolve_argument import ResolveArguments
 from orionis.services.introspection.dependencies.reflection import ReflectDependencies
 from orionis.services.introspection.exceptions import (
     ReflectionAttributeError,
@@ -210,7 +210,7 @@ class ReflectionCallable(IReflectionCallable):
         """
         return inspect.signature(self.__function)
 
-    def getDependencies(self) -> CallableDependency:
+    def getDependencies(self) -> ResolveArguments:
         """
         Analyze the callable and retrieve its dependency information.
 
@@ -220,7 +220,7 @@ class ReflectionCallable(IReflectionCallable):
 
         Returns
         -------
-        CallableDependency
+        ResolveArguments
             An object containing information about the callable's dependencies:
             - resolved : dict
                 A dictionary mapping parameter names to their resolved values
@@ -235,4 +235,4 @@ class ReflectionCallable(IReflectionCallable):
         the callable and determine which dependencies are satisfied and
         which remain unresolved for dependency injection purposes.
         """
-        return ReflectDependencies().getCallableDependencies(self.__function)
+        return ReflectDependencies(self.__function).getCallableDependencies()

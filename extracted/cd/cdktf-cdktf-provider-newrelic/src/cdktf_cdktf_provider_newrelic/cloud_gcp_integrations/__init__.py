@@ -1,7 +1,7 @@
 r'''
 # `newrelic_cloud_gcp_integrations`
 
-Refer to the Terraform Registry for docs: [`newrelic_cloud_gcp_integrations`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations).
+Refer to the Terraform Registry for docs: [`newrelic_cloud_gcp_integrations`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudGcpIntegrations(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.cloudGcpIntegrations.CloudGcpIntegrations",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations newrelic_cloud_gcp_integrations}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations newrelic_cloud_gcp_integrations}.'''
 
     def __init__(
         self,
@@ -88,39 +88,39 @@ class CloudGcpIntegrations(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations newrelic_cloud_gcp_integrations} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations newrelic_cloud_gcp_integrations} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param linked_account_id: Id of the linked gcp account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#linked_account_id CloudGcpIntegrations#linked_account_id}
-        :param account_id: ID of the newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#account_id CloudGcpIntegrations#account_id}
-        :param alloy_db: alloy_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#alloy_db CloudGcpIntegrations#alloy_db}
-        :param app_engine: app_engine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#app_engine CloudGcpIntegrations#app_engine}
-        :param big_query: big_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#big_query CloudGcpIntegrations#big_query}
-        :param big_table: big_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#big_table CloudGcpIntegrations#big_table}
-        :param composer: composer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#composer CloudGcpIntegrations#composer}
-        :param data_flow: data_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#data_flow CloudGcpIntegrations#data_flow}
-        :param data_proc: data_proc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#data_proc CloudGcpIntegrations#data_proc}
-        :param data_store: data_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#data_store CloudGcpIntegrations#data_store}
-        :param fire_base_database: fire_base_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_base_database CloudGcpIntegrations#fire_base_database}
-        :param fire_base_hosting: fire_base_hosting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_base_hosting CloudGcpIntegrations#fire_base_hosting}
-        :param fire_base_storage: fire_base_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_base_storage CloudGcpIntegrations#fire_base_storage}
-        :param fire_store: fire_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_store CloudGcpIntegrations#fire_store}
-        :param functions: functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#functions CloudGcpIntegrations#functions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#id CloudGcpIntegrations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interconnect: interconnect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#interconnect CloudGcpIntegrations#interconnect}
-        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#kubernetes CloudGcpIntegrations#kubernetes}
-        :param load_balancing: load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#load_balancing CloudGcpIntegrations#load_balancing}
-        :param mem_cache: mem_cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#mem_cache CloudGcpIntegrations#mem_cache}
-        :param pub_sub: pub_sub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#pub_sub CloudGcpIntegrations#pub_sub}
-        :param redis: redis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#redis CloudGcpIntegrations#redis}
-        :param router: router block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#router CloudGcpIntegrations#router}
-        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#run CloudGcpIntegrations#run}
-        :param spanner: spanner block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#spanner CloudGcpIntegrations#spanner}
-        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#sql CloudGcpIntegrations#sql}
-        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#storage CloudGcpIntegrations#storage}
-        :param virtual_machines: virtual_machines block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#virtual_machines CloudGcpIntegrations#virtual_machines}
-        :param vpc_access: vpc_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#vpc_access CloudGcpIntegrations#vpc_access}
+        :param linked_account_id: Id of the linked gcp account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#linked_account_id CloudGcpIntegrations#linked_account_id}
+        :param account_id: ID of the newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#account_id CloudGcpIntegrations#account_id}
+        :param alloy_db: alloy_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#alloy_db CloudGcpIntegrations#alloy_db}
+        :param app_engine: app_engine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#app_engine CloudGcpIntegrations#app_engine}
+        :param big_query: big_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#big_query CloudGcpIntegrations#big_query}
+        :param big_table: big_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#big_table CloudGcpIntegrations#big_table}
+        :param composer: composer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#composer CloudGcpIntegrations#composer}
+        :param data_flow: data_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#data_flow CloudGcpIntegrations#data_flow}
+        :param data_proc: data_proc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#data_proc CloudGcpIntegrations#data_proc}
+        :param data_store: data_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#data_store CloudGcpIntegrations#data_store}
+        :param fire_base_database: fire_base_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_base_database CloudGcpIntegrations#fire_base_database}
+        :param fire_base_hosting: fire_base_hosting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_base_hosting CloudGcpIntegrations#fire_base_hosting}
+        :param fire_base_storage: fire_base_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_base_storage CloudGcpIntegrations#fire_base_storage}
+        :param fire_store: fire_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_store CloudGcpIntegrations#fire_store}
+        :param functions: functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#functions CloudGcpIntegrations#functions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#id CloudGcpIntegrations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interconnect: interconnect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#interconnect CloudGcpIntegrations#interconnect}
+        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#kubernetes CloudGcpIntegrations#kubernetes}
+        :param load_balancing: load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#load_balancing CloudGcpIntegrations#load_balancing}
+        :param mem_cache: mem_cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#mem_cache CloudGcpIntegrations#mem_cache}
+        :param pub_sub: pub_sub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#pub_sub CloudGcpIntegrations#pub_sub}
+        :param redis: redis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#redis CloudGcpIntegrations#redis}
+        :param router: router block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#router CloudGcpIntegrations#router}
+        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#run CloudGcpIntegrations#run}
+        :param spanner: spanner block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#spanner CloudGcpIntegrations#spanner}
+        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#sql CloudGcpIntegrations#sql}
+        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#storage CloudGcpIntegrations#storage}
+        :param virtual_machines: virtual_machines block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#virtual_machines CloudGcpIntegrations#virtual_machines}
+        :param vpc_access: vpc_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#vpc_access CloudGcpIntegrations#vpc_access}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -187,7 +187,7 @@ class CloudGcpIntegrations(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudGcpIntegrations to import.
-        :param import_from_id: The id of the existing CloudGcpIntegrations that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudGcpIntegrations that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudGcpIntegrations to import is found.
         '''
         if __debug__:
@@ -205,7 +205,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsAlloyDb(
             metrics_polling_interval=metrics_polling_interval
@@ -220,7 +220,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsAppEngine(
             metrics_polling_interval=metrics_polling_interval
@@ -236,8 +236,8 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsBigQuery(
             fetch_tags=fetch_tags, metrics_polling_interval=metrics_polling_interval
@@ -252,7 +252,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsBigTable(
             metrics_polling_interval=metrics_polling_interval
@@ -267,7 +267,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsComposer(
             metrics_polling_interval=metrics_polling_interval
@@ -282,7 +282,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsDataFlow(
             metrics_polling_interval=metrics_polling_interval
@@ -297,7 +297,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsDataProc(
             metrics_polling_interval=metrics_polling_interval
@@ -312,7 +312,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsDataStore(
             metrics_polling_interval=metrics_polling_interval
@@ -327,7 +327,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsFireBaseDatabase(
             metrics_polling_interval=metrics_polling_interval
@@ -342,7 +342,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsFireBaseHosting(
             metrics_polling_interval=metrics_polling_interval
@@ -357,7 +357,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsFireBaseStorage(
             metrics_polling_interval=metrics_polling_interval
@@ -372,7 +372,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsFireStore(
             metrics_polling_interval=metrics_polling_interval
@@ -387,7 +387,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsFunctions(
             metrics_polling_interval=metrics_polling_interval
@@ -402,7 +402,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsInterconnect(
             metrics_polling_interval=metrics_polling_interval
@@ -417,7 +417,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsKubernetes(
             metrics_polling_interval=metrics_polling_interval
@@ -432,7 +432,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsLoadBalancing(
             metrics_polling_interval=metrics_polling_interval
@@ -447,7 +447,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsMemCache(
             metrics_polling_interval=metrics_polling_interval
@@ -463,8 +463,8 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsPubSub(
             fetch_tags=fetch_tags, metrics_polling_interval=metrics_polling_interval
@@ -479,7 +479,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsRedis(
             metrics_polling_interval=metrics_polling_interval
@@ -494,7 +494,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsRouter(
             metrics_polling_interval=metrics_polling_interval
@@ -509,7 +509,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsRun(
             metrics_polling_interval=metrics_polling_interval
@@ -525,8 +525,8 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsSpanner(
             fetch_tags=fetch_tags, metrics_polling_interval=metrics_polling_interval
@@ -541,7 +541,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsSql(
             metrics_polling_interval=metrics_polling_interval
@@ -557,8 +557,8 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsStorage(
             fetch_tags=fetch_tags, metrics_polling_interval=metrics_polling_interval
@@ -573,7 +573,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsVirtualMachines(
             metrics_polling_interval=metrics_polling_interval
@@ -588,7 +588,7 @@ class CloudGcpIntegrations(
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         value = CloudGcpIntegrationsVpcAccess(
             metrics_polling_interval=metrics_polling_interval
@@ -1057,7 +1057,7 @@ class CloudGcpIntegrationsAlloyDb:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29355de8dcddfb1ccde0ee296b6c01ed7c8bb2d347bd981860f69d6837e8bf49)
@@ -1070,7 +1070,7 @@ class CloudGcpIntegrationsAlloyDb:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1156,7 +1156,7 @@ class CloudGcpIntegrationsAppEngine:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e0ea11eb547c1edb6235920c85306b5efb55576b0996e0804a953f588a3091c)
@@ -1169,7 +1169,7 @@ class CloudGcpIntegrationsAppEngine:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1259,8 +1259,8 @@ class CloudGcpIntegrationsBigQuery:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__617061e9fe40845851969430d28b73acc3f96927f1ddc19909745b5e85a2c5dc)
@@ -1278,7 +1278,7 @@ class CloudGcpIntegrationsBigQuery:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''to fetch tags of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
         '''
         result = self._values.get("fetch_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1287,7 +1287,7 @@ class CloudGcpIntegrationsBigQuery:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1399,7 +1399,7 @@ class CloudGcpIntegrationsBigTable:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fe9da90aa8dd0ae0b9bac48957979fc030f02308d0840af73acbafa2ab8522aa)
@@ -1412,7 +1412,7 @@ class CloudGcpIntegrationsBigTable:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1498,7 +1498,7 @@ class CloudGcpIntegrationsComposer:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bbf52cdfc38d910cf57ccb0e9c180cca525b94d5fb758cc9dec514f406740240)
@@ -1511,7 +1511,7 @@ class CloudGcpIntegrationsComposer:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1676,35 +1676,35 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param linked_account_id: Id of the linked gcp account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#linked_account_id CloudGcpIntegrations#linked_account_id}
-        :param account_id: ID of the newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#account_id CloudGcpIntegrations#account_id}
-        :param alloy_db: alloy_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#alloy_db CloudGcpIntegrations#alloy_db}
-        :param app_engine: app_engine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#app_engine CloudGcpIntegrations#app_engine}
-        :param big_query: big_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#big_query CloudGcpIntegrations#big_query}
-        :param big_table: big_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#big_table CloudGcpIntegrations#big_table}
-        :param composer: composer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#composer CloudGcpIntegrations#composer}
-        :param data_flow: data_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#data_flow CloudGcpIntegrations#data_flow}
-        :param data_proc: data_proc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#data_proc CloudGcpIntegrations#data_proc}
-        :param data_store: data_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#data_store CloudGcpIntegrations#data_store}
-        :param fire_base_database: fire_base_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_base_database CloudGcpIntegrations#fire_base_database}
-        :param fire_base_hosting: fire_base_hosting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_base_hosting CloudGcpIntegrations#fire_base_hosting}
-        :param fire_base_storage: fire_base_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_base_storage CloudGcpIntegrations#fire_base_storage}
-        :param fire_store: fire_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_store CloudGcpIntegrations#fire_store}
-        :param functions: functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#functions CloudGcpIntegrations#functions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#id CloudGcpIntegrations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param interconnect: interconnect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#interconnect CloudGcpIntegrations#interconnect}
-        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#kubernetes CloudGcpIntegrations#kubernetes}
-        :param load_balancing: load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#load_balancing CloudGcpIntegrations#load_balancing}
-        :param mem_cache: mem_cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#mem_cache CloudGcpIntegrations#mem_cache}
-        :param pub_sub: pub_sub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#pub_sub CloudGcpIntegrations#pub_sub}
-        :param redis: redis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#redis CloudGcpIntegrations#redis}
-        :param router: router block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#router CloudGcpIntegrations#router}
-        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#run CloudGcpIntegrations#run}
-        :param spanner: spanner block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#spanner CloudGcpIntegrations#spanner}
-        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#sql CloudGcpIntegrations#sql}
-        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#storage CloudGcpIntegrations#storage}
-        :param virtual_machines: virtual_machines block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#virtual_machines CloudGcpIntegrations#virtual_machines}
-        :param vpc_access: vpc_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#vpc_access CloudGcpIntegrations#vpc_access}
+        :param linked_account_id: Id of the linked gcp account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#linked_account_id CloudGcpIntegrations#linked_account_id}
+        :param account_id: ID of the newrelic account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#account_id CloudGcpIntegrations#account_id}
+        :param alloy_db: alloy_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#alloy_db CloudGcpIntegrations#alloy_db}
+        :param app_engine: app_engine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#app_engine CloudGcpIntegrations#app_engine}
+        :param big_query: big_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#big_query CloudGcpIntegrations#big_query}
+        :param big_table: big_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#big_table CloudGcpIntegrations#big_table}
+        :param composer: composer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#composer CloudGcpIntegrations#composer}
+        :param data_flow: data_flow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#data_flow CloudGcpIntegrations#data_flow}
+        :param data_proc: data_proc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#data_proc CloudGcpIntegrations#data_proc}
+        :param data_store: data_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#data_store CloudGcpIntegrations#data_store}
+        :param fire_base_database: fire_base_database block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_base_database CloudGcpIntegrations#fire_base_database}
+        :param fire_base_hosting: fire_base_hosting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_base_hosting CloudGcpIntegrations#fire_base_hosting}
+        :param fire_base_storage: fire_base_storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_base_storage CloudGcpIntegrations#fire_base_storage}
+        :param fire_store: fire_store block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_store CloudGcpIntegrations#fire_store}
+        :param functions: functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#functions CloudGcpIntegrations#functions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#id CloudGcpIntegrations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param interconnect: interconnect block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#interconnect CloudGcpIntegrations#interconnect}
+        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#kubernetes CloudGcpIntegrations#kubernetes}
+        :param load_balancing: load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#load_balancing CloudGcpIntegrations#load_balancing}
+        :param mem_cache: mem_cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#mem_cache CloudGcpIntegrations#mem_cache}
+        :param pub_sub: pub_sub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#pub_sub CloudGcpIntegrations#pub_sub}
+        :param redis: redis block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#redis CloudGcpIntegrations#redis}
+        :param router: router block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#router CloudGcpIntegrations#router}
+        :param run: run block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#run CloudGcpIntegrations#run}
+        :param spanner: spanner block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#spanner CloudGcpIntegrations#spanner}
+        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#sql CloudGcpIntegrations#sql}
+        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#storage CloudGcpIntegrations#storage}
+        :param virtual_machines: virtual_machines block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#virtual_machines CloudGcpIntegrations#virtual_machines}
+        :param vpc_access: vpc_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#vpc_access CloudGcpIntegrations#vpc_access}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1940,7 +1940,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def linked_account_id(self) -> jsii.Number:
         '''Id of the linked gcp account in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#linked_account_id CloudGcpIntegrations#linked_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#linked_account_id CloudGcpIntegrations#linked_account_id}
         '''
         result = self._values.get("linked_account_id")
         assert result is not None, "Required property 'linked_account_id' is missing"
@@ -1950,7 +1950,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''ID of the newrelic account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#account_id CloudGcpIntegrations#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#account_id CloudGcpIntegrations#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1959,7 +1959,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alloy_db(self) -> typing.Optional[CloudGcpIntegrationsAlloyDb]:
         '''alloy_db block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#alloy_db CloudGcpIntegrations#alloy_db}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#alloy_db CloudGcpIntegrations#alloy_db}
         '''
         result = self._values.get("alloy_db")
         return typing.cast(typing.Optional[CloudGcpIntegrationsAlloyDb], result)
@@ -1968,7 +1968,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_engine(self) -> typing.Optional[CloudGcpIntegrationsAppEngine]:
         '''app_engine block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#app_engine CloudGcpIntegrations#app_engine}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#app_engine CloudGcpIntegrations#app_engine}
         '''
         result = self._values.get("app_engine")
         return typing.cast(typing.Optional[CloudGcpIntegrationsAppEngine], result)
@@ -1977,7 +1977,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def big_query(self) -> typing.Optional[CloudGcpIntegrationsBigQuery]:
         '''big_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#big_query CloudGcpIntegrations#big_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#big_query CloudGcpIntegrations#big_query}
         '''
         result = self._values.get("big_query")
         return typing.cast(typing.Optional[CloudGcpIntegrationsBigQuery], result)
@@ -1986,7 +1986,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def big_table(self) -> typing.Optional[CloudGcpIntegrationsBigTable]:
         '''big_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#big_table CloudGcpIntegrations#big_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#big_table CloudGcpIntegrations#big_table}
         '''
         result = self._values.get("big_table")
         return typing.cast(typing.Optional[CloudGcpIntegrationsBigTable], result)
@@ -1995,7 +1995,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def composer(self) -> typing.Optional[CloudGcpIntegrationsComposer]:
         '''composer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#composer CloudGcpIntegrations#composer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#composer CloudGcpIntegrations#composer}
         '''
         result = self._values.get("composer")
         return typing.cast(typing.Optional[CloudGcpIntegrationsComposer], result)
@@ -2004,7 +2004,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_flow(self) -> typing.Optional["CloudGcpIntegrationsDataFlow"]:
         '''data_flow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#data_flow CloudGcpIntegrations#data_flow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#data_flow CloudGcpIntegrations#data_flow}
         '''
         result = self._values.get("data_flow")
         return typing.cast(typing.Optional["CloudGcpIntegrationsDataFlow"], result)
@@ -2013,7 +2013,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_proc(self) -> typing.Optional["CloudGcpIntegrationsDataProc"]:
         '''data_proc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#data_proc CloudGcpIntegrations#data_proc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#data_proc CloudGcpIntegrations#data_proc}
         '''
         result = self._values.get("data_proc")
         return typing.cast(typing.Optional["CloudGcpIntegrationsDataProc"], result)
@@ -2022,7 +2022,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_store(self) -> typing.Optional["CloudGcpIntegrationsDataStore"]:
         '''data_store block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#data_store CloudGcpIntegrations#data_store}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#data_store CloudGcpIntegrations#data_store}
         '''
         result = self._values.get("data_store")
         return typing.cast(typing.Optional["CloudGcpIntegrationsDataStore"], result)
@@ -2033,7 +2033,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudGcpIntegrationsFireBaseDatabase"]:
         '''fire_base_database block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_base_database CloudGcpIntegrations#fire_base_database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_base_database CloudGcpIntegrations#fire_base_database}
         '''
         result = self._values.get("fire_base_database")
         return typing.cast(typing.Optional["CloudGcpIntegrationsFireBaseDatabase"], result)
@@ -2044,7 +2044,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudGcpIntegrationsFireBaseHosting"]:
         '''fire_base_hosting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_base_hosting CloudGcpIntegrations#fire_base_hosting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_base_hosting CloudGcpIntegrations#fire_base_hosting}
         '''
         result = self._values.get("fire_base_hosting")
         return typing.cast(typing.Optional["CloudGcpIntegrationsFireBaseHosting"], result)
@@ -2055,7 +2055,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudGcpIntegrationsFireBaseStorage"]:
         '''fire_base_storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_base_storage CloudGcpIntegrations#fire_base_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_base_storage CloudGcpIntegrations#fire_base_storage}
         '''
         result = self._values.get("fire_base_storage")
         return typing.cast(typing.Optional["CloudGcpIntegrationsFireBaseStorage"], result)
@@ -2064,7 +2064,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def fire_store(self) -> typing.Optional["CloudGcpIntegrationsFireStore"]:
         '''fire_store block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fire_store CloudGcpIntegrations#fire_store}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fire_store CloudGcpIntegrations#fire_store}
         '''
         result = self._values.get("fire_store")
         return typing.cast(typing.Optional["CloudGcpIntegrationsFireStore"], result)
@@ -2073,14 +2073,14 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def functions(self) -> typing.Optional["CloudGcpIntegrationsFunctions"]:
         '''functions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#functions CloudGcpIntegrations#functions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#functions CloudGcpIntegrations#functions}
         '''
         result = self._values.get("functions")
         return typing.cast(typing.Optional["CloudGcpIntegrationsFunctions"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#id CloudGcpIntegrations#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#id CloudGcpIntegrations#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2092,7 +2092,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def interconnect(self) -> typing.Optional["CloudGcpIntegrationsInterconnect"]:
         '''interconnect block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#interconnect CloudGcpIntegrations#interconnect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#interconnect CloudGcpIntegrations#interconnect}
         '''
         result = self._values.get("interconnect")
         return typing.cast(typing.Optional["CloudGcpIntegrationsInterconnect"], result)
@@ -2101,7 +2101,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kubernetes(self) -> typing.Optional["CloudGcpIntegrationsKubernetes"]:
         '''kubernetes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#kubernetes CloudGcpIntegrations#kubernetes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#kubernetes CloudGcpIntegrations#kubernetes}
         '''
         result = self._values.get("kubernetes")
         return typing.cast(typing.Optional["CloudGcpIntegrationsKubernetes"], result)
@@ -2110,7 +2110,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def load_balancing(self) -> typing.Optional["CloudGcpIntegrationsLoadBalancing"]:
         '''load_balancing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#load_balancing CloudGcpIntegrations#load_balancing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#load_balancing CloudGcpIntegrations#load_balancing}
         '''
         result = self._values.get("load_balancing")
         return typing.cast(typing.Optional["CloudGcpIntegrationsLoadBalancing"], result)
@@ -2119,7 +2119,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mem_cache(self) -> typing.Optional["CloudGcpIntegrationsMemCache"]:
         '''mem_cache block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#mem_cache CloudGcpIntegrations#mem_cache}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#mem_cache CloudGcpIntegrations#mem_cache}
         '''
         result = self._values.get("mem_cache")
         return typing.cast(typing.Optional["CloudGcpIntegrationsMemCache"], result)
@@ -2128,7 +2128,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def pub_sub(self) -> typing.Optional["CloudGcpIntegrationsPubSub"]:
         '''pub_sub block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#pub_sub CloudGcpIntegrations#pub_sub}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#pub_sub CloudGcpIntegrations#pub_sub}
         '''
         result = self._values.get("pub_sub")
         return typing.cast(typing.Optional["CloudGcpIntegrationsPubSub"], result)
@@ -2137,7 +2137,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def redis(self) -> typing.Optional["CloudGcpIntegrationsRedis"]:
         '''redis block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#redis CloudGcpIntegrations#redis}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#redis CloudGcpIntegrations#redis}
         '''
         result = self._values.get("redis")
         return typing.cast(typing.Optional["CloudGcpIntegrationsRedis"], result)
@@ -2146,7 +2146,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def router(self) -> typing.Optional["CloudGcpIntegrationsRouter"]:
         '''router block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#router CloudGcpIntegrations#router}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#router CloudGcpIntegrations#router}
         '''
         result = self._values.get("router")
         return typing.cast(typing.Optional["CloudGcpIntegrationsRouter"], result)
@@ -2155,7 +2155,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def run(self) -> typing.Optional["CloudGcpIntegrationsRun"]:
         '''run block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#run CloudGcpIntegrations#run}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#run CloudGcpIntegrations#run}
         '''
         result = self._values.get("run")
         return typing.cast(typing.Optional["CloudGcpIntegrationsRun"], result)
@@ -2164,7 +2164,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spanner(self) -> typing.Optional["CloudGcpIntegrationsSpanner"]:
         '''spanner block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#spanner CloudGcpIntegrations#spanner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#spanner CloudGcpIntegrations#spanner}
         '''
         result = self._values.get("spanner")
         return typing.cast(typing.Optional["CloudGcpIntegrationsSpanner"], result)
@@ -2173,7 +2173,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sql(self) -> typing.Optional["CloudGcpIntegrationsSql"]:
         '''sql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#sql CloudGcpIntegrations#sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#sql CloudGcpIntegrations#sql}
         '''
         result = self._values.get("sql")
         return typing.cast(typing.Optional["CloudGcpIntegrationsSql"], result)
@@ -2182,7 +2182,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage(self) -> typing.Optional["CloudGcpIntegrationsStorage"]:
         '''storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#storage CloudGcpIntegrations#storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#storage CloudGcpIntegrations#storage}
         '''
         result = self._values.get("storage")
         return typing.cast(typing.Optional["CloudGcpIntegrationsStorage"], result)
@@ -2193,7 +2193,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudGcpIntegrationsVirtualMachines"]:
         '''virtual_machines block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#virtual_machines CloudGcpIntegrations#virtual_machines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#virtual_machines CloudGcpIntegrations#virtual_machines}
         '''
         result = self._values.get("virtual_machines")
         return typing.cast(typing.Optional["CloudGcpIntegrationsVirtualMachines"], result)
@@ -2202,7 +2202,7 @@ class CloudGcpIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_access(self) -> typing.Optional["CloudGcpIntegrationsVpcAccess"]:
         '''vpc_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#vpc_access CloudGcpIntegrations#vpc_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#vpc_access CloudGcpIntegrations#vpc_access}
         '''
         result = self._values.get("vpc_access")
         return typing.cast(typing.Optional["CloudGcpIntegrationsVpcAccess"], result)
@@ -2231,7 +2231,7 @@ class CloudGcpIntegrationsDataFlow:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2a205eb5535f848fb3fda204e53e84569374d6a8f3d3d4804238c26747151b5)
@@ -2244,7 +2244,7 @@ class CloudGcpIntegrationsDataFlow:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2330,7 +2330,7 @@ class CloudGcpIntegrationsDataProc:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__558f131bc2ac60ce78703d1e844e3667ddf48d0845d84b0621571f0da03c7c2e)
@@ -2343,7 +2343,7 @@ class CloudGcpIntegrationsDataProc:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2429,7 +2429,7 @@ class CloudGcpIntegrationsDataStore:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70d42693ec17f4a8379deafdc3420f75398c92462205f3fb6a20c3d08eae87ee)
@@ -2442,7 +2442,7 @@ class CloudGcpIntegrationsDataStore:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2528,7 +2528,7 @@ class CloudGcpIntegrationsFireBaseDatabase:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc1b2e9c0565d60e3ef8aa1fdbf6912aa14f5a1d66d53015b37bf72bfcabcf27)
@@ -2541,7 +2541,7 @@ class CloudGcpIntegrationsFireBaseDatabase:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2627,7 +2627,7 @@ class CloudGcpIntegrationsFireBaseHosting:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e3e6955fb34ddcd4322b8eb71f6224d4cd41781881a13bab107e23c5c9ce7d5)
@@ -2640,7 +2640,7 @@ class CloudGcpIntegrationsFireBaseHosting:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2726,7 +2726,7 @@ class CloudGcpIntegrationsFireBaseStorage:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e1a7d4351d19c35fbe54083830d66a521505e0ecbbc103f61a9d9d7808958af)
@@ -2739,7 +2739,7 @@ class CloudGcpIntegrationsFireBaseStorage:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2825,7 +2825,7 @@ class CloudGcpIntegrationsFireStore:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9efe044ac01df6349684fff02b8ecb32b46c319177f0eb40c1e4f8abecd77ec2)
@@ -2838,7 +2838,7 @@ class CloudGcpIntegrationsFireStore:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2924,7 +2924,7 @@ class CloudGcpIntegrationsFunctions:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b07a3feb3bfa10839401358984240212d225fa1143a079d6b3fbcbbafb7250c)
@@ -2937,7 +2937,7 @@ class CloudGcpIntegrationsFunctions:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3023,7 +3023,7 @@ class CloudGcpIntegrationsInterconnect:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c356d8e5106cc683b54aa7915321e67ae24e505896915da4cbeb99308881ff21)
@@ -3036,7 +3036,7 @@ class CloudGcpIntegrationsInterconnect:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3122,7 +3122,7 @@ class CloudGcpIntegrationsKubernetes:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49ca22d9002c24400ac9073477a909a1bbfdffc79df9fd437e9b2ee320616837)
@@ -3135,7 +3135,7 @@ class CloudGcpIntegrationsKubernetes:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3221,7 +3221,7 @@ class CloudGcpIntegrationsLoadBalancing:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__078d955cba770a049a33d2f96f4d82b4a21df4e6b9cf2bfb4ce14d5079b7600f)
@@ -3234,7 +3234,7 @@ class CloudGcpIntegrationsLoadBalancing:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3320,7 +3320,7 @@ class CloudGcpIntegrationsMemCache:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8fea9d58597b8642758814be0c4bf452ecd7747e7c3b74899e273079a19d003d)
@@ -3333,7 +3333,7 @@ class CloudGcpIntegrationsMemCache:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3423,8 +3423,8 @@ class CloudGcpIntegrationsPubSub:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0bac7aa9ef6b2390b8d43609dc10cebf7ddcdf9168f10ab65a7f3c2ada4ef9a0)
@@ -3442,7 +3442,7 @@ class CloudGcpIntegrationsPubSub:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''to fetch tags of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
         '''
         result = self._values.get("fetch_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3451,7 +3451,7 @@ class CloudGcpIntegrationsPubSub:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3563,7 +3563,7 @@ class CloudGcpIntegrationsRedis:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__afe264d508a177c0bbc708f60b46d28236be2f0a728305071d123b86a48cb8d6)
@@ -3576,7 +3576,7 @@ class CloudGcpIntegrationsRedis:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3659,7 +3659,7 @@ class CloudGcpIntegrationsRouter:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1931376ed6c03c1f432616f0cafadd6e76cabcd037668cfaa44a6668dfa6e7eb)
@@ -3672,7 +3672,7 @@ class CloudGcpIntegrationsRouter:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3758,7 +3758,7 @@ class CloudGcpIntegrationsRun:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__463dc5c7c136ca81a9ad5d4e9f3efa411c2e42c36b873f8aab443c8cc9ae26fd)
@@ -3771,7 +3771,7 @@ class CloudGcpIntegrationsRun:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3858,8 +3858,8 @@ class CloudGcpIntegrationsSpanner:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be803fe9240d7942d7a817db83e21f4f12e2f2d62e76fe7bd03d347ce54ad867)
@@ -3877,7 +3877,7 @@ class CloudGcpIntegrationsSpanner:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''to fetch tags of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
         '''
         result = self._values.get("fetch_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3886,7 +3886,7 @@ class CloudGcpIntegrationsSpanner:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3998,7 +3998,7 @@ class CloudGcpIntegrationsSql:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__363f433efbd0731d27127e0d457936c2871c0d12594afb3703d9990695d7249d)
@@ -4011,7 +4011,7 @@ class CloudGcpIntegrationsSql:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4098,8 +4098,8 @@ class CloudGcpIntegrationsStorage:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param fetch_tags: to fetch tags of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__015efa5c6806c56f2562f1f18e47552ef5c40476107739b7fa54ba9cbae44ec8)
@@ -4117,7 +4117,7 @@ class CloudGcpIntegrationsStorage:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''to fetch tags of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#fetch_tags CloudGcpIntegrations#fetch_tags}
         '''
         result = self._values.get("fetch_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4126,7 +4126,7 @@ class CloudGcpIntegrationsStorage:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4238,7 +4238,7 @@ class CloudGcpIntegrationsVirtualMachines:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88c9b145cea9e52f1e04454f450750cc6d80916f2d9fa488d319b132378246f1)
@@ -4251,7 +4251,7 @@ class CloudGcpIntegrationsVirtualMachines:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4337,7 +4337,7 @@ class CloudGcpIntegrationsVpcAccess:
         metrics_polling_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        :param metrics_polling_interval: the data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__458f0f4c35b6b85b9b482dad21a1fc61a8bbfb006c9c75634bc5062b82699bb2)
@@ -4350,7 +4350,7 @@ class CloudGcpIntegrationsVpcAccess:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''the data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_gcp_integrations#metrics_polling_interval CloudGcpIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)

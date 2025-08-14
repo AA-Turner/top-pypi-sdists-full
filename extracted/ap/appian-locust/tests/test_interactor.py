@@ -364,7 +364,7 @@ class TestInteractor(unittest.TestCase):
 
     def test_click_dynamic_link_error(self) -> None:
         dyn_link = {"fake_component": "fake_attributes"}
-        with self.assertRaises(KeyError):
+        with self.assertRaisesRegex(Exception, "saveInto not set"):
             self.task_set.appian._interactor.click_link(
                 "", dyn_link, {}, "")
 

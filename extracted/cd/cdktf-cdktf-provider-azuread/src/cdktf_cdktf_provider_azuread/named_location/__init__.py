@@ -1,7 +1,7 @@
 r'''
 # `azuread_named_location`
 
-Refer to the Terraform Registry for docs: [`azuread_named_location`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location).
+Refer to the Terraform Registry for docs: [`azuread_named_location`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NamedLocation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.namedLocation.NamedLocation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location azuread_named_location}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location azuread_named_location}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class NamedLocation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location azuread_named_location} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location azuread_named_location} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#display_name NamedLocation#display_name}.
-        :param country: country block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#country NamedLocation#country}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#id NamedLocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip: ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#ip NamedLocation#ip}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#timeouts NamedLocation#timeouts}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#display_name NamedLocation#display_name}.
+        :param country: country block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#country NamedLocation#country}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#id NamedLocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip: ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#ip NamedLocation#ip}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#timeouts NamedLocation#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class NamedLocation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NamedLocation to import.
-        :param import_from_id: The id of the existing NamedLocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NamedLocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NamedLocation to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class NamedLocation(
         include_unknown_countries_and_regions: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param countries_and_regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#countries_and_regions NamedLocation#countries_and_regions}.
-        :param country_lookup_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#country_lookup_method NamedLocation#country_lookup_method}.
-        :param include_unknown_countries_and_regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#include_unknown_countries_and_regions NamedLocation#include_unknown_countries_and_regions}.
+        :param countries_and_regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#countries_and_regions NamedLocation#countries_and_regions}.
+        :param country_lookup_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#country_lookup_method NamedLocation#country_lookup_method}.
+        :param include_unknown_countries_and_regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#include_unknown_countries_and_regions NamedLocation#include_unknown_countries_and_regions}.
         '''
         value = NamedLocationCountry(
             countries_and_regions=countries_and_regions,
@@ -155,8 +155,8 @@ class NamedLocation(
         trusted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#ip_ranges NamedLocation#ip_ranges}.
-        :param trusted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#trusted NamedLocation#trusted}.
+        :param ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#ip_ranges NamedLocation#ip_ranges}.
+        :param trusted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#trusted NamedLocation#trusted}.
         '''
         value = NamedLocationIp(ip_ranges=ip_ranges, trusted=trusted)
 
@@ -172,10 +172,10 @@ class NamedLocation(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#create NamedLocation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#delete NamedLocation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#read NamedLocation#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#update NamedLocation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#create NamedLocation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#delete NamedLocation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#read NamedLocation#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#update NamedLocation#update}.
         '''
         value = NamedLocationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -322,11 +322,11 @@ class NamedLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#display_name NamedLocation#display_name}.
-        :param country: country block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#country NamedLocation#country}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#id NamedLocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip: ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#ip NamedLocation#ip}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#timeouts NamedLocation#timeouts}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#display_name NamedLocation#display_name}.
+        :param country: country block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#country NamedLocation#country}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#id NamedLocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip: ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#ip NamedLocation#ip}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#timeouts NamedLocation#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -442,7 +442,7 @@ class NamedLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#display_name NamedLocation#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#display_name NamedLocation#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
@@ -451,14 +451,14 @@ class NamedLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def country(self) -> typing.Optional["NamedLocationCountry"]:
         '''country block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#country NamedLocation#country}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#country NamedLocation#country}
         '''
         result = self._values.get("country")
         return typing.cast(typing.Optional["NamedLocationCountry"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#id NamedLocation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#id NamedLocation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -470,7 +470,7 @@ class NamedLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ip(self) -> typing.Optional["NamedLocationIp"]:
         '''ip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#ip NamedLocation#ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#ip NamedLocation#ip}
         '''
         result = self._values.get("ip")
         return typing.cast(typing.Optional["NamedLocationIp"], result)
@@ -479,7 +479,7 @@ class NamedLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NamedLocationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#timeouts NamedLocation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#timeouts NamedLocation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NamedLocationTimeouts"], result)
@@ -514,9 +514,9 @@ class NamedLocationCountry:
         include_unknown_countries_and_regions: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param countries_and_regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#countries_and_regions NamedLocation#countries_and_regions}.
-        :param country_lookup_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#country_lookup_method NamedLocation#country_lookup_method}.
-        :param include_unknown_countries_and_regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#include_unknown_countries_and_regions NamedLocation#include_unknown_countries_and_regions}.
+        :param countries_and_regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#countries_and_regions NamedLocation#countries_and_regions}.
+        :param country_lookup_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#country_lookup_method NamedLocation#country_lookup_method}.
+        :param include_unknown_countries_and_regions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#include_unknown_countries_and_regions NamedLocation#include_unknown_countries_and_regions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1bde33b14e72feaeb7b9126165acf7b7872de502722642c9f209464415b21d94)
@@ -533,14 +533,14 @@ class NamedLocationCountry:
 
     @builtins.property
     def countries_and_regions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#countries_and_regions NamedLocation#countries_and_regions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#countries_and_regions NamedLocation#countries_and_regions}.'''
         result = self._values.get("countries_and_regions")
         assert result is not None, "Required property 'countries_and_regions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def country_lookup_method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#country_lookup_method NamedLocation#country_lookup_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#country_lookup_method NamedLocation#country_lookup_method}.'''
         result = self._values.get("country_lookup_method")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -548,7 +548,7 @@ class NamedLocationCountry:
     def include_unknown_countries_and_regions(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#include_unknown_countries_and_regions NamedLocation#include_unknown_countries_and_regions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#include_unknown_countries_and_regions NamedLocation#include_unknown_countries_and_regions}.'''
         result = self._values.get("include_unknown_countries_and_regions")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -676,8 +676,8 @@ class NamedLocationIp:
         trusted: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#ip_ranges NamedLocation#ip_ranges}.
-        :param trusted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#trusted NamedLocation#trusted}.
+        :param ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#ip_ranges NamedLocation#ip_ranges}.
+        :param trusted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#trusted NamedLocation#trusted}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__50ef8666c8e208d32f89c4809a2023dfe56e8ae0164787d6f5acfb0edaeb83f4)
@@ -691,7 +691,7 @@ class NamedLocationIp:
 
     @builtins.property
     def ip_ranges(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#ip_ranges NamedLocation#ip_ranges}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#ip_ranges NamedLocation#ip_ranges}.'''
         result = self._values.get("ip_ranges")
         assert result is not None, "Required property 'ip_ranges' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -700,7 +700,7 @@ class NamedLocationIp:
     def trusted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#trusted NamedLocation#trusted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#trusted NamedLocation#trusted}.'''
         result = self._values.get("trusted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -812,10 +812,10 @@ class NamedLocationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#create NamedLocation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#delete NamedLocation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#read NamedLocation#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#update NamedLocation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#create NamedLocation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#delete NamedLocation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#read NamedLocation#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#update NamedLocation#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0979773f7ff8ad7dd891cf02c0908231f85d054eaf006a2f8d7a944b7a467703)
@@ -835,25 +835,25 @@ class NamedLocationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#create NamedLocation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#create NamedLocation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#delete NamedLocation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#delete NamedLocation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#read NamedLocation#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#read NamedLocation#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/named_location#update NamedLocation#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/named_location#update NamedLocation#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

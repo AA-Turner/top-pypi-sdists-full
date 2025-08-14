@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: llama-parse
-Version: 0.6.57
+Version: 0.6.58
 Summary: Parse files into RAG-Optimized formats.
 Author-email: Logan Markewich <logan@llamaindex.ai>
 License-Expression: MIT
 Requires-Python: <4.0,>=3.9
-Requires-Dist: llama-cloud-services>=0.6.56
+Requires-Dist: llama-cloud-services>=0.6.58
 Description-Content-Type: text/markdown
 
 # LlamaParse

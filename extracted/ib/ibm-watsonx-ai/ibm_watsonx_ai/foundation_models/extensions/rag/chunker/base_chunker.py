@@ -3,9 +3,8 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import Sequence, Any, Generic, TypeVar
 from abc import ABC, abstractmethod
-
+from typing import Any, Generic, Sequence, TypeVar
 
 __all__ = [
     "BaseChunker",

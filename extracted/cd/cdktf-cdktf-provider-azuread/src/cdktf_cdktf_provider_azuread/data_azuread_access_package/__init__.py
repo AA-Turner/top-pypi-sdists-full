@@ -1,7 +1,7 @@
 r'''
 # `data_azuread_access_package`
 
-Refer to the Terraform Registry for docs: [`data_azuread_access_package`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package).
+Refer to the Terraform Registry for docs: [`data_azuread_access_package`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzureadAccessPackage(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.dataAzureadAccessPackage.DataAzureadAccessPackage",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package azuread_access_package}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package azuread_access_package}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataAzureadAccessPackage(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package azuread_access_package} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package azuread_access_package} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param catalog_id: The ID of the Catalog this access package is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#catalog_id DataAzureadAccessPackage#catalog_id}
-        :param display_name: The display name of the access package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#display_name DataAzureadAccessPackage#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#id DataAzureadAccessPackage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_id: The ID of this access package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#object_id DataAzureadAccessPackage#object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#timeouts DataAzureadAccessPackage#timeouts}
+        :param catalog_id: The ID of the Catalog this access package is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#catalog_id DataAzureadAccessPackage#catalog_id}
+        :param display_name: The display name of the access package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#display_name DataAzureadAccessPackage#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#id DataAzureadAccessPackage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_id: The ID of this access package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#object_id DataAzureadAccessPackage#object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#timeouts DataAzureadAccessPackage#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataAzureadAccessPackage(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzureadAccessPackage to import.
-        :param import_from_id: The id of the existing DataAzureadAccessPackage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzureadAccessPackage that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzureadAccessPackage to import is found.
         '''
         if __debug__:
@@ -129,7 +129,7 @@ class DataAzureadAccessPackage(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#read DataAzureadAccessPackage#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#read DataAzureadAccessPackage#read}.
         '''
         value = DataAzureadAccessPackageTimeouts(read=read)
 
@@ -302,11 +302,11 @@ class DataAzureadAccessPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param catalog_id: The ID of the Catalog this access package is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#catalog_id DataAzureadAccessPackage#catalog_id}
-        :param display_name: The display name of the access package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#display_name DataAzureadAccessPackage#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#id DataAzureadAccessPackage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param object_id: The ID of this access package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#object_id DataAzureadAccessPackage#object_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#timeouts DataAzureadAccessPackage#timeouts}
+        :param catalog_id: The ID of the Catalog this access package is in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#catalog_id DataAzureadAccessPackage#catalog_id}
+        :param display_name: The display name of the access package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#display_name DataAzureadAccessPackage#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#id DataAzureadAccessPackage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param object_id: The ID of this access package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#object_id DataAzureadAccessPackage#object_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#timeouts DataAzureadAccessPackage#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -420,7 +420,7 @@ class DataAzureadAccessPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def catalog_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the Catalog this access package is in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#catalog_id DataAzureadAccessPackage#catalog_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#catalog_id DataAzureadAccessPackage#catalog_id}
         '''
         result = self._values.get("catalog_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -429,14 +429,14 @@ class DataAzureadAccessPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the access package.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#display_name DataAzureadAccessPackage#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#display_name DataAzureadAccessPackage#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#id DataAzureadAccessPackage#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#id DataAzureadAccessPackage#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -448,7 +448,7 @@ class DataAzureadAccessPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def object_id(self) -> typing.Optional[builtins.str]:
         '''The ID of this access package.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#object_id DataAzureadAccessPackage#object_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#object_id DataAzureadAccessPackage#object_id}
         '''
         result = self._values.get("object_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -457,7 +457,7 @@ class DataAzureadAccessPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataAzureadAccessPackageTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#timeouts DataAzureadAccessPackage#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#timeouts DataAzureadAccessPackage#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzureadAccessPackageTimeouts"], result)
@@ -482,7 +482,7 @@ class DataAzureadAccessPackageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DataAzureadAccessPackageTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#read DataAzureadAccessPackage#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#read DataAzureadAccessPackage#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6bb29dba8a39c43e8576b44540e4188449045ba88cfa28aff7bc60b82e79ddb4)
@@ -493,7 +493,7 @@ class DataAzureadAccessPackageTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/access_package#read DataAzureadAccessPackage#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/access_package#read DataAzureadAccessPackage#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

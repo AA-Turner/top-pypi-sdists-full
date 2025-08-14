@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Dict, Optional, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from canonmap.connectors.mysql_connector.connector import MySQLConnector
@@ -14,9 +15,31 @@ class MappingPipeline:
     def __init__(self, db_connection_manager: MySQLConnector):
         self.db_connection_manager = db_connection_manager
 
-    def run(self, entity_mapping_request: EntityMappingRequest, mapping_weights: MappingWeights = None) -> EntityMappingResponse:
+    def run(
+        self,
+        entity_mapping_request: Union[EntityMappingRequest, Dict[str, Any]],
+        mapping_weights: Optional[Union[MappingWeights, Dict[str, Any]]] = None,
+    ) -> EntityMappingResponse:
         logger.info("Running matching pipeline")
-        mapping_weights = mapping_weights or MappingWeights()
+        # Coerce raw inputs into validated Pydantic models to allow callers to pass dicts/kwargs
+        if not isinstance(entity_mapping_request, EntityMappingRequest):
+            if isinstance(entity_mapping_request, dict):
+                entity_mapping_request = EntityMappingRequest(**entity_mapping_request)
+            else:
+                raise TypeError(
+                    "entity_mapping_request must be EntityMappingRequest or dict[str, Any]"
+                )
+
+        if mapping_weights is None:
+            mapping_weights = MappingWeights()
+        elif not isinstance(mapping_weights, MappingWeights):
+            if isinstance(mapping_weights, dict):
+                mapping_weights = MappingWeights(**mapping_weights)
+            else:
+                raise TypeError(
+                    "mapping_weights must be MappingWeights, dict[str, Any], or None"
+                )
+
         normalized_entity = normalize(entity_mapping_request.entity_name)
         table_name = entity_mapping_request.candidate_table_name
         field_name = entity_mapping_request.candidate_field_name

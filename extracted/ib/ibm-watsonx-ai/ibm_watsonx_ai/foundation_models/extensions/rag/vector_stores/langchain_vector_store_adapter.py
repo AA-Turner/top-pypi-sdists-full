@@ -2,20 +2,20 @@
 #  (C) Copyright IBM Corp. 2024-2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
-from collections import defaultdict
 import hashlib
-from typing import Any, cast, Generic, TypeVar
 import logging
+from collections import defaultdict
+from typing import Any, Generic, TypeVar, cast
 
 from ibm_watsonx_ai.wml_client_error import MissingExtension, MissingMetadata
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 try:
+    from langchain_core.documents import Document
     from langchain_core.vectorstores import VectorStore as LangChainVectorStore
     from langchain_core.vectorstores import (
         VectorStoreRetriever as LangChainVectorStoreRetriever,
     )
-    from langchain_core.documents import Document
 except ImportError:
     raise MissingExtension("langchain")
 
@@ -595,7 +595,7 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
         match vs_type:
             case "Milvus":
                 try:
-                    from langchain_milvus.vectorstores import Milvus
+                    from langchain_milvus.vectorstores import Milvus  # noqa: F401
                 except ImportError:
                     raise MissingExtension("langchain_milvus")
 
@@ -604,7 +604,7 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
                 )
             case "Chroma":
                 try:
-                    from langchain_chroma import Chroma
+                    from langchain_chroma import Chroma  # noqa: F401
                 except ImportError:
                     raise MissingExtension("langchain_chroma")
 
@@ -613,7 +613,9 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
                 )
             case "ElasticsearchStore":
                 try:
-                    from langchain_elasticsearch.vectorstores import ElasticsearchStore
+                    from langchain_elasticsearch.vectorstores import (
+                        ElasticsearchStore,  # noqa: F401
+                    )
                 except ImportError:
                     raise MissingExtension("langchain_elasticsearch")
                 window_documents = self._get_window_documents_elasticsearch(
@@ -621,7 +623,7 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
                 )
             case "DB2VS":
                 try:
-                    from langchain_db2 import DB2VS
+                    from langchain_db2 import DB2VS  # noqa: F401
                 except ImportError:
                     raise MissingExtension("langchain_db2")
                 window_documents = self._get_window_documents_db2(

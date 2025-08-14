@@ -339,9 +339,9 @@ class _RealTimeJsonEventPicker:
 
     def send_api_call(self,json_data):
         headers = {'Content-Type': 'application/json'}
-        API_URL = "https://matricedemo.forumalertcloud.io/matriceapi/" #"https://monthly-genuine-troll.ngrok-free.app" #https://matricedemo.forumalertcloud.io/matriceapi/
-        API_USER = "matrice" #"admin" #"matrice"
-        API_PASS = "hR9aN9mQ" #"admin" #"hR9aN9mQ"
+        API_URL = "https://monthly-genuine-troll.ngrok-free.app" #"https://monthly-genuine-troll.ngrok-free.app" #https://matricedemo.forumalertcloud.io/matriceapi/
+        API_USER = "admin" #"admin" #"matrice"
+        API_PASS = "admin" #"admin" #"hR9aN9mQ"
         try:
             response = requests.post(
             API_URL,
@@ -396,7 +396,7 @@ class _RealTimeJsonEventPicker:
                     # Advance to next required severity
                     self._sequence.popleft()
                     self._hit_counter = 0
-                    self.send_api_call(frame_json)
+                    self.send_api_call(incidents)
                     return event
             elif self._hit_counter>0:
                 self._hit_counter-=1
@@ -411,7 +411,7 @@ class _RealTimeJsonEventPicker:
                         "video_timestamp_secs": int(frame_id)/30
                     }
                     self.reset()
-                    self.send_api_call(frame_json)
+                    self.send_api_call(incidents)
                     return event
 
         else:
@@ -425,7 +425,7 @@ class _RealTimeJsonEventPicker:
                         "video_timestamp_secs": int(frame_id)/30
                     }
                     self.reset()
-                    self.send_api_call(frame_json)
+                    self.send_api_call(incidents)
                     return event
             elif self._hit_counter>0:
                 self._hit_counter-=1

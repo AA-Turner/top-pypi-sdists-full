@@ -27,7 +27,7 @@ class CustomerFacingIssuesPageDto(BaseModel):
     """
     CustomerFacingIssuesPageDto
     """ # noqa: E501
-    items: Optional[List[BasicIssue]] = Field(default=None, description="basic data on the issues - to get more data on the issues use the single-issue endpoint with the issue id")
+    items: Optional[List[BasicIssue]] = Field(default=None, description="Basic data on the issues - to get more data on the issues use the single-issue endpoint with the issue id")
     next_token: Optional[StrictStr] = Field(default=None, description="Token to use in next request. Will be empty when there are no remaining items", alias="nextToken")
     __properties: ClassVar[List[str]] = ["items", "nextToken"]
 

@@ -50,6 +50,10 @@ class IntrusionUseCase(BaseProcessor):
         self._zone_current_counts = {}  # zone_name -> current count in zone
         self._zone_total_counts = {}  # zone_name -> total count that have been in zone
         
+        # Global unique person tracking across all zones
+        self._global_unique_person_track_ids = set()  # All unique track IDs that have ever been in any zone
+        self._global_unique_person_count = 0  # Total count of unique people across all zones
+        
         # Frame counter for tracking total frames processed
         self._total_frame_counter = 0  # Total frames processed across all calls
         
@@ -79,12 +83,12 @@ class IntrusionUseCase(BaseProcessor):
         # IoU threshold above which two bounding boxes are considered to belong
         # to the same person (empirically chosen; adjust in production if
         # needed).
-        self._track_merge_iou_threshold: float = 0.04
+        self._track_merge_iou_threshold: float = 0.001
 
         # Only merge with canonical tracks that were updated within this time
         # window (in seconds). This prevents accidentally merging tracks that
         # left the scene long ago.
-        self._track_merge_time_window: float = 10.0
+        self._track_merge_time_window: float = 20.0
 
         self._ascending_alert_list: List[int] = []
         self.current_incident_end_timestamp: str = "N/A"
@@ -278,19 +282,33 @@ class IntrusionUseCase(BaseProcessor):
             category = detection.get("category", "unknown")
             counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
         
+        # Debug logging for detections
+        self.logger.debug(f"Frame detections: {len(frame_detections)} detections")
+        for i, det in enumerate(frame_detections):
+            self.logger.debug(f"Detection {i}: category={det.get('category')}, bbox={det.get('bounding_box', det.get('bbox'))}, track_id={det.get('track_id')}")
+        
         # Step 5: Zone analysis for this frame
         zone_analysis = {}
         if config.zone_config and config.zone_config.zones:
+            # Debug logging for zone configuration
+            self.logger.debug(f"Zone config: {config.zone_config.zones}")
+            
             # Convert single frame to format expected by count_objects_in_zones
             frame_data = frame_detections #[frame_detections]
             zone_analysis = count_objects_in_zones(frame_data, config.zone_config.zones)
             
-            # Update zone tracking with current frame data
-            if zone_analysis and config.enable_tracking:
+            # Debug logging for zone analysis
+            self.logger.debug(f"Original zone_analysis: {zone_analysis}")
+            
+            # Always update zone tracking for current frame counting, regardless of enable_tracking setting
+            if zone_analysis:
                 enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, frame_detections, config)
                 # Merge enhanced zone analysis with original zone analysis
                 for zone_name, enhanced_data in enhanced_zone_analysis.items():
                     zone_analysis[zone_name] = enhanced_data
+                
+                # Debug logging for enhanced zone analysis
+                self.logger.debug(f"Enhanced zone_analysis: {zone_analysis}")
         
         # Step 4.5: Always update tracking state (regardless of enable_unique_counting setting)
         self._update_tracking_state(counting_summary)
@@ -300,7 +318,7 @@ class IntrusionUseCase(BaseProcessor):
         
         # Step 6: Generate summary and standardized agg_summary components for this frame
         incidents = self._generate_incidents(counting_summary, zone_analysis, alerts, config, frame_id, stream_info)
-        tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, config, frame_id=frame_id, alerts=alerts, stream_info=stream_info)
+        tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, config, frame_id, alerts, stream_info)
         business_analytics = self._generate_business_analytics(counting_summary, zone_analysis, config, frame_id, stream_info, is_empty=True)
         summary = self._generate_summary(counting_summary, incidents, tracking_stats, business_analytics, alerts)
         
@@ -327,7 +345,7 @@ class IntrusionUseCase(BaseProcessor):
                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
                             }
             })
-
+        human_text_lines = []
         if total_people > 0:
             # Determine event level based on thresholds
             
@@ -377,22 +395,24 @@ class IntrusionUseCase(BaseProcessor):
                     self._ascending_alert_list.append(0)
             
             # Generate human text in new format
-            human_text_lines = [f"INCIDENTS DETECTED @ {current_timestamp}:"]
+            human_text_lines.append(f"INCIDENTS DETECTED @ {current_timestamp}:")
             human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE,level)}")
             human_text = "\n".join(human_text_lines)
 
             # Main people counting incident
             # event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(frame_id), incident_type=self.CASE_TYPE,
-            #         severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
-            #         start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
-            #         level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
+            #            severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+            #            start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
+            #            level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
             # incidents.append(event)
-        else:
-            self._ascending_alert_list.append(0)
-            # incidents.append({})
+        # else:
+        #     self._ascending_alert_list.append(0)
+        #     incidents.append({})
         
         # Add zone-specific events if applicable
         if zone_analysis:
+            level = "info"
+            intensity = 5.0
             start_timestamp = self._get_start_timestamp_str(stream_info)
             if start_timestamp and self.current_incident_end_timestamp=='N/A':
                 self.current_incident_end_timestamp = 'Incident still active'
@@ -401,39 +421,59 @@ class IntrusionUseCase(BaseProcessor):
                     self.current_incident_end_timestamp = current_timestamp
             elif self.current_incident_end_timestamp!='Incident still active' and self.current_incident_end_timestamp!='N/A':
                 self.current_incident_end_timestamp = 'N/A'
-            human_text_lines = [f"\t- ZONE EVENTS:"]
-            # human_text_lines.append(f"\t- ZONE EVENTS:")
-            for zone_name, zone_count in zone_analysis.items():
-                zone_total = self._robust_zone_total(zone_count)
+            human_text_lines.append(f"\t- ZONE EVENTS:")
+            for zone_name, zone_data in zone_analysis.items():
+                # Use enhanced zone analysis for accurate counts
+                if isinstance(zone_data, dict) and "current_count" in zone_data:
+                    # Enhanced zone analysis with current_count and total_count
+                    current_count = zone_data.get("current_count", 0)
+                    total_count = zone_data.get("total_count", 0)
+                    zone_total = current_count  # Use current count for incident severity
+                else:
+                    # Fallback to original zone analysis format
+                    zone_total = self._robust_zone_total(zone_data)
+                
                 if zone_total > 0:
-                    zone_intensity = min(10.0, zone_total / 5.0)
+                    intensity = min(10.0, zone_total / 5.0)
                     zone_level = "info"
-                    if zone_intensity >= 9:
-                        zone_level = "critical"
+                    if intensity >= 9:
+                        level = "critical"
                         self._ascending_alert_list.append(3)
-                    elif zone_intensity >= 7:
-                        zone_level = "significant"
+                    elif intensity >= 7:
+                        level = "significant"
                         self._ascending_alert_list.append(2)
-                    elif zone_intensity >= 5:
-                        zone_level = "medium"
+                    elif intensity >= 5:
+                        level = "medium"
                         self._ascending_alert_list.append(1)
                     else:
-                        zone_level = "low"
+                        level = "low"
                         self._ascending_alert_list.append(0)
-
-                    human_text_lines.append(f"\t\t- Zone name: {zone_name}")
-                    human_text_lines.append(f"\t\t\t- Total count in Prohibited Boarding Gate: {zone_total}")
+                    
+                    if zone_total > 0:
+                        human_text_lines.append(f"\t\t- Zone name: {zone_name}")
+                        if isinstance(zone_data, dict) and "current_count" in zone_data:
+                            human_text_lines.append(f"\t\t\t- Current people in zone: {current_count}")
+                            human_text_lines.append(f"\t\t\t- Total people who have been in zone: {total_count}")
+                        else:
+                            human_text_lines.append(f"\t\t\t- Total people in zone: {zone_total}")
                     # Main people counting incident
-                    human_text = "\n".join(human_text_lines)
-                    event = self.create_incident(incident_id=self.CASE_TYPE+'_'+'zone_'+zone_name+str(frame_id), incident_type=self.CASE_TYPE,
+                    human_text = "\n".join(human_text_lines)  
+                    event= self.create_incident(incident_id=self.CASE_TYPE+'_'+'zone_'+zone_name+str(frame_id), incident_type=self.CASE_TYPE,
                             severity_level=zone_level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
                             start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
                             level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
                     incidents.append(event)
-        print(incidents)
         return incidents
 
-    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, config: IntrusionConfig, frame_id: str, alerts: Any=[], stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def _generate_tracking_stats(
+        self, 
+        counting_summary: Dict, 
+        zone_analysis: Dict, 
+        config: IntrusionConfig, 
+        frame_id: str, 
+        alerts: Any=[], 
+        stream_info: Optional[Dict[str, Any]] = None
+        ) -> List[Dict]:
         """Generate tracking stats using standardized methods."""
         
         total_people = counting_summary.get("total_objects", 0)
@@ -481,24 +521,37 @@ class IntrusionUseCase(BaseProcessor):
             # Get current count for this category
             category_current_count = 0
             if zone_analysis:
+                # Use enhanced zone analysis current_count if available
                 for zone_data in zone_analysis.values():
                     if isinstance(zone_data, dict) and "current_count" in zone_data:
+                        # This is the enhanced zone analysis with current_count field
                         category_current_count += zone_data.get("current_count", 0)
                     elif isinstance(zone_data, dict):
-                        # For current frame, look at detections count
-                        for v in zone_data.values():
-                            if isinstance(v, int):
-                                category_current_count += v
-                            elif isinstance(v, list):
-                                category_current_count += len(v)
+                        # This is the original zone analysis from count_objects_in_zones
+                        # Look for category-specific counts
+                        if category in zone_data:
+                            category_current_count += zone_data[category]
+                        else:
+                            # Fallback: sum up all values if category not found
+                            for v in zone_data.values():
+                                if isinstance(v, int):
+                                    category_current_count += v
+                                elif isinstance(v, list):
+                                    category_current_count += len(v)
                     elif isinstance(zone_data, (int, list)):
                         category_current_count += len(zone_data) if isinstance(zone_data, list) else zone_data
             else:
                 # Count detections in current frame for this category
                 detections = counting_summary.get("detections", [])
                 category_current_count = sum(1 for d in detections if d.get("category") == category)
-        
-            if category_current_count > 0 or total_people > 0:  # Include even if 0 when there are people
+            
+            # Debug logging for current frame count calculation
+            self.logger.debug(f"Category {category}: current_count={category_current_count}, total_people={total_people}")
+            if zone_analysis:
+                self.logger.debug(f"Zone analysis structure: {zone_analysis}")
+            
+            # Always include current count, even if 0, when there are people detected
+            if category_current_count > 0 or total_people > 0:
                 current_counts.append(self.create_count_object(category, category_current_count))
                 per_category_current[category] = category_current_count
         
@@ -533,56 +586,49 @@ class IntrusionUseCase(BaseProcessor):
                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
                             }
             })
+        human_text_lines=[]
         if zone_analysis:
-            human_text_lines = []
             current_timestamp = self._get_current_timestamp_str(stream_info, frame_id=frame_id)
             start_timestamp = self._get_start_timestamp_str(stream_info)
             human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-            
-            def robust_zone_total(zone_count):
-                if isinstance(zone_count, dict):
-                    total = 0
-                    for v in zone_count.values():
-                        if isinstance(v, int):
-                            total += v
-                        elif isinstance(v, list) and total == 0:
-                            total += len(v)
-                    return total
-                elif isinstance(zone_count, list):
-                    return len(zone_count)
-                elif isinstance(zone_count, int):
-                    return zone_count
-                else:
-                    return 0
-            human_text_lines.append(f"\t- Person detected in Prohibited Boarding Gate: {total_people}")
+            human_text_lines.append(f"\t- People Detected in Prohibited Boarding Gate: {total_people}")
             human_text_lines.append("")
             human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-                
-            for zone_name, zone_count in zone_analysis.items():
-                zone_total = robust_zone_total(zone_count)
-                human_text_lines.append(f"\t- Zone name: {zone_name}")
-                human_text_lines.append(f"\t\t\t- Total person detected in Prohibited Boarding Gate: {zone_total-1}")
-                        # human_text_lines.append(f"\t\t- Total count in Prohibited Boarding Gate: {zone_total-1}")
+            
+            for zone_name, zone_data in zone_analysis.items():
+                if isinstance(zone_data, dict) and "total_count" in zone_data:
+                    # Enhanced zone analysis with total_count
+                    total_count = zone_data.get("total_count", 0)
+                    human_text_lines.append(f"\t- Zone name: {zone_name}")
+                    human_text_lines.append(f"\t\t- Total count in Prohibited Boarding Gate: {total_count}")
+                else:
+                    # Fallback to original zone analysis format
+                    zone_total = self._robust_zone_total(zone_data)
+                    human_text_lines.append(f"\t- Zone name: {zone_name}")
+                    human_text_lines.append(f"\t\t- Total count in Prohibited Boarding Gate: {zone_total}")
 
-                
-                # human_text_lines.append(f"\t- Total unique people in the Abandoned Area: {total_unique_count}")
+            if total_unique_count > 0:
+                human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
             if alerts:
                 for alert in alerts:
                     human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
             else:
                 human_text_lines.append("Alerts: None")
-            human_text = "\n".join(human_text_lines)  
-        # else:      
-        #     human_text = self._generate_human_text_for_tracking(total_people, total_unique_count, config, frame_id, alerts, stream_info)
-        
-         # Create high precision timestamps for input_timestamp and reset_timestamp
+            human_text = "\n".join(human_text_lines)
+        else:      
+            human_text = self._generate_human_text_for_tracking(total_people, total_unique_count, config, frame_id, alerts, stream_info)
+        # Create high precision timestamps for input_timestamp and reset_timestamp
         high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+        # Debug logging for final current counts
+        self.logger.debug(f"Final current_counts: {current_counts}")
+        self.logger.debug(f"Final total_counts: {total_counts}")
+        
         # Create tracking_stat using standardized method
         tracking_stat = self.create_tracking_stats(
             total_counts, current_counts, detections, human_text, camera_info, alerts, alert_settings, start_time=high_precision_start_timestamp, reset_time=high_precision_reset_timestamp
         )
-        print(tracking_stat)
+        
         return [tracking_stat]
     
     def _generate_human_text_for_tracking(self, total_people: int, total_unique_count: int, config: IntrusionConfig, frame_id: str, alerts:Any=[], stream_info: Optional[Dict[str, Any]] = None) -> str:
@@ -606,7 +652,7 @@ class IntrusionUseCase(BaseProcessor):
         else:
             human_text_lines.append("Alerts: None")
         
-        return "\n".join(human_text_lines)
+        return ""
 
     def _check_alerts(self, counting_summary: Dict, zone_analysis: Dict, 
                     config: IntrusionConfig, frame_id: str) -> List[Dict]:
@@ -674,9 +720,15 @@ class IntrusionUseCase(BaseProcessor):
         if config.alert_config.occupancy_thresholds:
             for zone_name, threshold in config.alert_config.occupancy_thresholds.items():
                 if zone_name in zone_analysis:
-                    # Calculate zone_count robustly (supports int, list, dict values)
-                    print('ZONEEE',zone_name, zone_analysis[zone_name])
-                    zone_count = self._robust_zone_total(zone_analysis[zone_name])
+                    # Use enhanced zone analysis for accurate current counts
+                    zone_data = zone_analysis[zone_name]
+                    if isinstance(zone_data, dict) and "current_count" in zone_data:
+                        # Enhanced zone analysis with current_count field
+                        zone_count = zone_data.get("current_count", 0)
+                    else:
+                        # Fallback to original zone analysis format
+                        zone_count = self._robust_zone_total(zone_data)
+                    
                     if zone_count >= threshold:
                         alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
@@ -713,9 +765,18 @@ class IntrusionUseCase(BaseProcessor):
             # Add zone analytics if available
             if zone_analysis:
                 zone_stats = {}
-                for zone_name, zone_count in zone_analysis.items():
-                    zone_total = self._robust_zone_total(zone_count)
-                    zone_stats[f"{zone_name}_occupancy"] = zone_total
+                for zone_name, zone_data in zone_analysis.items():
+                    # Use enhanced zone analysis for accurate counts
+                    if isinstance(zone_data, dict) and "current_count" in zone_data:
+                        # Enhanced zone analysis with current_count and total_count
+                        current_count = zone_data.get("current_count", 0)
+                        total_count = zone_data.get("total_count", 0)
+                        zone_stats[f"{zone_name}_current_occupancy"] = current_count
+                        zone_stats[f"{zone_name}_total_occupancy"] = total_count
+                    else:
+                        # Fallback to original zone analysis format
+                        zone_total = self._robust_zone_total(zone_data)
+                        zone_stats[f"{zone_name}_occupancy"] = zone_total
                 analytics_stats.update(zone_stats)
             
             # Generate human text for analytics
@@ -1017,6 +1078,10 @@ class IntrusionUseCase(BaseProcessor):
         self._zone_current_counts.clear()
         self._zone_total_counts.clear()
         
+        # Clear global unique person tracking
+        self._global_unique_person_track_ids.clear()
+        self._global_unique_person_count = 0
+        
         # Reset frame counter and global frame offset
         self._total_frame_counter = 0
         self._global_frame_offset = 0
@@ -1156,9 +1221,26 @@ class IntrusionUseCase(BaseProcessor):
             # Update total zone tracks (accumulate all track IDs that have been in this zone)
             self._zone_total_track_ids[zone_name].update(current_tracks)
             
+            # Update global unique person tracking
+            old_global_count = len(self._global_unique_person_track_ids)
+            self._global_unique_person_track_ids.update(current_tracks)
+            new_global_count = len(self._global_unique_person_track_ids)
+            
             # Update counts
             self._zone_current_counts[zone_name] = len(current_tracks)
             self._zone_total_counts[zone_name] = len(self._zone_total_track_ids[zone_name])
+            self._global_unique_person_count = new_global_count
+            
+            # Log if new unique person detected
+            if new_global_count > old_global_count:
+                new_persons = current_tracks - (self._global_unique_person_track_ids - current_tracks)
+                self.logger.info(f"New unique person(s) detected in zone {zone_name}: {new_persons}. Global count: {old_global_count} -> {new_global_count}")
+            else:
+                # Log current state for debugging
+                self.logger.debug(f"Zone {zone_name}: Current tracks: {current_tracks}, Global unique count: {new_global_count} (no change)")
+                if current_tracks:
+                    self.logger.debug(f"Current track IDs in zone: {current_tracks}")
+                    self.logger.debug(f"Global unique track IDs: {self._global_unique_person_track_ids}")
             
             # Create enhanced zone analysis
             enhanced_zone_analysis[zone_name] = {
@@ -1166,8 +1248,12 @@ class IntrusionUseCase(BaseProcessor):
                 "total_count": self._zone_total_counts[zone_name],
                 "current_track_ids": list(current_tracks),
                 "total_track_ids": list(self._zone_total_track_ids[zone_name]),
-                "original_counts": zone_counts  # Preserve original zone counts
+                "original_counts": zone_counts,  # Preserve original zone counts
+                "global_unique_count": self._global_unique_person_count  # Add global unique count
             }
+            
+            # Debug logging for zone tracking
+            self.logger.debug(f"Zone {zone_name}: current_count={self._zone_current_counts[zone_name]}, total_count={self._zone_total_counts[zone_name]}, current_tracks={len(current_tracks)}")
         
         return enhanced_zone_analysis
     
@@ -1178,7 +1264,8 @@ class IntrusionUseCase(BaseProcessor):
                 "current_count": self._zone_current_counts.get(zone_name, 0),
                 "total_count": self._zone_total_counts.get(zone_name, 0),
                 "current_track_ids": list(self._zone_current_track_ids.get(zone_name, set())),
-                "total_track_ids": list(self._zone_total_track_ids.get(zone_name, set()))
+                "total_track_ids": list(self._zone_total_track_ids.get(zone_name, set())),
+                "global_unique_count": self._global_unique_person_count
             }
             for zone_name in set(self._zone_current_counts.keys()) | set(self._zone_total_counts.keys())
         }
@@ -1190,6 +1277,21 @@ class IntrusionUseCase(BaseProcessor):
     def get_zone_total_count(self, zone_name: str) -> int:
         """Get total count of people who have been in a specific zone."""
         return self._zone_total_counts.get(zone_name, 0)
+    
+    def get_global_unique_person_count(self) -> int:
+        """Get total count of unique people who have ever been in any zone."""
+        return self._global_unique_person_count
+    
+    def get_global_tracking_debug_info(self) -> Dict[str, Any]:
+        """Get detailed debugging information about global unique person tracking."""
+        return {
+            "global_unique_person_count": self._global_unique_person_count,
+            "global_unique_person_track_ids": list(self._global_unique_person_track_ids),
+            "zone_current_track_ids": {zone: list(tracks) for zone, tracks in self._zone_current_track_ids.items()},
+            "zone_total_track_ids": {zone: list(tracks) for zone, tracks in self._zone_total_track_ids.items()},
+            "zone_current_counts": self._zone_current_counts.copy(),
+            "zone_total_counts": self._zone_total_counts.copy()
+        }
     
     def get_all_zone_counts(self) -> Dict[str, Dict[str, int]]:
         """Get current and total counts for all zones."""

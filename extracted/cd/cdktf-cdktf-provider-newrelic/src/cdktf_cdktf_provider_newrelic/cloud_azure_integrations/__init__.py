@@ -1,7 +1,7 @@
 r'''
 # `newrelic_cloud_azure_integrations`
 
-Refer to the Terraform Registry for docs: [`newrelic_cloud_azure_integrations`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations).
+Refer to the Terraform Registry for docs: [`newrelic_cloud_azure_integrations`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CloudAzureIntegrations(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.cloudAzureIntegrations.CloudAzureIntegrations",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations newrelic_cloud_azure_integrations}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations newrelic_cloud_azure_integrations}.'''
 
     def __init__(
         self,
@@ -94,45 +94,45 @@ class CloudAzureIntegrations(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations newrelic_cloud_azure_integrations} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations newrelic_cloud_azure_integrations} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param linked_account_id: The ID of the linked Azure account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#linked_account_id CloudAzureIntegrations#linked_account_id}
-        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#account_id CloudAzureIntegrations#account_id}
-        :param api_management: api_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#api_management CloudAzureIntegrations#api_management}
-        :param app_gateway: app_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#app_gateway CloudAzureIntegrations#app_gateway}
-        :param app_service: app_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#app_service CloudAzureIntegrations#app_service}
-        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#containers CloudAzureIntegrations#containers}
-        :param cosmos_db: cosmos_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#cosmos_db CloudAzureIntegrations#cosmos_db}
-        :param cost_management: cost_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#cost_management CloudAzureIntegrations#cost_management}
-        :param data_factory: data_factory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#data_factory CloudAzureIntegrations#data_factory}
-        :param event_hub: event_hub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#event_hub CloudAzureIntegrations#event_hub}
-        :param express_route: express_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#express_route CloudAzureIntegrations#express_route}
-        :param firewalls: firewalls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#firewalls CloudAzureIntegrations#firewalls}
-        :param front_door: front_door block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#front_door CloudAzureIntegrations#front_door}
-        :param functions: functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#functions CloudAzureIntegrations#functions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#id CloudAzureIntegrations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_vault: key_vault block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#key_vault CloudAzureIntegrations#key_vault}
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#load_balancer CloudAzureIntegrations#load_balancer}
-        :param logic_apps: logic_apps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#logic_apps CloudAzureIntegrations#logic_apps}
-        :param machine_learning: machine_learning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#machine_learning CloudAzureIntegrations#machine_learning}
-        :param maria_db: maria_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#maria_db CloudAzureIntegrations#maria_db}
-        :param monitor: monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#monitor CloudAzureIntegrations#monitor}
-        :param mysql: mysql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#mysql CloudAzureIntegrations#mysql}
-        :param mysql_flexible: mysql_flexible block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#mysql_flexible CloudAzureIntegrations#mysql_flexible}
-        :param postgresql: postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#postgresql CloudAzureIntegrations#postgresql}
-        :param postgresql_flexible: postgresql_flexible block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#postgresql_flexible CloudAzureIntegrations#postgresql_flexible}
-        :param power_bi_dedicated: power_bi_dedicated block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#power_bi_dedicated CloudAzureIntegrations#power_bi_dedicated}
-        :param redis_cache: redis_cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#redis_cache CloudAzureIntegrations#redis_cache}
-        :param service_bus: service_bus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#service_bus CloudAzureIntegrations#service_bus}
-        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#sql CloudAzureIntegrations#sql}
-        :param sql_managed: sql_managed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#sql_managed CloudAzureIntegrations#sql_managed}
-        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#storage CloudAzureIntegrations#storage}
-        :param virtual_machine: virtual_machine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#virtual_machine CloudAzureIntegrations#virtual_machine}
-        :param virtual_networks: virtual_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#virtual_networks CloudAzureIntegrations#virtual_networks}
-        :param vms: vms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#vms CloudAzureIntegrations#vms}
-        :param vpn_gateway: vpn_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#vpn_gateway CloudAzureIntegrations#vpn_gateway}
+        :param linked_account_id: The ID of the linked Azure account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#linked_account_id CloudAzureIntegrations#linked_account_id}
+        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#account_id CloudAzureIntegrations#account_id}
+        :param api_management: api_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#api_management CloudAzureIntegrations#api_management}
+        :param app_gateway: app_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#app_gateway CloudAzureIntegrations#app_gateway}
+        :param app_service: app_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#app_service CloudAzureIntegrations#app_service}
+        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#containers CloudAzureIntegrations#containers}
+        :param cosmos_db: cosmos_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#cosmos_db CloudAzureIntegrations#cosmos_db}
+        :param cost_management: cost_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#cost_management CloudAzureIntegrations#cost_management}
+        :param data_factory: data_factory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#data_factory CloudAzureIntegrations#data_factory}
+        :param event_hub: event_hub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#event_hub CloudAzureIntegrations#event_hub}
+        :param express_route: express_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#express_route CloudAzureIntegrations#express_route}
+        :param firewalls: firewalls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#firewalls CloudAzureIntegrations#firewalls}
+        :param front_door: front_door block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#front_door CloudAzureIntegrations#front_door}
+        :param functions: functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#functions CloudAzureIntegrations#functions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#id CloudAzureIntegrations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_vault: key_vault block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#key_vault CloudAzureIntegrations#key_vault}
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#load_balancer CloudAzureIntegrations#load_balancer}
+        :param logic_apps: logic_apps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#logic_apps CloudAzureIntegrations#logic_apps}
+        :param machine_learning: machine_learning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#machine_learning CloudAzureIntegrations#machine_learning}
+        :param maria_db: maria_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#maria_db CloudAzureIntegrations#maria_db}
+        :param monitor: monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#monitor CloudAzureIntegrations#monitor}
+        :param mysql: mysql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#mysql CloudAzureIntegrations#mysql}
+        :param mysql_flexible: mysql_flexible block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#mysql_flexible CloudAzureIntegrations#mysql_flexible}
+        :param postgresql: postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#postgresql CloudAzureIntegrations#postgresql}
+        :param postgresql_flexible: postgresql_flexible block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#postgresql_flexible CloudAzureIntegrations#postgresql_flexible}
+        :param power_bi_dedicated: power_bi_dedicated block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#power_bi_dedicated CloudAzureIntegrations#power_bi_dedicated}
+        :param redis_cache: redis_cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#redis_cache CloudAzureIntegrations#redis_cache}
+        :param service_bus: service_bus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#service_bus CloudAzureIntegrations#service_bus}
+        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#sql CloudAzureIntegrations#sql}
+        :param sql_managed: sql_managed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#sql_managed CloudAzureIntegrations#sql_managed}
+        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#storage CloudAzureIntegrations#storage}
+        :param virtual_machine: virtual_machine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#virtual_machine CloudAzureIntegrations#virtual_machine}
+        :param virtual_networks: virtual_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#virtual_networks CloudAzureIntegrations#virtual_networks}
+        :param vms: vms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#vms CloudAzureIntegrations#vms}
+        :param vpn_gateway: vpn_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#vpn_gateway CloudAzureIntegrations#vpn_gateway}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -205,7 +205,7 @@ class CloudAzureIntegrations(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CloudAzureIntegrations to import.
-        :param import_from_id: The id of the existing CloudAzureIntegrations that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CloudAzureIntegrations that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CloudAzureIntegrations to import is found.
         '''
         if __debug__:
@@ -224,8 +224,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsApiManagement(
             metrics_polling_interval=metrics_polling_interval,
@@ -242,8 +242,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsAppGateway(
             metrics_polling_interval=metrics_polling_interval,
@@ -260,8 +260,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsAppService(
             metrics_polling_interval=metrics_polling_interval,
@@ -278,8 +278,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsContainers(
             metrics_polling_interval=metrics_polling_interval,
@@ -296,8 +296,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsCosmosDb(
             metrics_polling_interval=metrics_polling_interval,
@@ -314,8 +314,8 @@ class CloudAzureIntegrations(
         tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param tag_keys: Specify if additional cost data per tag should be collected. This field is case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#tag_keys CloudAzureIntegrations#tag_keys}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param tag_keys: Specify if additional cost data per tag should be collected. This field is case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#tag_keys CloudAzureIntegrations#tag_keys}
         '''
         value = CloudAzureIntegrationsCostManagement(
             metrics_polling_interval=metrics_polling_interval, tag_keys=tag_keys
@@ -331,8 +331,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsDataFactory(
             metrics_polling_interval=metrics_polling_interval,
@@ -349,8 +349,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsEventHub(
             metrics_polling_interval=metrics_polling_interval,
@@ -367,8 +367,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsExpressRoute(
             metrics_polling_interval=metrics_polling_interval,
@@ -385,8 +385,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsFirewalls(
             metrics_polling_interval=metrics_polling_interval,
@@ -403,8 +403,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsFrontDoor(
             metrics_polling_interval=metrics_polling_interval,
@@ -421,8 +421,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsFunctions(
             metrics_polling_interval=metrics_polling_interval,
@@ -439,8 +439,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsKeyVault(
             metrics_polling_interval=metrics_polling_interval,
@@ -457,8 +457,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsLoadBalancer(
             metrics_polling_interval=metrics_polling_interval,
@@ -475,8 +475,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsLogicApps(
             metrics_polling_interval=metrics_polling_interval,
@@ -493,8 +493,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsMachineLearning(
             metrics_polling_interval=metrics_polling_interval,
@@ -511,8 +511,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsMariaDb(
             metrics_polling_interval=metrics_polling_interval,
@@ -533,12 +533,12 @@ class CloudAzureIntegrations(
         resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param enabled: A flag that specifies if the integration is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#enabled CloudAzureIntegrations#enabled}
-        :param exclude_tags: Specify resource tags in 'key:value' form to be excluded from monitoring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#exclude_tags CloudAzureIntegrations#exclude_tags}
-        :param include_tags: Specify resource tags in 'key:value' form to be monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#include_tags CloudAzureIntegrations#include_tags}
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
-        :param resource_types: Specify each Azure resource type that needs to be monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_types CloudAzureIntegrations#resource_types}
+        :param enabled: A flag that specifies if the integration is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#enabled CloudAzureIntegrations#enabled}
+        :param exclude_tags: Specify resource tags in 'key:value' form to be excluded from monitoring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#exclude_tags CloudAzureIntegrations#exclude_tags}
+        :param include_tags: Specify resource tags in 'key:value' form to be monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#include_tags CloudAzureIntegrations#include_tags}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param resource_types: Specify each Azure resource type that needs to be monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_types CloudAzureIntegrations#resource_types}
         '''
         value = CloudAzureIntegrationsMonitor(
             enabled=enabled,
@@ -559,8 +559,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsMysql(
             metrics_polling_interval=metrics_polling_interval,
@@ -577,8 +577,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsMysqlFlexible(
             metrics_polling_interval=metrics_polling_interval,
@@ -595,8 +595,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsPostgresql(
             metrics_polling_interval=metrics_polling_interval,
@@ -613,8 +613,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsPostgresqlFlexible(
             metrics_polling_interval=metrics_polling_interval,
@@ -631,8 +631,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsPowerBiDedicated(
             metrics_polling_interval=metrics_polling_interval,
@@ -649,8 +649,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsRedisCache(
             metrics_polling_interval=metrics_polling_interval,
@@ -667,8 +667,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsServiceBus(
             metrics_polling_interval=metrics_polling_interval,
@@ -685,8 +685,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsSql(
             metrics_polling_interval=metrics_polling_interval,
@@ -703,8 +703,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsSqlManaged(
             metrics_polling_interval=metrics_polling_interval,
@@ -721,8 +721,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsStorage(
             metrics_polling_interval=metrics_polling_interval,
@@ -739,8 +739,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsVirtualMachine(
             metrics_polling_interval=metrics_polling_interval,
@@ -757,8 +757,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsVirtualNetworks(
             metrics_polling_interval=metrics_polling_interval,
@@ -775,8 +775,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsVms(
             metrics_polling_interval=metrics_polling_interval,
@@ -793,8 +793,8 @@ class CloudAzureIntegrations(
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         value = CloudAzureIntegrationsVpnGateway(
             metrics_polling_interval=metrics_polling_interval,
@@ -1370,8 +1370,8 @@ class CloudAzureIntegrationsApiManagement:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99666a8e297dc41bb6603a2f5b5fe5400a30771fc2235188022acb6da849160f)
@@ -1387,7 +1387,7 @@ class CloudAzureIntegrationsApiManagement:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1396,7 +1396,7 @@ class CloudAzureIntegrationsApiManagement:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1507,8 +1507,8 @@ class CloudAzureIntegrationsAppGateway:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58752629d821f42bd699e3c4febf7814452e151e424c772413fc250db6c9e370)
@@ -1524,7 +1524,7 @@ class CloudAzureIntegrationsAppGateway:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1533,7 +1533,7 @@ class CloudAzureIntegrationsAppGateway:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1644,8 +1644,8 @@ class CloudAzureIntegrationsAppService:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__322510f410884ff89e9453cc12c053370754a94bc464aafe26da8cc05bd879f9)
@@ -1661,7 +1661,7 @@ class CloudAzureIntegrationsAppService:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1670,7 +1670,7 @@ class CloudAzureIntegrationsAppService:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1868,41 +1868,41 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param linked_account_id: The ID of the linked Azure account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#linked_account_id CloudAzureIntegrations#linked_account_id}
-        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#account_id CloudAzureIntegrations#account_id}
-        :param api_management: api_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#api_management CloudAzureIntegrations#api_management}
-        :param app_gateway: app_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#app_gateway CloudAzureIntegrations#app_gateway}
-        :param app_service: app_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#app_service CloudAzureIntegrations#app_service}
-        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#containers CloudAzureIntegrations#containers}
-        :param cosmos_db: cosmos_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#cosmos_db CloudAzureIntegrations#cosmos_db}
-        :param cost_management: cost_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#cost_management CloudAzureIntegrations#cost_management}
-        :param data_factory: data_factory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#data_factory CloudAzureIntegrations#data_factory}
-        :param event_hub: event_hub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#event_hub CloudAzureIntegrations#event_hub}
-        :param express_route: express_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#express_route CloudAzureIntegrations#express_route}
-        :param firewalls: firewalls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#firewalls CloudAzureIntegrations#firewalls}
-        :param front_door: front_door block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#front_door CloudAzureIntegrations#front_door}
-        :param functions: functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#functions CloudAzureIntegrations#functions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#id CloudAzureIntegrations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param key_vault: key_vault block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#key_vault CloudAzureIntegrations#key_vault}
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#load_balancer CloudAzureIntegrations#load_balancer}
-        :param logic_apps: logic_apps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#logic_apps CloudAzureIntegrations#logic_apps}
-        :param machine_learning: machine_learning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#machine_learning CloudAzureIntegrations#machine_learning}
-        :param maria_db: maria_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#maria_db CloudAzureIntegrations#maria_db}
-        :param monitor: monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#monitor CloudAzureIntegrations#monitor}
-        :param mysql: mysql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#mysql CloudAzureIntegrations#mysql}
-        :param mysql_flexible: mysql_flexible block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#mysql_flexible CloudAzureIntegrations#mysql_flexible}
-        :param postgresql: postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#postgresql CloudAzureIntegrations#postgresql}
-        :param postgresql_flexible: postgresql_flexible block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#postgresql_flexible CloudAzureIntegrations#postgresql_flexible}
-        :param power_bi_dedicated: power_bi_dedicated block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#power_bi_dedicated CloudAzureIntegrations#power_bi_dedicated}
-        :param redis_cache: redis_cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#redis_cache CloudAzureIntegrations#redis_cache}
-        :param service_bus: service_bus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#service_bus CloudAzureIntegrations#service_bus}
-        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#sql CloudAzureIntegrations#sql}
-        :param sql_managed: sql_managed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#sql_managed CloudAzureIntegrations#sql_managed}
-        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#storage CloudAzureIntegrations#storage}
-        :param virtual_machine: virtual_machine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#virtual_machine CloudAzureIntegrations#virtual_machine}
-        :param virtual_networks: virtual_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#virtual_networks CloudAzureIntegrations#virtual_networks}
-        :param vms: vms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#vms CloudAzureIntegrations#vms}
-        :param vpn_gateway: vpn_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#vpn_gateway CloudAzureIntegrations#vpn_gateway}
+        :param linked_account_id: The ID of the linked Azure account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#linked_account_id CloudAzureIntegrations#linked_account_id}
+        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#account_id CloudAzureIntegrations#account_id}
+        :param api_management: api_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#api_management CloudAzureIntegrations#api_management}
+        :param app_gateway: app_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#app_gateway CloudAzureIntegrations#app_gateway}
+        :param app_service: app_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#app_service CloudAzureIntegrations#app_service}
+        :param containers: containers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#containers CloudAzureIntegrations#containers}
+        :param cosmos_db: cosmos_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#cosmos_db CloudAzureIntegrations#cosmos_db}
+        :param cost_management: cost_management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#cost_management CloudAzureIntegrations#cost_management}
+        :param data_factory: data_factory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#data_factory CloudAzureIntegrations#data_factory}
+        :param event_hub: event_hub block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#event_hub CloudAzureIntegrations#event_hub}
+        :param express_route: express_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#express_route CloudAzureIntegrations#express_route}
+        :param firewalls: firewalls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#firewalls CloudAzureIntegrations#firewalls}
+        :param front_door: front_door block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#front_door CloudAzureIntegrations#front_door}
+        :param functions: functions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#functions CloudAzureIntegrations#functions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#id CloudAzureIntegrations#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param key_vault: key_vault block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#key_vault CloudAzureIntegrations#key_vault}
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#load_balancer CloudAzureIntegrations#load_balancer}
+        :param logic_apps: logic_apps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#logic_apps CloudAzureIntegrations#logic_apps}
+        :param machine_learning: machine_learning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#machine_learning CloudAzureIntegrations#machine_learning}
+        :param maria_db: maria_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#maria_db CloudAzureIntegrations#maria_db}
+        :param monitor: monitor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#monitor CloudAzureIntegrations#monitor}
+        :param mysql: mysql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#mysql CloudAzureIntegrations#mysql}
+        :param mysql_flexible: mysql_flexible block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#mysql_flexible CloudAzureIntegrations#mysql_flexible}
+        :param postgresql: postgresql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#postgresql CloudAzureIntegrations#postgresql}
+        :param postgresql_flexible: postgresql_flexible block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#postgresql_flexible CloudAzureIntegrations#postgresql_flexible}
+        :param power_bi_dedicated: power_bi_dedicated block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#power_bi_dedicated CloudAzureIntegrations#power_bi_dedicated}
+        :param redis_cache: redis_cache block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#redis_cache CloudAzureIntegrations#redis_cache}
+        :param service_bus: service_bus block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#service_bus CloudAzureIntegrations#service_bus}
+        :param sql: sql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#sql CloudAzureIntegrations#sql}
+        :param sql_managed: sql_managed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#sql_managed CloudAzureIntegrations#sql_managed}
+        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#storage CloudAzureIntegrations#storage}
+        :param virtual_machine: virtual_machine block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#virtual_machine CloudAzureIntegrations#virtual_machine}
+        :param virtual_networks: virtual_networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#virtual_networks CloudAzureIntegrations#virtual_networks}
+        :param vms: vms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#vms CloudAzureIntegrations#vms}
+        :param vpn_gateway: vpn_gateway block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#vpn_gateway CloudAzureIntegrations#vpn_gateway}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2168,7 +2168,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def linked_account_id(self) -> jsii.Number:
         '''The ID of the linked Azure account in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#linked_account_id CloudAzureIntegrations#linked_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#linked_account_id CloudAzureIntegrations#linked_account_id}
         '''
         result = self._values.get("linked_account_id")
         assert result is not None, "Required property 'linked_account_id' is missing"
@@ -2178,7 +2178,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The ID of the account in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#account_id CloudAzureIntegrations#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#account_id CloudAzureIntegrations#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2187,7 +2187,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api_management(self) -> typing.Optional[CloudAzureIntegrationsApiManagement]:
         '''api_management block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#api_management CloudAzureIntegrations#api_management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#api_management CloudAzureIntegrations#api_management}
         '''
         result = self._values.get("api_management")
         return typing.cast(typing.Optional[CloudAzureIntegrationsApiManagement], result)
@@ -2196,7 +2196,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_gateway(self) -> typing.Optional[CloudAzureIntegrationsAppGateway]:
         '''app_gateway block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#app_gateway CloudAzureIntegrations#app_gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#app_gateway CloudAzureIntegrations#app_gateway}
         '''
         result = self._values.get("app_gateway")
         return typing.cast(typing.Optional[CloudAzureIntegrationsAppGateway], result)
@@ -2205,7 +2205,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def app_service(self) -> typing.Optional[CloudAzureIntegrationsAppService]:
         '''app_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#app_service CloudAzureIntegrations#app_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#app_service CloudAzureIntegrations#app_service}
         '''
         result = self._values.get("app_service")
         return typing.cast(typing.Optional[CloudAzureIntegrationsAppService], result)
@@ -2214,7 +2214,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def containers(self) -> typing.Optional["CloudAzureIntegrationsContainers"]:
         '''containers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#containers CloudAzureIntegrations#containers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#containers CloudAzureIntegrations#containers}
         '''
         result = self._values.get("containers")
         return typing.cast(typing.Optional["CloudAzureIntegrationsContainers"], result)
@@ -2223,7 +2223,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cosmos_db(self) -> typing.Optional["CloudAzureIntegrationsCosmosDb"]:
         '''cosmos_db block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#cosmos_db CloudAzureIntegrations#cosmos_db}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#cosmos_db CloudAzureIntegrations#cosmos_db}
         '''
         result = self._values.get("cosmos_db")
         return typing.cast(typing.Optional["CloudAzureIntegrationsCosmosDb"], result)
@@ -2234,7 +2234,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudAzureIntegrationsCostManagement"]:
         '''cost_management block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#cost_management CloudAzureIntegrations#cost_management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#cost_management CloudAzureIntegrations#cost_management}
         '''
         result = self._values.get("cost_management")
         return typing.cast(typing.Optional["CloudAzureIntegrationsCostManagement"], result)
@@ -2243,7 +2243,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_factory(self) -> typing.Optional["CloudAzureIntegrationsDataFactory"]:
         '''data_factory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#data_factory CloudAzureIntegrations#data_factory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#data_factory CloudAzureIntegrations#data_factory}
         '''
         result = self._values.get("data_factory")
         return typing.cast(typing.Optional["CloudAzureIntegrationsDataFactory"], result)
@@ -2252,7 +2252,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def event_hub(self) -> typing.Optional["CloudAzureIntegrationsEventHub"]:
         '''event_hub block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#event_hub CloudAzureIntegrations#event_hub}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#event_hub CloudAzureIntegrations#event_hub}
         '''
         result = self._values.get("event_hub")
         return typing.cast(typing.Optional["CloudAzureIntegrationsEventHub"], result)
@@ -2261,7 +2261,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def express_route(self) -> typing.Optional["CloudAzureIntegrationsExpressRoute"]:
         '''express_route block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#express_route CloudAzureIntegrations#express_route}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#express_route CloudAzureIntegrations#express_route}
         '''
         result = self._values.get("express_route")
         return typing.cast(typing.Optional["CloudAzureIntegrationsExpressRoute"], result)
@@ -2270,7 +2270,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def firewalls(self) -> typing.Optional["CloudAzureIntegrationsFirewalls"]:
         '''firewalls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#firewalls CloudAzureIntegrations#firewalls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#firewalls CloudAzureIntegrations#firewalls}
         '''
         result = self._values.get("firewalls")
         return typing.cast(typing.Optional["CloudAzureIntegrationsFirewalls"], result)
@@ -2279,7 +2279,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def front_door(self) -> typing.Optional["CloudAzureIntegrationsFrontDoor"]:
         '''front_door block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#front_door CloudAzureIntegrations#front_door}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#front_door CloudAzureIntegrations#front_door}
         '''
         result = self._values.get("front_door")
         return typing.cast(typing.Optional["CloudAzureIntegrationsFrontDoor"], result)
@@ -2288,14 +2288,14 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def functions(self) -> typing.Optional["CloudAzureIntegrationsFunctions"]:
         '''functions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#functions CloudAzureIntegrations#functions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#functions CloudAzureIntegrations#functions}
         '''
         result = self._values.get("functions")
         return typing.cast(typing.Optional["CloudAzureIntegrationsFunctions"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#id CloudAzureIntegrations#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#id CloudAzureIntegrations#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2307,7 +2307,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key_vault(self) -> typing.Optional["CloudAzureIntegrationsKeyVault"]:
         '''key_vault block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#key_vault CloudAzureIntegrations#key_vault}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#key_vault CloudAzureIntegrations#key_vault}
         '''
         result = self._values.get("key_vault")
         return typing.cast(typing.Optional["CloudAzureIntegrationsKeyVault"], result)
@@ -2316,7 +2316,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def load_balancer(self) -> typing.Optional["CloudAzureIntegrationsLoadBalancer"]:
         '''load_balancer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#load_balancer CloudAzureIntegrations#load_balancer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#load_balancer CloudAzureIntegrations#load_balancer}
         '''
         result = self._values.get("load_balancer")
         return typing.cast(typing.Optional["CloudAzureIntegrationsLoadBalancer"], result)
@@ -2325,7 +2325,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logic_apps(self) -> typing.Optional["CloudAzureIntegrationsLogicApps"]:
         '''logic_apps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#logic_apps CloudAzureIntegrations#logic_apps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#logic_apps CloudAzureIntegrations#logic_apps}
         '''
         result = self._values.get("logic_apps")
         return typing.cast(typing.Optional["CloudAzureIntegrationsLogicApps"], result)
@@ -2336,7 +2336,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudAzureIntegrationsMachineLearning"]:
         '''machine_learning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#machine_learning CloudAzureIntegrations#machine_learning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#machine_learning CloudAzureIntegrations#machine_learning}
         '''
         result = self._values.get("machine_learning")
         return typing.cast(typing.Optional["CloudAzureIntegrationsMachineLearning"], result)
@@ -2345,7 +2345,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def maria_db(self) -> typing.Optional["CloudAzureIntegrationsMariaDb"]:
         '''maria_db block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#maria_db CloudAzureIntegrations#maria_db}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#maria_db CloudAzureIntegrations#maria_db}
         '''
         result = self._values.get("maria_db")
         return typing.cast(typing.Optional["CloudAzureIntegrationsMariaDb"], result)
@@ -2354,7 +2354,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitor(self) -> typing.Optional["CloudAzureIntegrationsMonitor"]:
         '''monitor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#monitor CloudAzureIntegrations#monitor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#monitor CloudAzureIntegrations#monitor}
         '''
         result = self._values.get("monitor")
         return typing.cast(typing.Optional["CloudAzureIntegrationsMonitor"], result)
@@ -2363,7 +2363,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mysql(self) -> typing.Optional["CloudAzureIntegrationsMysql"]:
         '''mysql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#mysql CloudAzureIntegrations#mysql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#mysql CloudAzureIntegrations#mysql}
         '''
         result = self._values.get("mysql")
         return typing.cast(typing.Optional["CloudAzureIntegrationsMysql"], result)
@@ -2372,7 +2372,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def mysql_flexible(self) -> typing.Optional["CloudAzureIntegrationsMysqlFlexible"]:
         '''mysql_flexible block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#mysql_flexible CloudAzureIntegrations#mysql_flexible}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#mysql_flexible CloudAzureIntegrations#mysql_flexible}
         '''
         result = self._values.get("mysql_flexible")
         return typing.cast(typing.Optional["CloudAzureIntegrationsMysqlFlexible"], result)
@@ -2381,7 +2381,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def postgresql(self) -> typing.Optional["CloudAzureIntegrationsPostgresql"]:
         '''postgresql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#postgresql CloudAzureIntegrations#postgresql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#postgresql CloudAzureIntegrations#postgresql}
         '''
         result = self._values.get("postgresql")
         return typing.cast(typing.Optional["CloudAzureIntegrationsPostgresql"], result)
@@ -2392,7 +2392,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudAzureIntegrationsPostgresqlFlexible"]:
         '''postgresql_flexible block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#postgresql_flexible CloudAzureIntegrations#postgresql_flexible}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#postgresql_flexible CloudAzureIntegrations#postgresql_flexible}
         '''
         result = self._values.get("postgresql_flexible")
         return typing.cast(typing.Optional["CloudAzureIntegrationsPostgresqlFlexible"], result)
@@ -2403,7 +2403,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudAzureIntegrationsPowerBiDedicated"]:
         '''power_bi_dedicated block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#power_bi_dedicated CloudAzureIntegrations#power_bi_dedicated}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#power_bi_dedicated CloudAzureIntegrations#power_bi_dedicated}
         '''
         result = self._values.get("power_bi_dedicated")
         return typing.cast(typing.Optional["CloudAzureIntegrationsPowerBiDedicated"], result)
@@ -2412,7 +2412,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def redis_cache(self) -> typing.Optional["CloudAzureIntegrationsRedisCache"]:
         '''redis_cache block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#redis_cache CloudAzureIntegrations#redis_cache}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#redis_cache CloudAzureIntegrations#redis_cache}
         '''
         result = self._values.get("redis_cache")
         return typing.cast(typing.Optional["CloudAzureIntegrationsRedisCache"], result)
@@ -2421,7 +2421,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_bus(self) -> typing.Optional["CloudAzureIntegrationsServiceBus"]:
         '''service_bus block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#service_bus CloudAzureIntegrations#service_bus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#service_bus CloudAzureIntegrations#service_bus}
         '''
         result = self._values.get("service_bus")
         return typing.cast(typing.Optional["CloudAzureIntegrationsServiceBus"], result)
@@ -2430,7 +2430,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sql(self) -> typing.Optional["CloudAzureIntegrationsSql"]:
         '''sql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#sql CloudAzureIntegrations#sql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#sql CloudAzureIntegrations#sql}
         '''
         result = self._values.get("sql")
         return typing.cast(typing.Optional["CloudAzureIntegrationsSql"], result)
@@ -2439,7 +2439,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sql_managed(self) -> typing.Optional["CloudAzureIntegrationsSqlManaged"]:
         '''sql_managed block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#sql_managed CloudAzureIntegrations#sql_managed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#sql_managed CloudAzureIntegrations#sql_managed}
         '''
         result = self._values.get("sql_managed")
         return typing.cast(typing.Optional["CloudAzureIntegrationsSqlManaged"], result)
@@ -2448,7 +2448,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage(self) -> typing.Optional["CloudAzureIntegrationsStorage"]:
         '''storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#storage CloudAzureIntegrations#storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#storage CloudAzureIntegrations#storage}
         '''
         result = self._values.get("storage")
         return typing.cast(typing.Optional["CloudAzureIntegrationsStorage"], result)
@@ -2459,7 +2459,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudAzureIntegrationsVirtualMachine"]:
         '''virtual_machine block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#virtual_machine CloudAzureIntegrations#virtual_machine}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#virtual_machine CloudAzureIntegrations#virtual_machine}
         '''
         result = self._values.get("virtual_machine")
         return typing.cast(typing.Optional["CloudAzureIntegrationsVirtualMachine"], result)
@@ -2470,7 +2470,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["CloudAzureIntegrationsVirtualNetworks"]:
         '''virtual_networks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#virtual_networks CloudAzureIntegrations#virtual_networks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#virtual_networks CloudAzureIntegrations#virtual_networks}
         '''
         result = self._values.get("virtual_networks")
         return typing.cast(typing.Optional["CloudAzureIntegrationsVirtualNetworks"], result)
@@ -2479,7 +2479,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vms(self) -> typing.Optional["CloudAzureIntegrationsVms"]:
         '''vms block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#vms CloudAzureIntegrations#vms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#vms CloudAzureIntegrations#vms}
         '''
         result = self._values.get("vms")
         return typing.cast(typing.Optional["CloudAzureIntegrationsVms"], result)
@@ -2488,7 +2488,7 @@ class CloudAzureIntegrationsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpn_gateway(self) -> typing.Optional["CloudAzureIntegrationsVpnGateway"]:
         '''vpn_gateway block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#vpn_gateway CloudAzureIntegrations#vpn_gateway}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#vpn_gateway CloudAzureIntegrations#vpn_gateway}
         '''
         result = self._values.get("vpn_gateway")
         return typing.cast(typing.Optional["CloudAzureIntegrationsVpnGateway"], result)
@@ -2521,8 +2521,8 @@ class CloudAzureIntegrationsContainers:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__beea570aac5416ef4b0588ba1094fa843ddafa29d871e7ae2d8760d41d76e770)
@@ -2538,7 +2538,7 @@ class CloudAzureIntegrationsContainers:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2547,7 +2547,7 @@ class CloudAzureIntegrationsContainers:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2658,8 +2658,8 @@ class CloudAzureIntegrationsCosmosDb:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__017b6c6e9145dcd6313121c29f6f073b91d5cc44a2dcb92668b2a77466016b41)
@@ -2675,7 +2675,7 @@ class CloudAzureIntegrationsCosmosDb:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2684,7 +2684,7 @@ class CloudAzureIntegrationsCosmosDb:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2795,8 +2795,8 @@ class CloudAzureIntegrationsCostManagement:
         tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param tag_keys: Specify if additional cost data per tag should be collected. This field is case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#tag_keys CloudAzureIntegrations#tag_keys}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param tag_keys: Specify if additional cost data per tag should be collected. This field is case sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#tag_keys CloudAzureIntegrations#tag_keys}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94973ebbd074b10355ecb4e5daead82ea85d379466493b44371a5e23b7bd87c9)
@@ -2812,7 +2812,7 @@ class CloudAzureIntegrationsCostManagement:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2821,7 +2821,7 @@ class CloudAzureIntegrationsCostManagement:
     def tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify if additional cost data per tag should be collected. This field is case sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#tag_keys CloudAzureIntegrations#tag_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#tag_keys CloudAzureIntegrations#tag_keys}
         '''
         result = self._values.get("tag_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2932,8 +2932,8 @@ class CloudAzureIntegrationsDataFactory:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d69242da02a0948f8b2fabedeaac1e11a466b6181741f51339116d3d7271a6c)
@@ -2949,7 +2949,7 @@ class CloudAzureIntegrationsDataFactory:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2958,7 +2958,7 @@ class CloudAzureIntegrationsDataFactory:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3069,8 +3069,8 @@ class CloudAzureIntegrationsEventHub:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8920cb9e9dbab5bf850d23ef0f7d517f9c9ef0b84de326efffa398e2cf95c399)
@@ -3086,7 +3086,7 @@ class CloudAzureIntegrationsEventHub:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3095,7 +3095,7 @@ class CloudAzureIntegrationsEventHub:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3206,8 +3206,8 @@ class CloudAzureIntegrationsExpressRoute:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d219373af51e4448040c8d3e22e35524427f8a8f4c87eb0c7eb6a7f8fc2186ab)
@@ -3223,7 +3223,7 @@ class CloudAzureIntegrationsExpressRoute:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3232,7 +3232,7 @@ class CloudAzureIntegrationsExpressRoute:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3343,8 +3343,8 @@ class CloudAzureIntegrationsFirewalls:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5e569b05e1e4b4e4639632bf69122e4f9e04fe148faef4f016f8b8dcc7266df)
@@ -3360,7 +3360,7 @@ class CloudAzureIntegrationsFirewalls:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3369,7 +3369,7 @@ class CloudAzureIntegrationsFirewalls:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3480,8 +3480,8 @@ class CloudAzureIntegrationsFrontDoor:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a10268924df74aa499e93912ceec70b0d72f95b80f05daa273f01d8c62a3dd24)
@@ -3497,7 +3497,7 @@ class CloudAzureIntegrationsFrontDoor:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3506,7 +3506,7 @@ class CloudAzureIntegrationsFrontDoor:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3617,8 +3617,8 @@ class CloudAzureIntegrationsFunctions:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__abf317ce796c198e2498d1ba072491cad3907ccdfd55ce44d26722aab5d5c2c2)
@@ -3634,7 +3634,7 @@ class CloudAzureIntegrationsFunctions:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3643,7 +3643,7 @@ class CloudAzureIntegrationsFunctions:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3754,8 +3754,8 @@ class CloudAzureIntegrationsKeyVault:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb08c3021ecbb836b1f0c55010013733664ac8a3c4921bb69eac078834a2f691)
@@ -3771,7 +3771,7 @@ class CloudAzureIntegrationsKeyVault:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3780,7 +3780,7 @@ class CloudAzureIntegrationsKeyVault:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3891,8 +3891,8 @@ class CloudAzureIntegrationsLoadBalancer:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03af203168a83126c7353b5fbb49784c2c678dc40bf95ebd7008899e9fa9af6b)
@@ -3908,7 +3908,7 @@ class CloudAzureIntegrationsLoadBalancer:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3917,7 +3917,7 @@ class CloudAzureIntegrationsLoadBalancer:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4028,8 +4028,8 @@ class CloudAzureIntegrationsLogicApps:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20bf425ee69410cecdc7dd61386a8cd21145c911ee4ed965ea1f914e4d02a682)
@@ -4045,7 +4045,7 @@ class CloudAzureIntegrationsLogicApps:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4054,7 +4054,7 @@ class CloudAzureIntegrationsLogicApps:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4165,8 +4165,8 @@ class CloudAzureIntegrationsMachineLearning:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__053136e2f18b07dcbf7a41de79e92d7dd95d6cb309e40dad6f7fc46562da195c)
@@ -4182,7 +4182,7 @@ class CloudAzureIntegrationsMachineLearning:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4191,7 +4191,7 @@ class CloudAzureIntegrationsMachineLearning:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4302,8 +4302,8 @@ class CloudAzureIntegrationsMariaDb:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2e263082b32e1960e57849acc57c6512bd3f644e4c410978ea7889e2a27d04f)
@@ -4319,7 +4319,7 @@ class CloudAzureIntegrationsMariaDb:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4328,7 +4328,7 @@ class CloudAzureIntegrationsMariaDb:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4447,12 +4447,12 @@ class CloudAzureIntegrationsMonitor:
         resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param enabled: A flag that specifies if the integration is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#enabled CloudAzureIntegrations#enabled}
-        :param exclude_tags: Specify resource tags in 'key:value' form to be excluded from monitoring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#exclude_tags CloudAzureIntegrations#exclude_tags}
-        :param include_tags: Specify resource tags in 'key:value' form to be monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#include_tags CloudAzureIntegrations#include_tags}
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
-        :param resource_types: Specify each Azure resource type that needs to be monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_types CloudAzureIntegrations#resource_types}
+        :param enabled: A flag that specifies if the integration is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#enabled CloudAzureIntegrations#enabled}
+        :param exclude_tags: Specify resource tags in 'key:value' form to be excluded from monitoring. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#exclude_tags CloudAzureIntegrations#exclude_tags}
+        :param include_tags: Specify resource tags in 'key:value' form to be monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#include_tags CloudAzureIntegrations#include_tags}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param resource_types: Specify each Azure resource type that needs to be monitored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_types CloudAzureIntegrations#resource_types}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1ff5b0adbe7eb73f86d1664e0c5fcb705e72d6b7953e6731eb72dbdd9b35396)
@@ -4482,7 +4482,7 @@ class CloudAzureIntegrationsMonitor:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''A flag that specifies if the integration is active.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#enabled CloudAzureIntegrations#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#enabled CloudAzureIntegrations#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4491,7 +4491,7 @@ class CloudAzureIntegrationsMonitor:
     def exclude_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify resource tags in 'key:value' form to be excluded from monitoring.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#exclude_tags CloudAzureIntegrations#exclude_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#exclude_tags CloudAzureIntegrations#exclude_tags}
         '''
         result = self._values.get("exclude_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4500,7 +4500,7 @@ class CloudAzureIntegrationsMonitor:
     def include_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify resource tags in 'key:value' form to be monitored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#include_tags CloudAzureIntegrations#include_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#include_tags CloudAzureIntegrations#include_tags}
         '''
         result = self._values.get("include_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4509,7 +4509,7 @@ class CloudAzureIntegrationsMonitor:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4518,7 +4518,7 @@ class CloudAzureIntegrationsMonitor:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4527,7 +4527,7 @@ class CloudAzureIntegrationsMonitor:
     def resource_types(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Azure resource type that needs to be monitored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_types CloudAzureIntegrations#resource_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_types CloudAzureIntegrations#resource_types}
         '''
         result = self._values.get("resource_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4727,8 +4727,8 @@ class CloudAzureIntegrationsMysql:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e99d3dfe6e539fda32eaa9d7f9e2e3c3d68251021122fca742fde8c87ee92549)
@@ -4744,7 +4744,7 @@ class CloudAzureIntegrationsMysql:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4753,7 +4753,7 @@ class CloudAzureIntegrationsMysql:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4786,8 +4786,8 @@ class CloudAzureIntegrationsMysqlFlexible:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f41dba33ee44e2df1bd672294c185c74fff558ffc1aef921fb6f0b000e699d81)
@@ -4803,7 +4803,7 @@ class CloudAzureIntegrationsMysqlFlexible:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4812,7 +4812,7 @@ class CloudAzureIntegrationsMysqlFlexible:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5001,8 +5001,8 @@ class CloudAzureIntegrationsPostgresql:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f57cea74c523a00c6b8913d093e5a7ef64a52aa8217c1530345109e4751a589a)
@@ -5018,7 +5018,7 @@ class CloudAzureIntegrationsPostgresql:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5027,7 +5027,7 @@ class CloudAzureIntegrationsPostgresql:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5060,8 +5060,8 @@ class CloudAzureIntegrationsPostgresqlFlexible:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34972eaf6da565601b3b9b3b859317cf9bdc294b5aec795198654d4e0d5269d4)
@@ -5077,7 +5077,7 @@ class CloudAzureIntegrationsPostgresqlFlexible:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5086,7 +5086,7 @@ class CloudAzureIntegrationsPostgresqlFlexible:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5277,8 +5277,8 @@ class CloudAzureIntegrationsPowerBiDedicated:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__866d90296f33d109ca7f8e7317077213be942271e617474a71e932d992e2347e)
@@ -5294,7 +5294,7 @@ class CloudAzureIntegrationsPowerBiDedicated:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5303,7 +5303,7 @@ class CloudAzureIntegrationsPowerBiDedicated:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5414,8 +5414,8 @@ class CloudAzureIntegrationsRedisCache:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06bc28abd6beafd41916c5aa801a03896b60d4c1ded5228b184fe8b55a145230)
@@ -5431,7 +5431,7 @@ class CloudAzureIntegrationsRedisCache:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5440,7 +5440,7 @@ class CloudAzureIntegrationsRedisCache:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5551,8 +5551,8 @@ class CloudAzureIntegrationsServiceBus:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b35eac16d1716f14a1e80c5d7272ca5054e2acec8e7f31c3270dc35530e64f2d)
@@ -5568,7 +5568,7 @@ class CloudAzureIntegrationsServiceBus:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5577,7 +5577,7 @@ class CloudAzureIntegrationsServiceBus:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5688,8 +5688,8 @@ class CloudAzureIntegrationsSql:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__171fd9142bc1c5db6e9b32a88936934d5a33127e5e93b09b54d602c27f9c423f)
@@ -5705,7 +5705,7 @@ class CloudAzureIntegrationsSql:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5714,7 +5714,7 @@ class CloudAzureIntegrationsSql:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5747,8 +5747,8 @@ class CloudAzureIntegrationsSqlManaged:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05402b7d3e0f00054fa4d33f659f6984929d8c6c9836446513d7d275ecce8b6f)
@@ -5764,7 +5764,7 @@ class CloudAzureIntegrationsSqlManaged:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5773,7 +5773,7 @@ class CloudAzureIntegrationsSqlManaged:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5959,8 +5959,8 @@ class CloudAzureIntegrationsStorage:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45839cf9409c6f6353b9db559836b04635b4782e8f0682880f5905f29afd4073)
@@ -5976,7 +5976,7 @@ class CloudAzureIntegrationsStorage:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5985,7 +5985,7 @@ class CloudAzureIntegrationsStorage:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6096,8 +6096,8 @@ class CloudAzureIntegrationsVirtualMachine:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d4cb54482b07fe3d354e5fbbbe5351751da9f4fed368a2b787b385d1999e154)
@@ -6113,7 +6113,7 @@ class CloudAzureIntegrationsVirtualMachine:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6122,7 +6122,7 @@ class CloudAzureIntegrationsVirtualMachine:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6233,8 +6233,8 @@ class CloudAzureIntegrationsVirtualNetworks:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24f4e5851f866620ad8e0ac15c36722771f224421a1f217c378f7aede9094f89)
@@ -6250,7 +6250,7 @@ class CloudAzureIntegrationsVirtualNetworks:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6259,7 +6259,7 @@ class CloudAzureIntegrationsVirtualNetworks:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6370,8 +6370,8 @@ class CloudAzureIntegrationsVms:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16b747a4efb4dcf27c935b1d2b25e2e8bdbf34f3a94de3c7644314010a75844a)
@@ -6387,7 +6387,7 @@ class CloudAzureIntegrationsVms:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6396,7 +6396,7 @@ class CloudAzureIntegrationsVms:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6504,8 +6504,8 @@ class CloudAzureIntegrationsVpnGateway:
         resource_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
-        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        :param metrics_polling_interval: The data polling interval in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        :param resource_groups: Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7dcd8ea1180ea35b1d1d4f69ddcd068275b9a32cee5b0ea6bc07c76138cd1e48)
@@ -6521,7 +6521,7 @@ class CloudAzureIntegrationsVpnGateway:
     def metrics_polling_interval(self) -> typing.Optional[jsii.Number]:
         '''The data polling interval in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#metrics_polling_interval CloudAzureIntegrations#metrics_polling_interval}
         '''
         result = self._values.get("metrics_polling_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6530,7 +6530,7 @@ class CloudAzureIntegrationsVpnGateway:
     def resource_groups(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specify each Resource group associated with the resources that you want to monitor. Filter values are case-sensitive.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/cloud_azure_integrations#resource_groups CloudAzureIntegrations#resource_groups}
         '''
         result = self._values.get("resource_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

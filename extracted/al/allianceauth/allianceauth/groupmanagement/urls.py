@@ -10,6 +10,11 @@ urlpatterns = [
     path(
         "group/request/leave/<int:group_id>/", views.group_request_leave, name="request_leave"
     ),
+    path(
+        "group/request/retract/<int:group_id>/",
+        views.group_request_retract,
+        name="request_retract"
+    ),
     # group management
     path("groupmanagement/requests/", views.group_management, name="management"),
     path("groupmanagement/membership/", views.group_membership, name="membership"),

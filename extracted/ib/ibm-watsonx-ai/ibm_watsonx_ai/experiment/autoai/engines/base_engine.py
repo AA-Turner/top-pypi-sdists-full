@@ -4,11 +4,12 @@
 #  -----------------------------------------------------------------------------------------
 
 from abc import ABC, abstractmethod
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from pandas import DataFrame
     from sklearn.pipeline import Pipeline
+
     from ibm_watsonx_ai.helpers.connections import DataConnection
 
 __all__ = ["BaseEngine"]

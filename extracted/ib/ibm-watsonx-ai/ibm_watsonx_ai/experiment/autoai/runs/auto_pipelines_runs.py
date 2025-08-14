@@ -8,25 +8,25 @@ __all__ = ["AutoPipelinesRuns"]
 
 from copy import deepcopy
 from datetime import datetime
-from typing import List, Dict, Union, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 from warnings import warn
 
 from pandas import DataFrame
 
-from ibm_watsonx_ai.experiment.autoai.engines import WMLEngine, ServiceEngine, RAGEngine
+from ibm_watsonx_ai.experiment.autoai.engines import RAGEngine, ServiceEngine, WMLEngine
 from ibm_watsonx_ai.experiment.autoai.optimizers import RemoteAutoPipelines
+from ibm_watsonx_ai.helpers import AssetLocation, DataConnection, S3Location
+from ibm_watsonx_ai.utils.autoai.enums import ForecastingPipelineTypes
 from ibm_watsonx_ai.utils.autoai.utils import (
-    NextRunDetailsGenerator,
     get_node_and_runtime_index,
 )
-from ibm_watsonx_ai.helpers import DataConnection, S3Location, AssetLocation
-from ibm_watsonx_ai.utils.autoai.enums import ForecastingPipelineTypes
-from .base_auto_pipelines_runs import BaseAutoPipelinesRuns
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     UnsupportedOperation,
     WMLClientError,
 )
+
+from .base_auto_pipelines_runs import BaseAutoPipelinesRuns
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai.experiment.autoai.optimizers import RAGOptimizer
@@ -130,7 +130,7 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
             if not (
                 "automl" in str(pipeline_details)
                 or "autoai-ts" in str(pipeline_details)
-            ) or not "hybrid" in str(pipeline_details):
+            ) or "hybrid" not in str(pipeline_details):
                 return None
 
             pipeline_name = pipeline_details["metadata"].get("name", "Unknown")
@@ -240,7 +240,6 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
             else self._engine._wml_client
         )
         if run_id is None:
-
             optimizer_id = client.training.get_details(
                 limit=1, training_type="pipeline", _internal=True
             ).get("resources")[0]["entity"]["pipeline"]["id"]
@@ -379,7 +378,7 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
             elif ts_parameters.get("pipeline_type") == "non_exogenous":
                 pipeline_types = ForecastingPipelineTypes.get_non_exogenous()
             elif ts_parameters.get("pipeline_type") == "all":
-                pipeline_types = [l for l in ForecastingPipelineTypes]
+                pipeline_types = [ptype for ptype in ForecastingPipelineTypes]
             else:
                 pipeline_types = None
 

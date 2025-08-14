@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
+
 from pandas import DataFrame
 
 from ibm_watsonx_ai.wml_resource import WMLResource

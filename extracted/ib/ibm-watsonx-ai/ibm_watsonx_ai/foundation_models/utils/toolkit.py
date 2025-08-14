@@ -8,9 +8,9 @@ from typing import Any
 
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    ResourceByNameNotFound,
     MissingToolRequiredProperties,
+    ResourceByNameNotFound,
+    WMLClientError,
 )
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -191,7 +191,6 @@ class Toolkit(WMLResource):
     """
 
     def __init__(self, api_client: APIClient, params: dict[str, dict] | None = None):
-
         self._client = api_client
         self.params = params
         self._tools: list[Tool] | None = None

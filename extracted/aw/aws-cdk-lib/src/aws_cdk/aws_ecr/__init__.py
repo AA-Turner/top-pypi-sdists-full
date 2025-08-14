@@ -2136,6 +2136,10 @@ class CfnRepository(
                 scan_on_push=False
             ),
             image_tag_mutability="imageTagMutability",
+            image_tag_mutability_exclusion_filters=[ecr.CfnRepository.ImageTagMutabilityExclusionFilterProperty(
+                image_tag_mutability_exclusion_filter_type="imageTagMutabilityExclusionFilterType",
+                image_tag_mutability_exclusion_filter_value="imageTagMutabilityExclusionFilterValue"
+            )],
             lifecycle_policy=ecr.CfnRepository.LifecyclePolicyProperty(
                 lifecycle_policy_text="lifecyclePolicyText",
                 registry_id="registryId"
@@ -2158,6 +2162,7 @@ class CfnRepository(
         encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.ImageScanningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
+        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepository.LifecyclePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         repository_name: typing.Optional[builtins.str] = None,
         repository_policy_text: typing.Any = None,
@@ -2170,6 +2175,7 @@ class CfnRepository(
         :param encryption_configuration: The encryption configuration for the repository. This determines how the contents of your repository are encrypted at rest.
         :param image_scanning_configuration: The image scanning configuration for the repository. This determines whether images are scanned for known vulnerabilities after being pushed to the repository.
         :param image_tag_mutability: The tag mutability setting for the repository. If this parameter is omitted, the default setting of ``MUTABLE`` will be used which will allow image tags to be overwritten. If ``IMMUTABLE`` is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        :param image_tag_mutability_exclusion_filters: The image tag mutability exclusion filters associated with the repository. These filters specify which image tags can override the repository's default image tag mutability setting.
         :param lifecycle_policy: Creates or updates a lifecycle policy. For information about lifecycle policy syntax, see `Lifecycle policy template <https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html>`_ .
         :param repository_name: The name to use for the repository. The repository name may be specified on its own (such as ``nginx-web-app`` ) or it can be prepended with a namespace to group the repository into a category (such as ``project-a/nginx-web-app`` ). If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the repository name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . The repository name must start with a letter and can only contain lowercase letters, numbers, hyphens, underscores, and forward slashes. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param repository_policy_text: The JSON repository policy text to apply to the repository. For more information, see `Amazon ECR repository policies <https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-policy-examples.html>`_ in the *Amazon Elastic Container Registry User Guide* .
@@ -2184,6 +2190,7 @@ class CfnRepository(
             encryption_configuration=encryption_configuration,
             image_scanning_configuration=image_scanning_configuration,
             image_tag_mutability=image_tag_mutability,
+            image_tag_mutability_exclusion_filters=image_tag_mutability_exclusion_filters,
             lifecycle_policy=lifecycle_policy,
             repository_name=repository_name,
             repository_policy_text=repository_policy_text,
@@ -2321,6 +2328,24 @@ class CfnRepository(
             type_hints = typing.get_type_hints(_typecheckingstub__6d75698f85ccefe489f53d4f155b619c9c3df1026fe201828f3f0ccc7b5fda28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "imageTagMutability", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="imageTagMutabilityExclusionFilters")
+    def image_tag_mutability_exclusion_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]]:
+        '''The image tag mutability exclusion filters associated with the repository.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]], jsii.get(self, "imageTagMutabilityExclusionFilters"))
+
+    @image_tag_mutability_exclusion_filters.setter
+    def image_tag_mutability_exclusion_filters(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepository.ImageTagMutabilityExclusionFilterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__28c5038f217a4c1109664243a2d67cd421822e67f8352aa51ee8780d8e6fbe3e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imageTagMutabilityExclusionFilters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="lifecyclePolicy")
@@ -2526,6 +2551,80 @@ class CfnRepository(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecr.CfnRepository.ImageTagMutabilityExclusionFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "image_tag_mutability_exclusion_filter_type": "imageTagMutabilityExclusionFilterType",
+            "image_tag_mutability_exclusion_filter_value": "imageTagMutabilityExclusionFilterValue",
+        },
+    )
+    class ImageTagMutabilityExclusionFilterProperty:
+        def __init__(
+            self,
+            *,
+            image_tag_mutability_exclusion_filter_type: builtins.str,
+            image_tag_mutability_exclusion_filter_value: builtins.str,
+        ) -> None:
+            '''Overrides the default image tag mutability setting of the repository for image tags that match the specified filters.
+
+            :param image_tag_mutability_exclusion_filter_type: Specifies the type of filter to use for excluding image tags from the repository's mutability setting.
+            :param image_tag_mutability_exclusion_filter_value: The value to use when filtering image tags.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-repository-imagetagmutabilityexclusionfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecr as ecr
+                
+                image_tag_mutability_exclusion_filter_property = ecr.CfnRepository.ImageTagMutabilityExclusionFilterProperty(
+                    image_tag_mutability_exclusion_filter_type="imageTagMutabilityExclusionFilterType",
+                    image_tag_mutability_exclusion_filter_value="imageTagMutabilityExclusionFilterValue"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ca135861d33d78962bcab351d8e2048fc1f831afc1ade25d2fcc2f2024c72abd)
+                check_type(argname="argument image_tag_mutability_exclusion_filter_type", value=image_tag_mutability_exclusion_filter_type, expected_type=type_hints["image_tag_mutability_exclusion_filter_type"])
+                check_type(argname="argument image_tag_mutability_exclusion_filter_value", value=image_tag_mutability_exclusion_filter_value, expected_type=type_hints["image_tag_mutability_exclusion_filter_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "image_tag_mutability_exclusion_filter_type": image_tag_mutability_exclusion_filter_type,
+                "image_tag_mutability_exclusion_filter_value": image_tag_mutability_exclusion_filter_value,
+            }
+
+        @builtins.property
+        def image_tag_mutability_exclusion_filter_type(self) -> builtins.str:
+            '''Specifies the type of filter to use for excluding image tags from the repository's mutability setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-repository-imagetagmutabilityexclusionfilter.html#cfn-ecr-repository-imagetagmutabilityexclusionfilter-imagetagmutabilityexclusionfiltertype
+            '''
+            result = self._values.get("image_tag_mutability_exclusion_filter_type")
+            assert result is not None, "Required property 'image_tag_mutability_exclusion_filter_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def image_tag_mutability_exclusion_filter_value(self) -> builtins.str:
+            '''The value to use when filtering image tags.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-repository-imagetagmutabilityexclusionfilter.html#cfn-ecr-repository-imagetagmutabilityexclusionfilter-imagetagmutabilityexclusionfiltervalue
+            '''
+            result = self._values.get("image_tag_mutability_exclusion_filter_value")
+            assert result is not None, "Required property 'image_tag_mutability_exclusion_filter_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImageTagMutabilityExclusionFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecr.CfnRepository.LifecyclePolicyProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2635,6 +2734,10 @@ class CfnRepositoryCreationTemplate(
                 kms_key="kmsKey"
             ),
             image_tag_mutability="imageTagMutability",
+            image_tag_mutability_exclusion_filters=[ecr.CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty(
+                image_tag_mutability_exclusion_filter_type="imageTagMutabilityExclusionFilterType",
+                image_tag_mutability_exclusion_filter_value="imageTagMutabilityExclusionFilterValue"
+            )],
             lifecycle_policy="lifecyclePolicy",
             repository_policy="repositoryPolicy",
             resource_tags=[CfnTag(
@@ -2655,6 +2758,7 @@ class CfnRepositoryCreationTemplate(
         description: typing.Optional[builtins.str] = None,
         encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepositoryCreationTemplate.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
+        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_policy: typing.Optional[builtins.str] = None,
         repository_policy: typing.Optional[builtins.str] = None,
         resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -2668,6 +2772,7 @@ class CfnRepositoryCreationTemplate(
         :param description: The description associated with the repository creation template.
         :param encryption_configuration: The encryption configuration associated with the repository creation template.
         :param image_tag_mutability: The tag mutability setting for the repository. If this parameter is omitted, the default setting of ``MUTABLE`` will be used which will allow image tags to be overwritten. If ``IMMUTABLE`` is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        :param image_tag_mutability_exclusion_filters: Defines the image tag mutability exclusion filters to apply when creating repositories from this template. These filters specify which image tags can override the repository's default image tag mutability setting.
         :param lifecycle_policy: The lifecycle policy to use for repositories created using the template.
         :param repository_policy: The repository policy to apply to repositories created using the template. A repository policy is a permissions policy associated with a repository to control access permissions.
         :param resource_tags: The metadata to apply to the repository to help you categorize and organize. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
@@ -2683,6 +2788,7 @@ class CfnRepositoryCreationTemplate(
             description=description,
             encryption_configuration=encryption_configuration,
             image_tag_mutability=image_tag_mutability,
+            image_tag_mutability_exclusion_filters=image_tag_mutability_exclusion_filters,
             lifecycle_policy=lifecycle_policy,
             repository_policy=repository_policy,
             resource_tags=resource_tags,
@@ -2827,6 +2933,24 @@ class CfnRepositoryCreationTemplate(
         jsii.set(self, "imageTagMutability", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="imageTagMutabilityExclusionFilters")
+    def image_tag_mutability_exclusion_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]]:
+        '''Defines the image tag mutability exclusion filters to apply when creating repositories from this template.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]], jsii.get(self, "imageTagMutabilityExclusionFilters"))
+
+    @image_tag_mutability_exclusion_filters.setter
+    def image_tag_mutability_exclusion_filters(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__686708849f7a8d060ba78b1f975486b8f424fe3ede8590146ea58544a5f10f12)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imageTagMutabilityExclusionFilters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="lifecyclePolicy")
     def lifecycle_policy(self) -> typing.Optional[builtins.str]:
         '''The lifecycle policy to use for repositories created using the template.'''
@@ -2957,6 +3081,78 @@ class CfnRepositoryCreationTemplate(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecr.CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "image_tag_mutability_exclusion_filter_type": "imageTagMutabilityExclusionFilterType",
+            "image_tag_mutability_exclusion_filter_value": "imageTagMutabilityExclusionFilterValue",
+        },
+    )
+    class ImageTagMutabilityExclusionFilterProperty:
+        def __init__(
+            self,
+            *,
+            image_tag_mutability_exclusion_filter_type: builtins.str,
+            image_tag_mutability_exclusion_filter_value: builtins.str,
+        ) -> None:
+            '''Overrides the default image tag mutability setting of the repository for image tags that match the specified filters.
+
+            :param image_tag_mutability_exclusion_filter_type: 
+            :param image_tag_mutability_exclusion_filter_value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-repositorycreationtemplate-imagetagmutabilityexclusionfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecr as ecr
+                
+                image_tag_mutability_exclusion_filter_property = ecr.CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty(
+                    image_tag_mutability_exclusion_filter_type="imageTagMutabilityExclusionFilterType",
+                    image_tag_mutability_exclusion_filter_value="imageTagMutabilityExclusionFilterValue"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__86a83c57e1c4d3066aaec203ce5a6efdfad7a3c3f4adffc2b0326304ae7a11f1)
+                check_type(argname="argument image_tag_mutability_exclusion_filter_type", value=image_tag_mutability_exclusion_filter_type, expected_type=type_hints["image_tag_mutability_exclusion_filter_type"])
+                check_type(argname="argument image_tag_mutability_exclusion_filter_value", value=image_tag_mutability_exclusion_filter_value, expected_type=type_hints["image_tag_mutability_exclusion_filter_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "image_tag_mutability_exclusion_filter_type": image_tag_mutability_exclusion_filter_type,
+                "image_tag_mutability_exclusion_filter_value": image_tag_mutability_exclusion_filter_value,
+            }
+
+        @builtins.property
+        def image_tag_mutability_exclusion_filter_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-repositorycreationtemplate-imagetagmutabilityexclusionfilter.html#cfn-ecr-repositorycreationtemplate-imagetagmutabilityexclusionfilter-imagetagmutabilityexclusionfiltertype
+            '''
+            result = self._values.get("image_tag_mutability_exclusion_filter_type")
+            assert result is not None, "Required property 'image_tag_mutability_exclusion_filter_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def image_tag_mutability_exclusion_filter_value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-repositorycreationtemplate-imagetagmutabilityexclusionfilter.html#cfn-ecr-repositorycreationtemplate-imagetagmutabilityexclusionfilter-imagetagmutabilityexclusionfiltervalue
+            '''
+            result = self._values.get("image_tag_mutability_exclusion_filter_value")
+            assert result is not None, "Required property 'image_tag_mutability_exclusion_filter_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImageTagMutabilityExclusionFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ecr.CfnRepositoryCreationTemplateProps",
@@ -2968,6 +3164,7 @@ class CfnRepositoryCreationTemplate(
         "description": "description",
         "encryption_configuration": "encryptionConfiguration",
         "image_tag_mutability": "imageTagMutability",
+        "image_tag_mutability_exclusion_filters": "imageTagMutabilityExclusionFilters",
         "lifecycle_policy": "lifecyclePolicy",
         "repository_policy": "repositoryPolicy",
         "resource_tags": "resourceTags",
@@ -2983,6 +3180,7 @@ class CfnRepositoryCreationTemplateProps:
         description: typing.Optional[builtins.str] = None,
         encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
+        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_policy: typing.Optional[builtins.str] = None,
         repository_policy: typing.Optional[builtins.str] = None,
         resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -2995,6 +3193,7 @@ class CfnRepositoryCreationTemplateProps:
         :param description: The description associated with the repository creation template.
         :param encryption_configuration: The encryption configuration associated with the repository creation template.
         :param image_tag_mutability: The tag mutability setting for the repository. If this parameter is omitted, the default setting of ``MUTABLE`` will be used which will allow image tags to be overwritten. If ``IMMUTABLE`` is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        :param image_tag_mutability_exclusion_filters: Defines the image tag mutability exclusion filters to apply when creating repositories from this template. These filters specify which image tags can override the repository's default image tag mutability setting.
         :param lifecycle_policy: The lifecycle policy to use for repositories created using the template.
         :param repository_policy: The repository policy to apply to repositories created using the template. A repository policy is a permissions policy associated with a repository to control access permissions.
         :param resource_tags: The metadata to apply to the repository to help you categorize and organize. Each tag consists of a key and an optional value, both of which you define. Tag keys can have a maximum character length of 128 characters, and tag values can have a maximum length of 256 characters.
@@ -3022,6 +3221,10 @@ class CfnRepositoryCreationTemplateProps:
                     kms_key="kmsKey"
                 ),
                 image_tag_mutability="imageTagMutability",
+                image_tag_mutability_exclusion_filters=[ecr.CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty(
+                    image_tag_mutability_exclusion_filter_type="imageTagMutabilityExclusionFilterType",
+                    image_tag_mutability_exclusion_filter_value="imageTagMutabilityExclusionFilterValue"
+                )],
                 lifecycle_policy="lifecyclePolicy",
                 repository_policy="repositoryPolicy",
                 resource_tags=[CfnTag(
@@ -3038,6 +3241,7 @@ class CfnRepositoryCreationTemplateProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument image_tag_mutability", value=image_tag_mutability, expected_type=type_hints["image_tag_mutability"])
+            check_type(argname="argument image_tag_mutability_exclusion_filters", value=image_tag_mutability_exclusion_filters, expected_type=type_hints["image_tag_mutability_exclusion_filters"])
             check_type(argname="argument lifecycle_policy", value=lifecycle_policy, expected_type=type_hints["lifecycle_policy"])
             check_type(argname="argument repository_policy", value=repository_policy, expected_type=type_hints["repository_policy"])
             check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
@@ -3053,6 +3257,8 @@ class CfnRepositoryCreationTemplateProps:
             self._values["encryption_configuration"] = encryption_configuration
         if image_tag_mutability is not None:
             self._values["image_tag_mutability"] = image_tag_mutability
+        if image_tag_mutability_exclusion_filters is not None:
+            self._values["image_tag_mutability_exclusion_filters"] = image_tag_mutability_exclusion_filters
         if lifecycle_policy is not None:
             self._values["lifecycle_policy"] = lifecycle_policy
         if repository_policy is not None:
@@ -3125,6 +3331,19 @@ class CfnRepositoryCreationTemplateProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def image_tag_mutability_exclusion_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty]]]]:
+        '''Defines the image tag mutability exclusion filters to apply when creating repositories from this template.
+
+        These filters specify which image tags can override the repository's default image tag mutability setting.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repositorycreationtemplate.html#cfn-ecr-repositorycreationtemplate-imagetagmutabilityexclusionfilters
+        '''
+        result = self._values.get("image_tag_mutability_exclusion_filters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty]]]], result)
+
+    @builtins.property
     def lifecycle_policy(self) -> typing.Optional[builtins.str]:
         '''The lifecycle policy to use for repositories created using the template.
 
@@ -3177,6 +3396,7 @@ class CfnRepositoryCreationTemplateProps:
         "encryption_configuration": "encryptionConfiguration",
         "image_scanning_configuration": "imageScanningConfiguration",
         "image_tag_mutability": "imageTagMutability",
+        "image_tag_mutability_exclusion_filters": "imageTagMutabilityExclusionFilters",
         "lifecycle_policy": "lifecyclePolicy",
         "repository_name": "repositoryName",
         "repository_policy_text": "repositoryPolicyText",
@@ -3191,6 +3411,7 @@ class CfnRepositoryProps:
         encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         image_tag_mutability: typing.Optional[builtins.str] = None,
+        image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.LifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         repository_name: typing.Optional[builtins.str] = None,
         repository_policy_text: typing.Any = None,
@@ -3202,6 +3423,7 @@ class CfnRepositoryProps:
         :param encryption_configuration: The encryption configuration for the repository. This determines how the contents of your repository are encrypted at rest.
         :param image_scanning_configuration: The image scanning configuration for the repository. This determines whether images are scanned for known vulnerabilities after being pushed to the repository.
         :param image_tag_mutability: The tag mutability setting for the repository. If this parameter is omitted, the default setting of ``MUTABLE`` will be used which will allow image tags to be overwritten. If ``IMMUTABLE`` is specified, all image tags within the repository will be immutable which will prevent them from being overwritten.
+        :param image_tag_mutability_exclusion_filters: The image tag mutability exclusion filters associated with the repository. These filters specify which image tags can override the repository's default image tag mutability setting.
         :param lifecycle_policy: Creates or updates a lifecycle policy. For information about lifecycle policy syntax, see `Lifecycle policy template <https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html>`_ .
         :param repository_name: The name to use for the repository. The repository name may be specified on its own (such as ``nginx-web-app`` ) or it can be prepended with a namespace to group the repository into a category (such as ``project-a/nginx-web-app`` ). If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the repository name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . The repository name must start with a letter and can only contain lowercase letters, numbers, hyphens, underscores, and forward slashes. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param repository_policy_text: The JSON repository policy text to apply to the repository. For more information, see `Amazon ECR repository policies <https://docs.aws.amazon.com/AmazonECR/latest/userguide/repository-policy-examples.html>`_ in the *Amazon Elastic Container Registry User Guide* .
@@ -3230,6 +3452,10 @@ class CfnRepositoryProps:
                     scan_on_push=False
                 ),
                 image_tag_mutability="imageTagMutability",
+                image_tag_mutability_exclusion_filters=[ecr.CfnRepository.ImageTagMutabilityExclusionFilterProperty(
+                    image_tag_mutability_exclusion_filter_type="imageTagMutabilityExclusionFilterType",
+                    image_tag_mutability_exclusion_filter_value="imageTagMutabilityExclusionFilterValue"
+                )],
                 lifecycle_policy=ecr.CfnRepository.LifecyclePolicyProperty(
                     lifecycle_policy_text="lifecyclePolicyText",
                     registry_id="registryId"
@@ -3248,6 +3474,7 @@ class CfnRepositoryProps:
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument image_scanning_configuration", value=image_scanning_configuration, expected_type=type_hints["image_scanning_configuration"])
             check_type(argname="argument image_tag_mutability", value=image_tag_mutability, expected_type=type_hints["image_tag_mutability"])
+            check_type(argname="argument image_tag_mutability_exclusion_filters", value=image_tag_mutability_exclusion_filters, expected_type=type_hints["image_tag_mutability_exclusion_filters"])
             check_type(argname="argument lifecycle_policy", value=lifecycle_policy, expected_type=type_hints["lifecycle_policy"])
             check_type(argname="argument repository_name", value=repository_name, expected_type=type_hints["repository_name"])
             check_type(argname="argument repository_policy_text", value=repository_policy_text, expected_type=type_hints["repository_policy_text"])
@@ -3261,6 +3488,8 @@ class CfnRepositoryProps:
             self._values["image_scanning_configuration"] = image_scanning_configuration
         if image_tag_mutability is not None:
             self._values["image_tag_mutability"] = image_tag_mutability
+        if image_tag_mutability_exclusion_filters is not None:
+            self._values["image_tag_mutability_exclusion_filters"] = image_tag_mutability_exclusion_filters
         if lifecycle_policy is not None:
             self._values["lifecycle_policy"] = lifecycle_policy
         if repository_name is not None:
@@ -3319,6 +3548,19 @@ class CfnRepositoryProps:
         '''
         result = self._values.get("image_tag_mutability")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_tag_mutability_exclusion_filters(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepository.ImageTagMutabilityExclusionFilterProperty]]]]:
+        '''The image tag mutability exclusion filters associated with the repository.
+
+        These filters specify which image tags can override the repository's default image tag mutability setting.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repository.html#cfn-ecr-repository-imagetagmutabilityexclusionfilters
+        '''
+        result = self._values.get("image_tag_mutability_exclusion_filters")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepository.ImageTagMutabilityExclusionFilterProperty]]]], result)
 
     @builtins.property
     def lifecycle_policy(
@@ -5900,6 +6142,7 @@ def _typecheckingstub__0c4027f87eb46bfdc341ea831d36476b6bcb3d7c3adf8e4193a6f82d2
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
+    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.LifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     repository_name: typing.Optional[builtins.str] = None,
     repository_policy_text: typing.Any = None,
@@ -5944,6 +6187,12 @@ def _typecheckingstub__6d75698f85ccefe489f53d4f155b619c9c3df1026fe201828f3f0ccc7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__28c5038f217a4c1109664243a2d67cd421822e67f8352aa51ee8780d8e6fbe3e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepository.ImageTagMutabilityExclusionFilterProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__47418c52de9eb82b5a96dfa3524d84345309cf3a2f06fbbc30eaa7da852a33fa(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnRepository.LifecyclePolicyProperty]],
 ) -> None:
@@ -5983,6 +6232,14 @@ def _typecheckingstub__c75cd2b6ec01cb2a5879c051b4088257f2aa69c2f3db3f6435eba0c0b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ca135861d33d78962bcab351d8e2048fc1f831afc1ade25d2fcc2f2024c72abd(
+    *,
+    image_tag_mutability_exclusion_filter_type: builtins.str,
+    image_tag_mutability_exclusion_filter_value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e19a186a43de423097984e8a515b442413c2fa31fe895650e26f9f349987264e(
     *,
     lifecycle_policy_text: typing.Optional[builtins.str] = None,
@@ -6001,6 +6258,7 @@ def _typecheckingstub__494445c3594e6c48becf87b896b56289e6923275ed1be048e55a955aa
     description: typing.Optional[builtins.str] = None,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
+    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_policy: typing.Optional[builtins.str] = None,
     repository_policy: typing.Optional[builtins.str] = None,
     resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -6056,6 +6314,12 @@ def _typecheckingstub__0d03ac6e7b2975934cbd1c8b2470015fc671509b1b82834732e60abe4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__686708849f7a8d060ba78b1f975486b8f424fe3ede8590146ea58544a5f10f12(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e2e08b01e66ab87aacff8f76d06c2abf47c27bd4366b69a73969d43a0b0b636a(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -6082,6 +6346,14 @@ def _typecheckingstub__0f48a77de88f0d76d55768806e65efb655f325c51435a78fe46978432
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__86a83c57e1c4d3066aaec203ce5a6efdfad7a3c3f4adffc2b0326304ae7a11f1(
+    *,
+    image_tag_mutability_exclusion_filter_type: builtins.str,
+    image_tag_mutability_exclusion_filter_value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__623a27e5bf9e58dfa2c0c25d5b312731cce32386963e30de33e3bd636fb982d3(
     *,
     applied_for: typing.Sequence[builtins.str],
@@ -6090,6 +6362,7 @@ def _typecheckingstub__623a27e5bf9e58dfa2c0c25d5b312731cce32386963e30de33e3bd636
     description: typing.Optional[builtins.str] = None,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
+    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepositoryCreationTemplate.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_policy: typing.Optional[builtins.str] = None,
     repository_policy: typing.Optional[builtins.str] = None,
     resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -6103,6 +6376,7 @@ def _typecheckingstub__6887f05f59c4e061f761607002ffdf5b7ad09f76abbf4b7be49513c3e
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_scanning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageScanningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     image_tag_mutability: typing.Optional[builtins.str] = None,
+    image_tag_mutability_exclusion_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.ImageTagMutabilityExclusionFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     lifecycle_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRepository.LifecyclePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     repository_name: typing.Optional[builtins.str] = None,
     repository_policy_text: typing.Any = None,

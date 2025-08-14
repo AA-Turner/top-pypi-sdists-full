@@ -16,8 +16,8 @@ import logging
 import pprint
 import re
 import sys
+import tempfile
 import warnings
-from concurrent.futures import ThreadPoolExecutor
 from io import BufferedReader, BytesIO
 from itertools import chain
 
@@ -38,15 +38,21 @@ from pydap.lib import (
     encode,
     fix_slice,
     hyperslab,
+    old_BytesReader,
     walk,
 )
-from pydap.model import BaseType, GridType, SequenceType, StructureType
+from pydap.model import BaseType, DapDecodedArray, GridType, SequenceType, StructureType
 from pydap.net import GET
 from pydap.parsers import parse_ce
 from pydap.parsers.das import add_attributes, parse_das
 from pydap.parsers.dds import dds_to_dataset
 from pydap.parsers.dmr import dmr_to_dataset
 from pydap.responses.dods import DAP2_response_dtypemap
+
+try:
+    import httpx
+except ImportError:
+    httpx = None
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -65,6 +71,7 @@ class DAPHandler(BaseHandler):
         output_grid=True,
         timeout=DEFAULT_TIMEOUT,
         verify=True,
+        checksums=True,
         user_charset="ascii",
         protocol=None,
         get_kwargs=None,
@@ -75,6 +82,7 @@ class DAPHandler(BaseHandler):
         self.output_grid = output_grid
         self.timeout = timeout
         self.verify = verify
+        self.checksums = checksums
         self.user_charset = user_charset
         self.url = url
 
@@ -95,7 +103,7 @@ class DAPHandler(BaseHandler):
                 # the other alternative occurs during testing
                 # the server - only when protocol and scheme match,
                 # should pydap change the scheme provided by user
-                self.scheme = "http"
+                self.scheme = "https"
         else:
             self.protocol = self.determine_protocol()
         self.get_kwargs = get_kwargs or {}
@@ -121,7 +129,7 @@ class DAPHandler(BaseHandler):
         if self.scheme not in ["http", "https"]:
             if self.scheme in ["dap4", "dap2"]:
                 protocol = self.scheme
-                self.scheme = "http"  # revert to http
+                self.scheme = "https"
                 return protocol
             else:
                 raise TypeError(
@@ -245,8 +253,12 @@ class DAPHandler(BaseHandler):
                 session=self.session,
                 timeout=self.timeout,
                 verify=self.verify,
+                checksums=self.checksums,
                 get_kwargs={**self.get_kwargs, "stream": True},
             )
+
+        self.dataset.assign_dataset_recursive(self.dataset)
+        # self.dataset.enable_batch_mode()
 
         # apply projections to BaseType only
         # CE for sequences and structs
@@ -416,7 +428,7 @@ class BaseProxyDap2(object):
 
         # Parse received dataset:
         dataset = dds_to_dataset(dds)
-        dataset.data = unpack_dap2_data(BytesReader(data), dataset)
+        dataset.data = unpack_dap2_data(old_BytesReader(data), dataset)
         return dataset[self.id].data
 
     def __len__(self):
@@ -458,6 +470,7 @@ class BaseProxyDap4(BaseProxyDap2):
         session=None,
         timeout=DEFAULT_TIMEOUT,
         verify=True,
+        checksums=False,
         user_charset="ascii",
         get_kwargs=None,
     ):
@@ -470,6 +483,7 @@ class BaseProxyDap4(BaseProxyDap2):
         self.session = session
         self.timeout = timeout
         self.verify = verify
+        self.checksums = checksums
         self.user_charset = user_charset
         self.get_kwargs = get_kwargs or {}
 
@@ -478,13 +492,23 @@ class BaseProxyDap4(BaseProxyDap2):
             map(repr, [self.baseurl, self.id, self.dtype, self.shape, self.slice])
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index, build_only=False):
         # build download url
         index = combine_slices(self.slice, fix_slice(index, self.shape))
-        scheme, netloc, path, _, query, fragment = urlparse(self.baseurl)
-        ce = "dap4.ce=" + self.id + hyperslab(index)
-        url = urlunparse((scheme, netloc, path + ".dap", "", ce, fragment)).rstrip("&")
 
+        scheme, netloc, path, _, query, fragment = urlparse(self.baseurl)
+        self.ce = "dap4.ce=" + self.id + hyperslab(index)
+
+        if build_only:
+            # In batch mode: just store CE, don't fetch
+            return self
+        url = urlunparse((scheme, netloc, path + ".dap", "", self.ce, fragment)).rstrip(
+            "&"
+        )
+        if self.checksums:
+            url += "&dap4.checksum=true"
+        else:
+            url += "&dap4.checksum=false"
         # download and unpack data
         logger.info("Fetching URL: %s" % url)
 
@@ -497,10 +521,12 @@ class BaseProxyDap4(BaseProxyDap2):
             get_kwargs=self.get_kwargs,
         )
 
-        dataset = UNPACKDAP4DATA(r, self.user_charset).dataset
-        self.checksum = dataset[self.id].attributes["checksum"]
-        self.data = dataset[self.id].data
-        return self.data
+        dataset = UNPACKDAP4DATA(r, self.checksums, self.user_charset).dataset
+        self._data = dataset[self.id]._data
+        if self.checksums:
+            self.checksums = dataset[self.id].attributes["_DAP4_Checksum_CRC32"]
+
+        return self._data
 
 
 class SequenceProxy(object):
@@ -840,17 +866,35 @@ def get_count(variable):
 def decode_variable(buffer, start, stop, variable, endian):
     dtype = variable.dtype
     dtype = dtype.newbyteorder(endian)
-    data = numpy.frombuffer(buffer[start:stop], dtype=dtype).astype(dtype)
-    data = data.reshape(variable.shape)
-    return data
+    if dtype.kind == "S":
+        data = numpy.array(decode_utf8_string_array(buffer)).astype(dtype.kind)
+        data = data.reshape(variable.shape)
+        return data
+    else:
+        data = numpy.frombuffer(buffer[start:stop], dtype=dtype)
+        data = data.reshape(variable.shape)
+        return DapDecodedArray(data)
 
 
-def process_chunk(data, offset, chunk_size):
-    """
-    Process a chunk of data
-    """
-    chunk_data = data[offset : offset + chunk_size]
-    return chunk_data
+def decode_utf8_string_array(buffer):
+    offset = 0
+    strings = []
+
+    while offset < len(buffer) - 4:  # last four elements are the checksums
+        # 1. Read 8-byte little-endian length
+        length_bytes = buffer[offset : offset + 8]
+        strlen = int.from_bytes(length_bytes, byteorder="little")
+        offset += 8
+
+        # 2. Read the UTF-8 string
+        str_bytes = buffer[offset : offset + strlen]
+        offset += strlen
+
+        # 3. Decode the bytes to Python string (UTF-8)
+        decoded_str = str_bytes.decode("utf-8")
+        strings.append(decoded_str)
+
+    return strings
 
 
 def stream2bytearray(data):
@@ -866,10 +910,11 @@ def stream2bytearray(data):
 
     # Precompute chunk positions
     chunk_positions = []
-    offset = 0
-    while offset < len(data):
+    offset = data.data.tell()  # current position in the stream
+    last = False
+    while not last:
         # Read the chunk header
-        chunk_header = numpy.frombuffer(data[offset : offset + 4], dtype=">u4")[0]
+        chunk_header = numpy.frombuffer(data.slice(offset=offset, n=4), dtype=">u4")[0]
         chunk_size = chunk_header & 0x00FFFFFF
         chunk_type = (chunk_header >> 24) & 0xFF
         last, _, _ = decode_chunktype(chunk_type)
@@ -877,13 +922,13 @@ def stream2bytearray(data):
         offset += 4 + chunk_size
         if last:
             break
+    # Process chunks serially (used to be parallelized- no penalty when serialized).
+    results = []
+    for offset, length in chunk_positions:
+        data.data.seek(offset)
+        results.append(data.data.read(length))
 
-    # Process chunks in parallel
     buffer = bytearray()
-    with ThreadPoolExecutor() as executor:
-        results = list(
-            executor.map(lambda args: process_chunk(data, *args), chunk_positions)
-        )
     # Combine results
     for chunk_data in results:
         buffer.extend(chunk_data)
@@ -913,36 +958,64 @@ class UNPACKDAP4DATA(object):
             See `pydap.net.get.open_dap_file`
     """
 
-    def __init__(self, r, user_charset="ascii"):
+    def __init__(self, r, checksums=True, user_charset="ascii"):
         self.user_charset = user_charset
-        if isinstance(r, webob_Response):  # a Webob response
-            self.r = r
-            if self.r.content_encoding == "gzip":
-                self.raw = BytesReader(
-                    gzip.GzipFile(fileobj=BytesIO(self.r.body)).read()
-                )
+        self.checksums = checksums
+        self.r = r
+        try:
+            iterator = self.iter_body()
+            CHUNK_SIZE = 1048576
+            # remote dataset
+            with tempfile.TemporaryFile() as tmp:
+                # write the response to a temporary file
+                # so that we can read it in chunks
+                for chunk in iterator(chunk_size=CHUNK_SIZE):
+                    if chunk:  # filter out keep-alive chunks
+                        tmp.write(chunk)
+                tmp.seek(0)
+                self.raw = BytesReader(tmp)
+                self.dmr, self.endianness = self.safe_dmr_and_data()
+                dataset = dmr_to_dataset(self.dmr)
+                self.dataset = self.unpack_dap4_data(dataset)
+        except TypeError:
+            if isinstance(r, webob_Response):
+                self.r = r
+                if self.r.content_encoding == "gzip":
+                    self.raw = BytesReader(
+                        gzip.GzipFile(fileobj=BytesIO(self.r.body)).read()
+                    )
+                else:
+                    self.raw = BytesReader(r.body)
+            elif isinstance(r, BufferedReader):
+                # r comes from reading a local file
+                self.r = webob_Response()  # make empty response
+                self.raw = BytesReader(r.read())
             else:
-                self.raw = BytesReader(r.body)
-        elif isinstance(r, BufferedReader):
-            # r comes from reading a local file
-            self.r = webob_Response()  # make empty response
-            self.raw = BytesReader(r.read())
-        elif isinstance(r, requests.Response):
-            # r comes from reading a remote dataset
-            self.r = r
-            self.raw = BytesReader(r.content)
+                raise TypeError(
+                    """
+                    Unrecognized file type object for unpacking dap4 binary data.
+                    Acceptable formats are `webob.response.Response` and
+                    `io.BufferedReader`
+                    """
+                )
+            self.dmr, self.endianness = self.safe_dmr_and_data()
+            # need to split dmr from data
+            dataset = dmr_to_dataset(self.dmr)
+            self.dataset = self.unpack_dap4_data(dataset)
+
+    def iter_body(self):
+        """
+        enables iterate over a response, whether the response
+        if a requests.Response, requests_cache.Response, or
+        httpx.Respose
+        """
+
+        if isinstance(self.r, requests.Response):
+            return self.r.iter_content
+        elif httpx is not None and isinstance(self.r, httpx.Response):
+            return self.r.iter_bytes
         else:
-            raise TypeError(
-                """
-                Unrecognized file type object for unpacking dap4 binary data.
-                Acceptable formats are `webob.response.Response` and
-                `io.BufferedReader`
-                """
-            )
-        self.dmr, self.data, self.endianness = self.safe_dmr_and_data()
-        # need to split dmr from data
-        dataset = dmr_to_dataset(self.dmr)
-        self.dataset = self.unpack_dap4_data(dataset)
+            raise TypeError("Unsupported response type")
 
     def safe_dmr_and_data(self):
         """
@@ -962,10 +1035,9 @@ class UNPACKDAP4DATA(object):
             )
         else:
             dmr = self.raw.read(dmr_length).decode(self.user_charset)
-        data = self.raw.data
         # get endianness from first chunk
         _, _, endianness = decode_chunktype(chunk_type)
-        return dmr, data, endianness
+        return dmr, endianness
 
     def unpack_dap4_data(self, dataset):
         """
@@ -973,9 +1045,8 @@ class UNPACKDAP4DATA(object):
         (BaseType only) with data that is currently in binary form (within a dap
         response).
         """
-        # need self. data and self.dataset
         checksum_dtype = numpy.dtype(self.endianness + "u4")
-        buffer = stream2bytearray(self.data)
+        buffer = stream2bytearray(self.raw)
         start = 0
         for variable in walk(dataset, BaseType):
             count = get_count(variable)
@@ -987,11 +1058,14 @@ class UNPACKDAP4DATA(object):
                 variable=variable,
                 endian=self.endianness,
             )
-            checksum = numpy.frombuffer(
-                buffer[stop : stop + 4], dtype=checksum_dtype
-            ).byteswap("=")
             variable._set_data(data)
-            variable.attributes["checksum"] = checksum
+
+            if self.checksums:
+                checksum = numpy.frombuffer(
+                    buffer[stop : stop + 4], dtype=checksum_dtype
+                )
+                variable.attributes["_DAP4_Checksum_CRC32"] = checksum[0]
+
             # Jump over the 4 byte chunk_header
             start = stop + 4
         return dataset

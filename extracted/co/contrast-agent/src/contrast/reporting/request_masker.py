@@ -14,7 +14,7 @@ logger = logging.getLogger("contrast")
 
 MASK = "contrast-redacted-{}"
 VECTOR_MASK = MASK.format("vector")
-BODY_MASK = b"contrast-redacted-body"
+BODY_MASK = "contrast-redacted-body"
 SEMICOLON_URL_ENCODE_VAL = "%25"
 
 
@@ -98,8 +98,12 @@ class RequestMasker:
         if self.mask_rules.mask_http_body:
             self.request._masked_body = BODY_MASK
             return
-        if self.mask_rules.mask_attack_vector and any(
-            sample.user_input.type.is_body_based for sample in self.attack.samples
+        if (
+            self.mask_rules.mask_attack_vector
+            and self.attack
+            and any(
+                sample.user_input.type.is_body_based for sample in self.attack.samples
+            )
         ):
             # NOTE: is_body_based is loose when it comes to querystring parameters.
             # This could cause extra redaction, but that's an acceptable trade-off

@@ -1,7 +1,7 @@
 r'''
 # `data_azuread_domains`
 
-Refer to the Terraform Registry for docs: [`data_azuread_domains`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains).
+Refer to the Terraform Registry for docs: [`data_azuread_domains`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzureadDomains(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.dataAzureadDomains.DataAzureadDomains",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains azuread_domains}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains azuread_domains}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class DataAzureadDomains(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains azuread_domains} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains azuread_domains} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param admin_managed: Set to ``true`` to only return domains whose DNS is managed by Microsoft 365. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#admin_managed DataAzureadDomains#admin_managed}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#id DataAzureadDomains#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_unverified: Set to ``true`` if unverified Azure AD domains should be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#include_unverified DataAzureadDomains#include_unverified}
-        :param only_default: Set to ``true`` to only return the default domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#only_default DataAzureadDomains#only_default}
-        :param only_initial: Set to ``true`` to only return the initial domain, which is your primary Azure Active Directory tenant domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#only_initial DataAzureadDomains#only_initial}
-        :param only_root: Set to ``true`` to only return verified root domains. Excludes subdomains and unverified domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#only_root DataAzureadDomains#only_root}
-        :param supports_services: A list of supported services that must be supported by a domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#supports_services DataAzureadDomains#supports_services}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#timeouts DataAzureadDomains#timeouts}
+        :param admin_managed: Set to ``true`` to only return domains whose DNS is managed by Microsoft 365. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#admin_managed DataAzureadDomains#admin_managed}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#id DataAzureadDomains#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_unverified: Set to ``true`` if unverified Azure AD domains should be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#include_unverified DataAzureadDomains#include_unverified}
+        :param only_default: Set to ``true`` to only return the default domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#only_default DataAzureadDomains#only_default}
+        :param only_initial: Set to ``true`` to only return the initial domain, which is your primary Azure Active Directory tenant domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#only_initial DataAzureadDomains#only_initial}
+        :param only_root: Set to ``true`` to only return verified root domains. Excludes subdomains and unverified domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#only_root DataAzureadDomains#only_root}
+        :param supports_services: A list of supported services that must be supported by a domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#supports_services DataAzureadDomains#supports_services}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#timeouts DataAzureadDomains#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class DataAzureadDomains(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzureadDomains to import.
-        :param import_from_id: The id of the existing DataAzureadDomains that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzureadDomains that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzureadDomains to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class DataAzureadDomains(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#read DataAzureadDomains#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#read DataAzureadDomains#read}.
         '''
         value = DataAzureadDomainsTimeouts(read=read)
 
@@ -402,14 +402,14 @@ class DataAzureadDomainsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param admin_managed: Set to ``true`` to only return domains whose DNS is managed by Microsoft 365. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#admin_managed DataAzureadDomains#admin_managed}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#id DataAzureadDomains#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_unverified: Set to ``true`` if unverified Azure AD domains should be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#include_unverified DataAzureadDomains#include_unverified}
-        :param only_default: Set to ``true`` to only return the default domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#only_default DataAzureadDomains#only_default}
-        :param only_initial: Set to ``true`` to only return the initial domain, which is your primary Azure Active Directory tenant domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#only_initial DataAzureadDomains#only_initial}
-        :param only_root: Set to ``true`` to only return verified root domains. Excludes subdomains and unverified domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#only_root DataAzureadDomains#only_root}
-        :param supports_services: A list of supported services that must be supported by a domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#supports_services DataAzureadDomains#supports_services}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#timeouts DataAzureadDomains#timeouts}
+        :param admin_managed: Set to ``true`` to only return domains whose DNS is managed by Microsoft 365. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#admin_managed DataAzureadDomains#admin_managed}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#id DataAzureadDomains#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_unverified: Set to ``true`` if unverified Azure AD domains should be included. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#include_unverified DataAzureadDomains#include_unverified}
+        :param only_default: Set to ``true`` to only return the default domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#only_default DataAzureadDomains#only_default}
+        :param only_initial: Set to ``true`` to only return the initial domain, which is your primary Azure Active Directory tenant domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#only_initial DataAzureadDomains#only_initial}
+        :param only_root: Set to ``true`` to only return verified root domains. Excludes subdomains and unverified domains. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#only_root DataAzureadDomains#only_root}
+        :param supports_services: A list of supported services that must be supported by a domain. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#supports_services DataAzureadDomains#supports_services}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#timeouts DataAzureadDomains#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -534,14 +534,14 @@ class DataAzureadDomainsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to ``true`` to only return domains whose DNS is managed by Microsoft 365.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#admin_managed DataAzureadDomains#admin_managed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#admin_managed DataAzureadDomains#admin_managed}
         '''
         result = self._values.get("admin_managed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#id DataAzureadDomains#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#id DataAzureadDomains#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -555,7 +555,7 @@ class DataAzureadDomainsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to ``true`` if unverified Azure AD domains should be included.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#include_unverified DataAzureadDomains#include_unverified}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#include_unverified DataAzureadDomains#include_unverified}
         '''
         result = self._values.get("include_unverified")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -566,7 +566,7 @@ class DataAzureadDomainsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to ``true`` to only return the default domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#only_default DataAzureadDomains#only_default}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#only_default DataAzureadDomains#only_default}
         '''
         result = self._values.get("only_default")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -577,7 +577,7 @@ class DataAzureadDomainsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to ``true`` to only return the initial domain, which is your primary Azure Active Directory tenant domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#only_initial DataAzureadDomains#only_initial}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#only_initial DataAzureadDomains#only_initial}
         '''
         result = self._values.get("only_initial")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -588,7 +588,7 @@ class DataAzureadDomainsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set to ``true`` to only return verified root domains. Excludes subdomains and unverified domains.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#only_root DataAzureadDomains#only_root}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#only_root DataAzureadDomains#only_root}
         '''
         result = self._values.get("only_root")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -597,7 +597,7 @@ class DataAzureadDomainsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def supports_services(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of supported services that must be supported by a domain.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#supports_services DataAzureadDomains#supports_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#supports_services DataAzureadDomains#supports_services}
         '''
         result = self._values.get("supports_services")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -606,7 +606,7 @@ class DataAzureadDomainsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataAzureadDomainsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#timeouts DataAzureadDomains#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#timeouts DataAzureadDomains#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzureadDomainsTimeouts"], result)
@@ -804,7 +804,7 @@ class DataAzureadDomainsDomainsOutputReference(
 class DataAzureadDomainsTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#read DataAzureadDomains#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#read DataAzureadDomains#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d79218ff3f913df2a14389150cb0401946671f06a6ef31dadce76878febb5d94)
@@ -815,7 +815,7 @@ class DataAzureadDomainsTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/domains#read DataAzureadDomains#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/domains#read DataAzureadDomains#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

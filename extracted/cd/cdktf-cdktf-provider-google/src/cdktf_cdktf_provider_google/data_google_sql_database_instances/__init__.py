@@ -1,7 +1,7 @@
 r'''
 # `data_google_sql_database_instances`
 
-Refer to the Terraform Registry for docs: [`data_google_sql_database_instances`](https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances).
+Refer to the Terraform Registry for docs: [`data_google_sql_database_instances`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleSqlDatabaseInstances(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleSqlDatabaseInstances.DataGoogleSqlDatabaseInstances",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances google_sql_database_instances}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances google_sql_database_instances}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DataGoogleSqlDatabaseInstances(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances google_sql_database_instances} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances google_sql_database_instances} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database_version: To filter out the database instances which are of the specified database version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#database_version DataGoogleSqlDatabaseInstances#database_version}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#id DataGoogleSqlDatabaseInstances#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project ID of the project that contains the instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#project DataGoogleSqlDatabaseInstances#project}
-        :param region: To filter out the database instances which are located in this specified region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#region DataGoogleSqlDatabaseInstances#region}
-        :param state: To filter out the database instances based on the current state of the database instance, valid values include : "SQL_INSTANCE_STATE_UNSPECIFIED", "RUNNABLE", "SUSPENDED", "PENDING_DELETE", "PENDING_CREATE", "MAINTENANCE" and "FAILED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#state DataGoogleSqlDatabaseInstances#state}
-        :param tier: To filter out the database instances based on the machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#tier DataGoogleSqlDatabaseInstances#tier}
-        :param zone: To filter out the database instances which are located in this specified zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#zone DataGoogleSqlDatabaseInstances#zone}
+        :param database_version: To filter out the database instances which are of the specified database version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#database_version DataGoogleSqlDatabaseInstances#database_version}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#id DataGoogleSqlDatabaseInstances#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project ID of the project that contains the instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#project DataGoogleSqlDatabaseInstances#project}
+        :param region: To filter out the database instances which are located in this specified region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#region DataGoogleSqlDatabaseInstances#region}
+        :param state: To filter out the database instances based on the current state of the database instance, valid values include : "SQL_INSTANCE_STATE_UNSPECIFIED", "RUNNABLE", "SUSPENDED", "PENDING_DELETE", "PENDING_CREATE", "MAINTENANCE" and "FAILED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#state DataGoogleSqlDatabaseInstances#state}
+        :param tier: To filter out the database instances based on the machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#tier DataGoogleSqlDatabaseInstances#tier}
+        :param zone: To filter out the database instances which are located in this specified zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#zone DataGoogleSqlDatabaseInstances#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DataGoogleSqlDatabaseInstances(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleSqlDatabaseInstances to import.
-        :param import_from_id: The id of the existing DataGoogleSqlDatabaseInstances that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleSqlDatabaseInstances that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleSqlDatabaseInstances to import is found.
         '''
         if __debug__:
@@ -345,13 +345,13 @@ class DataGoogleSqlDatabaseInstancesConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database_version: To filter out the database instances which are of the specified database version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#database_version DataGoogleSqlDatabaseInstances#database_version}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#id DataGoogleSqlDatabaseInstances#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project ID of the project that contains the instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#project DataGoogleSqlDatabaseInstances#project}
-        :param region: To filter out the database instances which are located in this specified region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#region DataGoogleSqlDatabaseInstances#region}
-        :param state: To filter out the database instances based on the current state of the database instance, valid values include : "SQL_INSTANCE_STATE_UNSPECIFIED", "RUNNABLE", "SUSPENDED", "PENDING_DELETE", "PENDING_CREATE", "MAINTENANCE" and "FAILED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#state DataGoogleSqlDatabaseInstances#state}
-        :param tier: To filter out the database instances based on the machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#tier DataGoogleSqlDatabaseInstances#tier}
-        :param zone: To filter out the database instances which are located in this specified zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#zone DataGoogleSqlDatabaseInstances#zone}
+        :param database_version: To filter out the database instances which are of the specified database version. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#database_version DataGoogleSqlDatabaseInstances#database_version}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#id DataGoogleSqlDatabaseInstances#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project ID of the project that contains the instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#project DataGoogleSqlDatabaseInstances#project}
+        :param region: To filter out the database instances which are located in this specified region. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#region DataGoogleSqlDatabaseInstances#region}
+        :param state: To filter out the database instances based on the current state of the database instance, valid values include : "SQL_INSTANCE_STATE_UNSPECIFIED", "RUNNABLE", "SUSPENDED", "PENDING_DELETE", "PENDING_CREATE", "MAINTENANCE" and "FAILED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#state DataGoogleSqlDatabaseInstances#state}
+        :param tier: To filter out the database instances based on the machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#tier DataGoogleSqlDatabaseInstances#tier}
+        :param zone: To filter out the database instances which are located in this specified zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#zone DataGoogleSqlDatabaseInstances#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -469,14 +469,14 @@ class DataGoogleSqlDatabaseInstancesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def database_version(self) -> typing.Optional[builtins.str]:
         '''To filter out the database instances which are of the specified database version.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#database_version DataGoogleSqlDatabaseInstances#database_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#database_version DataGoogleSqlDatabaseInstances#database_version}
         '''
         result = self._values.get("database_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#id DataGoogleSqlDatabaseInstances#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#id DataGoogleSqlDatabaseInstances#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -488,7 +488,7 @@ class DataGoogleSqlDatabaseInstancesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def project(self) -> typing.Optional[builtins.str]:
         '''Project ID of the project that contains the instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#project DataGoogleSqlDatabaseInstances#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#project DataGoogleSqlDatabaseInstances#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -497,7 +497,7 @@ class DataGoogleSqlDatabaseInstancesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def region(self) -> typing.Optional[builtins.str]:
         '''To filter out the database instances which are located in this specified region.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#region DataGoogleSqlDatabaseInstances#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#region DataGoogleSqlDatabaseInstances#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -506,7 +506,7 @@ class DataGoogleSqlDatabaseInstancesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def state(self) -> typing.Optional[builtins.str]:
         '''To filter out the database instances based on the current state of the database instance, valid values include : "SQL_INSTANCE_STATE_UNSPECIFIED", "RUNNABLE", "SUSPENDED", "PENDING_DELETE", "PENDING_CREATE", "MAINTENANCE" and "FAILED".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#state DataGoogleSqlDatabaseInstances#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#state DataGoogleSqlDatabaseInstances#state}
         '''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -515,7 +515,7 @@ class DataGoogleSqlDatabaseInstancesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def tier(self) -> typing.Optional[builtins.str]:
         '''To filter out the database instances based on the machine type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#tier DataGoogleSqlDatabaseInstances#tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#tier DataGoogleSqlDatabaseInstances#tier}
         '''
         result = self._values.get("tier")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -524,7 +524,7 @@ class DataGoogleSqlDatabaseInstancesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def zone(self) -> typing.Optional[builtins.str]:
         '''To filter out the database instances which are located in this specified zone.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/sql_database_instances#zone DataGoogleSqlDatabaseInstances#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/sql_database_instances#zone DataGoogleSqlDatabaseInstances#zone}
         '''
         result = self._values.get("zone")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1213,6 +1213,11 @@ class DataGoogleSqlDatabaseInstancesInstancesOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "name"))
 
     @builtins.property
+    @jsii.member(jsii_name="nodeCount")
+    def node_count(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "nodeCount"))
+
+    @builtins.property
     @jsii.member(jsii_name="privateIpAddress")
     def private_ip_address(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "privateIpAddress"))
@@ -1641,6 +1646,11 @@ class DataGoogleSqlDatabaseInstancesInstancesReplicationClusterOutputReference(
     @jsii.member(jsii_name="failoverDrReplicaName")
     def failover_dr_replica_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "failoverDrReplicaName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="psaWriteEndpoint")
+    def psa_write_endpoint(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "psaWriteEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -4029,6 +4039,11 @@ class DataGoogleSqlDatabaseInstancesInstancesSettingsIpConfigurationPscConfigOut
         return typing.cast(typing.List[builtins.str], jsii.get(self, "allowedConsumerProjects"))
 
     @builtins.property
+    @jsii.member(jsii_name="networkAttachmentUri")
+    def network_attachment_uri(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "networkAttachmentUri"))
+
+    @builtins.property
     @jsii.member(jsii_name="pscAutoConnections")
     def psc_auto_connections(
         self,
@@ -4721,6 +4736,11 @@ class DataGoogleSqlDatabaseInstancesInstancesSettingsOutputReference(
     @jsii.member(jsii_name="edition")
     def edition(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "edition"))
+
+    @builtins.property
+    @jsii.member(jsii_name="effectiveAvailabilityType")
+    def effective_availability_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "effectiveAvailabilityType"))
 
     @builtins.property
     @jsii.member(jsii_name="enableDataplexIntegration")

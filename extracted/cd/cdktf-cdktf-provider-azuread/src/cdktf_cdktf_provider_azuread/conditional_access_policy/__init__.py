@@ -1,7 +1,7 @@
 r'''
 # `azuread_conditional_access_policy`
 
-Refer to the Terraform Registry for docs: [`azuread_conditional_access_policy`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy).
+Refer to the Terraform Registry for docs: [`azuread_conditional_access_policy`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConditionalAccessPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.conditionalAccessPolicy.ConditionalAccessPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy azuread_conditional_access_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy azuread_conditional_access_policy}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ConditionalAccessPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy azuread_conditional_access_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy azuread_conditional_access_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#conditions ConditionalAccessPolicy#conditions}
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#display_name ConditionalAccessPolicy#display_name}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#state ConditionalAccessPolicy#state}.
-        :param grant_controls: grant_controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#grant_controls ConditionalAccessPolicy#grant_controls}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#id ConditionalAccessPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param session_controls: session_controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#session_controls ConditionalAccessPolicy#session_controls}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#timeouts ConditionalAccessPolicy#timeouts}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#conditions ConditionalAccessPolicy#conditions}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#display_name ConditionalAccessPolicy#display_name}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#state ConditionalAccessPolicy#state}.
+        :param grant_controls: grant_controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#grant_controls ConditionalAccessPolicy#grant_controls}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#id ConditionalAccessPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param session_controls: session_controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#session_controls ConditionalAccessPolicy#session_controls}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#timeouts ConditionalAccessPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ConditionalAccessPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConditionalAccessPolicy to import.
-        :param import_from_id: The id of the existing ConditionalAccessPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConditionalAccessPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConditionalAccessPolicy to import is found.
         '''
         if __debug__:
@@ -149,17 +149,17 @@ class ConditionalAccessPolicy(
         user_risk_levels: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param applications: applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#applications ConditionalAccessPolicy#applications}
-        :param client_app_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#client_app_types ConditionalAccessPolicy#client_app_types}.
-        :param users: users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#users ConditionalAccessPolicy#users}
-        :param client_applications: client_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#client_applications ConditionalAccessPolicy#client_applications}
-        :param devices: devices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#devices ConditionalAccessPolicy#devices}
-        :param insider_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#insider_risk_levels ConditionalAccessPolicy#insider_risk_levels}.
-        :param locations: locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#locations ConditionalAccessPolicy#locations}
-        :param platforms: platforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#platforms ConditionalAccessPolicy#platforms}
-        :param service_principal_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#service_principal_risk_levels ConditionalAccessPolicy#service_principal_risk_levels}.
-        :param sign_in_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_risk_levels ConditionalAccessPolicy#sign_in_risk_levels}.
-        :param user_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#user_risk_levels ConditionalAccessPolicy#user_risk_levels}.
+        :param applications: applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#applications ConditionalAccessPolicy#applications}
+        :param client_app_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#client_app_types ConditionalAccessPolicy#client_app_types}.
+        :param users: users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#users ConditionalAccessPolicy#users}
+        :param client_applications: client_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#client_applications ConditionalAccessPolicy#client_applications}
+        :param devices: devices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#devices ConditionalAccessPolicy#devices}
+        :param insider_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#insider_risk_levels ConditionalAccessPolicy#insider_risk_levels}.
+        :param locations: locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#locations ConditionalAccessPolicy#locations}
+        :param platforms: platforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#platforms ConditionalAccessPolicy#platforms}
+        :param service_principal_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#service_principal_risk_levels ConditionalAccessPolicy#service_principal_risk_levels}.
+        :param sign_in_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_risk_levels ConditionalAccessPolicy#sign_in_risk_levels}.
+        :param user_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#user_risk_levels ConditionalAccessPolicy#user_risk_levels}.
         '''
         value = ConditionalAccessPolicyConditions(
             applications=applications,
@@ -188,11 +188,11 @@ class ConditionalAccessPolicy(
         terms_of_use: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#operator ConditionalAccessPolicy#operator}.
-        :param authentication_strength_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#authentication_strength_policy_id ConditionalAccessPolicy#authentication_strength_policy_id}.
-        :param built_in_controls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#built_in_controls ConditionalAccessPolicy#built_in_controls}.
-        :param custom_authentication_factors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#custom_authentication_factors ConditionalAccessPolicy#custom_authentication_factors}.
-        :param terms_of_use: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#terms_of_use ConditionalAccessPolicy#terms_of_use}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#operator ConditionalAccessPolicy#operator}.
+        :param authentication_strength_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#authentication_strength_policy_id ConditionalAccessPolicy#authentication_strength_policy_id}.
+        :param built_in_controls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#built_in_controls ConditionalAccessPolicy#built_in_controls}.
+        :param custom_authentication_factors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#custom_authentication_factors ConditionalAccessPolicy#custom_authentication_factors}.
+        :param terms_of_use: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#terms_of_use ConditionalAccessPolicy#terms_of_use}.
         '''
         value = ConditionalAccessPolicyGrantControls(
             operator=operator,
@@ -218,14 +218,14 @@ class ConditionalAccessPolicy(
         sign_in_frequency_period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application_enforced_restrictions_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#application_enforced_restrictions_enabled ConditionalAccessPolicy#application_enforced_restrictions_enabled}.
-        :param cloud_app_security_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#cloud_app_security_policy ConditionalAccessPolicy#cloud_app_security_policy}.
-        :param disable_resilience_defaults: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#disable_resilience_defaults ConditionalAccessPolicy#disable_resilience_defaults}.
-        :param persistent_browser_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#persistent_browser_mode ConditionalAccessPolicy#persistent_browser_mode}.
-        :param sign_in_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency ConditionalAccessPolicy#sign_in_frequency}.
-        :param sign_in_frequency_authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency_authentication_type ConditionalAccessPolicy#sign_in_frequency_authentication_type}.
-        :param sign_in_frequency_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency_interval ConditionalAccessPolicy#sign_in_frequency_interval}.
-        :param sign_in_frequency_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency_period ConditionalAccessPolicy#sign_in_frequency_period}.
+        :param application_enforced_restrictions_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#application_enforced_restrictions_enabled ConditionalAccessPolicy#application_enforced_restrictions_enabled}.
+        :param cloud_app_security_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#cloud_app_security_policy ConditionalAccessPolicy#cloud_app_security_policy}.
+        :param disable_resilience_defaults: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#disable_resilience_defaults ConditionalAccessPolicy#disable_resilience_defaults}.
+        :param persistent_browser_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#persistent_browser_mode ConditionalAccessPolicy#persistent_browser_mode}.
+        :param sign_in_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency ConditionalAccessPolicy#sign_in_frequency}.
+        :param sign_in_frequency_authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency_authentication_type ConditionalAccessPolicy#sign_in_frequency_authentication_type}.
+        :param sign_in_frequency_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency_interval ConditionalAccessPolicy#sign_in_frequency_interval}.
+        :param sign_in_frequency_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency_period ConditionalAccessPolicy#sign_in_frequency_period}.
         '''
         value = ConditionalAccessPolicySessionControls(
             application_enforced_restrictions_enabled=application_enforced_restrictions_enabled,
@@ -250,10 +250,10 @@ class ConditionalAccessPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#create ConditionalAccessPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#delete ConditionalAccessPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#read ConditionalAccessPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#update ConditionalAccessPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#create ConditionalAccessPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#delete ConditionalAccessPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#read ConditionalAccessPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#update ConditionalAccessPolicy#update}.
         '''
         value = ConditionalAccessPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -429,17 +429,17 @@ class ConditionalAccessPolicyConditions:
         user_risk_levels: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param applications: applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#applications ConditionalAccessPolicy#applications}
-        :param client_app_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#client_app_types ConditionalAccessPolicy#client_app_types}.
-        :param users: users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#users ConditionalAccessPolicy#users}
-        :param client_applications: client_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#client_applications ConditionalAccessPolicy#client_applications}
-        :param devices: devices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#devices ConditionalAccessPolicy#devices}
-        :param insider_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#insider_risk_levels ConditionalAccessPolicy#insider_risk_levels}.
-        :param locations: locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#locations ConditionalAccessPolicy#locations}
-        :param platforms: platforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#platforms ConditionalAccessPolicy#platforms}
-        :param service_principal_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#service_principal_risk_levels ConditionalAccessPolicy#service_principal_risk_levels}.
-        :param sign_in_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_risk_levels ConditionalAccessPolicy#sign_in_risk_levels}.
-        :param user_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#user_risk_levels ConditionalAccessPolicy#user_risk_levels}.
+        :param applications: applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#applications ConditionalAccessPolicy#applications}
+        :param client_app_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#client_app_types ConditionalAccessPolicy#client_app_types}.
+        :param users: users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#users ConditionalAccessPolicy#users}
+        :param client_applications: client_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#client_applications ConditionalAccessPolicy#client_applications}
+        :param devices: devices block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#devices ConditionalAccessPolicy#devices}
+        :param insider_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#insider_risk_levels ConditionalAccessPolicy#insider_risk_levels}.
+        :param locations: locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#locations ConditionalAccessPolicy#locations}
+        :param platforms: platforms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#platforms ConditionalAccessPolicy#platforms}
+        :param service_principal_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#service_principal_risk_levels ConditionalAccessPolicy#service_principal_risk_levels}.
+        :param sign_in_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_risk_levels ConditionalAccessPolicy#sign_in_risk_levels}.
+        :param user_risk_levels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#user_risk_levels ConditionalAccessPolicy#user_risk_levels}.
         '''
         if isinstance(applications, dict):
             applications = ConditionalAccessPolicyConditionsApplications(**applications)
@@ -492,7 +492,7 @@ class ConditionalAccessPolicyConditions:
     def applications(self) -> "ConditionalAccessPolicyConditionsApplications":
         '''applications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#applications ConditionalAccessPolicy#applications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#applications ConditionalAccessPolicy#applications}
         '''
         result = self._values.get("applications")
         assert result is not None, "Required property 'applications' is missing"
@@ -500,7 +500,7 @@ class ConditionalAccessPolicyConditions:
 
     @builtins.property
     def client_app_types(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#client_app_types ConditionalAccessPolicy#client_app_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#client_app_types ConditionalAccessPolicy#client_app_types}.'''
         result = self._values.get("client_app_types")
         assert result is not None, "Required property 'client_app_types' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -509,7 +509,7 @@ class ConditionalAccessPolicyConditions:
     def users(self) -> "ConditionalAccessPolicyConditionsUsers":
         '''users block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#users ConditionalAccessPolicy#users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#users ConditionalAccessPolicy#users}
         '''
         result = self._values.get("users")
         assert result is not None, "Required property 'users' is missing"
@@ -521,7 +521,7 @@ class ConditionalAccessPolicyConditions:
     ) -> typing.Optional["ConditionalAccessPolicyConditionsClientApplications"]:
         '''client_applications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#client_applications ConditionalAccessPolicy#client_applications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#client_applications ConditionalAccessPolicy#client_applications}
         '''
         result = self._values.get("client_applications")
         return typing.cast(typing.Optional["ConditionalAccessPolicyConditionsClientApplications"], result)
@@ -530,14 +530,14 @@ class ConditionalAccessPolicyConditions:
     def devices(self) -> typing.Optional["ConditionalAccessPolicyConditionsDevices"]:
         '''devices block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#devices ConditionalAccessPolicy#devices}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#devices ConditionalAccessPolicy#devices}
         '''
         result = self._values.get("devices")
         return typing.cast(typing.Optional["ConditionalAccessPolicyConditionsDevices"], result)
 
     @builtins.property
     def insider_risk_levels(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#insider_risk_levels ConditionalAccessPolicy#insider_risk_levels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#insider_risk_levels ConditionalAccessPolicy#insider_risk_levels}.'''
         result = self._values.get("insider_risk_levels")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -547,7 +547,7 @@ class ConditionalAccessPolicyConditions:
     ) -> typing.Optional["ConditionalAccessPolicyConditionsLocations"]:
         '''locations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#locations ConditionalAccessPolicy#locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#locations ConditionalAccessPolicy#locations}
         '''
         result = self._values.get("locations")
         return typing.cast(typing.Optional["ConditionalAccessPolicyConditionsLocations"], result)
@@ -558,7 +558,7 @@ class ConditionalAccessPolicyConditions:
     ) -> typing.Optional["ConditionalAccessPolicyConditionsPlatforms"]:
         '''platforms block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#platforms ConditionalAccessPolicy#platforms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#platforms ConditionalAccessPolicy#platforms}
         '''
         result = self._values.get("platforms")
         return typing.cast(typing.Optional["ConditionalAccessPolicyConditionsPlatforms"], result)
@@ -567,19 +567,19 @@ class ConditionalAccessPolicyConditions:
     def service_principal_risk_levels(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#service_principal_risk_levels ConditionalAccessPolicy#service_principal_risk_levels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#service_principal_risk_levels ConditionalAccessPolicy#service_principal_risk_levels}.'''
         result = self._values.get("service_principal_risk_levels")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def sign_in_risk_levels(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_risk_levels ConditionalAccessPolicy#sign_in_risk_levels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_risk_levels ConditionalAccessPolicy#sign_in_risk_levels}.'''
         result = self._values.get("sign_in_risk_levels")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def user_risk_levels(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#user_risk_levels ConditionalAccessPolicy#user_risk_levels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#user_risk_levels ConditionalAccessPolicy#user_risk_levels}.'''
         result = self._values.get("user_risk_levels")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -613,9 +613,9 @@ class ConditionalAccessPolicyConditionsApplications:
         included_user_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excluded_applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_applications ConditionalAccessPolicy#excluded_applications}.
-        :param included_applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_applications ConditionalAccessPolicy#included_applications}.
-        :param included_user_actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_user_actions ConditionalAccessPolicy#included_user_actions}.
+        :param excluded_applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_applications ConditionalAccessPolicy#excluded_applications}.
+        :param included_applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_applications ConditionalAccessPolicy#included_applications}.
+        :param included_user_actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_user_actions ConditionalAccessPolicy#included_user_actions}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__11026c77806c5638ff31deed764671983442729eab6de259f981e4c908541f3d)
@@ -632,19 +632,19 @@ class ConditionalAccessPolicyConditionsApplications:
 
     @builtins.property
     def excluded_applications(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_applications ConditionalAccessPolicy#excluded_applications}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_applications ConditionalAccessPolicy#excluded_applications}.'''
         result = self._values.get("excluded_applications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def included_applications(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_applications ConditionalAccessPolicy#included_applications}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_applications ConditionalAccessPolicy#included_applications}.'''
         result = self._values.get("included_applications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def included_user_actions(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_user_actions ConditionalAccessPolicy#included_user_actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_user_actions ConditionalAccessPolicy#included_user_actions}.'''
         result = self._values.get("included_user_actions")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -766,6 +766,7 @@ class ConditionalAccessPolicyConditionsApplicationsOutputReference(
     jsii_struct_bases=[],
     name_mapping={
         "excluded_service_principals": "excludedServicePrincipals",
+        "filter": "filter",
         "included_service_principals": "includedServicePrincipals",
     },
 )
@@ -774,31 +775,49 @@ class ConditionalAccessPolicyConditionsClientApplications:
         self,
         *,
         excluded_service_principals: typing.Optional[typing.Sequence[builtins.str]] = None,
+        filter: typing.Optional[typing.Union["ConditionalAccessPolicyConditionsClientApplicationsFilter", typing.Dict[builtins.str, typing.Any]]] = None,
         included_service_principals: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excluded_service_principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_service_principals ConditionalAccessPolicy#excluded_service_principals}.
-        :param included_service_principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_service_principals ConditionalAccessPolicy#included_service_principals}.
+        :param excluded_service_principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_service_principals ConditionalAccessPolicy#excluded_service_principals}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#filter ConditionalAccessPolicy#filter}
+        :param included_service_principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_service_principals ConditionalAccessPolicy#included_service_principals}.
         '''
+        if isinstance(filter, dict):
+            filter = ConditionalAccessPolicyConditionsClientApplicationsFilter(**filter)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e30f64076b9e43f4b15df7ec207841134c233917ae9b48960ea605d42d8d6584)
             check_type(argname="argument excluded_service_principals", value=excluded_service_principals, expected_type=type_hints["excluded_service_principals"])
+            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
             check_type(argname="argument included_service_principals", value=included_service_principals, expected_type=type_hints["included_service_principals"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if excluded_service_principals is not None:
             self._values["excluded_service_principals"] = excluded_service_principals
+        if filter is not None:
+            self._values["filter"] = filter
         if included_service_principals is not None:
             self._values["included_service_principals"] = included_service_principals
 
     @builtins.property
     def excluded_service_principals(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_service_principals ConditionalAccessPolicy#excluded_service_principals}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_service_principals ConditionalAccessPolicy#excluded_service_principals}.'''
         result = self._values.get("excluded_service_principals")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def filter(
+        self,
+    ) -> typing.Optional["ConditionalAccessPolicyConditionsClientApplicationsFilter"]:
+        '''filter block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#filter ConditionalAccessPolicy#filter}
+        '''
+        result = self._values.get("filter")
+        return typing.cast(typing.Optional["ConditionalAccessPolicyConditionsClientApplicationsFilter"], result)
+
+    @builtins.property
     def included_service_principals(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_service_principals ConditionalAccessPolicy#included_service_principals}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_service_principals ConditionalAccessPolicy#included_service_principals}.'''
         result = self._values.get("included_service_principals")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -812,6 +831,124 @@ class ConditionalAccessPolicyConditionsClientApplications:
         return "ConditionalAccessPolicyConditionsClientApplications(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-azuread.conditionalAccessPolicy.ConditionalAccessPolicyConditionsClientApplicationsFilter",
+    jsii_struct_bases=[],
+    name_mapping={"mode": "mode", "rule": "rule"},
+)
+class ConditionalAccessPolicyConditionsClientApplicationsFilter:
+    def __init__(self, *, mode: builtins.str, rule: builtins.str) -> None:
+        '''
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#mode ConditionalAccessPolicy#mode}.
+        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#rule ConditionalAccessPolicy#rule}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__665268d0cc50f202d9f9c7b18ea5a228dad14433b73983b73e6fb4699c9a4188)
+            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "mode": mode,
+            "rule": rule,
+        }
+
+    @builtins.property
+    def mode(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#mode ConditionalAccessPolicy#mode}.'''
+        result = self._values.get("mode")
+        assert result is not None, "Required property 'mode' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#rule ConditionalAccessPolicy#rule}.'''
+        result = self._values.get("rule")
+        assert result is not None, "Required property 'rule' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConditionalAccessPolicyConditionsClientApplicationsFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ConditionalAccessPolicyConditionsClientApplicationsFilterOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-azuread.conditionalAccessPolicy.ConditionalAccessPolicyConditionsClientApplicationsFilterOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47d0bae722728578187014231e8a6b41181ab2e6514d6ba585eca0cb07cc684c)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="modeInput")
+    def mode_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "modeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ruleInput")
+    def rule_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ruleInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "mode"))
+
+    @mode.setter
+    def mode(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1827f446a5c1be8c497ecca81e3da533e51107c42294ff9dd774c45b37636ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rule")
+    def rule(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "rule"))
+
+    @rule.setter
+    def rule(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc3f6bb1724fd606ea019a83b2fa9f3479ab6491a6a1b1f1509a051d3efa9d71)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[ConditionalAccessPolicyConditionsClientApplicationsFilter]:
+        return typing.cast(typing.Optional[ConditionalAccessPolicyConditionsClientApplicationsFilter], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ConditionalAccessPolicyConditionsClientApplicationsFilter],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e13e4c8b250401802a8e74a6b7316690fc994e446b13fc57579c2c6eccd8525)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 class ConditionalAccessPolicyConditionsClientApplicationsOutputReference(
@@ -834,13 +971,36 @@ class ConditionalAccessPolicyConditionsClientApplicationsOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="putFilter")
+    def put_filter(self, *, mode: builtins.str, rule: builtins.str) -> None:
+        '''
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#mode ConditionalAccessPolicy#mode}.
+        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#rule ConditionalAccessPolicy#rule}.
+        '''
+        value = ConditionalAccessPolicyConditionsClientApplicationsFilter(
+            mode=mode, rule=rule
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putFilter", [value]))
+
     @jsii.member(jsii_name="resetExcludedServicePrincipals")
     def reset_excluded_service_principals(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetExcludedServicePrincipals", []))
 
+    @jsii.member(jsii_name="resetFilter")
+    def reset_filter(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFilter", []))
+
     @jsii.member(jsii_name="resetIncludedServicePrincipals")
     def reset_included_service_principals(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetIncludedServicePrincipals", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="filter")
+    def filter(
+        self,
+    ) -> ConditionalAccessPolicyConditionsClientApplicationsFilterOutputReference:
+        return typing.cast(ConditionalAccessPolicyConditionsClientApplicationsFilterOutputReference, jsii.get(self, "filter"))
 
     @builtins.property
     @jsii.member(jsii_name="excludedServicePrincipalsInput")
@@ -848,6 +1008,13 @@ class ConditionalAccessPolicyConditionsClientApplicationsOutputReference(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "excludedServicePrincipalsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filterInput")
+    def filter_input(
+        self,
+    ) -> typing.Optional[ConditionalAccessPolicyConditionsClientApplicationsFilter]:
+        return typing.cast(typing.Optional[ConditionalAccessPolicyConditionsClientApplicationsFilter], jsii.get(self, "filterInput"))
 
     @builtins.property
     @jsii.member(jsii_name="includedServicePrincipalsInput")
@@ -910,7 +1077,7 @@ class ConditionalAccessPolicyConditionsDevices:
         filter: typing.Optional[typing.Union["ConditionalAccessPolicyConditionsDevicesFilter", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#filter ConditionalAccessPolicy#filter}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#filter ConditionalAccessPolicy#filter}
         '''
         if isinstance(filter, dict):
             filter = ConditionalAccessPolicyConditionsDevicesFilter(**filter)
@@ -927,7 +1094,7 @@ class ConditionalAccessPolicyConditionsDevices:
     ) -> typing.Optional["ConditionalAccessPolicyConditionsDevicesFilter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#filter ConditionalAccessPolicy#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#filter ConditionalAccessPolicy#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["ConditionalAccessPolicyConditionsDevicesFilter"], result)
@@ -952,8 +1119,8 @@ class ConditionalAccessPolicyConditionsDevices:
 class ConditionalAccessPolicyConditionsDevicesFilter:
     def __init__(self, *, mode: builtins.str, rule: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#mode ConditionalAccessPolicy#mode}.
-        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#rule ConditionalAccessPolicy#rule}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#mode ConditionalAccessPolicy#mode}.
+        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#rule ConditionalAccessPolicy#rule}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3ef6a53b1c5c09838967f0d12f8571d12ff78e2108dfcac619ea0b0cd24911b)
@@ -966,14 +1133,14 @@ class ConditionalAccessPolicyConditionsDevicesFilter:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#mode ConditionalAccessPolicy#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#mode ConditionalAccessPolicy#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#rule ConditionalAccessPolicy#rule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#rule ConditionalAccessPolicy#rule}.'''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
         return typing.cast(builtins.str, result)
@@ -1085,8 +1252,8 @@ class ConditionalAccessPolicyConditionsDevicesOutputReference(
     @jsii.member(jsii_name="putFilter")
     def put_filter(self, *, mode: builtins.str, rule: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#mode ConditionalAccessPolicy#mode}.
-        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#rule ConditionalAccessPolicy#rule}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#mode ConditionalAccessPolicy#mode}.
+        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#rule ConditionalAccessPolicy#rule}.
         '''
         value = ConditionalAccessPolicyConditionsDevicesFilter(mode=mode, rule=rule)
 
@@ -1142,8 +1309,8 @@ class ConditionalAccessPolicyConditionsLocations:
         excluded_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_locations ConditionalAccessPolicy#included_locations}.
-        :param excluded_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_locations ConditionalAccessPolicy#excluded_locations}.
+        :param included_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_locations ConditionalAccessPolicy#included_locations}.
+        :param excluded_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_locations ConditionalAccessPolicy#excluded_locations}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53c7305eb364afef5b292e50c63c9b45344be7eb5e3a26e450df5391eb9c959e)
@@ -1157,14 +1324,14 @@ class ConditionalAccessPolicyConditionsLocations:
 
     @builtins.property
     def included_locations(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_locations ConditionalAccessPolicy#included_locations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_locations ConditionalAccessPolicy#included_locations}.'''
         result = self._values.get("included_locations")
         assert result is not None, "Required property 'included_locations' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def excluded_locations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_locations ConditionalAccessPolicy#excluded_locations}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_locations ConditionalAccessPolicy#excluded_locations}.'''
         result = self._values.get("excluded_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1285,9 +1452,9 @@ class ConditionalAccessPolicyConditionsOutputReference(
         included_user_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excluded_applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_applications ConditionalAccessPolicy#excluded_applications}.
-        :param included_applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_applications ConditionalAccessPolicy#included_applications}.
-        :param included_user_actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_user_actions ConditionalAccessPolicy#included_user_actions}.
+        :param excluded_applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_applications ConditionalAccessPolicy#excluded_applications}.
+        :param included_applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_applications ConditionalAccessPolicy#included_applications}.
+        :param included_user_actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_user_actions ConditionalAccessPolicy#included_user_actions}.
         '''
         value = ConditionalAccessPolicyConditionsApplications(
             excluded_applications=excluded_applications,
@@ -1302,14 +1469,17 @@ class ConditionalAccessPolicyConditionsOutputReference(
         self,
         *,
         excluded_service_principals: typing.Optional[typing.Sequence[builtins.str]] = None,
+        filter: typing.Optional[typing.Union[ConditionalAccessPolicyConditionsClientApplicationsFilter, typing.Dict[builtins.str, typing.Any]]] = None,
         included_service_principals: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excluded_service_principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_service_principals ConditionalAccessPolicy#excluded_service_principals}.
-        :param included_service_principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_service_principals ConditionalAccessPolicy#included_service_principals}.
+        :param excluded_service_principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_service_principals ConditionalAccessPolicy#excluded_service_principals}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#filter ConditionalAccessPolicy#filter}
+        :param included_service_principals: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_service_principals ConditionalAccessPolicy#included_service_principals}.
         '''
         value = ConditionalAccessPolicyConditionsClientApplications(
             excluded_service_principals=excluded_service_principals,
+            filter=filter,
             included_service_principals=included_service_principals,
         )
 
@@ -1322,7 +1492,7 @@ class ConditionalAccessPolicyConditionsOutputReference(
         filter: typing.Optional[typing.Union[ConditionalAccessPolicyConditionsDevicesFilter, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#filter ConditionalAccessPolicy#filter}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#filter ConditionalAccessPolicy#filter}
         '''
         value = ConditionalAccessPolicyConditionsDevices(filter=filter)
 
@@ -1336,8 +1506,8 @@ class ConditionalAccessPolicyConditionsOutputReference(
         excluded_locations: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_locations ConditionalAccessPolicy#included_locations}.
-        :param excluded_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_locations ConditionalAccessPolicy#excluded_locations}.
+        :param included_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_locations ConditionalAccessPolicy#included_locations}.
+        :param excluded_locations: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_locations ConditionalAccessPolicy#excluded_locations}.
         '''
         value = ConditionalAccessPolicyConditionsLocations(
             included_locations=included_locations,
@@ -1354,8 +1524,8 @@ class ConditionalAccessPolicyConditionsOutputReference(
         excluded_platforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_platforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_platforms ConditionalAccessPolicy#included_platforms}.
-        :param excluded_platforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_platforms ConditionalAccessPolicy#excluded_platforms}.
+        :param included_platforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_platforms ConditionalAccessPolicy#included_platforms}.
+        :param excluded_platforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_platforms ConditionalAccessPolicy#excluded_platforms}.
         '''
         value = ConditionalAccessPolicyConditionsPlatforms(
             included_platforms=included_platforms,
@@ -1378,14 +1548,14 @@ class ConditionalAccessPolicyConditionsOutputReference(
         included_users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excluded_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_groups ConditionalAccessPolicy#excluded_groups}.
-        :param excluded_guests_or_external_users: excluded_guests_or_external_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_guests_or_external_users ConditionalAccessPolicy#excluded_guests_or_external_users}
-        :param excluded_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_roles ConditionalAccessPolicy#excluded_roles}.
-        :param excluded_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_users ConditionalAccessPolicy#excluded_users}.
-        :param included_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_groups ConditionalAccessPolicy#included_groups}.
-        :param included_guests_or_external_users: included_guests_or_external_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_guests_or_external_users ConditionalAccessPolicy#included_guests_or_external_users}
-        :param included_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_roles ConditionalAccessPolicy#included_roles}.
-        :param included_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_users ConditionalAccessPolicy#included_users}.
+        :param excluded_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_groups ConditionalAccessPolicy#excluded_groups}.
+        :param excluded_guests_or_external_users: excluded_guests_or_external_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_guests_or_external_users ConditionalAccessPolicy#excluded_guests_or_external_users}
+        :param excluded_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_roles ConditionalAccessPolicy#excluded_roles}.
+        :param excluded_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_users ConditionalAccessPolicy#excluded_users}.
+        :param included_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_groups ConditionalAccessPolicy#included_groups}.
+        :param included_guests_or_external_users: included_guests_or_external_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_guests_or_external_users ConditionalAccessPolicy#included_guests_or_external_users}
+        :param included_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_roles ConditionalAccessPolicy#included_roles}.
+        :param included_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_users ConditionalAccessPolicy#included_users}.
         '''
         value = ConditionalAccessPolicyConditionsUsers(
             excluded_groups=excluded_groups,
@@ -1625,8 +1795,8 @@ class ConditionalAccessPolicyConditionsPlatforms:
         excluded_platforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param included_platforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_platforms ConditionalAccessPolicy#included_platforms}.
-        :param excluded_platforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_platforms ConditionalAccessPolicy#excluded_platforms}.
+        :param included_platforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_platforms ConditionalAccessPolicy#included_platforms}.
+        :param excluded_platforms: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_platforms ConditionalAccessPolicy#excluded_platforms}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d7237d289833d8db0df836a3bdc399a5a484c0385a5dfa1ee7f01cb7fec59b3)
@@ -1640,14 +1810,14 @@ class ConditionalAccessPolicyConditionsPlatforms:
 
     @builtins.property
     def included_platforms(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_platforms ConditionalAccessPolicy#included_platforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_platforms ConditionalAccessPolicy#included_platforms}.'''
         result = self._values.get("included_platforms")
         assert result is not None, "Required property 'included_platforms' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def excluded_platforms(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_platforms ConditionalAccessPolicy#excluded_platforms}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_platforms ConditionalAccessPolicy#excluded_platforms}.'''
         result = self._values.get("excluded_platforms")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1767,14 +1937,14 @@ class ConditionalAccessPolicyConditionsUsers:
         included_users: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param excluded_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_groups ConditionalAccessPolicy#excluded_groups}.
-        :param excluded_guests_or_external_users: excluded_guests_or_external_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_guests_or_external_users ConditionalAccessPolicy#excluded_guests_or_external_users}
-        :param excluded_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_roles ConditionalAccessPolicy#excluded_roles}.
-        :param excluded_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_users ConditionalAccessPolicy#excluded_users}.
-        :param included_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_groups ConditionalAccessPolicy#included_groups}.
-        :param included_guests_or_external_users: included_guests_or_external_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_guests_or_external_users ConditionalAccessPolicy#included_guests_or_external_users}
-        :param included_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_roles ConditionalAccessPolicy#included_roles}.
-        :param included_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_users ConditionalAccessPolicy#included_users}.
+        :param excluded_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_groups ConditionalAccessPolicy#excluded_groups}.
+        :param excluded_guests_or_external_users: excluded_guests_or_external_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_guests_or_external_users ConditionalAccessPolicy#excluded_guests_or_external_users}
+        :param excluded_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_roles ConditionalAccessPolicy#excluded_roles}.
+        :param excluded_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_users ConditionalAccessPolicy#excluded_users}.
+        :param included_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_groups ConditionalAccessPolicy#included_groups}.
+        :param included_guests_or_external_users: included_guests_or_external_users block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_guests_or_external_users ConditionalAccessPolicy#included_guests_or_external_users}
+        :param included_roles: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_roles ConditionalAccessPolicy#included_roles}.
+        :param included_users: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_users ConditionalAccessPolicy#included_users}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d420b9f32eaa0075d74ecf3ef166a4e046a9362a27c48565bc339d975546884c)
@@ -1806,7 +1976,7 @@ class ConditionalAccessPolicyConditionsUsers:
 
     @builtins.property
     def excluded_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_groups ConditionalAccessPolicy#excluded_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_groups ConditionalAccessPolicy#excluded_groups}.'''
         result = self._values.get("excluded_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1816,26 +1986,26 @@ class ConditionalAccessPolicyConditionsUsers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsers"]]]:
         '''excluded_guests_or_external_users block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_guests_or_external_users ConditionalAccessPolicy#excluded_guests_or_external_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_guests_or_external_users ConditionalAccessPolicy#excluded_guests_or_external_users}
         '''
         result = self._values.get("excluded_guests_or_external_users")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsers"]]], result)
 
     @builtins.property
     def excluded_roles(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_roles ConditionalAccessPolicy#excluded_roles}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_roles ConditionalAccessPolicy#excluded_roles}.'''
         result = self._values.get("excluded_roles")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def excluded_users(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#excluded_users ConditionalAccessPolicy#excluded_users}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#excluded_users ConditionalAccessPolicy#excluded_users}.'''
         result = self._values.get("excluded_users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def included_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_groups ConditionalAccessPolicy#included_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_groups ConditionalAccessPolicy#included_groups}.'''
         result = self._values.get("included_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1845,20 +2015,20 @@ class ConditionalAccessPolicyConditionsUsers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsers"]]]:
         '''included_guests_or_external_users block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_guests_or_external_users ConditionalAccessPolicy#included_guests_or_external_users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_guests_or_external_users ConditionalAccessPolicy#included_guests_or_external_users}
         '''
         result = self._values.get("included_guests_or_external_users")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsers"]]], result)
 
     @builtins.property
     def included_roles(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_roles ConditionalAccessPolicy#included_roles}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_roles ConditionalAccessPolicy#included_roles}.'''
         result = self._values.get("included_roles")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def included_users(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#included_users ConditionalAccessPolicy#included_users}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#included_users ConditionalAccessPolicy#included_users}.'''
         result = self._values.get("included_users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1890,8 +2060,8 @@ class ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsers:
         external_tenants: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsersExternalTenants", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param guest_or_external_user_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#guest_or_external_user_types ConditionalAccessPolicy#guest_or_external_user_types}.
-        :param external_tenants: external_tenants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#external_tenants ConditionalAccessPolicy#external_tenants}
+        :param guest_or_external_user_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#guest_or_external_user_types ConditionalAccessPolicy#guest_or_external_user_types}.
+        :param external_tenants: external_tenants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#external_tenants ConditionalAccessPolicy#external_tenants}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f57ab707dec3db12fb4bbef2c9195a7e5b1ac8f6c224075d2c69663b9b533db4)
@@ -1905,7 +2075,7 @@ class ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsers:
 
     @builtins.property
     def guest_or_external_user_types(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#guest_or_external_user_types ConditionalAccessPolicy#guest_or_external_user_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#guest_or_external_user_types ConditionalAccessPolicy#guest_or_external_user_types}.'''
         result = self._values.get("guest_or_external_user_types")
         assert result is not None, "Required property 'guest_or_external_user_types' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1916,7 +2086,7 @@ class ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsersExternalTenants"]]]:
         '''external_tenants block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#external_tenants ConditionalAccessPolicy#external_tenants}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#external_tenants ConditionalAccessPolicy#external_tenants}
         '''
         result = self._values.get("external_tenants")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsersExternalTenants"]]], result)
@@ -1946,8 +2116,8 @@ class ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsersExterna
         members: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param membership_kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#membership_kind ConditionalAccessPolicy#membership_kind}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#members ConditionalAccessPolicy#members}.
+        :param membership_kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#membership_kind ConditionalAccessPolicy#membership_kind}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#members ConditionalAccessPolicy#members}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__809fa0808f84948c7c981fa644bc3117ee73781a899046b86917d19a3ffdfc90)
@@ -1961,14 +2131,14 @@ class ConditionalAccessPolicyConditionsUsersExcludedGuestsOrExternalUsersExterna
 
     @builtins.property
     def membership_kind(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#membership_kind ConditionalAccessPolicy#membership_kind}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#membership_kind ConditionalAccessPolicy#membership_kind}.'''
         result = self._values.get("membership_kind")
         assert result is not None, "Required property 'membership_kind' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def members(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#members ConditionalAccessPolicy#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#members ConditionalAccessPolicy#members}.'''
         result = self._values.get("members")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2362,8 +2532,8 @@ class ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsers:
         external_tenants: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsersExternalTenants", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param guest_or_external_user_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#guest_or_external_user_types ConditionalAccessPolicy#guest_or_external_user_types}.
-        :param external_tenants: external_tenants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#external_tenants ConditionalAccessPolicy#external_tenants}
+        :param guest_or_external_user_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#guest_or_external_user_types ConditionalAccessPolicy#guest_or_external_user_types}.
+        :param external_tenants: external_tenants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#external_tenants ConditionalAccessPolicy#external_tenants}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8f0dd0910460888f1c9fae8da559dc408651dc04fec13a498f445c2d2189621)
@@ -2377,7 +2547,7 @@ class ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsers:
 
     @builtins.property
     def guest_or_external_user_types(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#guest_or_external_user_types ConditionalAccessPolicy#guest_or_external_user_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#guest_or_external_user_types ConditionalAccessPolicy#guest_or_external_user_types}.'''
         result = self._values.get("guest_or_external_user_types")
         assert result is not None, "Required property 'guest_or_external_user_types' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2388,7 +2558,7 @@ class ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsers:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsersExternalTenants"]]]:
         '''external_tenants block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#external_tenants ConditionalAccessPolicy#external_tenants}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#external_tenants ConditionalAccessPolicy#external_tenants}
         '''
         result = self._values.get("external_tenants")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsersExternalTenants"]]], result)
@@ -2418,8 +2588,8 @@ class ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsersExterna
         members: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param membership_kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#membership_kind ConditionalAccessPolicy#membership_kind}.
-        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#members ConditionalAccessPolicy#members}.
+        :param membership_kind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#membership_kind ConditionalAccessPolicy#membership_kind}.
+        :param members: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#members ConditionalAccessPolicy#members}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac3ab23f8013135fde5ea5c256260d46cd52539b2cdfb6e08a6d098c455c9350)
@@ -2433,14 +2603,14 @@ class ConditionalAccessPolicyConditionsUsersIncludedGuestsOrExternalUsersExterna
 
     @builtins.property
     def membership_kind(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#membership_kind ConditionalAccessPolicy#membership_kind}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#membership_kind ConditionalAccessPolicy#membership_kind}.'''
         result = self._values.get("membership_kind")
         assert result is not None, "Required property 'membership_kind' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def members(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#members ConditionalAccessPolicy#members}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#members ConditionalAccessPolicy#members}.'''
         result = self._values.get("members")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3089,13 +3259,13 @@ class ConditionalAccessPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#conditions ConditionalAccessPolicy#conditions}
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#display_name ConditionalAccessPolicy#display_name}.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#state ConditionalAccessPolicy#state}.
-        :param grant_controls: grant_controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#grant_controls ConditionalAccessPolicy#grant_controls}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#id ConditionalAccessPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param session_controls: session_controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#session_controls ConditionalAccessPolicy#session_controls}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#timeouts ConditionalAccessPolicy#timeouts}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#conditions ConditionalAccessPolicy#conditions}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#display_name ConditionalAccessPolicy#display_name}.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#state ConditionalAccessPolicy#state}.
+        :param grant_controls: grant_controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#grant_controls ConditionalAccessPolicy#grant_controls}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#id ConditionalAccessPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param session_controls: session_controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#session_controls ConditionalAccessPolicy#session_controls}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#timeouts ConditionalAccessPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3219,7 +3389,7 @@ class ConditionalAccessPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def conditions(self) -> ConditionalAccessPolicyConditions:
         '''conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#conditions ConditionalAccessPolicy#conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#conditions ConditionalAccessPolicy#conditions}
         '''
         result = self._values.get("conditions")
         assert result is not None, "Required property 'conditions' is missing"
@@ -3227,14 +3397,14 @@ class ConditionalAccessPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#display_name ConditionalAccessPolicy#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#display_name ConditionalAccessPolicy#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def state(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#state ConditionalAccessPolicy#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#state ConditionalAccessPolicy#state}.'''
         result = self._values.get("state")
         assert result is not None, "Required property 'state' is missing"
         return typing.cast(builtins.str, result)
@@ -3243,14 +3413,14 @@ class ConditionalAccessPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def grant_controls(self) -> typing.Optional["ConditionalAccessPolicyGrantControls"]:
         '''grant_controls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#grant_controls ConditionalAccessPolicy#grant_controls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#grant_controls ConditionalAccessPolicy#grant_controls}
         '''
         result = self._values.get("grant_controls")
         return typing.cast(typing.Optional["ConditionalAccessPolicyGrantControls"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#id ConditionalAccessPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#id ConditionalAccessPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3264,7 +3434,7 @@ class ConditionalAccessPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ConditionalAccessPolicySessionControls"]:
         '''session_controls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#session_controls ConditionalAccessPolicy#session_controls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#session_controls ConditionalAccessPolicy#session_controls}
         '''
         result = self._values.get("session_controls")
         return typing.cast(typing.Optional["ConditionalAccessPolicySessionControls"], result)
@@ -3273,7 +3443,7 @@ class ConditionalAccessPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ConditionalAccessPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#timeouts ConditionalAccessPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#timeouts ConditionalAccessPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ConditionalAccessPolicyTimeouts"], result)
@@ -3312,11 +3482,11 @@ class ConditionalAccessPolicyGrantControls:
         terms_of_use: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#operator ConditionalAccessPolicy#operator}.
-        :param authentication_strength_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#authentication_strength_policy_id ConditionalAccessPolicy#authentication_strength_policy_id}.
-        :param built_in_controls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#built_in_controls ConditionalAccessPolicy#built_in_controls}.
-        :param custom_authentication_factors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#custom_authentication_factors ConditionalAccessPolicy#custom_authentication_factors}.
-        :param terms_of_use: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#terms_of_use ConditionalAccessPolicy#terms_of_use}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#operator ConditionalAccessPolicy#operator}.
+        :param authentication_strength_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#authentication_strength_policy_id ConditionalAccessPolicy#authentication_strength_policy_id}.
+        :param built_in_controls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#built_in_controls ConditionalAccessPolicy#built_in_controls}.
+        :param custom_authentication_factors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#custom_authentication_factors ConditionalAccessPolicy#custom_authentication_factors}.
+        :param terms_of_use: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#terms_of_use ConditionalAccessPolicy#terms_of_use}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__79e9ef9bc2dc88dde4df59064989633b969d7e38d3c80705e18758f2a3d80ff9)
@@ -3339,20 +3509,20 @@ class ConditionalAccessPolicyGrantControls:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#operator ConditionalAccessPolicy#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#operator ConditionalAccessPolicy#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def authentication_strength_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#authentication_strength_policy_id ConditionalAccessPolicy#authentication_strength_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#authentication_strength_policy_id ConditionalAccessPolicy#authentication_strength_policy_id}.'''
         result = self._values.get("authentication_strength_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def built_in_controls(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#built_in_controls ConditionalAccessPolicy#built_in_controls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#built_in_controls ConditionalAccessPolicy#built_in_controls}.'''
         result = self._values.get("built_in_controls")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3360,13 +3530,13 @@ class ConditionalAccessPolicyGrantControls:
     def custom_authentication_factors(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#custom_authentication_factors ConditionalAccessPolicy#custom_authentication_factors}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#custom_authentication_factors ConditionalAccessPolicy#custom_authentication_factors}.'''
         result = self._values.get("custom_authentication_factors")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def terms_of_use(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#terms_of_use ConditionalAccessPolicy#terms_of_use}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#terms_of_use ConditionalAccessPolicy#terms_of_use}.'''
         result = self._values.get("terms_of_use")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3549,14 +3719,14 @@ class ConditionalAccessPolicySessionControls:
         sign_in_frequency_period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param application_enforced_restrictions_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#application_enforced_restrictions_enabled ConditionalAccessPolicy#application_enforced_restrictions_enabled}.
-        :param cloud_app_security_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#cloud_app_security_policy ConditionalAccessPolicy#cloud_app_security_policy}.
-        :param disable_resilience_defaults: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#disable_resilience_defaults ConditionalAccessPolicy#disable_resilience_defaults}.
-        :param persistent_browser_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#persistent_browser_mode ConditionalAccessPolicy#persistent_browser_mode}.
-        :param sign_in_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency ConditionalAccessPolicy#sign_in_frequency}.
-        :param sign_in_frequency_authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency_authentication_type ConditionalAccessPolicy#sign_in_frequency_authentication_type}.
-        :param sign_in_frequency_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency_interval ConditionalAccessPolicy#sign_in_frequency_interval}.
-        :param sign_in_frequency_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency_period ConditionalAccessPolicy#sign_in_frequency_period}.
+        :param application_enforced_restrictions_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#application_enforced_restrictions_enabled ConditionalAccessPolicy#application_enforced_restrictions_enabled}.
+        :param cloud_app_security_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#cloud_app_security_policy ConditionalAccessPolicy#cloud_app_security_policy}.
+        :param disable_resilience_defaults: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#disable_resilience_defaults ConditionalAccessPolicy#disable_resilience_defaults}.
+        :param persistent_browser_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#persistent_browser_mode ConditionalAccessPolicy#persistent_browser_mode}.
+        :param sign_in_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency ConditionalAccessPolicy#sign_in_frequency}.
+        :param sign_in_frequency_authentication_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency_authentication_type ConditionalAccessPolicy#sign_in_frequency_authentication_type}.
+        :param sign_in_frequency_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency_interval ConditionalAccessPolicy#sign_in_frequency_interval}.
+        :param sign_in_frequency_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency_period ConditionalAccessPolicy#sign_in_frequency_period}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c236e180b6f7b64c571e9f407daabca05f3cd6329842ee7ae4bf5180bc8dbd67)
@@ -3590,13 +3760,13 @@ class ConditionalAccessPolicySessionControls:
     def application_enforced_restrictions_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#application_enforced_restrictions_enabled ConditionalAccessPolicy#application_enforced_restrictions_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#application_enforced_restrictions_enabled ConditionalAccessPolicy#application_enforced_restrictions_enabled}.'''
         result = self._values.get("application_enforced_restrictions_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def cloud_app_security_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#cloud_app_security_policy ConditionalAccessPolicy#cloud_app_security_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#cloud_app_security_policy ConditionalAccessPolicy#cloud_app_security_policy}.'''
         result = self._values.get("cloud_app_security_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3604,37 +3774,37 @@ class ConditionalAccessPolicySessionControls:
     def disable_resilience_defaults(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#disable_resilience_defaults ConditionalAccessPolicy#disable_resilience_defaults}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#disable_resilience_defaults ConditionalAccessPolicy#disable_resilience_defaults}.'''
         result = self._values.get("disable_resilience_defaults")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def persistent_browser_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#persistent_browser_mode ConditionalAccessPolicy#persistent_browser_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#persistent_browser_mode ConditionalAccessPolicy#persistent_browser_mode}.'''
         result = self._values.get("persistent_browser_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sign_in_frequency(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency ConditionalAccessPolicy#sign_in_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency ConditionalAccessPolicy#sign_in_frequency}.'''
         result = self._values.get("sign_in_frequency")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def sign_in_frequency_authentication_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency_authentication_type ConditionalAccessPolicy#sign_in_frequency_authentication_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency_authentication_type ConditionalAccessPolicy#sign_in_frequency_authentication_type}.'''
         result = self._values.get("sign_in_frequency_authentication_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sign_in_frequency_interval(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency_interval ConditionalAccessPolicy#sign_in_frequency_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency_interval ConditionalAccessPolicy#sign_in_frequency_interval}.'''
         result = self._values.get("sign_in_frequency_interval")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def sign_in_frequency_period(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#sign_in_frequency_period ConditionalAccessPolicy#sign_in_frequency_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#sign_in_frequency_period ConditionalAccessPolicy#sign_in_frequency_period}.'''
         result = self._values.get("sign_in_frequency_period")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3890,10 +4060,10 @@ class ConditionalAccessPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#create ConditionalAccessPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#delete ConditionalAccessPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#read ConditionalAccessPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#update ConditionalAccessPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#create ConditionalAccessPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#delete ConditionalAccessPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#read ConditionalAccessPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#update ConditionalAccessPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__255d99d58932dd4166afce796241f18cd1e78a2ac28a6d791221834afc790d42)
@@ -3913,25 +4083,25 @@ class ConditionalAccessPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#create ConditionalAccessPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#create ConditionalAccessPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#delete ConditionalAccessPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#delete ConditionalAccessPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#read ConditionalAccessPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#read ConditionalAccessPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/conditional_access_policy#update ConditionalAccessPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/conditional_access_policy#update ConditionalAccessPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4075,6 +4245,8 @@ __all__ = [
     "ConditionalAccessPolicyConditionsApplications",
     "ConditionalAccessPolicyConditionsApplicationsOutputReference",
     "ConditionalAccessPolicyConditionsClientApplications",
+    "ConditionalAccessPolicyConditionsClientApplicationsFilter",
+    "ConditionalAccessPolicyConditionsClientApplicationsFilterOutputReference",
     "ConditionalAccessPolicyConditionsClientApplicationsOutputReference",
     "ConditionalAccessPolicyConditionsDevices",
     "ConditionalAccessPolicyConditionsDevicesFilter",
@@ -4219,7 +4391,41 @@ def _typecheckingstub__d941fe07358af071bdf274dda21da709cf19acea868060a88b5e13893
 def _typecheckingstub__e30f64076b9e43f4b15df7ec207841134c233917ae9b48960ea605d42d8d6584(
     *,
     excluded_service_principals: typing.Optional[typing.Sequence[builtins.str]] = None,
+    filter: typing.Optional[typing.Union[ConditionalAccessPolicyConditionsClientApplicationsFilter, typing.Dict[builtins.str, typing.Any]]] = None,
     included_service_principals: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__665268d0cc50f202d9f9c7b18ea5a228dad14433b73983b73e6fb4699c9a4188(
+    *,
+    mode: builtins.str,
+    rule: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47d0bae722728578187014231e8a6b41181ab2e6514d6ba585eca0cb07cc684c(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1827f446a5c1be8c497ecca81e3da533e51107c42294ff9dd774c45b37636ce(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc3f6bb1724fd606ea019a83b2fa9f3479ab6491a6a1b1f1509a051d3efa9d71(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e13e4c8b250401802a8e74a6b7316690fc994e446b13fc57579c2c6eccd8525(
+    value: typing.Optional[ConditionalAccessPolicyConditionsClientApplicationsFilter],
 ) -> None:
     """Type checking stubs"""
     pass

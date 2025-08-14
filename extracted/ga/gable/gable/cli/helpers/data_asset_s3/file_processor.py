@@ -2,11 +2,11 @@
 File processing functionality for storage inventory files.
 """
 
+from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from datetime import datetime
 
 from .constants import StorageInventoryConstants
 from .utils import Utils

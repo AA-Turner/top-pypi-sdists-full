@@ -4,35 +4,34 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import Any, TYPE_CHECKING, TypeAlias, Iterator, Literal, Callable
 
 import json
 import logging
 import time
-from warnings import warn
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Literal, TypeAlias
 
-from ibm_boto3.exceptions import Boto3Error
 from lomond import WebSocket
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import TrainingConfigurationMetaNames
 from ibm_watsonx_ai.utils import (
-    print_text_header_h1,
-    print_text_header_h2,
     TRAINING_RUN_DETAILS_TYPE,
     StatusLogger,
+    print_text_header_h1,
+    print_text_header_h2,
 )
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid, _handle_fl_removal
-from ibm_watsonx_ai.wml_client_error import WMLClientError, ApiRequestFailure
+from ibm_watsonx_ai.wml_client_error import ApiRequestFailure, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 logging.getLogger("lomond").setLevel(logging.CRITICAL)
 ListType: TypeAlias = list
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Training(WMLResource):
@@ -87,7 +86,7 @@ class Training(WMLResource):
         get_all: Literal[True, False] = False,
         training_type: str | None = None,
         state: str | None = None,
-        tag_value: str | None = None,
+        tag_value: str | list[str] | None = None,
         training_definition_id: str | None = None,
         _internal: bool = False,
         **kwargs: Any,
@@ -114,7 +113,7 @@ class Training(WMLResource):
         :type state: str, optional
 
         :param tag_value: filter the fetched list of training based on their tag value
-        :type tag_value: str, optional
+        :type tag_value: str, list[str], optional
 
         :param training_definition_id: filter the fetched trainings that are using the given training definition
         :type training_definition_id: str, optional
@@ -748,7 +747,6 @@ class Training(WMLResource):
             params.update({"hard_delete": "true"})
 
         if _is_fine_tuning:
-
             train_endpoint = self._client._href_definitions.get_fine_tuning_href(
                 training_id
             )
@@ -861,7 +859,6 @@ class Training(WMLResource):
                 obj = client_cos.get_object(Bucket=bucket, Key=key)
                 print(obj["Body"].read().decode("utf-8"))
             except ibm_boto3.exceptions.ibm_botocore.client.ClientError as ex:
-
                 if ex.response["Error"]["Code"] == "NoSuchKey":
                     print("ERROR - Cannot find training-log.txt in the bucket")
                 else:
@@ -924,7 +921,6 @@ class Training(WMLResource):
 
                     pipeline_model = json.loads((obj["Body"].read().decode("utf-8")))
                 except ibm_boto3.exceptions.ibm_botocore.client.ClientError as ex:
-
                     if ex.response["Error"]["Code"] == "NoSuchKey":
                         print(
                             "ERROR - Cannot find pipeline_model.json in the bucket for training id "
@@ -1054,7 +1050,7 @@ class Training(WMLResource):
                     bytes("Authorization", "utf-8"),
                     bytes("Bearer " + self._client.token, "utf-8"),
                 )
-            except:
+            except Exception:
                 websocket.add_header(
                     bytes("Authorization", "utf-8"),
                     bytes("bearer " + self._client.token),
@@ -1063,7 +1059,6 @@ class Training(WMLResource):
             on_start()
 
             for event in websocket:
-
                 if event.name == "text":
                     text = json.loads(event.text)
                     entity = text["entity"]
@@ -1158,7 +1153,7 @@ class Training(WMLResource):
                     bytes("Authorization", "utf-8"),
                     bytes("Bearer " + self._client.token, "utf-8"),
                 )
-            except:
+            except Exception:
                 websocket.add_header(
                     bytes("Authorization", "utf-8"),
                     bytes("bearer " + self._client.token),
@@ -1218,3 +1213,42 @@ class Training(WMLResource):
                 raise WMLClientError(
                     "No metrics details are available for the given training_id"
                 )
+
+    def delete(self, training_id: str) -> None:
+        """Delete a training run. If the experiment asset exists and contains only this training, delete the asset.
+
+        :param training_id: ID of the training
+        :type training_id: str
+
+        **Example:**
+
+        .. code-block:: python
+
+            client.training.delete(training_id)
+        """
+
+        training_details = self.get_details(training_id)
+        tags: list[str] = training_details.get("metadata", {}).get("tags", [])
+
+        self.cancel(training_id, hard_delete=True)
+
+        if not tags:
+            return
+
+        # Delete the asset unless there are still other trainings assigned to it
+        trainings_with_tags = self.get_details(tag_value=tags)
+        if trainings_with_tags["resources"]:
+            return
+
+        if tags[0] == "autoai" or tags[0].startswith("dsx-project"):
+            experiment_asset_id = training_details["entity"]["pipeline"]["id"]
+        elif tags[0] == "prompt_tuning":
+            experiment_asset_id = tags[1].split(".", maxsplit=1)[1]
+        else:
+            self._logger.warning(
+                "Unknown training type, skipping asset deletion. Training details: %s",
+                training_details,
+            )
+            return
+
+        self._client.repository.delete(experiment_asset_id)

@@ -5141,7 +5141,6 @@ class main_menu(TUIMenu):
                 def __init__(self, service, version, mode, path):
                     self.translational_vibrational_energy_relaxation = self.__class__.translational_vibrational_energy_relaxation(service, version, mode, path + ["translational_vibrational_energy_relaxation"])
                     self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
-                    self.expose_system_coupling = self.__class__.expose_system_coupling(service, version, mode, path + ["expose_system_coupling"])
                     self.nasa9_enhancement = self.__class__.nasa9_enhancement(service, version, mode, path + ["nasa9_enhancement"])
                     self.robustness_enhancement = self.__class__.robustness_enhancement(service, version, mode, path + ["robustness_enhancement"])
                     self.set_verbosity = self.__class__.set_verbosity(service, version, mode, path + ["set_verbosity"])
@@ -5149,10 +5148,6 @@ class main_menu(TUIMenu):
                 class enable(TUIMethod):
                     """
                     Enables/disables the Two-Temperature model.
-                    """
-                class expose_system_coupling(TUIMethod):
-                    """
-                    No help available.
                     """
                 class nasa9_enhancement(TUIMethod):
                     """
@@ -10128,7 +10123,6 @@ class main_menu(TUIMenu):
             """
             def __init__(self, service, version, mode, path):
                 self.blade_flutter_harmonics = self.__class__.blade_flutter_harmonics(service, version, mode, path + ["blade_flutter_harmonics"])
-                self.export_boundary_mesh = self.__class__.export_boundary_mesh(service, version, mode, path + ["export_boundary_mesh"])
                 self.general_turbo_interface_settings = self.__class__.general_turbo_interface_settings(service, version, mode, path + ["general_turbo_interface_settings"])
                 self.generalized_forces = self.__class__.generalized_forces(service, version, mode, path + ["generalized_forces"])
                 self.legacy_models = self.__class__.legacy_models(service, version, mode, path + ["legacy_models"])
@@ -10143,6 +10137,7 @@ class main_menu(TUIMenu):
                 self.delete_phaselag_spectral_content = self.__class__.delete_phaselag_spectral_content(service, version, mode, path + ["delete_phaselag_spectral_content"])
                 self.delete_turbomachine_description = self.__class__.delete_turbomachine_description(service, version, mode, path + ["delete_turbomachine_description"])
                 self.enable_turbo_model = self.__class__.enable_turbo_model(service, version, mode, path + ["enable_turbo_model"])
+                self.export_boundary_mesh = self.__class__.export_boundary_mesh(service, version, mode, path + ["export_boundary_mesh"])
                 self.graphics_extra_settings = self.__class__.graphics_extra_settings(service, version, mode, path + ["graphics_extra_settings"])
                 self.list_graphics_spectral_content = self.__class__.list_graphics_spectral_content(service, version, mode, path + ["list_graphics_spectral_content"])
                 self.list_phaselag_state = self.__class__.list_phaselag_state(service, version, mode, path + ["list_phaselag_state"])
@@ -10196,6 +10191,10 @@ class main_menu(TUIMenu):
             class enable_turbo_model(TUIMethod):
                 """
                 Enables/disables turbo model menu.
+                """
+            class export_boundary_mesh(TUIMethod):
+                """
+                No help available.
                 """
             class graphics_extra_settings(TUIMethod):
                 """
@@ -10270,18 +10269,6 @@ class main_menu(TUIMenu):
                 class write_harmonic_exports(TUIMethod):
                     """
                     Writes harmonic export data.
-                    """
-
-            class export_boundary_mesh(TUIMenu):
-                """
-                No help available.
-                """
-                def __init__(self, service, version, mode, path):
-                    self.export_boundary = self.__class__.export_boundary(service, version, mode, path + ["export_boundary"])
-                    super().__init__(service, version, mode, path)
-                class export_boundary(TUIMethod):
-                    """
-                    No help available.
                     """
 
             class general_turbo_interface_settings(TUIMenu):
@@ -14836,7 +14823,6 @@ class main_menu(TUIMenu):
                 self.marc_post = self.__class__.marc_post(service, version, mode, path + ["marc_post"])
                 self.prebfc_structured = self.__class__.prebfc_structured(service, version, mode, path + ["prebfc_structured"])
                 self.ptc_mechanica = self.__class__.ptc_mechanica(service, version, mode, path + ["ptc_mechanica"])
-                self.turbogrid = self.__class__.turbogrid(service, version, mode, path + ["turbogrid"])
                 super().__init__(service, version, mode, path)
             class chemkin_mechanism(TUIMethod):
                 """
@@ -14885,10 +14871,6 @@ class main_menu(TUIMenu):
             class ptc_mechanica(TUIMethod):
                 """
                 Read a PTC Mechanica file as a case file.
-                """
-            class turbogrid(TUIMethod):
-                """
-                Enter the turbogrid menu.
                 """
 
             class abaqus(TUIMenu):
@@ -15142,7 +15124,6 @@ class main_menu(TUIMenu):
             Enter to create new project, open project, save and archive project.
             """
             def __init__(self, service, version, mode, path):
-                self.simulation = self.__class__.simulation(service, version, mode, path + ["simulation"])
                 self.archive = self.__class__.archive(service, version, mode, path + ["archive"])
                 self.new = self.__class__.new(service, version, mode, path + ["new"])
                 self.open = self.__class__.open(service, version, mode, path + ["open"])
@@ -15174,51 +15155,6 @@ class main_menu(TUIMenu):
                 """
                 Save As Copy.
                 """
-
-            class simulation(TUIMenu):
-                """
-                Enter to create, duplicate, or delete a simulation.
-                """
-                def __init__(self, service, version, mode, path):
-                    self.run = self.__class__.run(service, version, mode, path + ["run"])
-                    self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                    self.new_simulation = self.__class__.new_simulation(service, version, mode, path + ["new_simulation"])
-                    self.set_as_current = self.__class__.set_as_current(service, version, mode, path + ["set_as_current"])
-                    super().__init__(service, version, mode, path)
-                class delete(TUIMethod):
-                    """
-                    Delete A Simulation.
-                    """
-                class new_simulation(TUIMethod):
-                    """
-                    Create New Simulation.
-                    """
-                class set_as_current(TUIMethod):
-                    """
-                    Set the Current Simulation.
-                    """
-
-                class run(TUIMenu):
-                    """
-                    Enter to create, duplicate, or delete a run.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                        self.new_run = self.__class__.new_run(service, version, mode, path + ["new_run"])
-                        self.set_as_current = self.__class__.set_as_current(service, version, mode, path + ["set_as_current"])
-                        super().__init__(service, version, mode, path)
-                    class delete(TUIMethod):
-                        """
-                        Delete A Run.
-                        """
-                    class new_run(TUIMethod):
-                        """
-                        Create a New Run.
-                        """
-                    class set_as_current(TUIMethod):
-                        """
-                        Set the Current Run.
-                        """
 
         class solution_files(TUIMenu):
             """
@@ -15610,7 +15546,6 @@ class main_menu(TUIMenu):
                 self.geometry = self.__class__.geometry(service, version, mode, path + ["geometry"])
                 self.manage_criteria = self.__class__.manage_criteria(service, version, mode, path + ["manage_criteria"])
                 self.multi_layer_refinement = self.__class__.multi_layer_refinement(service, version, mode, path + ["multi_layer_refinement"])
-                self.predefined_criteria = self.__class__.predefined_criteria(service, version, mode, path + ["predefined_criteria"])
                 self.profile = self.__class__.profile(service, version, mode, path + ["profile"])
                 self.set = self.__class__.set(service, version, mode, path + ["set"])
                 self.adapt_mesh = self.__class__.adapt_mesh(service, version, mode, path + ["adapt_mesh"])
@@ -15825,126 +15760,6 @@ class main_menu(TUIMenu):
                     """
                     Refine the mesh for multiple boundary layers.
                     """
-
-            class predefined_criteria(TUIMenu):
-                """
-                Enters the predefined-criteria menu, which allows you to select commonly used criteria for adapting the mesh.
-                """
-                def __init__(self, service, version, mode, path):
-                    self.aerodynamics = self.__class__.aerodynamics(service, version, mode, path + ["aerodynamics"])
-                    self.boundary_layer = self.__class__.boundary_layer(service, version, mode, path + ["boundary_layer"])
-                    self.combustion = self.__class__.combustion(service, version, mode, path + ["combustion"])
-                    self.multiphase = self.__class__.multiphase(service, version, mode, path + ["multiphase"])
-                    self.overset = self.__class__.overset(service, version, mode, path + ["overset"])
-                    super().__init__(service, version, mode, path)
-                class overset(TUIMethod):
-                    """
-                    No help available.
-                    """
-
-                class aerodynamics(TUIMenu):
-                    """
-                    Enters the aerodynamics menu, which provides text commands that create cell registers and define adaption criteria that can be useful for aerodynamic simulations.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.error_based = self.__class__.error_based(service, version, mode, path + ["error_based"])
-                        self.shock_indicator = self.__class__.shock_indicator(service, version, mode, path + ["shock_indicator"])
-                        super().__init__(service, version, mode, path)
-
-                    class error_based(TUIMenu):
-                        """
-                        Enters the error-based menu, which provides text commands that  create cell registers and define adaption criteria based on the solution  error.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.combined_hessian_indicator = self.__class__.combined_hessian_indicator(service, version, mode, path + ["combined_hessian_indicator"])
-                            self.goal_based_error_indicator = self.__class__.goal_based_error_indicator(service, version, mode, path + ["goal_based_error_indicator"])
-                            self.mach_hessian_indicator = self.__class__.mach_hessian_indicator(service, version, mode, path + ["mach_hessian_indicator"])
-                            self.pressure_hessian_indicator = self.__class__.pressure_hessian_indicator(service, version, mode, path + ["pressure_hessian_indicator"])
-                            self.velocity_hessian_indicator = self.__class__.velocity_hessian_indicator(service, version, mode, path + ["velocity_hessian_indicator"])
-                            super().__init__(service, version, mode, path)
-                        class combined_hessian_indicator(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class goal_based_error_indicator(TUIMethod):
-                            """
-                            Goal based error indicator.
-                            """
-                        class mach_hessian_indicator(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class pressure_hessian_indicator(TUIMethod):
-                            """
-                            Creates cell registers and defines an adaption criterion based on a pressure Hessian indicator, which is suitable for simulations that have significant pressure variations.
-                            """
-                        class velocity_hessian_indicator(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class shock_indicator(TUIMenu):
-                        """
-                        Enters the shock indicator menu, which provides text commands that  create cell registers and define adaption criteria that can be useful  for simulations with shocks.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.density_based = self.__class__.density_based(service, version, mode, path + ["density_based"])
-                            super().__init__(service, version, mode, path)
-                        class density_based(TUIMethod):
-                            """
-                            Creates cell registers and defines an adaption criterion that is suitable for simulations with shocks that use the density-based solver or the pressure-based solver with a fluid that uses a real-gas or ideal-gas model for the density.
-                            """
-
-                class boundary_layer(TUIMenu):
-                    """
-                    Enters the boundary layer menu, which provides text commands that create the necessary cell registers for refinement and define adaption criteria for the manual adaption of boundary layers.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.cell_distance = self.__class__.cell_distance(service, version, mode, path + ["cell_distance"])
-                        self.yplus_ystar = self.__class__.yplus_ystar(service, version, mode, path + ["yplus_ystar"])
-                        super().__init__(service, version, mode, path)
-                    class cell_distance(TUIMethod):
-                        """
-                        S.
-                        """
-                    class yplus_ystar(TUIMethod):
-                        """
-                        No help available.
-                        """
-
-                class combustion(TUIMenu):
-                    """
-                    Enters the combustion menu, which provides text commands that create named expressions and cell registers and define adaption criteria that can be useful for combustion simulations.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.flame_indicator = self.__class__.flame_indicator(service, version, mode, path + ["flame_indicator"])
-                        super().__init__(service, version, mode, path)
-                    class flame_indicator(TUIMethod):
-                        """
-                        Creates named expressions and cell registers and defines adaption  criteria that are suitable for combustion simulations, so that the mesh  is refined along a progressing flame front using various criteria like  temperature, vorticity, species, and DPM concentration (depending on  which models are used). There is also an option for refining a spherical  spark region prior to a transient run, which after a specified time is  then coarsened back to the original mesh.
-                        """
-
-                class multiphase(TUIMenu):
-                    """
-                    Enters the multiphase menu, which provides text commands that create named expressions and cell registers and define adaption criteria that can be useful for Volume of Fluid (VOF) simulations.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.vof = self.__class__.vof(service, version, mode, path + ["vof"])
-                        self.vof_to_dpm_advanced = self.__class__.vof_to_dpm_advanced(service, version, mode, path + ["vof_to_dpm_advanced"])
-                        self.vof_to_dpm_generic = self.__class__.vof_to_dpm_generic(service, version, mode, path + ["vof_to_dpm_generic"])
-                        super().__init__(service, version, mode, path)
-                    class vof(TUIMethod):
-                        """
-                        Creates a named expression and cell  registers, and defines adaption settings that are suitable for standard  Volume of Fluid (VOF) simulations.
-                        """
-                    class vof_to_dpm_advanced(TUIMethod):
-                        """
-                        Sets up adaption that is suitable when using  the VOF-to-DPM model transition mechanism; the resulting adaption  criteria will be defined by complex expressions that draw upon cell  registers, as well as parameters that you will need to define.
-                        """
-                    class vof_to_dpm_generic(TUIMethod):
-                        """
-                        Sets up adaption that is suitable when using  the VOF-to-DPM model transition mechanism; the resulting adaption  criteria will be defined by a named expression and cell registers that  are fairly straightforward, as well as parameters that you will need to  define.
-                        """
 
             class profile(TUIMenu):
                 """
@@ -16237,10 +16052,10 @@ class main_menu(TUIMenu):
                 self.create_periodic_interface = self.__class__.create_periodic_interface(service, version, mode, path + ["create_periodic_interface"])
                 self.deactivate_cell_zone = self.__class__.deactivate_cell_zone(service, version, mode, path + ["deactivate_cell_zone"])
                 self.delete_all_shells = self.__class__.delete_all_shells(service, version, mode, path + ["delete_all_shells"])
+                self.delete_cell_by_id = self.__class__.delete_cell_by_id(service, version, mode, path + ["delete_cell_by_id"])
+                self.delete_cell_by_mark = self.__class__.delete_cell_by_mark(service, version, mode, path + ["delete_cell_by_mark"])
                 self.delete_cell_zone = self.__class__.delete_cell_zone(service, version, mode, path + ["delete_cell_zone"])
-                self.delete_cells_by_mark = self.__class__.delete_cells_by_mark(service, version, mode, path + ["delete_cells_by_mark"])
                 self.disconnect_cell_zones = self.__class__.disconnect_cell_zones(service, version, mode, path + ["disconnect_cell_zones"])
-                self.extract_cells_by_mark = self.__class__.extract_cells_by_mark(service, version, mode, path + ["extract_cells_by_mark"])
                 self.extrude_face_zone_delta = self.__class__.extrude_face_zone_delta(service, version, mode, path + ["extrude_face_zone_delta"])
                 self.extrude_face_zone_para = self.__class__.extrude_face_zone_para(service, version, mode, path + ["extrude_face_zone_para"])
                 self.fuse_cell_zones = self.__class__.fuse_cell_zones(service, version, mode, path + ["fuse_cell_zones"])
@@ -16326,19 +16141,19 @@ class main_menu(TUIMenu):
                 """
                 No help available.
                 """
+            class delete_cell_by_id(TUIMethod):
+                """
+                No help available.
+                """
+            class delete_cell_by_mark(TUIMethod):
+                """
+                No help available.
+                """
             class delete_cell_zone(TUIMethod):
                 """
                 No help available.
                 """
-            class delete_cells_by_mark(TUIMethod):
-                """
-                No help available.
-                """
             class disconnect_cell_zones(TUIMethod):
-                """
-                No help available.
-                """
-            class extract_cells_by_mark(TUIMethod):
                 """
                 No help available.
                 """
@@ -22193,7 +22008,6 @@ class main_menu(TUIMenu):
         def __init__(self, service, version, mode, path):
             self.animations = self.__class__.animations(service, version, mode, path + ["animations"])
             self.annotation = self.__class__.annotation(service, version, mode, path + ["annotation"])
-            self.ansys_sound_analysis = self.__class__.ansys_sound_analysis(service, version, mode, path + ["ansys_sound_analysis"])
             self.custom_field_functions = self.__class__.custom_field_functions(service, version, mode, path + ["custom_field_functions"])
             self.custom_vectors = self.__class__.custom_vectors(service, version, mode, path + ["custom_vectors"])
             self.graphics = self.__class__.graphics(service, version, mode, path + ["graphics"])
@@ -22469,91 +22283,6 @@ class main_menu(TUIMenu):
                 """
                 No help available.
                 """
-
-        class ansys_sound_analysis(TUIMenu):
-            """
-            No help available.
-            """
-            def __init__(self, service, version, mode, path):
-                self.receiver = self.__class__.receiver(service, version, mode, path + ["receiver"])
-                self.input_data_type = self.__class__.input_data_type(service, version, mode, path + ["input_data_type"])
-                self.load_frf_files = self.__class__.load_frf_files(service, version, mode, path + ["load_frf_files"])
-                self.load_input_files = self.__class__.load_input_files(service, version, mode, path + ["load_input_files"])
-                self.print_indicators = self.__class__.print_indicators(service, version, mode, path + ["print_indicators"])
-                self.sound_duration = self.__class__.sound_duration(service, version, mode, path + ["sound_duration"])
-                self.use_transfer_fn = self.__class__.use_transfer_fn(service, version, mode, path + ["use_transfer_fn"])
-                self.write_files = self.__class__.write_files(service, version, mode, path + ["write_files"])
-                super().__init__(service, version, mode, path)
-            class input_data_type(TUIMethod):
-                """
-                No help available.
-                """
-            class load_frf_files(TUIMethod):
-                """
-                No help available.
-                """
-            class load_input_files(TUIMethod):
-                """
-                No help available.
-                """
-            class print_indicators(TUIMethod):
-                """
-                No help available.
-                """
-            class sound_duration(TUIMethod):
-                """
-                No help available.
-                """
-            class use_transfer_fn(TUIMethod):
-                """
-                No help available.
-                """
-            class write_files(TUIMethod):
-                """
-                No help available.
-                """
-
-            class receiver(TUIMenu):
-                """
-                No help available.
-                """
-                def __init__(self, service, version, mode, path):
-                    self.create = self.__class__.create(service, version, mode, path + ["create"])
-                    self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                    self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                    self.list = self.__class__.list(service, version, mode, path + ["list"])
-                    self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                    self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
-                    self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
-                    super().__init__(service, version, mode, path)
-                class create(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class delete(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class edit(TUIMethod):
-                    """
-                    Edit receiver object.
-                    """
-                class list(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class list_properties(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class make_a_copy(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class rename(TUIMethod):
-                    """
-                    No help available.
-                    """
 
         class custom_field_functions(TUIMenu):
             """
@@ -24906,27 +24635,56 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
+                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
+                    class background_color(TUIMethod):
+                        """
+                        No help available.
+                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -24939,38 +24697,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -24978,9 +24704,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -24991,15 +24716,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25015,9 +24736,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25028,15 +24748,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25067,20 +24783,44 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25093,38 +24833,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25132,9 +24840,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25145,15 +24852,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25169,9 +24872,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25182,15 +24884,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25221,99 +24919,22 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.line = self.__class__.line(service, version, mode, path + ["line"])
-                        self.line_in_file = self.__class__.line_in_file(service, version, mode, path + ["line_in_file"])
-                        self.marker = self.__class__.marker(service, version, mode, path + ["marker"])
-                        self.marker_in_file = self.__class__.marker_in_file(service, version, mode, path + ["marker_in_file"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
                         super().__init__(service, version, mode, path)
-
-                    class line(TUIMenu):
+                    class edit(TUIMethod):
+                        """
+                        Edit curves object.
+                        """
+                    class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
-                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class pattern(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class weight(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class line_in_file(TUIMenu):
+                    class resize(TUIMethod):
                         """
                         No help available.
                         """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
-                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class pattern(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class weight(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class marker(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.size = self.__class__.size(service, version, mode, path + ["size"])
-                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class size(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class symbol(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class marker_in_file(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.size = self.__class__.size(service, version, mode, path + ["size"])
-                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class size(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class symbol(TUIMethod):
-                            """
-                            No help available.
-                            """
 
             class interpolated_data(TUIMenu):
                 """
@@ -25351,27 +24972,56 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
+                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
+                    class background_color(TUIMethod):
+                        """
+                        No help available.
+                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25384,38 +25034,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25423,9 +25041,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25436,15 +25053,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25460,9 +25073,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25473,15 +25085,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25512,20 +25120,44 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25538,38 +25170,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25577,9 +25177,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25590,15 +25189,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25614,9 +25209,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25627,15 +25221,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25666,99 +25256,22 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.line = self.__class__.line(service, version, mode, path + ["line"])
-                        self.line_in_file = self.__class__.line_in_file(service, version, mode, path + ["line_in_file"])
-                        self.marker = self.__class__.marker(service, version, mode, path + ["marker"])
-                        self.marker_in_file = self.__class__.marker_in_file(service, version, mode, path + ["marker_in_file"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
                         super().__init__(service, version, mode, path)
-
-                    class line(TUIMenu):
+                    class edit(TUIMethod):
+                        """
+                        Edit curves object.
+                        """
+                    class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
-                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class pattern(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class weight(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class line_in_file(TUIMenu):
+                    class resize(TUIMethod):
                         """
                         No help available.
                         """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
-                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class pattern(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class weight(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class marker(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.size = self.__class__.size(service, version, mode, path + ["size"])
-                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class size(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class symbol(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class marker_in_file(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.size = self.__class__.size(service, version, mode, path + ["size"])
-                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class size(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class symbol(TUIMethod):
-                            """
-                            No help available.
-                            """
 
             class plot(TUIMenu):
                 """
@@ -25781,27 +25294,56 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
+                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
+                    class background_color(TUIMethod):
+                        """
+                        No help available.
+                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25814,38 +25356,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -25853,9 +25363,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25866,15 +25375,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25890,9 +25395,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -25903,15 +25407,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -25942,20 +25442,44 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -25968,38 +25492,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26007,9 +25499,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26020,15 +25511,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26044,9 +25531,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26057,15 +25543,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26096,39 +25578,19 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.create = self.__class__.create(service, version, mode, path + ["create"])
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
-                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
                         super().__init__(service, version, mode, path)
-                    class create(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class delete(TUIMethod):
-                        """
-                        No help available.
-                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
-                        """
-                    class list(TUIMethod):
-                        """
-                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class make_a_copy(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class rename(TUIMethod):
+                    class resize(TUIMethod):
                         """
                         No help available.
                         """
@@ -26154,27 +25616,56 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
+                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
+                    class background_color(TUIMethod):
+                        """
+                        No help available.
+                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26187,38 +25678,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26226,9 +25685,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26239,15 +25697,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26263,9 +25717,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26276,15 +25729,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26315,20 +25764,44 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26341,38 +25814,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26380,9 +25821,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26393,15 +25833,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26417,9 +25853,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26430,15 +25865,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26469,39 +25900,19 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.create = self.__class__.create(service, version, mode, path + ["create"])
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
-                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
                         super().__init__(service, version, mode, path)
-                    class create(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class delete(TUIMethod):
-                        """
-                        No help available.
-                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
-                        """
-                    class list(TUIMethod):
-                        """
-                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class make_a_copy(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class rename(TUIMethod):
+                    class resize(TUIMethod):
                         """
                         No help available.
                         """
@@ -26527,27 +25938,56 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
+                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
+                    class background_color(TUIMethod):
+                        """
+                        No help available.
+                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26560,38 +26000,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26599,9 +26007,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26612,15 +26019,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26636,9 +26039,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26649,15 +26051,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26688,20 +26086,44 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26714,38 +26136,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26753,9 +26143,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26766,15 +26155,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26790,9 +26175,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -26803,15 +26187,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -26842,39 +26222,19 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.create = self.__class__.create(service, version, mode, path + ["create"])
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
-                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
                         super().__init__(service, version, mode, path)
-                    class create(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class delete(TUIMethod):
-                        """
-                        No help available.
-                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
-                        """
-                    class list(TUIMethod):
-                        """
-                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class make_a_copy(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class rename(TUIMethod):
+                    class resize(TUIMethod):
                         """
                         No help available.
                         """
@@ -26915,27 +26275,56 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
+                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
+                    class background_color(TUIMethod):
+                        """
+                        No help available.
+                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -26948,38 +26337,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -26987,9 +26344,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -27000,15 +26356,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -27024,9 +26376,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -27037,15 +26388,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -27076,20 +26423,44 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -27102,38 +26473,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -27141,9 +26480,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -27154,15 +26492,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -27178,9 +26512,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -27191,15 +26524,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -27230,99 +26559,22 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.line = self.__class__.line(service, version, mode, path + ["line"])
-                        self.line_in_file = self.__class__.line_in_file(service, version, mode, path + ["line_in_file"])
-                        self.marker = self.__class__.marker(service, version, mode, path + ["marker"])
-                        self.marker_in_file = self.__class__.marker_in_file(service, version, mode, path + ["marker_in_file"])
+                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
                         super().__init__(service, version, mode, path)
-
-                    class line(TUIMenu):
+                    class edit(TUIMethod):
+                        """
+                        Edit curves object.
+                        """
+                    class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
-                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class pattern(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class weight(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class line_in_file(TUIMenu):
+                    class resize(TUIMethod):
                         """
                         No help available.
                         """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.pattern = self.__class__.pattern(service, version, mode, path + ["pattern"])
-                            self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class pattern(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class weight(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class marker(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.size = self.__class__.size(service, version, mode, path + ["size"])
-                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class size(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class symbol(TUIMethod):
-                            """
-                            No help available.
-                            """
-
-                    class marker_in_file(TUIMenu):
-                        """
-                        No help available.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.color = self.__class__.color(service, version, mode, path + ["color"])
-                            self.size = self.__class__.size(service, version, mode, path + ["size"])
-                            self.symbol = self.__class__.symbol(service, version, mode, path + ["symbol"])
-                            super().__init__(service, version, mode, path)
-                        class color(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class size(TUIMethod):
-                            """
-                            No help available.
-                            """
-                        class symbol(TUIMethod):
-                            """
-                            No help available.
-                            """
 
             class solution_plot(TUIMenu):
                 """
@@ -27380,27 +26632,56 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
+                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
+                    class background_color(TUIMethod):
+                        """
+                        No help available.
+                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -27413,38 +26694,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -27452,9 +26701,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -27465,15 +26713,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -27489,9 +26733,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -27502,15 +26745,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -27541,20 +26780,44 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -27567,38 +26830,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -27606,9 +26837,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -27619,15 +26849,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -27643,9 +26869,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -27656,15 +26881,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -27695,39 +26916,19 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.create = self.__class__.create(service, version, mode, path + ["create"])
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
-                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
                         super().__init__(service, version, mode, path)
-                    class create(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class delete(TUIMethod):
-                        """
-                        No help available.
-                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
-                        """
-                    class list(TUIMethod):
-                        """
-                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class make_a_copy(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class rename(TUIMethod):
+                    class resize(TUIMethod):
                         """
                         No help available.
                         """
@@ -28783,7 +27984,6 @@ class main_menu(TUIMenu):
                 self.create_multiple_iso_surfaces = self.__class__.create_multiple_iso_surfaces(service, version, mode, path + ["create_multiple_iso_surfaces"])
                 self.create_multiple_plane_surfaces = self.__class__.create_multiple_plane_surfaces(service, version, mode, path + ["create_multiple_plane_surfaces"])
                 self.create_multiple_zone_surfaces = self.__class__.create_multiple_zone_surfaces(service, version, mode, path + ["create_multiple_zone_surfaces"])
-                self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                 self.external_surface = self.__class__.external_surface(service, version, mode, path + ["external_surface"])
                 self.reset_zone_surfaces = self.__class__.reset_zone_surfaces(service, version, mode, path + ["reset_zone_surfaces"])
                 self.set_rendering_priority = self.__class__.set_rendering_priority(service, version, mode, path + ["set_rendering_priority"])
@@ -28803,10 +28003,6 @@ class main_menu(TUIMenu):
                 No help available.
                 """
             class create_multiple_zone_surfaces(TUIMethod):
-                """
-                No help available.
-                """
-            class delete(TUIMethod):
                 """
                 No help available.
                 """
@@ -29788,105 +28984,11 @@ class main_menu(TUIMenu):
             No help available.
             """
             def __init__(self, service, version, mode, path):
-                self.automatic_exports = self.__class__.automatic_exports(service, version, mode, path + ["automatic_exports"])
                 self.case_modification = self.__class__.case_modification(service, version, mode, path + ["case_modification"])
                 self.execute_commands = self.__class__.execute_commands(service, version, mode, path + ["execute_commands"])
                 self.poor_mesh_numerics = self.__class__.poor_mesh_numerics(service, version, mode, path + ["poor_mesh_numerics"])
                 self.solution_animations = self.__class__.solution_animations(service, version, mode, path + ["solution_animations"])
                 super().__init__(service, version, mode, path)
-
-            class automatic_exports(TUIMenu):
-                """
-                No help available.
-                """
-                def __init__(self, service, version, mode, path):
-                    self.cgns = self.__class__.cgns(service, version, mode, path + ["cgns"])
-                    self.dvs_export = self.__class__.dvs_export(service, version, mode, path + ["dvs_export"])
-                    super().__init__(service, version, mode, path)
-
-                class cgns(TUIMenu):
-                    """
-                    No help available.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.create = self.__class__.create(service, version, mode, path + ["create"])
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list = self.__class__.list(service, version, mode, path + ["list"])
-                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
-                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
-                        super().__init__(service, version, mode, path)
-                    class create(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class delete(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class edit(TUIMethod):
-                        """
-                        Edit cgns object.
-                        """
-                    class list(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class list_properties(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class make_a_copy(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class rename(TUIMethod):
-                        """
-                        No help available.
-                        """
-
-                class dvs_export(TUIMenu):
-                    """
-                    No help available.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.create = self.__class__.create(service, version, mode, path + ["create"])
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list = self.__class__.list(service, version, mode, path + ["list"])
-                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
-                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
-                        super().__init__(service, version, mode, path)
-                    class create(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class delete(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class edit(TUIMethod):
-                        """
-                        Edit dvs-export object.
-                        """
-                    class list(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class list_properties(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class make_a_copy(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class rename(TUIMethod):
-                        """
-                        No help available.
-                        """
 
             class case_modification(TUIMenu):
                 """
@@ -29896,10 +28998,10 @@ class main_menu(TUIMenu):
                     self.automatic_case_modification = self.__class__.automatic_case_modification(service, version, mode, path + ["automatic_case_modification"])
                     self.automatic_initialization = self.__class__.automatic_initialization(service, version, mode, path + ["automatic_initialization"])
                     self.continue_strategy_execution = self.__class__.continue_strategy_execution(service, version, mode, path + ["continue_strategy_execution"])
-                    self.enable_strategy = self.__class__.enable_strategy(service, version, mode, path + ["enable_strategy"])
                     self.execute_strategy = self.__class__.execute_strategy(service, version, mode, path + ["execute_strategy"])
-                    self.export_modifications = self.__class__.export_modifications(service, version, mode, path + ["export_modifications"])
-                    self.import_modifications = self.__class__.import_modifications(service, version, mode, path + ["import_modifications"])
+                    self.export = self.__class__.export(service, version, mode, path + ["export"])
+                    self.import_ = self.__class__.import_(service, version, mode, path + ["import_"])
+                    self.strategy_enable = self.__class__.strategy_enable(service, version, mode, path + ["strategy_enable"])
                     super().__init__(service, version, mode, path)
                 class automatic_initialization(TUIMethod):
                     """
@@ -29909,19 +29011,19 @@ class main_menu(TUIMenu):
                     """
                     No help available.
                     """
-                class enable_strategy(TUIMethod):
-                    """
-                    No help available.
-                    """
                 class execute_strategy(TUIMethod):
                     """
                     No help available.
                     """
-                class export_modifications(TUIMethod):
+                class export(TUIMethod):
                     """
                     No help available.
                     """
-                class import_modifications(TUIMethod):
+                class import_(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class strategy_enable(TUIMethod):
                     """
                     No help available.
                     """
@@ -32338,13 +31440,8 @@ class main_menu(TUIMenu):
                 No help available.
                 """
                 def __init__(self, service, version, mode, path):
-                    self.alternative_axisymmetric_formulation = self.__class__.alternative_axisymmetric_formulation(service, version, mode, path + ["alternative_axisymmetric_formulation"])
                     self.axis_stabilization = self.__class__.axis_stabilization(service, version, mode, path + ["axis_stabilization"])
                     super().__init__(service, version, mode, path)
-                class alternative_axisymmetric_formulation(TUIMethod):
-                    """
-                    No help available.
-                    """
                 class axis_stabilization(TUIMethod):
                     """
                     No help available.
@@ -34045,27 +33142,56 @@ class main_menu(TUIMenu):
                     def __init__(self, service, version, mode, path):
                         self.x = self.__class__.x(service, version, mode, path + ["x"])
                         self.y = self.__class__.y(service, version, mode, path + ["y"])
+                        self.background_color = self.__class__.background_color(service, version, mode, path + ["background_color"])
                         super().__init__(service, version, mode, path)
+                    class background_color(TUIMethod):
+                        """
+                        No help available.
+                        """
 
                     class x(TUIMenu):
                         """
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -34078,38 +33204,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -34117,9 +33211,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -34130,15 +33223,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -34154,9 +33243,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -34167,15 +33255,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -34206,20 +33290,44 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
-                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
                             self.major_gridlines = self.__class__.major_gridlines(service, version, mode, path + ["major_gridlines"])
                             self.minor_gridlines = self.__class__.minor_gridlines(service, version, mode, path + ["minor_gridlines"])
                             self.number_format = self.__class__.number_format(service, version, mode, path + ["number_format"])
+                            self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
+                            self.auto_range_max = self.__class__.auto_range_max(service, version, mode, path + ["auto_range_max"])
+                            self.auto_range_min = self.__class__.auto_range_min(service, version, mode, path + ["auto_range_min"])
                             self.label = self.__class__.label(service, version, mode, path + ["label"])
                             self.log_scale = self.__class__.log_scale(service, version, mode, path + ["log_scale"])
+                            self.max = self.__class__.max(service, version, mode, path + ["max"])
+                            self.min = self.__class__.min(service, version, mode, path + ["min"])
                             self.show_major_gridlines = self.__class__.show_major_gridlines(service, version, mode, path + ["show_major_gridlines"])
                             self.show_minor_gridlines = self.__class__.show_minor_gridlines(service, version, mode, path + ["show_minor_gridlines"])
                             super().__init__(service, version, mode, path)
+                        class auto_range(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class auto_range_min(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class label(TUIMethod):
                             """
                             No help available.
                             """
                         class log_scale(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class max(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class min(TUIMethod):
                             """
                             No help available.
                             """
@@ -34232,38 +33340,6 @@ class main_menu(TUIMenu):
                             No help available.
                             """
 
-                        class auto_range(TUIMenu):
-                            """
-                            No help available.
-                            """
-                            def __init__(self, service, version, mode, path):
-                                self.auto_range = self.__class__.auto_range(service, version, mode, path + ["auto_range"])
-                                self.max = self.__class__.max(service, version, mode, path + ["max"])
-                                self.max_auto = self.__class__.max_auto(service, version, mode, path + ["max_auto"])
-                                self.min = self.__class__.min(service, version, mode, path + ["min"])
-                                self.min_auto = self.__class__.min_auto(service, version, mode, path + ["min_auto"])
-                                super().__init__(service, version, mode, path)
-                            class auto_range(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class max_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class min_auto(TUIMethod):
-                                """
-                                No help available.
-                                """
-
                         class major_gridlines(TUIMenu):
                             """
                             No help available.
@@ -34271,9 +33347,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -34284,15 +33359,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -34308,9 +33379,8 @@ class main_menu(TUIMenu):
                             def __init__(self, service, version, mode, path):
                                 self.auto_placement = self.__class__.auto_placement(service, version, mode, path + ["auto_placement"])
                                 self.color = self.__class__.color(service, version, mode, path + ["color"])
-                                self.divisions = self.__class__.divisions(service, version, mode, path + ["divisions"])
-                                self.specify_divisions_instead_of_units = self.__class__.specify_divisions_instead_of_units(service, version, mode, path + ["specify_divisions_instead_of_units"])
-                                self.units = self.__class__.units(service, version, mode, path + ["units"])
+                                self.distance = self.__class__.distance(service, version, mode, path + ["distance"])
+                                self.units_or_divisions = self.__class__.units_or_divisions(service, version, mode, path + ["units_or_divisions"])
                                 self.weight = self.__class__.weight(service, version, mode, path + ["weight"])
                                 super().__init__(service, version, mode, path)
                             class auto_placement(TUIMethod):
@@ -34321,15 +33391,11 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
-                            class divisions(TUIMethod):
+                            class distance(TUIMethod):
                                 """
                                 No help available.
                                 """
-                            class specify_divisions_instead_of_units(TUIMethod):
-                                """
-                                No help available.
-                                """
-                            class units(TUIMethod):
+                            class units_or_divisions(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -34360,39 +33426,19 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.create = self.__class__.create(service, version, mode, path + ["create"])
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                         self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list = self.__class__.list(service, version, mode, path + ["list"])
                         self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
-                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                        self.resize = self.__class__.resize(service, version, mode, path + ["resize"])
                         super().__init__(service, version, mode, path)
-                    class create(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class delete(TUIMethod):
-                        """
-                        No help available.
-                        """
                     class edit(TUIMethod):
                         """
                         Edit curves object.
-                        """
-                    class list(TUIMethod):
-                        """
-                        No help available.
                         """
                     class list_properties(TUIMethod):
                         """
                         No help available.
                         """
-                    class make_a_copy(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class rename(TUIMethod):
+                    class resize(TUIMethod):
                         """
                         No help available.
                         """
@@ -34533,7 +33579,6 @@ class main_menu(TUIMenu):
                 self.volume = self.__class__.volume(service, version, mode, path + ["volume"])
                 self.compute = self.__class__.compute(service, version, mode, path + ["compute"])
                 self.copy = self.__class__.copy(service, version, mode, path + ["copy"])
-                self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
                 self.delete_all = self.__class__.delete_all(service, version, mode, path + ["delete_all"])
                 super().__init__(service, version, mode, path)
             class compute(TUIMethod):
@@ -34541,10 +33586,6 @@ class main_menu(TUIMenu):
                 No help available.
                 """
             class copy(TUIMethod):
-                """
-                No help available.
-                """
-            class delete(TUIMethod):
                 """
                 No help available.
                 """
@@ -38421,13 +37462,8 @@ class main_menu(TUIMenu):
                 No help available.
                 """
                 def __init__(self, service, version, mode, path):
-                    self.alternative_axisymmetric_formulation = self.__class__.alternative_axisymmetric_formulation(service, version, mode, path + ["alternative_axisymmetric_formulation"])
                     self.axis_stabilization = self.__class__.axis_stabilization(service, version, mode, path + ["axis_stabilization"])
                     super().__init__(service, version, mode, path)
-                class alternative_axisymmetric_formulation(TUIMethod):
-                    """
-                    No help available.
-                    """
                 class axis_stabilization(TUIMethod):
                     """
                     No help available.
@@ -40324,9 +39360,9 @@ class main_menu(TUIMenu):
                     Enters the menu for setting multiphase-specific time constraints.
                     """
                     def __init__(self, service, version, mode, path):
-                        self.time_scale_options = self.__class__.time_scale_options(service, version, mode, path + ["time_scale_options"])
                         self.moving_mesh_cfl_constraint = self.__class__.moving_mesh_cfl_constraint(service, version, mode, path + ["moving_mesh_cfl_constraint"])
                         self.physics_based_constraint = self.__class__.physics_based_constraint(service, version, mode, path + ["physics_based_constraint"])
+                        self.time_scale_options = self.__class__.time_scale_options(service, version, mode, path + ["time_scale_options"])
                         self.verbosity = self.__class__.verbosity(service, version, mode, path + ["verbosity"])
                         super().__init__(service, version, mode, path)
                     class moving_mesh_cfl_constraint(TUIMethod):
@@ -40337,37 +39373,14 @@ class main_menu(TUIMenu):
                         """
                         Enables/disables the physics-driven time-step constraints.
                         """
+                    class time_scale_options(TUIMethod):
+                        """
+                        Enters the menu for choosing the time-scale options. This menu  becomes available after you enable the physics-driven time-step  constraints using the solve/set/transient-controls/multiphase-specific-time-constraints/physics-based-constraint?  text command.
+                        """
                     class verbosity(TUIMethod):
                         """
                         When enabled, various time scales (depending on the selection) are  printed to the console window at every time step. This text command is  available with the moving mesh CFL constraint and with the physics-based  constraint.
                         """
-
-                    class time_scale_options(TUIMenu):
-                        """
-                        Enters the menu for choosing the time-scale options. This menu  becomes available after you enable the physics-driven time-step  constraints using the solve/set/transient-controls/multiphase-specific-time-constraints/physics-based-constraint?  text command.
-                        """
-                        def __init__(self, service, version, mode, path):
-                            self.acoustic_scale = self.__class__.acoustic_scale(service, version, mode, path + ["acoustic_scale"])
-                            self.gravity_scale = self.__class__.gravity_scale(service, version, mode, path + ["gravity_scale"])
-                            self.surface_tension_scale = self.__class__.surface_tension_scale(service, version, mode, path + ["surface_tension_scale"])
-                            self.viscous_scale = self.__class__.viscous_scale(service, version, mode, path + ["viscous_scale"])
-                            super().__init__(service, version, mode, path)
-                        class acoustic_scale(TUIMethod):
-                            """
-                            Allows you to Include the acoustic time scale. This option is available only for compressible flows.
-                            """
-                        class gravity_scale(TUIMethod):
-                            """
-                            Allows you to Include the gravitational time scale. This option is available only if gravity is enabled.
-                            """
-                        class surface_tension_scale(TUIMethod):
-                            """
-                            Allows you to Include the surface-tension-driven time scale. This option is available only if the surface tension force modeling is enabled.
-                            """
-                        class viscous_scale(TUIMethod):
-                            """
-                            Allows you to Include the viscous time scale. This option is disabled by default. This command is not available with inviscid flows.
-                            """
 
             class warped_face_gradient_correction(TUIMenu):
                 """

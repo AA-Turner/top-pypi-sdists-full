@@ -3,11 +3,13 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from inspect import Parameter, signature
 import json
+from inspect import Parameter, signature
 from typing import Any, Callable, Optional, Union, get_args
-from ibm_watsonx_ai.foundation_models.utils import Toolkit, Tool
+
 from mcp.server.fastmcp import FastMCP
+
+from ibm_watsonx_ai.foundation_models.utils import Tool, Toolkit
 
 
 class MCPServer(FastMCP):
@@ -61,7 +63,6 @@ class MCPServer(FastMCP):
             self._create_tool(tool)
 
     def _create_tool(self, tool: Tool) -> Any:
-
         def parse_response(response: dict) -> Any:
             output = response["output"]
 
@@ -73,13 +74,13 @@ class MCPServer(FastMCP):
 
         if tool.input_schema is None:
 
-            async def fnc(input: str) -> str:
+            async def fnc(input: str) -> Any:
                 res = tool.run(input)
                 return parse_response(res)
 
         else:
 
-            def base_fnc(**kwargs: Any) -> str:
+            def base_fnc(**kwargs: Any) -> Any:
                 res = tool.run(kwargs)
                 return parse_response(res)
 
@@ -87,7 +88,7 @@ class MCPServer(FastMCP):
             fnc = self._modify_argument_types(base_fnc, schema)
         fnc.__name__ = tool.name
 
-        return self.tool(tool.name, tool.description)(fnc)
+        return self.tool(name=tool.name, description=tool.description)(fnc)
 
     @staticmethod
     def _json_schema_to_type(schema: dict) -> dict:

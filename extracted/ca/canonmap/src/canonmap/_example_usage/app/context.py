@@ -7,9 +7,8 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-from canonmap.connectors.mysql_connector.config import MySQLConfig
-from canonmap.connectors.mysql_connector.connector import MySQLConnector
-from canonmap.mapping.mapping_pipeline import MappingPipeline
+from canonmap.connectors.mysql_connector import MySQLConfig, MySQLConnector
+from canonmap.mapping import MappingPipeline
 
 load_dotenv(override=True)
 

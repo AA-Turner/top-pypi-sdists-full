@@ -3,6 +3,8 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from ibm_watsonx_ai.experiment.autoai.engines.wml_engine import WMLEngine
-from ibm_watsonx_ai.experiment.autoai.engines.service_engine import ServiceEngine
 from ibm_watsonx_ai.experiment.autoai.engines.rag_engine import RAGEngine
+from ibm_watsonx_ai.experiment.autoai.engines.service_engine import ServiceEngine
+from ibm_watsonx_ai.experiment.autoai.engines.wml_engine import WMLEngine
+
+__all__ = ["RAGEngine", "ServiceEngine", "WMLEngine"]

@@ -4,8 +4,9 @@ import re
 from abc import ABC
 from typing import Any, List, Optional, Protocol, Tuple
 
-from gable.openapi import SourceType
 from loguru import logger
+
+from gable.openapi import SourceType
 
 
 class DbapiReader(ABC):

@@ -804,7 +804,7 @@ class ByoDkimOptions:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnConfigurationSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -853,6 +853,10 @@ class CfnConfigurationSet(
             suppression_options=ses.CfnConfigurationSet.SuppressionOptionsProperty(
                 suppressed_reasons=["suppressedReasons"]
             ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             tracking_options=ses.CfnConfigurationSet.TrackingOptionsProperty(
                 custom_redirect_domain="customRedirectDomain",
                 https_policy="httpsPolicy"
@@ -878,6 +882,7 @@ class CfnConfigurationSet(
         reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.ReputationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.SendingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.SuppressionOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.TrackingOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationSet.VdmOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -889,6 +894,7 @@ class CfnConfigurationSet(
         :param reputation_options: An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
         :param sending_options: An object that defines whether or not Amazon SES can send email that you send using the configuration set.
         :param suppression_options: An object that contains information about the suppression list preferences for your account.
+        :param tags: An array of objects that define the tags (keys and values) that are associated with the configuration set.
         :param tracking_options: An object that defines the open and click tracking options for emails that you send using the configuration set.
         :param vdm_options: The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
         '''
@@ -902,6 +908,7 @@ class CfnConfigurationSet(
             reputation_options=reputation_options,
             sending_options=sending_options,
             suppression_options=suppression_options,
+            tags=tags,
             tracking_options=tracking_options,
             vdm_options=vdm_options,
         )
@@ -937,6 +944,12 @@ class CfnConfigurationSet(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1030,6 +1043,19 @@ class CfnConfigurationSet(
             type_hints = typing.get_type_hints(_typecheckingstub__4d6e92203e0b0fb9ad18351409d2e930bd3b3881d922fcb2f2b38b337f5f4c55)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "suppressionOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of objects that define the tags (keys and values) that are associated with the configuration set.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c62b9f68ee9b0075b17aa0e2ad90c86281aa22d6d7e67129dbeee761ce2c5d4f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="trackingOptions")
@@ -2429,6 +2455,7 @@ class CfnConfigurationSetEventDestinationProps:
         "reputation_options": "reputationOptions",
         "sending_options": "sendingOptions",
         "suppression_options": "suppressionOptions",
+        "tags": "tags",
         "tracking_options": "trackingOptions",
         "vdm_options": "vdmOptions",
     },
@@ -2442,6 +2469,7 @@ class CfnConfigurationSetProps:
         reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2452,6 +2480,7 @@ class CfnConfigurationSetProps:
         :param reputation_options: An object that defines whether or not Amazon SES collects reputation metrics for the emails that you send that use the configuration set.
         :param sending_options: An object that defines whether or not Amazon SES can send email that you send using the configuration set.
         :param suppression_options: An object that contains information about the suppression list preferences for your account.
+        :param tags: An array of objects that define the tags (keys and values) that are associated with the configuration set.
         :param tracking_options: An object that defines the open and click tracking options for emails that you send using the configuration set.
         :param vdm_options: The Virtual Deliverability Manager (VDM) options that apply to the configuration set.
 
@@ -2480,6 +2509,10 @@ class CfnConfigurationSetProps:
                 suppression_options=ses.CfnConfigurationSet.SuppressionOptionsProperty(
                     suppressed_reasons=["suppressedReasons"]
                 ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 tracking_options=ses.CfnConfigurationSet.TrackingOptionsProperty(
                     custom_redirect_domain="customRedirectDomain",
                     https_policy="httpsPolicy"
@@ -2501,6 +2534,7 @@ class CfnConfigurationSetProps:
             check_type(argname="argument reputation_options", value=reputation_options, expected_type=type_hints["reputation_options"])
             check_type(argname="argument sending_options", value=sending_options, expected_type=type_hints["sending_options"])
             check_type(argname="argument suppression_options", value=suppression_options, expected_type=type_hints["suppression_options"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tracking_options", value=tracking_options, expected_type=type_hints["tracking_options"])
             check_type(argname="argument vdm_options", value=vdm_options, expected_type=type_hints["vdm_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2514,6 +2548,8 @@ class CfnConfigurationSetProps:
             self._values["sending_options"] = sending_options
         if suppression_options is not None:
             self._values["suppression_options"] = suppression_options
+        if tags is not None:
+            self._values["tags"] = tags
         if tracking_options is not None:
             self._values["tracking_options"] = tracking_options
         if vdm_options is not None:
@@ -2574,6 +2610,15 @@ class CfnConfigurationSetProps:
         '''
         result = self._values.get("suppression_options")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.SuppressionOptionsProperty]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of objects that define the tags (keys and values) that are associated with the configuration set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-configurationset.html#cfn-ses-configurationset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
 
     @builtins.property
     def tracking_options(
@@ -3005,7 +3050,7 @@ class CfnContactListProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnDedicatedIpPool(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3030,7 +3075,11 @@ class CfnDedicatedIpPool(
         
         cfn_dedicated_ip_pool = ses.CfnDedicatedIpPool(self, "MyCfnDedicatedIpPool",
             pool_name="poolName",
-            scaling_mode="scalingMode"
+            scaling_mode="scalingMode",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -3041,18 +3090,22 @@ class CfnDedicatedIpPool(
         *,
         pool_name: typing.Optional[builtins.str] = None,
         scaling_mode: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param pool_name: The name of the dedicated IP pool that the IP address is associated with.
         :param scaling_mode: The type of scaling mode. The following options are available: - ``STANDARD`` - The customer controls which IPs are part of the dedicated IP pool. - ``MANAGED`` - The reputation and number of IPs are automatically managed by Amazon SES . The ``STANDARD`` option is selected by default if no value is specified. .. epigraph:: Updating *ScalingMode* doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED`` . However, updating *ScalingMode* from ``MANAGED`` to ``STANDARD`` is not supported.
+        :param tags: An object that defines the tags (keys and values) that you want to associate with the pool.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86a024e58c5549e30a3beca5bb152d09219a0cb42e6e02b0e95395595c9930e2)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnDedicatedIpPoolProps(pool_name=pool_name, scaling_mode=scaling_mode)
+        props = CfnDedicatedIpPoolProps(
+            pool_name=pool_name, scaling_mode=scaling_mode, tags=tags
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -3087,6 +3140,12 @@ class CfnDedicatedIpPool(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -3117,11 +3176,28 @@ class CfnDedicatedIpPool(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scalingMode", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An object that defines the tags (keys and values) that you want to associate with the pool.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fdfb8383d85d605dbc464ac070d5b1dbd7acd9e899b479c712bf9f4e9432f8d8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ses.CfnDedicatedIpPoolProps",
     jsii_struct_bases=[],
-    name_mapping={"pool_name": "poolName", "scaling_mode": "scalingMode"},
+    name_mapping={
+        "pool_name": "poolName",
+        "scaling_mode": "scalingMode",
+        "tags": "tags",
+    },
 )
 class CfnDedicatedIpPoolProps:
     def __init__(
@@ -3129,11 +3205,13 @@ class CfnDedicatedIpPoolProps:
         *,
         pool_name: typing.Optional[builtins.str] = None,
         scaling_mode: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDedicatedIpPool``.
 
         :param pool_name: The name of the dedicated IP pool that the IP address is associated with.
         :param scaling_mode: The type of scaling mode. The following options are available: - ``STANDARD`` - The customer controls which IPs are part of the dedicated IP pool. - ``MANAGED`` - The reputation and number of IPs are automatically managed by Amazon SES . The ``STANDARD`` option is selected by default if no value is specified. .. epigraph:: Updating *ScalingMode* doesn't require a replacement if you're updating its value from ``STANDARD`` to ``MANAGED`` . However, updating *ScalingMode* from ``MANAGED`` to ``STANDARD`` is not supported.
+        :param tags: An object that defines the tags (keys and values) that you want to associate with the pool.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html
         :exampleMetadata: fixture=_generated
@@ -3146,18 +3224,25 @@ class CfnDedicatedIpPoolProps:
             
             cfn_dedicated_ip_pool_props = ses.CfnDedicatedIpPoolProps(
                 pool_name="poolName",
-                scaling_mode="scalingMode"
+                scaling_mode="scalingMode",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea1a308c0c75c9aabf33c8c8b6378da7534f946eff787acdd2dc100f0b482f56)
             check_type(argname="argument pool_name", value=pool_name, expected_type=type_hints["pool_name"])
             check_type(argname="argument scaling_mode", value=scaling_mode, expected_type=type_hints["scaling_mode"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if pool_name is not None:
             self._values["pool_name"] = pool_name
         if scaling_mode is not None:
             self._values["scaling_mode"] = scaling_mode
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def pool_name(self) -> typing.Optional[builtins.str]:
@@ -3187,6 +3272,15 @@ class CfnDedicatedIpPoolProps:
         result = self._values.get("scaling_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An object that defines the tags (keys and values) that you want to associate with the pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-dedicatedippool.html#cfn-ses-dedicatedippool-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -3199,7 +3293,7 @@ class CfnDedicatedIpPoolProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556)
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnEmailIdentity(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3246,7 +3340,11 @@ class CfnEmailIdentity(
             mail_from_attributes=ses.CfnEmailIdentity.MailFromAttributesProperty(
                 behavior_on_mx_failure="behaviorOnMxFailure",
                 mail_from_domain="mailFromDomain"
-            )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -3261,6 +3359,7 @@ class CfnEmailIdentity(
         dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEmailIdentity.DkimSigningAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEmailIdentity.FeedbackAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEmailIdentity.MailFromAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -3271,6 +3370,7 @@ class CfnEmailIdentity(
         :param dkim_signing_attributes: If your request includes this object, Amazon SES configures the identity to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes, or, configures the key length to be used for `Easy DKIM <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/easy-dkim.html>`_ . You can only specify this object if the email identity is a domain, as opposed to an address.
         :param feedback_attributes: Used to enable or disable feedback forwarding for an identity.
         :param mail_from_attributes: Used to enable or disable the custom Mail-From domain configuration for an email identity.
+        :param tags: An array of objects that define the tags (keys and values) to associate with the email identity.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6dd153888b73988faf47365b573ef9e102d03faf2ff7fc2112c9b85962c0cc81)
@@ -3283,6 +3383,7 @@ class CfnEmailIdentity(
             dkim_signing_attributes=dkim_signing_attributes,
             feedback_attributes=feedback_attributes,
             mail_from_attributes=mail_from_attributes,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -3370,6 +3471,12 @@ class CfnEmailIdentity(
         :cloudformationAttribute: DkimDNSTokenValue3
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrDkimDnsTokenValue3"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3478,6 +3585,19 @@ class CfnEmailIdentity(
             type_hints = typing.get_type_hints(_typecheckingstub__3bfc642d317ef43c146d5f2aed5754d7210e533815ccd7d6339a4f0946d9ad7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mailFromAttributes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of objects that define the tags (keys and values) to associate with the email identity.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__734a5169a3a8e4af6fa9920987d51d19a7ae6a49e4504934eb9c54d8bf21aa81)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ses.CfnEmailIdentity.ConfigurationSetAttributesProperty",
@@ -3861,6 +3981,7 @@ class CfnEmailIdentity(
         "dkim_signing_attributes": "dkimSigningAttributes",
         "feedback_attributes": "feedbackAttributes",
         "mail_from_attributes": "mailFromAttributes",
+        "tags": "tags",
     },
 )
 class CfnEmailIdentityProps:
@@ -3873,6 +3994,7 @@ class CfnEmailIdentityProps:
         dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEmailIdentity``.
 
@@ -3882,6 +4004,7 @@ class CfnEmailIdentityProps:
         :param dkim_signing_attributes: If your request includes this object, Amazon SES configures the identity to use Bring Your Own DKIM (BYODKIM) for DKIM authentication purposes, or, configures the key length to be used for `Easy DKIM <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/easy-dkim.html>`_ . You can only specify this object if the email identity is a domain, as opposed to an address.
         :param feedback_attributes: Used to enable or disable feedback forwarding for an identity.
         :param mail_from_attributes: Used to enable or disable the custom Mail-From domain configuration for an email identity.
+        :param tags: An array of objects that define the tags (keys and values) to associate with the email identity.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html
         :exampleMetadata: fixture=_generated
@@ -3913,7 +4036,11 @@ class CfnEmailIdentityProps:
                 mail_from_attributes=ses.CfnEmailIdentity.MailFromAttributesProperty(
                     behavior_on_mx_failure="behaviorOnMxFailure",
                     mail_from_domain="mailFromDomain"
-                )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -3924,6 +4051,7 @@ class CfnEmailIdentityProps:
             check_type(argname="argument dkim_signing_attributes", value=dkim_signing_attributes, expected_type=type_hints["dkim_signing_attributes"])
             check_type(argname="argument feedback_attributes", value=feedback_attributes, expected_type=type_hints["feedback_attributes"])
             check_type(argname="argument mail_from_attributes", value=mail_from_attributes, expected_type=type_hints["mail_from_attributes"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "email_identity": email_identity,
         }
@@ -3937,6 +4065,8 @@ class CfnEmailIdentityProps:
             self._values["feedback_attributes"] = feedback_attributes
         if mail_from_attributes is not None:
             self._values["mail_from_attributes"] = mail_from_attributes
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def email_identity(self) -> builtins.str:
@@ -4004,6 +4134,15 @@ class CfnEmailIdentityProps:
         '''
         result = self._values.get("mail_from_attributes")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEmailIdentity.MailFromAttributesProperty]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of objects that define the tags (keys and values) to associate with the email identity.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentity.html#cfn-ses-emailidentity-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18398,6 +18537,7 @@ def _typecheckingstub__ad84a733d05a7160c0517733c56c249f6a299231ebcf8e982ed1aeda9
     reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -18442,6 +18582,12 @@ def _typecheckingstub__bfa327a56576655b9670d914964b52df069b29497d84b812a2f15586b
 
 def _typecheckingstub__4d6e92203e0b0fb9ad18351409d2e930bd3b3881d922fcb2f2b38b337f5f4c55(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationSet.SuppressionOptionsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c62b9f68ee9b0075b17aa0e2ad90c86281aa22d6d7e67129dbeee761ce2c5d4f(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18618,6 +18764,7 @@ def _typecheckingstub__e27ed179dbf809eedecaf57207416cd1680782d0d3ab4c539486ad703
     reputation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.ReputationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sending_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SendingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     suppression_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.SuppressionOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     tracking_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.TrackingOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vdm_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationSet.VdmOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -18698,6 +18845,7 @@ def _typecheckingstub__86a024e58c5549e30a3beca5bb152d09219a0cb42e6e02b0e95395595
     *,
     pool_name: typing.Optional[builtins.str] = None,
     scaling_mode: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18726,10 +18874,17 @@ def _typecheckingstub__cfe768b550097b0e81974377ae65fba6791743f6787f72492af555cd1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fdfb8383d85d605dbc464ac070d5b1dbd7acd9e899b479c712bf9f4e9432f8d8(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ea1a308c0c75c9aabf33c8c8b6378da7534f946eff787acdd2dc100f0b482f56(
     *,
     pool_name: typing.Optional[builtins.str] = None,
     scaling_mode: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18744,6 +18899,7 @@ def _typecheckingstub__6dd153888b73988faf47365b573ef9e102d03faf2ff7fc2112c9b8596
     dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18796,6 +18952,12 @@ def _typecheckingstub__3bfc642d317ef43c146d5f2aed5754d7210e533815ccd7d6339a4f094
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__734a5169a3a8e4af6fa9920987d51d19a7ae6a49e4504934eb9c54d8bf21aa81(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f43c178a47220933c21060d38f5105353a7af12378df167bc4dc7fca0fffa09c(
     *,
     configuration_set_name: typing.Optional[builtins.str] = None,
@@ -18842,6 +19004,7 @@ def _typecheckingstub__1981630fc48db9c9ef7ed37311c6a22c4456e2d316420d87e0ba41890
     dkim_signing_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.DkimSigningAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     feedback_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.FeedbackAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mail_from_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEmailIdentity.MailFromAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

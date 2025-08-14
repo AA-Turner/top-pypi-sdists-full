@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: plugin_jm_server
-Version: 0.1.23
+Version: 0.1.24
 Summary: plugin_jm_server, a plugin for jmcomic that can be used to view comics in a web browser.
 Home-page: https://github.com/hect0x7/plugin-jm-server
 Author: hect0x7
@@ -23,8 +23,28 @@ Requires-Dist: jmcomic
 Requires-Dist: flask
 Requires-Dist: psutil
 Requires-Dist: cryptography
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # plugin-jm-server
+
+“离线版”禁漫天堂
+
+该项目会在本地起一个`文件服务器`，支持用浏览器查看文件夹内的图片，界面模仿禁漫的章节观看页面，并适配手机端。
+
+用浏览器的好处就是支持很多浏览器插件和脚本，例如：
+
+* 双页阅读插件：https://sleazyfork.org/zh-CN/scripts/374903-comicread
+
+#  想法起源
 
 想法起源：https://github.com/hect0x7/JMComic-Crawler-Python/issues/192
 
@@ -33,9 +53,14 @@ Requires-Dist: cryptography
 为了方便修改，将原项目中的文件复制到本项目中，然后进行修改
 
 
+# 可优化点
+
+1. 前端优化。目前项目架构是`前后端不分离架构`，前端使用原始的html三件套。可以优化为前后端分离架构，基于Vue等开发框架，复用组件库，优化界面。
+
+2. 后端优化。支持提供调用jmcomic功能的后端接口。
+
 
 # 使用方式
-
 
 
 ## 1. pip安装

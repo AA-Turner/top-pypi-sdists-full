@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import copy
 import typing
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import histoprint
 import numpy as np
@@ -39,6 +40,8 @@ class Stack:
         for a in args[1:]:
             if first_axes != a.axes:
                 raise ValueError("The Histogram axes don't match")
+
+    __hash__ = None  # type: ignore[assignment]
 
     @classmethod
     def from_iter(cls, iterable: typing.Iterable[BaseHist]) -> Self:

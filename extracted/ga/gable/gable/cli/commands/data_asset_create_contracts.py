@@ -7,9 +7,10 @@ from typing import List, Optional
 import click
 import yaml
 from click.core import Context as ClickContext
+from loguru import logger
+
 from gable.api.client import GableAPIClient
 from gable.cli.helpers.emoji import EMOJI
-from loguru import logger
 
 
 @click.command(

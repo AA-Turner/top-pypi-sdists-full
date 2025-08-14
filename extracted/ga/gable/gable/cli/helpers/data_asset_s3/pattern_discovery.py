@@ -5,6 +5,10 @@ from typing import Iterable, Optional
 from urllib.parse import unquote
 
 from botocore.exceptions import ClientError
+from loguru import logger
+from mypy_boto3_s3 import S3Client
+from mypy_boto3_s3.type_defs import ObjectTypeDef
+
 from gable.cli.helpers.data_asset_s3.compression_handler import CompressionHandler
 from gable.cli.helpers.data_asset_s3.logger import log_debug, log_error, log_trace
 from gable.cli.helpers.data_asset_s3.path_pattern_manager import (
@@ -16,9 +20,6 @@ from gable.cli.helpers.data_asset_s3.path_pattern_manager import (
 )
 from gable.cli.helpers.emoji import EMOJI
 from gable.cli.helpers.logging import log_execution_time
-from loguru import logger
-from mypy_boto3_s3 import S3Client
-from mypy_boto3_s3.type_defs import ObjectTypeDef
 
 
 @log_execution_time
@@ -692,7 +693,9 @@ def is_supported_file_type(file_path: str) -> bool:
     """
     return any(
         file_path.endswith(file_type)
-        or CompressionHandler.get_original_format(file_path).extension.endswith(file_type)
+        or CompressionHandler.get_original_format(file_path).extension.endswith(
+            file_type
+        )
         for file_type in SUPPORTED_FILE_TYPES_SET
     )
 

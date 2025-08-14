@@ -6,7 +6,13 @@
 from ibm_watsonx_ai.experiment.autoai.optimizers.local_auto_pipelines import (
     LocalAutoPipelines,
 )
+from ibm_watsonx_ai.experiment.autoai.optimizers.rag_optimizer import RAGOptimizer
 from ibm_watsonx_ai.experiment.autoai.optimizers.remote_auto_pipelines import (
     RemoteAutoPipelines,
 )
-from ibm_watsonx_ai.experiment.autoai.optimizers.rag_optimizer import RAGOptimizer
+
+__all__ = [
+    "LocalAutoPipelines",
+    "RAGOptimizer",
+    "RemoteAutoPipelines",
+]

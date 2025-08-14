@@ -39,7 +39,10 @@ class SupplierFrameworkStub(BaseAPIModelStub):
         ("prefillDeclarationFromFrameworkSlug", "prefill_declaration_from_slug"),
         ("applicationCompanyDetailsConfirmed", "application_company_details_confirmed"),
         ("technicalAbilityCertificatesStatus", "technical_ability_certificates_status"),
+        ("technicalAbilityCertificatesRoutes", "technical_ability_certificates_routes"),
         ("lotQuestionsResponsesStatus", "lot_questions_responses_status"),
+        ("lotQuestionsResponsesRoutes", "lot_questions_responses_routes"),
+        ("lotPricingsRoutes", "lot_pricings_routes"),
         ("lotPricingsStatus", "lot_pricings_status"),
         ("agreementVersion", "agreement_version"),
         ("centralDigitalPlatformShareCode", "central_digital_platform_share_code"),
@@ -138,6 +141,16 @@ class SupplierFrameworkStub(BaseAPIModelStub):
                     supplier_name=self.response_data["supplierName"],
                 ).response()
             ]
+            self.response_data["technicalAbilityCertificatesRoutes"] = kwargs.get(
+                "technical_ability_certificates_routes",
+                [
+                    "iaas-and-paas",
+                    "iaas-and-paas-above-official",
+                    "isaas",
+                    "saas",
+                    "cloud-support",
+                ],
+            )
             self.response_data["technicalAbilityCertificatesStatus"] = kwargs.get(
                 "technical_ability_certificates_status", "in_progress"
             )
@@ -152,6 +165,13 @@ class SupplierFrameworkStub(BaseAPIModelStub):
                     supplier_name=self.response_data["supplierName"],
                 ).response()
             ]
+            self.response_data["lotPricingsRoutes"] = kwargs.get(
+                "lot_pricings_routes",
+                [
+                    "lot-1",
+                    "lot-2-and-3",
+                ],
+            )
             self.response_data["lotPricingsStatus"] = kwargs.get("lot_pricings_status", "in_progress")
 
         if kwargs.get("with_lot_responses"):
@@ -164,6 +184,12 @@ class SupplierFrameworkStub(BaseAPIModelStub):
                     supplier_name=self.response_data["supplierName"],
                 ).response()
             ]
+            self.response_data["lotQuestionsResponsesRoutes"] = kwargs.get(
+                "lot_questions_responses_routes",
+                [
+                    "digital-capability-and-delivery-partner",
+                ],
+            )
             self.response_data["lotQuestionsResponsesStatus"] = kwargs.get(
                 "lot_questions_responses_status", "in_progress"
             )

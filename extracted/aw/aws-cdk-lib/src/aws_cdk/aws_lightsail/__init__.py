@@ -5775,6 +5775,525 @@ class CfnDistributionProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnDomain(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lightsail.CfnDomain",
+):
+    '''Describes a domain where you are storing recordsets.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-domain.html
+    :cloudformationResource: AWS::Lightsail::Domain
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_lightsail as lightsail
+        
+        cfn_domain = lightsail.CfnDomain(self, "MyCfnDomain",
+            domain_name="domainName",
+        
+            # the properties below are optional
+            domain_entries=[lightsail.CfnDomain.DomainEntryProperty(
+                name="name",
+                target="target",
+                type="type",
+        
+                # the properties below are optional
+                id="id",
+                is_alias=False
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        domain_name: builtins.str,
+        domain_entries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.DomainEntryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_name: The fully qualified domain name in the certificate request.
+        :param domain_entries: An array of key-value pairs containing information about the domain entries.
+        :param tags: The tag keys and optional values for the resource. For more information about tags in Lightsail, see the `Amazon Lightsail Developer Guide <https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-tags>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe82b246fe7ed5830d2f0fc5524cb4172fd4d2438795a1aba9ad5e6fda309803)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDomainProps(
+            domain_name=domain_name, domain_entries=domain_entries, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5869283d5873a582cc7febd55d88bc8f89d5e0d976b0c63a738d68a672de289)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a03ca7db8e2eb25b17b104e3e9ff0b0b0fbf08555e1dbe68b5b5b3af1073c501)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the domain recordset ( ``arn:aws:lightsail:global:123456789101:Domain/824cede0-abc7-4f84-8dbc-12345EXAMPLE`` ).
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The date when the domain recordset was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLocation")
+    def attr_location(self) -> _IResolvable_da3f097b:
+        '''The AWS Region and Availability Zone where the domain was created (read-only).
+
+        :cloudformationAttribute: Location
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrLocation"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceType")
+    def attr_resource_type(self) -> builtins.str:
+        '''The resource type.
+
+        :cloudformationAttribute: ResourceType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSupportCode")
+    def attr_support_code(self) -> builtins.str:
+        '''The support code.
+
+        Include this code in your email to support when you have questions about an instance or another resource in Lightsail. This code enables our support team to look up your Lightsail information more easily.
+
+        :cloudformationAttribute: SupportCode
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSupportCode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The fully qualified domain name in the certificate request.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @domain_name.setter
+    def domain_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18c312b38452b100f6b9507db7e6e5dabba6daa6c2a21e716e3069f4029b91ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="domainEntries")
+    def domain_entries(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEntryProperty"]]]]:
+        '''An array of key-value pairs containing information about the domain entries.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEntryProperty"]]]], jsii.get(self, "domainEntries"))
+
+    @domain_entries.setter
+    def domain_entries(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDomain.DomainEntryProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__751d0aaf99cc70b85edb0ece306cc421fe3ebfd62efaace5ee34838f421756e1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainEntries", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tag keys and optional values for the resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d269539a28b4197d92a71ab41d2713cc83b7c390022d51ef6b28f0b7f9757b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lightsail.CfnDomain.DomainEntryProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "target": "target",
+            "type": "type",
+            "id": "id",
+            "is_alias": "isAlias",
+        },
+    )
+    class DomainEntryProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            target: builtins.str,
+            type: builtins.str,
+            id: typing.Optional[builtins.str] = None,
+            is_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        ) -> None:
+            '''Describes a domain recordset entry.
+
+            :param name: The name of the domain.
+            :param target: The target IP address ( ``192.0.2.0`` ), or AWS name server ( ``ns-111.awsdns-22.com.`` ). For Lightsail load balancers, the value looks like ``ab1234c56789c6b86aba6fb203d443bc-123456789.us-east-2.elb.amazonaws.com`` . For Lightsail distributions, the value looks like ``exampled1182ne.cloudfront.net`` . For Lightsail container services, the value looks like ``container-service-1.example23scljs.us-west-2.cs.amazonlightsail.com`` . Be sure to also set ``isAlias`` to ``true`` when setting up an A record for a Lightsail load balancer, distribution, or container service.
+            :param type: The type of domain entry, such as address for IPv4 (A), address for IPv6 (AAAA), canonical name (CNAME), mail exchanger (MX), name server (NS), start of authority (SOA), service locator (SRV), or text (TXT). The following domain entry types can be used: - ``A`` - ``AAAA`` - ``CNAME`` - ``MX`` - ``NS`` - ``SOA`` - ``SRV`` - ``TXT``
+            :param id: The ID of the domain recordset entry.
+            :param is_alias: When ``true`` , specifies whether the domain entry is an alias used by the Lightsail load balancer, Lightsail container service, Lightsail content delivery network (CDN) distribution, or another AWS resource. You can include an alias (A type) record in your request, which points to the DNS name of a load balancer, container service, CDN distribution, or other AWS resource and routes traffic to that resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-domain-domainentry.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lightsail as lightsail
+                
+                domain_entry_property = lightsail.CfnDomain.DomainEntryProperty(
+                    name="name",
+                    target="target",
+                    type="type",
+                
+                    # the properties below are optional
+                    id="id",
+                    is_alias=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a2089a9f9b5a6ae2cd6b2c26e4c85e131b82f110629db2f6b789e7f8555f3c51)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+                check_type(argname="argument is_alias", value=is_alias, expected_type=type_hints["is_alias"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "target": target,
+                "type": type,
+            }
+            if id is not None:
+                self._values["id"] = id
+            if is_alias is not None:
+                self._values["is_alias"] = is_alias
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-domain-domainentry.html#cfn-lightsail-domain-domainentry-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def target(self) -> builtins.str:
+            '''The target IP address ( ``192.0.2.0`` ), or AWS name server ( ``ns-111.awsdns-22.com.`` ).
+
+            For Lightsail load balancers, the value looks like ``ab1234c56789c6b86aba6fb203d443bc-123456789.us-east-2.elb.amazonaws.com`` . For Lightsail distributions, the value looks like ``exampled1182ne.cloudfront.net`` . For Lightsail container services, the value looks like ``container-service-1.example23scljs.us-west-2.cs.amazonlightsail.com`` . Be sure to also set ``isAlias`` to ``true`` when setting up an A record for a Lightsail load balancer, distribution, or container service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-domain-domainentry.html#cfn-lightsail-domain-domainentry-target
+            '''
+            result = self._values.get("target")
+            assert result is not None, "Required property 'target' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of domain entry, such as address for IPv4 (A), address for IPv6 (AAAA), canonical name (CNAME), mail exchanger (MX), name server (NS), start of authority (SOA), service locator (SRV), or text (TXT).
+
+            The following domain entry types can be used:
+
+            - ``A``
+            - ``AAAA``
+            - ``CNAME``
+            - ``MX``
+            - ``NS``
+            - ``SOA``
+            - ``SRV``
+            - ``TXT``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-domain-domainentry.html#cfn-lightsail-domain-domainentry-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the domain recordset entry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-domain-domainentry.html#cfn-lightsail-domain-domainentry-id
+            '''
+            result = self._values.get("id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def is_alias(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''When ``true`` , specifies whether the domain entry is an alias used by the Lightsail load balancer, Lightsail container service, Lightsail content delivery network (CDN) distribution, or another AWS resource.
+
+            You can include an alias (A type) record in your request, which points to the DNS name of a load balancer, container service, CDN distribution, or other AWS resource and routes traffic to that resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-domain-domainentry.html#cfn-lightsail-domain-domainentry-isalias
+            '''
+            result = self._values.get("is_alias")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DomainEntryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lightsail.CfnDomain.LocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "availability_zone": "availabilityZone",
+            "region_name": "regionName",
+        },
+    )
+    class LocationProperty:
+        def __init__(
+            self,
+            *,
+            availability_zone: typing.Optional[builtins.str] = None,
+            region_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The AWS Region and Availability Zone where the domain was created (read-only).
+
+            :param availability_zone: The Availability Zone.
+            :param region_name: The AWS Region name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-domain-location.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lightsail as lightsail
+                
+                location_property = lightsail.CfnDomain.LocationProperty(
+                    availability_zone="availabilityZone",
+                    region_name="regionName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__90dd64f1adcbc46305e94119be963a9a0b42e98e0d597ac23263cfbc5cf2e695)
+                check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+                check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if availability_zone is not None:
+                self._values["availability_zone"] = availability_zone
+            if region_name is not None:
+                self._values["region_name"] = region_name
+
+        @builtins.property
+        def availability_zone(self) -> typing.Optional[builtins.str]:
+            '''The Availability Zone.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-domain-location.html#cfn-lightsail-domain-location-availabilityzone
+            '''
+            result = self._values.get("availability_zone")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def region_name(self) -> typing.Optional[builtins.str]:
+            '''The AWS Region name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-domain-location.html#cfn-lightsail-domain-location-regionname
+            '''
+            result = self._values.get("region_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lightsail.CfnDomainProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "domain_entries": "domainEntries",
+        "tags": "tags",
+    },
+)
+class CfnDomainProps:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        domain_entries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomain``.
+
+        :param domain_name: The fully qualified domain name in the certificate request.
+        :param domain_entries: An array of key-value pairs containing information about the domain entries.
+        :param tags: The tag keys and optional values for the resource. For more information about tags in Lightsail, see the `Amazon Lightsail Developer Guide <https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-tags>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-domain.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_lightsail as lightsail
+            
+            cfn_domain_props = lightsail.CfnDomainProps(
+                domain_name="domainName",
+            
+                # the properties below are optional
+                domain_entries=[lightsail.CfnDomain.DomainEntryProperty(
+                    name="name",
+                    target="target",
+                    type="type",
+            
+                    # the properties below are optional
+                    id="id",
+                    is_alias=False
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b15d375f4723a95213ce832b405ecb413a0e590e3d391fc2396fabdd2d0f9eee)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument domain_entries", value=domain_entries, expected_type=type_hints["domain_entries"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+        }
+        if domain_entries is not None:
+            self._values["domain_entries"] = domain_entries
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The fully qualified domain name in the certificate request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-domain.html#cfn-lightsail-domain-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_entries(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDomain.DomainEntryProperty]]]]:
+        '''An array of key-value pairs containing information about the domain entries.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-domain.html#cfn-lightsail-domain-domainentries
+        '''
+        result = self._values.get("domain_entries")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDomain.DomainEntryProperty]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The tag keys and optional values for the resource.
+
+        For more information about tags in Lightsail, see the `Amazon Lightsail Developer Guide <https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-tags>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-domain.html#cfn-lightsail-domain-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
 class CfnInstance(
     _CfnResource_9df397a6,
@@ -9042,6 +9561,8 @@ __all__ = [
     "CfnDiskProps",
     "CfnDistribution",
     "CfnDistributionProps",
+    "CfnDomain",
+    "CfnDomainProps",
     "CfnInstance",
     "CfnInstanceProps",
     "CfnInstanceSnapshot",
@@ -9908,6 +10429,75 @@ def _typecheckingstub__5746be261e67458f872b406208009ddcf740c3277f27869ccbc24697b
     certificate_name: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     is_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe82b246fe7ed5830d2f0fc5524cb4172fd4d2438795a1aba9ad5e6fda309803(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_name: builtins.str,
+    domain_entries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5869283d5873a582cc7febd55d88bc8f89d5e0d976b0c63a738d68a672de289(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a03ca7db8e2eb25b17b104e3e9ff0b0b0fbf08555e1dbe68b5b5b3af1073c501(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18c312b38452b100f6b9507db7e6e5dabba6daa6c2a21e716e3069f4029b91ff(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__751d0aaf99cc70b85edb0ece306cc421fe3ebfd62efaace5ee34838f421756e1(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDomain.DomainEntryProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d269539a28b4197d92a71ab41d2713cc83b7c390022d51ef6b28f0b7f9757b8(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2089a9f9b5a6ae2cd6b2c26e4c85e131b82f110629db2f6b789e7f8555f3c51(
+    *,
+    name: builtins.str,
+    target: builtins.str,
+    type: builtins.str,
+    id: typing.Optional[builtins.str] = None,
+    is_alias: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90dd64f1adcbc46305e94119be963a9a0b42e98e0d597ac23263cfbc5cf2e695(
+    *,
+    availability_zone: typing.Optional[builtins.str] = None,
+    region_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b15d375f4723a95213ce832b405ecb413a0e590e3d391fc2396fabdd2d0f9eee(
+    *,
+    domain_name: builtins.str,
+    domain_entries: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEntryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

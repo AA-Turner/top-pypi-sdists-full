@@ -6,16 +6,12 @@ import itertools
 import operator
 import typing
 import warnings
+from collections.abc import Generator, Iterator, Mapping, Sequence
 from typing import (
     Any,
     Callable,
-    Generator,
-    Iterator,
-    Mapping,
     Protocol,
-    Sequence,
     SupportsIndex,
-    Tuple,
     Union,
 )
 
@@ -50,8 +46,8 @@ InnerIndexing = Union[
     SupportsIndex, str, Callable[[bh.axis.Axis], int], slice, "ellipsis"
 ]
 IndexingWithMapping = Union[InnerIndexing, Mapping[Union[int, str], InnerIndexing]]
-IndexingExpr = Union[IndexingWithMapping, Tuple[IndexingWithMapping, ...]]
-AxisTypes = Union[AxisProtocol, Tuple[int, float, float]]
+IndexingExpr = Union[IndexingWithMapping, tuple[IndexingWithMapping, ...]]
+AxisTypes = Union[AxisProtocol, tuple[int, float, float]]
 
 
 # Workaround for bug in mplhep
@@ -76,14 +72,52 @@ def process_mistaken_quick_construct(
             yield ax
 
 
+NO_METADATA = object()
+
+
 class BaseHist(bh.Histogram, metaclass=MetaConstructor, family=hist):
     __slots__ = ()
 
+    @typing.overload
     def __init__(
         self,
-        *in_args: AxisTypes | Storage | str,
+        arg: dict[str, Any],
+        /,
+        *,
+        data: np.typing.NDArray[Any] | None = ...,
+        metadata: Any = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> None: ...
+
+    @typing.overload
+    def __init__(
+        self,
+        arg: Self | bh.Histogram,
+        /,
+        *,
+        data: np.typing.NDArray[Any] | None = ...,
+        metadata: Any = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> None: ...
+
+    @typing.overload
+    def __init__(
+        self,
+        *axes: AxisTypes | Storage | str,
+        storage: Storage = ...,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> None: ...
+
+    def __init__(
+        self,
+        *in_args: Self | bh.Histogram | dict[str, Any] | AxisTypes | Storage | str,
         storage: Storage | str | None = None,
-        metadata: Any = None,
+        metadata: Any = NO_METADATA,
         data: np.typing.NDArray[Any] | None = None,
         label: str | None = None,
         name: str | None = None,
@@ -93,8 +127,6 @@ class BaseHist(bh.Histogram, metaclass=MetaConstructor, family=hist):
         """
         self._hist: Any = None
         self.axes: NamedAxesTuple
-        self.name = name
-        self.label = label
 
         args: tuple[AxisTypes, ...]
 
@@ -119,7 +151,10 @@ class BaseHist(bh.Histogram, metaclass=MetaConstructor, family=hist):
             warnings.warn(msg, stacklevel=2)
             storage = storage()
 
-        super().__init__(*args, storage=storage, metadata=metadata)  # type: ignore[call-overload]
+        if metadata is NO_METADATA:
+            super().__init__(*args, storage=storage)  # type: ignore[call-overload]
+        else:
+            super().__init__(*args, storage=storage, metadata=metadata)  # type: ignore[call-overload]
 
         disallowed_names = {"weight", "sample", "threads"}
         for ax in self.axes:
@@ -142,12 +177,8 @@ class BaseHist(bh.Histogram, metaclass=MetaConstructor, family=hist):
         if data is not None:
             self[...] = data
 
-    # Backport of storage_type from boost-histogram 1.3.2:
-    if not hasattr(bh.Histogram, "storage_type"):
-
-        @property
-        def storage_type(self) -> type[bh.storage.Storage]:
-            return self._storage_type
+        self.name = name
+        self.label = label
 
     def _generate_axes_(self) -> NamedAxesTuple:
         """
@@ -184,6 +215,11 @@ class BaseHist(bh.Histogram, metaclass=MetaConstructor, family=hist):
                 return index
 
         raise ValueError(f"The axis name {name} could not be found")
+
+    def _to_uhi_(self) -> dict[str, Any]:
+        from .serialization import to_uhi
+
+        return to_uhi(self)
 
     @classmethod
     def from_columns(
@@ -314,7 +350,7 @@ class BaseHist(bh.Histogram, metaclass=MetaConstructor, family=hist):
                 )
         # Multiple args: broadcast and flatten!
         else:
-            inputs = (*args, *kwargs.values(), *non_user_kwargs)
+            inputs = (*args, *kwargs.values(), *non_user_kwargs.values())
             broadcast = interop.broadcast_and_flatten(inputs)
             user_args_broadcast = broadcast[: len(args)]
             user_kwargs_broadcast = dict(
@@ -526,10 +562,29 @@ class BaseHist(bh.Histogram, metaclass=MetaConstructor, family=hist):
         *,
         ax: matplotlib.axes.Axes | None = None,
         overlay: str | int | None = None,
+        legend: bool = True,
         **kwargs: Any,
     ) -> Hist1DArtists:
         """
         Plot1d method for BaseHist object.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes, optional
+            Axes to plot on. If None, uses current axes or creates new ones.
+        overlay : str or int, optional
+            Name or index of the axis to overlay. If None, automatically selects
+            the first discrete axis for multi-dimensional histograms.
+        legend : bool, default True
+            Whether to automatically add a legend when plotting stacked categories.
+            The legend title is set from the axis label if available.
+        **kwargs : Any
+            Additional keyword arguments passed to the underlying plot functions.
+
+        Returns
+        -------
+        Hist1DArtists
+            The matplotlib artists created by the plot.
         """
 
         from hist import plot
@@ -556,7 +611,19 @@ class BaseHist(bh.Histogram, metaclass=MetaConstructor, family=hist):
                 raise ValueError(
                     f"label ``{kwargs['label']}`` not understood for {len(cats)} categories"
                 )
-        return plot.histplot(d1hists, ax=ax, label=cats, **_proc_kw_for_lw(kwargs))
+        artists = plot.histplot(d1hists, ax=ax, label=cats, **_proc_kw_for_lw(kwargs))
+        if legend:
+            # Try to set legend title from axis label if available
+            if ax is None:
+                # Get axis from the first artist (mplhep returns Hist1DArtists tuple)
+                # This will raise an error if artists is empty or doesn't have the expected structure,
+                # which is intended behavior as specified in the requirements
+                ax = artists[0].stairs.axes
+            handles, _ = ax.get_legend_handles_labels()
+            if handles:
+                title = getattr(cat_ax, "label", None)
+                ax.legend(title=title if title else None)
+        return artists
 
     def plot2d(
         self,

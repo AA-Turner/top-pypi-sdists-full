@@ -1,7 +1,7 @@
 r'''
 # `data_azurerm_oracle_db_system_shapes`
 
-Refer to the Terraform Registry for docs: [`data_azurerm_oracle_db_system_shapes`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes).
+Refer to the Terraform Registry for docs: [`data_azurerm_oracle_db_system_shapes`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzurermOracleDbSystemShapes(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.dataAzurermOracleDbSystemShapes.DataAzurermOracleDbSystemShapes",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes azurerm_oracle_db_system_shapes}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes azurerm_oracle_db_system_shapes}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class DataAzurermOracleDbSystemShapes(
         location: builtins.str,
         id: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["DataAzurermOracleDbSystemShapesTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        zone: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -62,13 +63,14 @@ class DataAzurermOracleDbSystemShapes(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes azurerm_oracle_db_system_shapes} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes azurerm_oracle_db_system_shapes} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#location DataAzurermOracleDbSystemShapes#location}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#id DataAzurermOracleDbSystemShapes#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#timeouts DataAzurermOracleDbSystemShapes#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#location DataAzurermOracleDbSystemShapes#location}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#id DataAzurermOracleDbSystemShapes#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#timeouts DataAzurermOracleDbSystemShapes#timeouts}
+        :param zone: Filter the versions by zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#zone DataAzurermOracleDbSystemShapes#zone}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -85,6 +87,7 @@ class DataAzurermOracleDbSystemShapes(
             location=location,
             id=id,
             timeouts=timeouts,
+            zone=zone,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -109,7 +112,7 @@ class DataAzurermOracleDbSystemShapes(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzurermOracleDbSystemShapes to import.
-        :param import_from_id: The id of the existing DataAzurermOracleDbSystemShapes that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzurermOracleDbSystemShapes that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzurermOracleDbSystemShapes to import is found.
         '''
         if __debug__:
@@ -123,7 +126,7 @@ class DataAzurermOracleDbSystemShapes(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#read DataAzurermOracleDbSystemShapes#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#read DataAzurermOracleDbSystemShapes#read}.
         '''
         value = DataAzurermOracleDbSystemShapesTimeouts(read=read)
 
@@ -136,6 +139,10 @@ class DataAzurermOracleDbSystemShapes(
     @jsii.member(jsii_name="resetTimeouts")
     def reset_timeouts(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTimeouts", []))
+
+    @jsii.member(jsii_name="resetZone")
+    def reset_zone(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetZone", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -178,6 +185,11 @@ class DataAzurermOracleDbSystemShapes(
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "DataAzurermOracleDbSystemShapesTimeouts"]], jsii.get(self, "timeoutsInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="zoneInput")
+    def zone_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "zoneInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="id")
     def id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "id"))
@@ -201,6 +213,18 @@ class DataAzurermOracleDbSystemShapes(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="zone")
+    def zone(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "zone"))
+
+    @zone.setter
+    def zone(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f490980cbcc82c044c0c5bc7261af4b6dd7961de881c5024c59c4f89b56213ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "zone", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-azurerm.dataAzurermOracleDbSystemShapes.DataAzurermOracleDbSystemShapesConfig",
@@ -216,6 +240,7 @@ class DataAzurermOracleDbSystemShapes(
         "location": "location",
         "id": "id",
         "timeouts": "timeouts",
+        "zone": "zone",
     },
 )
 class DataAzurermOracleDbSystemShapesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -232,6 +257,7 @@ class DataAzurermOracleDbSystemShapesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         location: builtins.str,
         id: typing.Optional[builtins.str] = None,
         timeouts: typing.Optional[typing.Union["DataAzurermOracleDbSystemShapesTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -241,9 +267,10 @@ class DataAzurermOracleDbSystemShapesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#location DataAzurermOracleDbSystemShapes#location}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#id DataAzurermOracleDbSystemShapes#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#timeouts DataAzurermOracleDbSystemShapes#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#location DataAzurermOracleDbSystemShapes#location}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#id DataAzurermOracleDbSystemShapes#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#timeouts DataAzurermOracleDbSystemShapes#timeouts}
+        :param zone: Filter the versions by zone. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#zone DataAzurermOracleDbSystemShapes#zone}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -261,6 +288,7 @@ class DataAzurermOracleDbSystemShapesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
+            check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location": location,
         }
@@ -282,6 +310,8 @@ class DataAzurermOracleDbSystemShapesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
             self._values["id"] = id
         if timeouts is not None:
             self._values["timeouts"] = timeouts
+        if zone is not None:
+            self._values["zone"] = zone
 
     @builtins.property
     def connection(
@@ -349,14 +379,14 @@ class DataAzurermOracleDbSystemShapesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#location DataAzurermOracleDbSystemShapes#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#location DataAzurermOracleDbSystemShapes#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#id DataAzurermOracleDbSystemShapes#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#id DataAzurermOracleDbSystemShapes#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -368,10 +398,19 @@ class DataAzurermOracleDbSystemShapesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
     def timeouts(self) -> typing.Optional["DataAzurermOracleDbSystemShapesTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#timeouts DataAzurermOracleDbSystemShapes#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#timeouts DataAzurermOracleDbSystemShapes#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzurermOracleDbSystemShapesTimeouts"], result)
+
+    @builtins.property
+    def zone(self) -> typing.Optional[builtins.str]:
+        '''Filter the versions by zone.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#zone DataAzurermOracleDbSystemShapes#zone}
+        '''
+        result = self._values.get("zone")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -649,7 +688,7 @@ class DataAzurermOracleDbSystemShapesDbSystemShapesOutputReference(
 class DataAzurermOracleDbSystemShapesTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#read DataAzurermOracleDbSystemShapes#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#read DataAzurermOracleDbSystemShapes#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ff7a145d76b5973cfa47244d69fc164a122267d57b5b7b4e4e692d0f22cd944)
@@ -660,7 +699,7 @@ class DataAzurermOracleDbSystemShapesTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/data-sources/oracle_db_system_shapes#read DataAzurermOracleDbSystemShapes#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/data-sources/oracle_db_system_shapes#read DataAzurermOracleDbSystemShapes#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -754,6 +793,7 @@ def _typecheckingstub__9c90d0f1e3dfd2e9e363cf6596b4cfe8e0ef2e8d09bfbb1e4836b1957
     location: builtins.str,
     id: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[DataAzurermOracleDbSystemShapesTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    zone: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -786,6 +826,12 @@ def _typecheckingstub__923bcc08dc6150ad20783c93c0da6683bda0bf1a3d0e4b11223984c83
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f490980cbcc82c044c0c5bc7261af4b6dd7961de881c5024c59c4f89b56213ce(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e84b5e6c41b578de70799cee88a85249427c8826d1031e3d6f50d0f56f769a44(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -798,6 +844,7 @@ def _typecheckingstub__e84b5e6c41b578de70799cee88a85249427c8826d1031e3d6f50d0f56
     location: builtins.str,
     id: typing.Optional[builtins.str] = None,
     timeouts: typing.Optional[typing.Union[DataAzurermOracleDbSystemShapesTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    zone: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

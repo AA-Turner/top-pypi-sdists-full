@@ -4,3 +4,5 @@
 #  -----------------------------------------------------------------------------------------
 
 from ibm_watsonx_ai.experiment.base_experiment.base_experiment import BaseExperiment
+
+__all__ = ["BaseExperiment"]

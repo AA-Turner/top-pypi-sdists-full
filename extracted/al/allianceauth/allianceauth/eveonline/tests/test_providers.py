@@ -6,6 +6,12 @@ from jsonschema.exceptions import RefResolutionError
 
 from django.test import TestCase
 
+from allianceauth import __url__ as aa_url
+from allianceauth import __version__ as aa_version
+
+from esi import __url__ as esi_url
+from esi import __version__ as esi_version
+
 from . import set_logger
 from .esi_client_stub import EsiClientStub
 from ..providers import (
@@ -717,11 +723,11 @@ class TestEveSwaggerProvider(TestCase):
         self.assertIsNotNone(my_provider._client)
         self.assertEqual(my_client, 'my_client')
 
-    @patch(MODULE_PATH + '.__version__', '1.0.0')
     def test_user_agent_header(self):
         my_provider = EveSwaggerProvider()
         my_client = my_provider.client
         operation = my_client.Universe.get_universe_factions()
         self.assertEqual(
-            operation.future.request.headers['User-Agent'], 'allianceauth v1.0.0 dummy@example.net'
+            operation.future.request.headers['User-Agent'],
+            f'AllianceAuth/{aa_version} (dummy@example.net; +{aa_url}) Django-ESI/{esi_version} (+{esi_url})'
         )

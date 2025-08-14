@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-run-parallel
-Version: 0.6.0
+Version: 0.6.1
 Summary: A simple pytest plugin to run tests concurrently
 Author-email: Quansight Labs <emargffoy@quansight.com>
 Maintainer-email: Quansight Labs <emargffoy@quansight.com>

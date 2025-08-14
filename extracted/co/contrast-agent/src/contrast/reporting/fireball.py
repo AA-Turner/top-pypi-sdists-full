@@ -136,7 +136,7 @@ class Client(ReportingClient):
                 server_host_name=config["server.name"],
                 server_path=config["server.path"],
                 server_type=server_type,
-                config_paths=list(reversed(DEFAULT_PATHS)),
+                config_paths=list(DEFAULT_PATHS),
                 overrides=agent_config_to_plain_dict(config),
             )
         )

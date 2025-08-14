@@ -2,6 +2,7 @@ import functools
 from typing import Callable, List, Mapping, TypedDict, Union
 
 import click
+
 from gable.api.client import GableAPIClient
 from gable.cli.commands.asset_plugins.baseclass import (
     AssetPluginAbstract,
@@ -57,7 +58,6 @@ class TypescriptAssetPlugin(AssetPluginAbstract):
                 help="Comma delimited list of filenames or patterns of node modules to include in the analysis.",
                 type=str,
             )
-            
             @click.option(
                 "--emitter-file-path",
                 help="DEPRECATED: Use --emitter-location instead.",
@@ -120,7 +120,9 @@ class TypescriptAssetPlugin(AssetPluginAbstract):
             )
         if typed_config["emitter_function"] and (
             not typed_config["emitter_payload_parameter"]
-            or not (typed_config["emitter_file_path"] or typed_config["emitter_location"])
+            or not (
+                typed_config["emitter_file_path"] or typed_config["emitter_location"]
+            )
             or (
                 not typed_config["event_name_key"]
                 and not typed_config["emitter_name_parameter"]

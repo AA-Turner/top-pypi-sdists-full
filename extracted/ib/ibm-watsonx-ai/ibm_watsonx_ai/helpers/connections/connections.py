@@ -23,13 +23,12 @@ __all__ = [
 import copy
 import io
 import os
+import re
 import sys
 import uuid
-import re
-
 from copy import deepcopy
-from typing import Union, Tuple, List, TYPE_CHECKING, Optional, Any
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 from warnings import warn
 
 import numpy as np
@@ -39,26 +38,24 @@ from pandas import DataFrame
 
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.data_loaders.datasets.experiment import (
-    DEFAULT_SAMPLING_TYPE,
     DEFAULT_SAMPLE_SIZE_LIMIT,
+    DEFAULT_SAMPLING_TYPE,
 )
+from ibm_watsonx_ai.utils import get_filename_from_asset_details
 from ibm_watsonx_ai.utils.autoai.enums import DataConnectionTypes
 from ibm_watsonx_ai.utils.autoai.errors import (
-    ContainerTypeNotSupported,
+    CannotGetFilename,
+    CannotReadSavedRemoteDataBeforeFit,
     ConnectionAssetNotSupported,
+    DirectoryHasNoFilename,
+    InvalidCOSCredentials,
+    InvalidIdType,
     InvalidLocationInDataConnection,
-)
-from ibm_watsonx_ai.utils.autoai.errors import (
     MissingAutoPipelinesParameters,
     MissingCOSStudioConnection,
     MissingIBMWatsonStudioLib,
-    InvalidCOSCredentials,
-    InvalidIdType,
-    NotExistingCOSResource,
-    CannotReadSavedRemoteDataBeforeFit,
     NoAutomatedHoldoutSplit,
-    DirectoryHasNoFilename,
-    CannotGetFilename,
+    NotExistingCOSResource,
 )
 from ibm_watsonx_ai.utils.autoai.utils import (
     all_logging_disabled,
@@ -66,8 +63,8 @@ from ibm_watsonx_ai.utils.autoai.utils import (
     try_import_autoai_ts_libs,
 )
 from ibm_watsonx_ai.wml_client_error import (
-    MissingValue,
     ApiRequestFailure,
+    MissingValue,
     WMLClientError,
 )
 
@@ -77,6 +74,8 @@ from .base_location import BaseLocation
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai.workspace import WorkSpace
+    from ibm_watsonx_ai.client import APIClient
+
     from .flight_service import FlightConnection
 
 
@@ -189,9 +188,7 @@ class DataConnection(BaseDataConnection):
         elif isinstance(location, GithubLocation):
             self.type = DataConnectionTypes.GH
 
-        self.auto_pipeline_params = (
-            {}
-        )  # note: needed parameters for recreation of autoai holdout split
+        self.auto_pipeline_params = {}  # note: needed parameters for recreation of autoai holdout split
         self._api_client = None
         self.__api_client = None  # only for getter/setter for AssetLocation href
         self._run_id = None
@@ -337,6 +334,7 @@ class DataConnection(BaseDataConnection):
         """
 
         from ibm_watsonx_ai.data_loaders.datasets.tabular import TabularIterableDataset
+
         from .flight_service import FlightConnection
 
         flight_parameters = (
@@ -481,7 +479,7 @@ class DataConnection(BaseDataConnection):
         """
         if not isinstance(self.location, (S3Location, ContainerLocation, NFSLocation)):
             raise WMLClientError(
-                error_msg=f"Can't create separate connections from this DataConnection.",
+                error_msg="Can't create separate connections from this DataConnection.",
                 reason="This DataConnection's location is not pointing to a S3 bucket.",
             )
 
@@ -759,10 +757,10 @@ class DataConnection(BaseDataConnection):
         elif self.auto_pipeline_params.get("feature_columns") is not None:
             # timeseries anomaly detection
             try_import_autoai_ts_libs()
-            from autoai_ts_libs.utils.holdout_utils import make_holdout_split
             from autoai_ts_libs.utils.constants import (
                 LEARNING_TYPE_TIMESERIES_ANOMALY_PREDICTION,
             )
+            from autoai_ts_libs.utils.holdout_utils import make_holdout_split
 
             # Note: imputation is not supported
             X_train, X_holdout, y_train, y_holdout, _, _, _, _ = make_holdout_split(
@@ -1012,7 +1010,7 @@ class DataConnection(BaseDataConnection):
                     or "RUNTIME_ENV_ACCESS_TOKEN_FILE" in os.environ
                 ),
             )
-        except:
+        except Exception:
             use_flight = False
 
         return_data_as_iterator = kwargs.get("return_data_as_iterator", False)
@@ -1118,7 +1116,7 @@ class DataConnection(BaseDataConnection):
         if self.type == DataConnectionTypes.DS or self.type == DataConnectionTypes.CA:
             if self._api_client is None:
                 try:
-                    import ibm_watson_studio_lib
+                    import ibm_watson_studio_lib  # noqa: F401
                 except ModuleNotFoundError:
                     raise ConnectionError(
                         "This functionality can be run only on Watson Studio or with api_client passed to connection. "
@@ -1131,8 +1129,8 @@ class DataConnection(BaseDataConnection):
         ) and not self.auto_pipeline_params.get("prediction_type", False):
             raise MissingAutoPipelinesParameters(
                 self.auto_pipeline_params,
-                reason=f"To be able to recreate an original holdout split, you need to schedule a training job or "
-                f"if you are using historical runs, just call historical_optimizer.get_data_connections()",
+                reason="To be able to recreate an original holdout split, you need to schedule a training job or "
+                "if you are using historical runs, just call historical_optimizer.get_data_connections()",
             )
 
         # note: allow to read data at any time
@@ -1169,7 +1167,7 @@ class DataConnection(BaseDataConnection):
             headers["impersonate"] = impersonate_header
         if self.type == DataConnectionTypes.S3:
             raise ConnectionError(
-                f"S3 DataConnection is not supported! Please use data_asset_id instead."
+                "S3 DataConnection is not supported! Please use data_asset_id instead."
             )
 
         elif self.type == DataConnectionTypes.DS:
@@ -1204,7 +1202,8 @@ class DataConnection(BaseDataConnection):
                                     interaction_properties["encoding"] = encoding
 
                                 if (
-                                    input_file_separator := self.auto_pipeline_params.get(
+                                    input_file_separator
+                                    := self.auto_pipeline_params.get(
                                         "csv_separator", ","
                                     )
                                     != ","
@@ -1285,7 +1284,7 @@ class DataConnection(BaseDataConnection):
                                 read_to_file=read_to_file,
                             )
 
-                        except:
+                        except Exception:
                             raise download_data_error
                     else:
                         raise download_data_error
@@ -1434,13 +1433,13 @@ class DataConnection(BaseDataConnection):
                         total_percentage_limit=total_percentage_limit,
                     )
 
-        if getattr(self._api_client, "_internal", False):
-            pass  # don't remove additional params if client is used internally
-        else:
-            # note: remove additional params and inline credentials added by _check_if_connection_asset_is_s3:
-            [
-                delattr(self.connection, attr)
-                for attr in [
+        # Remove additional params and inline credentials added by
+        # `_check_if_connection_asset_is_s3`. Don't remove additional
+        # params if client is used internally.
+        if not getattr(self._api_client, "_internal", False):
+            for attr in filter(
+                lambda x: hasattr(self.connection, x),
+                [
                     "secret_access_key",
                     "access_key_id",
                     "endpoint_url",
@@ -1450,10 +1449,9 @@ class DataConnection(BaseDataConnection):
                     "is_s3",
                     "bucket",
                     "region",
-                ]
-                if hasattr(self.connection, attr)
-            ]
-            # end note
+                ],
+            ):
+                delattr(self.connection, attr)
 
         # create data statistics if data were not downloaded with flight:
         if not isinstance(data, tuple) and _return_subsampling_stats:
@@ -1838,7 +1836,7 @@ class DataConnection(BaseDataConnection):
                 )
         except ValueError as e:
             raise WMLClientError(
-                "Error occurred during COS client initialisation %s".format(e)
+                "Error occurred during COS client initialisation {}".format(e)
             )
 
         return cos_client
@@ -1848,7 +1846,7 @@ class DataConnection(BaseDataConnection):
         try:
             files = cos_client.Bucket(self.location.bucket).objects.all()
             next(x for x in files if x.key == self.location.path)
-        except Exception as e:
+        except Exception:
             raise NotExistingCOSResource(self.location.bucket, self.location.path)
 
     def _update_flight_parameters_with_connection_details(
@@ -2104,7 +2102,8 @@ class DataConnection(BaseDataConnection):
                     "DataConnection._api_client property to be able to use this functionality."
                 )
             asset_details = self._api_client.data_assets.get_details(self.location.id)
-            return asset_details["metadata"]["resource_key"].split("/")[-1]
+            if (filename := get_filename_from_asset_details(asset_details)) is not None:
+                return filename
         elif hasattr(self.location, "file_name"):
             filename = self.location.file_name.split("/")[-1]
             if "." not in filename or filename == ".":
@@ -2115,8 +2114,17 @@ class DataConnection(BaseDataConnection):
             if "." not in filename or filename == ".":
                 raise DirectoryHasNoFilename()
             return filename
-        else:
-            raise CannotGetFilename()
+        raise CannotGetFilename()
+
+    def _update_location_path_with_container_id(self, api_client: "APIClient") -> None:
+        self.set_client(api_client)
+        if not (
+            isinstance(self.location, ContainerLocation) and self._is_shared_bucket()
+        ):
+            return
+
+        if container_id := api_client.default_project_id or api_client.default_space_id:
+            self.location.prepend_container_id_to_path(container_id)
 
 
 # TODO: Remove S3 Implementation for connection
@@ -2153,7 +2161,6 @@ class S3Connection(BaseConnection):
         resource_instance_id: str = None,
         _internal_use=False,
     ) -> None:
-
         if not _internal_use:
             s3_dataconnection_not_supported_warning = (
                 "S3 DataConnection is not supported. Please use data_asset_id instead."
@@ -2294,6 +2301,24 @@ class ContainerLocation(BaseLocation):
         else:
             return self.path
 
+    def prepend_container_id_to_path(self, container_id: str):
+        """Prepend project / space ID to path.
+        For projects and spaces stored in shared buckets, their ID must be prepended to the path.
+        The assignment is skipped if the path already starts with ``container_id``.
+
+        :param container_id: id of project / space
+        :type container_id: str
+        """
+
+        if self.path.startswith(container_id):
+            return
+
+        # Avoids double slash (//) for absolute paths
+        if self.path.startswith("/"):
+            self.path = container_id + self.path
+        else:
+            self.path = f"{container_id}/{self.path}"
+
 
 class FSLocation(BaseLocation):
     """Connection class to File Storage in CP4D."""
@@ -2314,7 +2339,6 @@ class FSLocation(BaseLocation):
         return location
 
     def _save_file_as_data_asset(self, workspace: "WorkSpace") -> "str":
-
         asset_name = self.path.split("/")[-1]
         if self.path:
             data_asset_details = workspace.api_client.data_assets.create(
@@ -2434,7 +2458,7 @@ class AssetLocation(BaseLocation):
 
         return attachment.json()
 
-    def _get_connection_id(self, client) -> str:
+    def _get_connection_id(self, client) -> str | None:
         attachment_content = self._get_attachment_details(client)
 
         return attachment_content.get("connection_id")
@@ -2632,7 +2656,7 @@ class NFSLocation(BaseLocation):
         self.id = None
         self.file_name = None
 
-    def _get_file_size(self, workspace: "Workspace", *args) -> "int":
+    def _get_file_size(self, workspace: "WorkSpace", *args) -> "int":
         params = workspace.api_client._params().copy()
         params["path"] = self.path
         params["detail"] = "true"

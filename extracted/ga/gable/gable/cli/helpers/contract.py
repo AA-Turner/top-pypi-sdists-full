@@ -3,6 +3,9 @@ from typing import Any, Dict, List
 
 import click
 import jsonpickle
+from loguru import logger
+from pydantic import ValidationError
+
 from gable.cli.helpers.repo_interactions import get_git_repo_info
 from gable.openapi import (
     ContractInput,
@@ -12,8 +15,6 @@ from gable.openapi import (
     Status,
 )
 from gable.sdk.models import ExternalContractInput, GitMetadata
-from loguru import logger
-from pydantic import ValidationError
 
 
 def load_contract_from_file(file: click.File) -> Dict[str, Any]:

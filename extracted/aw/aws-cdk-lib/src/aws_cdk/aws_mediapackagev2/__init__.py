@@ -106,7 +106,8 @@ class CfnChannel(
             # the properties below are optional
             description="description",
             input_switch_configuration=mediapackagev2.CfnChannel.InputSwitchConfigurationProperty(
-                mqcs_input_switching=False
+                mqcs_input_switching=False,
+                preferred_input=123
             ),
             input_type="inputType",
             output_header_configuration=mediapackagev2.CfnChannel.OutputHeaderConfigurationProperty(
@@ -418,17 +419,22 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannel.InputSwitchConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"mqcs_input_switching": "mqcsInputSwitching"},
+        name_mapping={
+            "mqcs_input_switching": "mqcsInputSwitching",
+            "preferred_input": "preferredInput",
+        },
     )
     class InputSwitchConfigurationProperty:
         def __init__(
             self,
             *,
             mqcs_input_switching: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            preferred_input: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
 
             :param mqcs_input_switching: When true, AWS Elemental MediaPackage performs input switching based on the MQCS. Default is true. This setting is valid only when ``InputType`` is ``CMAF`` .
+            :param preferred_input: For CMAF inputs, indicates which input MediaPackage should prefer when both inputs have equal MQCS scores. Select ``1`` to prefer the first ingest endpoint, or ``2`` to prefer the second ingest endpoint. If you don't specify a preferred input, MediaPackage uses its default switching behavior when MQCS scores are equal.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-inputswitchconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -440,15 +446,19 @@ class CfnChannel(
                 from aws_cdk import aws_mediapackagev2 as mediapackagev2
                 
                 input_switch_configuration_property = mediapackagev2.CfnChannel.InputSwitchConfigurationProperty(
-                    mqcs_input_switching=False
+                    mqcs_input_switching=False,
+                    preferred_input=123
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__116c8177c767f1c1239016dd387671ce140ac29b5e59b8e19832080acf68bef5)
                 check_type(argname="argument mqcs_input_switching", value=mqcs_input_switching, expected_type=type_hints["mqcs_input_switching"])
+                check_type(argname="argument preferred_input", value=preferred_input, expected_type=type_hints["preferred_input"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if mqcs_input_switching is not None:
                 self._values["mqcs_input_switching"] = mqcs_input_switching
+            if preferred_input is not None:
+                self._values["preferred_input"] = preferred_input
 
         @builtins.property
         def mqcs_input_switching(
@@ -462,6 +472,17 @@ class CfnChannel(
             '''
             result = self._values.get("mqcs_input_switching")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def preferred_input(self) -> typing.Optional[jsii.Number]:
+            '''For CMAF inputs, indicates which input MediaPackage should prefer when both inputs have equal MQCS scores.
+
+            Select ``1`` to prefer the first ingest endpoint, or ``2`` to prefer the second ingest endpoint. If you don't specify a preferred input, MediaPackage uses its default switching behavior when MQCS scores are equal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-inputswitchconfiguration.html#cfn-mediapackagev2-channel-inputswitchconfiguration-preferredinput
+            '''
+            result = self._values.get("preferred_input")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1077,7 +1098,8 @@ class CfnChannelProps:
                 # the properties below are optional
                 description="description",
                 input_switch_configuration=mediapackagev2.CfnChannel.InputSwitchConfigurationProperty(
-                    mqcs_input_switching=False
+                    mqcs_input_switching=False,
+                    preferred_input=123
                 ),
                 input_type="inputType",
                 output_header_configuration=mediapackagev2.CfnChannel.OutputHeaderConfigurationProperty(
@@ -1360,6 +1382,7 @@ class CfnOriginEndpoint(
                     ),
         
                     # the properties below are optional
+                    cmaf_exclude_segment_drm_metadata=False,
                     constant_initialization_vector="constantInitializationVector",
                     key_rotation_interval_seconds=123
                 ),
@@ -2949,6 +2972,7 @@ class CfnOriginEndpoint(
         name_mapping={
             "encryption_method": "encryptionMethod",
             "speke_key_provider": "spekeKeyProvider",
+            "cmaf_exclude_segment_drm_metadata": "cmafExcludeSegmentDrmMetadata",
             "constant_initialization_vector": "constantInitializationVector",
             "key_rotation_interval_seconds": "keyRotationIntervalSeconds",
         },
@@ -2959,6 +2983,7 @@ class CfnOriginEndpoint(
             *,
             encryption_method: typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.EncryptionMethodProperty", typing.Dict[builtins.str, typing.Any]]],
             speke_key_provider: typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpoint.SpekeKeyProviderProperty", typing.Dict[builtins.str, typing.Any]]],
+            cmaf_exclude_segment_drm_metadata: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             constant_initialization_vector: typing.Optional[builtins.str] = None,
             key_rotation_interval_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -2966,6 +2991,7 @@ class CfnOriginEndpoint(
 
             :param encryption_method: The encryption method to use.
             :param speke_key_provider: The SPEKE key provider to use for encryption.
+            :param cmaf_exclude_segment_drm_metadata: Excludes SEIG and SGPD boxes from segment metadata in CMAF containers. When set to ``true`` , MediaPackage omits these DRM metadata boxes from CMAF segments, which can improve compatibility with certain devices and players that don't support these boxes. Important considerations: - This setting only affects CMAF container formats - Key rotation can still be handled through media playlist signaling - PSSH and TENC boxes remain unaffected - Default behavior is preserved when this setting is disabled Valid values: ``true`` | ``false`` Default: ``false``
             :param constant_initialization_vector: A 128-bit, 16-byte hex value represented by a 32-character string, used in conjunction with the key for encrypting content. If you don't specify a value, then MediaPackage creates the constant initialization vector (IV).
             :param key_rotation_interval_seconds: The interval, in seconds, to rotate encryption keys for the origin endpoint.
 
@@ -2995,6 +3021,7 @@ class CfnOriginEndpoint(
                     ),
                 
                     # the properties below are optional
+                    cmaf_exclude_segment_drm_metadata=False,
                     constant_initialization_vector="constantInitializationVector",
                     key_rotation_interval_seconds=123
                 )
@@ -3003,12 +3030,15 @@ class CfnOriginEndpoint(
                 type_hints = typing.get_type_hints(_typecheckingstub__ba68bba2e5edd62f12d66393f036d9e0dc8f60c4705d328714b3a2f959ba4a07)
                 check_type(argname="argument encryption_method", value=encryption_method, expected_type=type_hints["encryption_method"])
                 check_type(argname="argument speke_key_provider", value=speke_key_provider, expected_type=type_hints["speke_key_provider"])
+                check_type(argname="argument cmaf_exclude_segment_drm_metadata", value=cmaf_exclude_segment_drm_metadata, expected_type=type_hints["cmaf_exclude_segment_drm_metadata"])
                 check_type(argname="argument constant_initialization_vector", value=constant_initialization_vector, expected_type=type_hints["constant_initialization_vector"])
                 check_type(argname="argument key_rotation_interval_seconds", value=key_rotation_interval_seconds, expected_type=type_hints["key_rotation_interval_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "encryption_method": encryption_method,
                 "speke_key_provider": speke_key_provider,
             }
+            if cmaf_exclude_segment_drm_metadata is not None:
+                self._values["cmaf_exclude_segment_drm_metadata"] = cmaf_exclude_segment_drm_metadata
             if constant_initialization_vector is not None:
                 self._values["constant_initialization_vector"] = constant_initialization_vector
             if key_rotation_interval_seconds is not None:
@@ -3037,6 +3067,30 @@ class CfnOriginEndpoint(
             result = self._values.get("speke_key_provider")
             assert result is not None, "Required property 'speke_key_provider' is missing"
             return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.SpekeKeyProviderProperty"], result)
+
+        @builtins.property
+        def cmaf_exclude_segment_drm_metadata(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''Excludes SEIG and SGPD boxes from segment metadata in CMAF containers.
+
+            When set to ``true`` , MediaPackage omits these DRM metadata boxes from CMAF segments, which can improve compatibility with certain devices and players that don't support these boxes.
+
+            Important considerations:
+
+            - This setting only affects CMAF container formats
+            - Key rotation can still be handled through media playlist signaling
+            - PSSH and TENC boxes remain unaffected
+            - Default behavior is preserved when this setting is disabled
+
+            Valid values: ``true`` | ``false``
+
+            Default: ``false``
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-encryption.html#cfn-mediapackagev2-originendpoint-encryption-cmafexcludesegmentdrmmetadata
+            '''
+            result = self._values.get("cmaf_exclude_segment_drm_metadata")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
         @builtins.property
         def constant_initialization_vector(self) -> typing.Optional[builtins.str]:
@@ -3928,6 +3982,7 @@ class CfnOriginEndpoint(
                         ),
                 
                         # the properties below are optional
+                        cmaf_exclude_segment_drm_metadata=False,
                         constant_initialization_vector="constantInitializationVector",
                         key_rotation_interval_seconds=123
                     ),
@@ -4291,7 +4346,13 @@ class CfnOriginEndpointPolicy(
             channel_group_name="channelGroupName",
             channel_name="channelName",
             origin_endpoint_name="originEndpointName",
-            policy=policy
+            policy=policy,
+        
+            # the properties below are optional
+            cdn_auth_configuration=mediapackagev2.CfnOriginEndpointPolicy.CdnAuthConfigurationProperty(
+                cdn_identifier_secret_arns=["cdnIdentifierSecretArns"],
+                secrets_role_arn="secretsRoleArn"
+            )
         )
     '''
 
@@ -4304,6 +4365,7 @@ class CfnOriginEndpointPolicy(
         channel_name: builtins.str,
         origin_endpoint_name: builtins.str,
         policy: typing.Any,
+        cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnOriginEndpointPolicy.CdnAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -4312,6 +4374,7 @@ class CfnOriginEndpointPolicy(
         :param channel_name: The channel name associated with the origin endpoint policy.
         :param origin_endpoint_name: The name of the origin endpoint associated with the origin endpoint policy.
         :param policy: The policy associated with the origin endpoint.
+        :param cdn_auth_configuration: The settings to enable CDN authorization headers in MediaPackage.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aac7ba5cbcac1c12933a477adf316805431ea433d0ce36ca80901377b6745377)
@@ -4322,6 +4385,7 @@ class CfnOriginEndpointPolicy(
             channel_name=channel_name,
             origin_endpoint_name=origin_endpoint_name,
             policy=policy,
+            cdn_auth_configuration=cdn_auth_configuration,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -4413,6 +4477,98 @@ class CfnOriginEndpointPolicy(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="cdnAuthConfiguration")
+    def cdn_auth_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]]:
+        '''The settings to enable CDN authorization headers in MediaPackage.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]], jsii.get(self, "cdnAuthConfiguration"))
+
+    @cdn_auth_configuration.setter
+    def cdn_auth_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpointPolicy.CdnAuthConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb5c350a2cc1621e0ea6d63c230deab544127f834aa0418f2d3ec475c6dfc3d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cdnAuthConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpointPolicy.CdnAuthConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cdn_identifier_secret_arns": "cdnIdentifierSecretArns",
+            "secrets_role_arn": "secretsRoleArn",
+        },
+    )
+    class CdnAuthConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            cdn_identifier_secret_arns: typing.Sequence[builtins.str],
+            secrets_role_arn: builtins.str,
+        ) -> None:
+            '''The settings to enable CDN authorization headers in MediaPackage.
+
+            :param cdn_identifier_secret_arns: The ARN for the secret in Secrets Manager that your CDN uses for authorization to access the endpoint.
+            :param secrets_role_arn: The ARN for the IAM role that gives MediaPackage read access to Secrets Manager and AWS KMS for CDN authorization.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpointpolicy-cdnauthconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                cdn_auth_configuration_property = mediapackagev2.CfnOriginEndpointPolicy.CdnAuthConfigurationProperty(
+                    cdn_identifier_secret_arns=["cdnIdentifierSecretArns"],
+                    secrets_role_arn="secretsRoleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2efc99cbc23753feeba6e611700f7b275a0d9dbb8667ffa3a69bd76404c7768b)
+                check_type(argname="argument cdn_identifier_secret_arns", value=cdn_identifier_secret_arns, expected_type=type_hints["cdn_identifier_secret_arns"])
+                check_type(argname="argument secrets_role_arn", value=secrets_role_arn, expected_type=type_hints["secrets_role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cdn_identifier_secret_arns": cdn_identifier_secret_arns,
+                "secrets_role_arn": secrets_role_arn,
+            }
+
+        @builtins.property
+        def cdn_identifier_secret_arns(self) -> typing.List[builtins.str]:
+            '''The ARN for the secret in Secrets Manager that your CDN uses for authorization to access the endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpointpolicy-cdnauthconfiguration.html#cfn-mediapackagev2-originendpointpolicy-cdnauthconfiguration-cdnidentifiersecretarns
+            '''
+            result = self._values.get("cdn_identifier_secret_arns")
+            assert result is not None, "Required property 'cdn_identifier_secret_arns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def secrets_role_arn(self) -> builtins.str:
+            '''The ARN for the IAM role that gives MediaPackage read access to Secrets Manager and AWS KMS for CDN authorization.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpointpolicy-cdnauthconfiguration.html#cfn-mediapackagev2-originendpointpolicy-cdnauthconfiguration-secretsrolearn
+            '''
+            result = self._values.get("secrets_role_arn")
+            assert result is not None, "Required property 'secrets_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CdnAuthConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpointPolicyProps",
@@ -4422,6 +4578,7 @@ class CfnOriginEndpointPolicy(
         "channel_name": "channelName",
         "origin_endpoint_name": "originEndpointName",
         "policy": "policy",
+        "cdn_auth_configuration": "cdnAuthConfiguration",
     },
 )
 class CfnOriginEndpointPolicyProps:
@@ -4432,6 +4589,7 @@ class CfnOriginEndpointPolicyProps:
         channel_name: builtins.str,
         origin_endpoint_name: builtins.str,
         policy: typing.Any,
+        cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOriginEndpointPolicy``.
 
@@ -4439,6 +4597,7 @@ class CfnOriginEndpointPolicyProps:
         :param channel_name: The channel name associated with the origin endpoint policy.
         :param origin_endpoint_name: The name of the origin endpoint associated with the origin endpoint policy.
         :param policy: The policy associated with the origin endpoint.
+        :param cdn_auth_configuration: The settings to enable CDN authorization headers in MediaPackage.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html
         :exampleMetadata: fixture=_generated
@@ -4455,7 +4614,13 @@ class CfnOriginEndpointPolicyProps:
                 channel_group_name="channelGroupName",
                 channel_name="channelName",
                 origin_endpoint_name="originEndpointName",
-                policy=policy
+                policy=policy,
+            
+                # the properties below are optional
+                cdn_auth_configuration=mediapackagev2.CfnOriginEndpointPolicy.CdnAuthConfigurationProperty(
+                    cdn_identifier_secret_arns=["cdnIdentifierSecretArns"],
+                    secrets_role_arn="secretsRoleArn"
+                )
             )
         '''
         if __debug__:
@@ -4464,12 +4629,15 @@ class CfnOriginEndpointPolicyProps:
             check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
             check_type(argname="argument origin_endpoint_name", value=origin_endpoint_name, expected_type=type_hints["origin_endpoint_name"])
             check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument cdn_auth_configuration", value=cdn_auth_configuration, expected_type=type_hints["cdn_auth_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "channel_group_name": channel_group_name,
             "channel_name": channel_name,
             "origin_endpoint_name": origin_endpoint_name,
             "policy": policy,
         }
+        if cdn_auth_configuration is not None:
+            self._values["cdn_auth_configuration"] = cdn_auth_configuration
 
     @builtins.property
     def channel_group_name(self) -> builtins.str:
@@ -4510,6 +4678,17 @@ class CfnOriginEndpointPolicyProps:
         result = self._values.get("policy")
         assert result is not None, "Required property 'policy' is missing"
         return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def cdn_auth_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpointPolicy.CdnAuthConfigurationProperty]]:
+        '''The settings to enable CDN authorization headers in MediaPackage.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpointpolicy.html#cfn-mediapackagev2-originendpointpolicy-cdnauthconfiguration
+        '''
+        result = self._values.get("cdn_auth_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpointPolicy.CdnAuthConfigurationProperty]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4724,6 +4903,7 @@ class CfnOriginEndpointProps:
                         ),
             
                         # the properties below are optional
+                        cmaf_exclude_segment_drm_metadata=False,
                         constant_initialization_vector="constantInitializationVector",
                         key_rotation_interval_seconds=123
                     ),
@@ -5011,6 +5191,7 @@ def _typecheckingstub__52a72049adc4af63f65ccfb6f3c098cecb2b442bbe00bad4a877f2099
 def _typecheckingstub__116c8177c767f1c1239016dd387671ce140ac29b5e59b8e19832080acf68bef5(
     *,
     mqcs_input_switching: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    preferred_input: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5350,6 +5531,7 @@ def _typecheckingstub__ba68bba2e5edd62f12d66393f036d9e0dc8f60c4705d328714b3a2f95
     *,
     encryption_method: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.EncryptionMethodProperty, typing.Dict[builtins.str, typing.Any]]],
     speke_key_provider: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.SpekeKeyProviderProperty, typing.Dict[builtins.str, typing.Any]]],
+    cmaf_exclude_segment_drm_metadata: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     constant_initialization_vector: typing.Optional[builtins.str] = None,
     key_rotation_interval_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -5465,6 +5647,7 @@ def _typecheckingstub__aac7ba5cbcac1c12933a477adf316805431ea433d0ce36ca80901377b
     channel_name: builtins.str,
     origin_endpoint_name: builtins.str,
     policy: typing.Any,
+    cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5505,12 +5688,27 @@ def _typecheckingstub__03b8094def1eae0770367451a814cb41dcad8e59ef89ff30e7423278b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bb5c350a2cc1621e0ea6d63c230deab544127f834aa0418f2d3ec475c6dfc3d3(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOriginEndpointPolicy.CdnAuthConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2efc99cbc23753feeba6e611700f7b275a0d9dbb8667ffa3a69bd76404c7768b(
+    *,
+    cdn_identifier_secret_arns: typing.Sequence[builtins.str],
+    secrets_role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f894be53e4aa1a8dbf54a25d139b2ffb41422bce69404dd7f536c4f418ceaa35(
     *,
     channel_group_name: builtins.str,
     channel_name: builtins.str,
     origin_endpoint_name: builtins.str,
     policy: typing.Any,
+    cdn_auth_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpointPolicy.CdnAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

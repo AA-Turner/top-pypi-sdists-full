@@ -3,15 +3,16 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
-from typing import TYPE_CHECKING, TypedDict
-from copy import deepcopy
 
+from copy import deepcopy
+from typing import TYPE_CHECKING, TypedDict
+
+from ibm_watsonx_ai.foundation_models.schema import (
+    BaseSchema,
+    RerankParameters,
+)
 from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments
 from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai.foundation_models.schema import (
-    RerankParameters,
-    BaseSchema,
-)
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient, Credentials
@@ -83,7 +84,6 @@ class Rerank(WMLResource):
         verify: bool | str | None = None,
         api_client: APIClient | None = None,
     ) -> None:
-
         self.model_id = model_id
         Rerank._validate_type(model_id, "model_id", str, True)
 

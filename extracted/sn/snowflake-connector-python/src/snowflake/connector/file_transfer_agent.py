@@ -15,6 +15,7 @@ from logging import getLogger
 from time import time
 from typing import IO, TYPE_CHECKING, Any, Callable, TypeVar
 
+from ._utils import _DEFAULT_VALUE_SERVER_DOP_CAP_FOR_FILE_TRANSFER
 from .azure_storage_client import SnowflakeAzureRestClient
 from .compat import IS_WINDOWS
 from .constants import (
@@ -355,6 +356,8 @@ class SnowflakeFileTransferAgent:
         use_s3_regional_url: bool = False,
         iobound_tpe_limit: int | None = None,
         unsafe_file_write: bool = False,
+        snowflake_server_dop_cap_for_file_transfer=_DEFAULT_VALUE_SERVER_DOP_CAP_FOR_FILE_TRANSFER,
+        reraise_error_in_file_transfer_work_function: bool = False,
     ) -> None:
         self._cursor = cursor
         self._command = command
@@ -387,6 +390,12 @@ class SnowflakeFileTransferAgent:
         self._credentials: StorageCredential | None = None
         self._iobound_tpe_limit = iobound_tpe_limit
         self._unsafe_file_write = unsafe_file_write
+        self._snowflake_server_dop_cap_for_file_transfer = (
+            snowflake_server_dop_cap_for_file_transfer
+        )
+        self._reraise_error_in_file_transfer_work_function = (
+            reraise_error_in_file_transfer_work_function
+        )
 
     def execute(self) -> None:
         self._parse_command()
@@ -443,12 +452,16 @@ class SnowflakeFileTransferAgent:
             result.result_status = result.result_status.value
 
     def transfer(self, metas: list[SnowflakeFileMeta]) -> None:
-        iobound_tpe_limit = min(len(metas), os.cpu_count())
+        iobound_tpe_limit = min(
+            len(metas), os.cpu_count(), self._snowflake_server_dop_cap_for_file_transfer
+        )
         logger.debug("Decided IO-bound TPE size: %d", iobound_tpe_limit)
         if self._iobound_tpe_limit is not None:
             logger.debug("IO-bound TPE size is limited to: %d", self._iobound_tpe_limit)
             iobound_tpe_limit = min(iobound_tpe_limit, self._iobound_tpe_limit)
-        max_concurrency = self._parallel
+        max_concurrency = min(
+            self._parallel, self._snowflake_server_dop_cap_for_file_transfer
+        )
         network_tpe = ThreadPoolExecutor(max_concurrency)
         preprocess_tpe = ThreadPoolExecutor(iobound_tpe_limit)
         postprocess_tpe = ThreadPoolExecutor(iobound_tpe_limit)
@@ -462,6 +475,7 @@ class SnowflakeFileTransferAgent:
         transfer_metadata = TransferMetadata()  # this is protected by cv_chunk_process
         is_upload = self._command_type == CMD_TYPE_UPLOAD
         exception_caught_in_callback: Exception | None = None
+        exception_caught_in_work: Exception | None = None
         logger.debug(
             "Going to %sload %d files", "up" if is_upload else "down", len(metas)
         )
@@ -617,6 +631,17 @@ class SnowflakeFileTransferAgent:
                 logger.error(f"An exception was raised in {repr(work)}", exc_info=True)
                 file_meta.error_details = e
                 result = (False, e)
+                # If the reraise is enabled, notify the main thread of work
+                # function error, with the concrete exception stored aside in
+                # exception_caught_in_work, such that towards the end of
+                # the transfer call, we reraise the error as is immediately
+                # instead of continuing the execution after transfer.
+                if self._reraise_error_in_file_transfer_work_function:
+                    with cv_main_thread:
+                        nonlocal exception_caught_in_work
+                        exception_caught_in_work = e
+                        cv_main_thread.notify()
+
             try:
                 _callback(*result, file_meta)
             except Exception as e:
@@ -661,6 +686,10 @@ class SnowflakeFileTransferAgent:
         with cv_main_thread:
             while transfer_metadata.num_files_completed < num_total_files:
                 cv_main_thread.wait()
+                # If both exception_caught_in_work and exception_caught_in_callback
+                # are present, the former will take precedence.
+                if exception_caught_in_work is not None:
+                    raise exception_caught_in_work
                 if exception_caught_in_callback is not None:
                     raise exception_caught_in_callback
 

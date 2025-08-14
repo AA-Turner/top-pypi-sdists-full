@@ -4,30 +4,31 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
 import os
-from typing import Any, TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 from warnings import warn
 
 import ibm_watsonx_ai._wrappers.requests as requests
+from ibm_watsonx_ai.metanames import ShinyMetaNames
 from ibm_watsonx_ai.utils import (
     DATA_ASSETS_DETAILS_TYPE,
     modify_details_for_script_and_shiny,
 )
-from ibm_watsonx_ai.metanames import ShinyMetaNames
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
-from ibm_watsonx_ai.wml_resource import WMLResource
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
     ApiRequestFailure,
     ForbiddenActionForGitBasedProject,
+    WMLClientError,
 )
-
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 ListType: TypeAlias = list
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class Shiny(WMLResource):
@@ -125,7 +126,6 @@ class Shiny(WMLResource):
     def _create_asset(
         self, shiny_meta: dict[str, Any], file_path: str
     ) -> dict[str, Any]:
-
         # Step1: Create a shiny asset
         name = shiny_meta["metadata"]["name"]
 
@@ -278,7 +278,7 @@ class Shiny(WMLResource):
                     else:
                         try:
                             self.delete(asset_id)
-                        except:
+                        except Exception:
                             pass
                         raise WMLClientError(
                             "Failed while creating a shiny asset. Try again."
@@ -286,7 +286,7 @@ class Shiny(WMLResource):
                 else:
                     try:
                         self.delete(asset_id)
-                    except:
+                    except Exception:
                         pass
                     raise WMLClientError(
                         "Failed while creating a shiny asset. Try again."
@@ -859,7 +859,6 @@ class Shiny(WMLResource):
         return final_responses
 
     def _get_required_element_from_response(self, response_data: dict) -> dict:
-
         WMLResource._validate_type(response_data, "shiny", dict)
 
         revision_id = None

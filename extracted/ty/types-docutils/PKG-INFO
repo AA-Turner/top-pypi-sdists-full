@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-docutils
-Version: 0.21.0.20250809
+Version: 0.22.0.20250814
 Summary: Typing stubs for docutils
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
 the [`docutils`](https://sourceforge.net/p/docutils/code) package. It can be used by type checkers
 to check code that uses `docutils`. This version of
 `types-docutils` aims to provide accurate annotations for
-`docutils==0.21.*`.
+`docutils==0.22.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -35,4 +35,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.403
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`1e537d6216d4aef76a8c96ffac9da014ccfe7fc3`](https://github.com/python/typeshed/commit/1e537d6216d4aef76a8c96ffac9da014ccfe7fc3).

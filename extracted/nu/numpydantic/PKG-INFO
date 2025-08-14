@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: numpydantic
-Version: 1.6.10
+Version: 1.6.11
 Summary: Type and shape validation and serialization for arbitrary array types in pydantic models
 Keywords: arrays,validation,serialization,numpy,pydantic
 Author-Email: sneakers-the-rat <sneakers-the-rat@protonmail.com>
@@ -47,6 +47,7 @@ Requires-Dist: pytest-depends<2.0.0,>=1.0.1; extra == "tests"
 Requires-Dist: coverage>=6.1.1; extra == "tests"
 Requires-Dist: pytest-cov<5.0.0,>=4.1.0; extra == "tests"
 Requires-Dist: coveralls<4.0.0,>=3.3.1; extra == "tests"
+Requires-Dist: mypy>=1.17.1; extra == "tests"
 Provides-Extra: docs
 Requires-Dist: numpydantic[arrays]; extra == "docs"
 Requires-Dist: sphinx<8.0.0,>=7.2.6; extra == "docs"

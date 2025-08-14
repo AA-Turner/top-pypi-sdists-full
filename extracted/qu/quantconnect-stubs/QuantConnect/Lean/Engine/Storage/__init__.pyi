@@ -198,7 +198,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         """
         ...
 
-    def is_within_storage_limit(self, path: str, contents: typing.List[int], take_persist_lock: bool) -> bool:
+    def is_within_storage_limit(self, path: str, contents: typing.List[int]) -> bool:
         """
         Validates storage limits are respected on a new save operation
         

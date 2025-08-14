@@ -4,18 +4,20 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import Literal, TYPE_CHECKING, TypeAlias
+
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from ibm_watsonx_ai._wrappers import requests
+from ibm_watsonx_ai.metanames import ParameterSetsMetaNames
 from ibm_watsonx_ai.wml_client_error import ResourceIdByNameNotFound
 from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai.metanames import ParameterSetsMetaNames
 
 ListType: TypeAlias = list
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
     from pandas import DataFrame
+
+    from ibm_watsonx_ai import APIClient
 
 
 class ParameterSets(WMLResource):

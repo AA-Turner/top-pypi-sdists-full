@@ -1,7 +1,7 @@
 r'''
 # `azurerm_frontdoor`
 
-Refer to the Terraform Registry for docs: [`azurerm_frontdoor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor).
+Refer to the Terraform Registry for docs: [`azurerm_frontdoor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Frontdoor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.frontdoor.Frontdoor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor azurerm_frontdoor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor azurerm_frontdoor}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class Frontdoor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor azurerm_frontdoor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor azurerm_frontdoor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backend_pool: backend_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool Frontdoor#backend_pool}
-        :param backend_pool_health_probe: backend_pool_health_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_health_probe Frontdoor#backend_pool_health_probe}
-        :param backend_pool_load_balancing: backend_pool_load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_load_balancing Frontdoor#backend_pool_load_balancing}
-        :param frontend_endpoint: frontend_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#frontend_endpoint Frontdoor#frontend_endpoint}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#resource_group_name Frontdoor#resource_group_name}.
-        :param routing_rule: routing_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#routing_rule Frontdoor#routing_rule}
-        :param backend_pool_settings: backend_pool_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_settings Frontdoor#backend_pool_settings}
-        :param friendly_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#friendly_name Frontdoor#friendly_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#id Frontdoor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param load_balancer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#load_balancer_enabled Frontdoor#load_balancer_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#tags Frontdoor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#timeouts Frontdoor#timeouts}
+        :param backend_pool: backend_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool Frontdoor#backend_pool}
+        :param backend_pool_health_probe: backend_pool_health_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_health_probe Frontdoor#backend_pool_health_probe}
+        :param backend_pool_load_balancing: backend_pool_load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_load_balancing Frontdoor#backend_pool_load_balancing}
+        :param frontend_endpoint: frontend_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#frontend_endpoint Frontdoor#frontend_endpoint}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#resource_group_name Frontdoor#resource_group_name}.
+        :param routing_rule: routing_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#routing_rule Frontdoor#routing_rule}
+        :param backend_pool_settings: backend_pool_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_settings Frontdoor#backend_pool_settings}
+        :param friendly_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#friendly_name Frontdoor#friendly_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#id Frontdoor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param load_balancer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#load_balancer_enabled Frontdoor#load_balancer_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#tags Frontdoor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#timeouts Frontdoor#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class Frontdoor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Frontdoor to import.
-        :param import_from_id: The id of the existing Frontdoor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Frontdoor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Frontdoor to import is found.
         '''
         if __debug__:
@@ -238,10 +238,10 @@ class Frontdoor(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#create Frontdoor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#delete Frontdoor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#read Frontdoor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#update Frontdoor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#create Frontdoor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#delete Frontdoor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#read Frontdoor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#update Frontdoor#update}.
         '''
         value = FrontdoorTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -540,10 +540,10 @@ class FrontdoorBackendPool:
         name: builtins.str,
     ) -> None:
         '''
-        :param backend: backend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend Frontdoor#backend}
-        :param health_probe_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#health_probe_name Frontdoor#health_probe_name}.
-        :param load_balancing_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#load_balancing_name Frontdoor#load_balancing_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.
+        :param backend: backend block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend Frontdoor#backend}
+        :param health_probe_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#health_probe_name Frontdoor#health_probe_name}.
+        :param load_balancing_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#load_balancing_name Frontdoor#load_balancing_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0f359faac6f4f23f294e49156f555fae1614f3c448e705b813f0ea8f4661856)
@@ -564,7 +564,7 @@ class FrontdoorBackendPool:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorBackendPoolBackend"]]:
         '''backend block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend Frontdoor#backend}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend Frontdoor#backend}
         '''
         result = self._values.get("backend")
         assert result is not None, "Required property 'backend' is missing"
@@ -572,21 +572,21 @@ class FrontdoorBackendPool:
 
     @builtins.property
     def health_probe_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#health_probe_name Frontdoor#health_probe_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#health_probe_name Frontdoor#health_probe_name}.'''
         result = self._values.get("health_probe_name")
         assert result is not None, "Required property 'health_probe_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def load_balancing_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#load_balancing_name Frontdoor#load_balancing_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#load_balancing_name Frontdoor#load_balancing_name}.'''
         result = self._values.get("load_balancing_name")
         assert result is not None, "Required property 'load_balancing_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -629,13 +629,13 @@ class FrontdoorBackendPoolBackend:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#address Frontdoor#address}.
-        :param host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#host_header Frontdoor#host_header}.
-        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#http_port Frontdoor#http_port}.
-        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#https_port Frontdoor#https_port}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#enabled Frontdoor#enabled}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#priority Frontdoor#priority}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#weight Frontdoor#weight}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#address Frontdoor#address}.
+        :param host_header: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#host_header Frontdoor#host_header}.
+        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#http_port Frontdoor#http_port}.
+        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#https_port Frontdoor#https_port}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#enabled Frontdoor#enabled}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#priority Frontdoor#priority}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#weight Frontdoor#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1a6389a3f63ef4d2d3cd3366bab752dce980875089b4fa1afab228e5d50450c)
@@ -661,28 +661,28 @@ class FrontdoorBackendPoolBackend:
 
     @builtins.property
     def address(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#address Frontdoor#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#address Frontdoor#address}.'''
         result = self._values.get("address")
         assert result is not None, "Required property 'address' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host_header(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#host_header Frontdoor#host_header}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#host_header Frontdoor#host_header}.'''
         result = self._values.get("host_header")
         assert result is not None, "Required property 'host_header' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def http_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#http_port Frontdoor#http_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#http_port Frontdoor#http_port}.'''
         result = self._values.get("http_port")
         assert result is not None, "Required property 'http_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def https_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#https_port Frontdoor#https_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#https_port Frontdoor#https_port}.'''
         result = self._values.get("https_port")
         assert result is not None, "Required property 'https_port' is missing"
         return typing.cast(jsii.Number, result)
@@ -691,19 +691,19 @@ class FrontdoorBackendPoolBackend:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#enabled Frontdoor#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#enabled Frontdoor#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#priority Frontdoor#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#priority Frontdoor#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#weight Frontdoor#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#weight Frontdoor#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1013,12 +1013,12 @@ class FrontdoorBackendPoolHealthProbe:
         protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#enabled Frontdoor#enabled}.
-        :param interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#interval_in_seconds Frontdoor#interval_in_seconds}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#path Frontdoor#path}.
-        :param probe_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#probe_method Frontdoor#probe_method}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#protocol Frontdoor#protocol}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#enabled Frontdoor#enabled}.
+        :param interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#interval_in_seconds Frontdoor#interval_in_seconds}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#path Frontdoor#path}.
+        :param probe_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#probe_method Frontdoor#probe_method}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#protocol Frontdoor#protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14442537f84e99e674c278d7d638509418e4e7400592a2d74baeb650e8708028)
@@ -1044,7 +1044,7 @@ class FrontdoorBackendPoolHealthProbe:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1053,31 +1053,31 @@ class FrontdoorBackendPoolHealthProbe:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#enabled Frontdoor#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#enabled Frontdoor#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def interval_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#interval_in_seconds Frontdoor#interval_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#interval_in_seconds Frontdoor#interval_in_seconds}.'''
         result = self._values.get("interval_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#path Frontdoor#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#path Frontdoor#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def probe_method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#probe_method Frontdoor#probe_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#probe_method Frontdoor#probe_method}.'''
         result = self._values.get("probe_method")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#protocol Frontdoor#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#protocol Frontdoor#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1472,10 +1472,10 @@ class FrontdoorBackendPoolLoadBalancing:
         successful_samples_required: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.
-        :param additional_latency_milliseconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#additional_latency_milliseconds Frontdoor#additional_latency_milliseconds}.
-        :param sample_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#sample_size Frontdoor#sample_size}.
-        :param successful_samples_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#successful_samples_required Frontdoor#successful_samples_required}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.
+        :param additional_latency_milliseconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#additional_latency_milliseconds Frontdoor#additional_latency_milliseconds}.
+        :param sample_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#sample_size Frontdoor#sample_size}.
+        :param successful_samples_required: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#successful_samples_required Frontdoor#successful_samples_required}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d21ce34d73db8856151da0982afbedcfac3411b4d0c96aacb475bf331fccd9be)
@@ -1495,26 +1495,26 @@ class FrontdoorBackendPoolLoadBalancing:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def additional_latency_milliseconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#additional_latency_milliseconds Frontdoor#additional_latency_milliseconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#additional_latency_milliseconds Frontdoor#additional_latency_milliseconds}.'''
         result = self._values.get("additional_latency_milliseconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def sample_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#sample_size Frontdoor#sample_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#sample_size Frontdoor#sample_size}.'''
         result = self._values.get("sample_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def successful_samples_required(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#successful_samples_required Frontdoor#successful_samples_required}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#successful_samples_required Frontdoor#successful_samples_required}.'''
         result = self._values.get("successful_samples_required")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1893,8 +1893,8 @@ class FrontdoorBackendPoolSettings:
         backend_pools_send_receive_timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enforce_backend_pools_certificate_name_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#enforce_backend_pools_certificate_name_check Frontdoor#enforce_backend_pools_certificate_name_check}.
-        :param backend_pools_send_receive_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pools_send_receive_timeout_seconds Frontdoor#backend_pools_send_receive_timeout_seconds}.
+        :param enforce_backend_pools_certificate_name_check: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#enforce_backend_pools_certificate_name_check Frontdoor#enforce_backend_pools_certificate_name_check}.
+        :param backend_pools_send_receive_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pools_send_receive_timeout_seconds Frontdoor#backend_pools_send_receive_timeout_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__042ac0f3f31e16f9a716a856c2f097d2d9e30d6c5fd77f7e2400305f776655c4)
@@ -1910,7 +1910,7 @@ class FrontdoorBackendPoolSettings:
     def enforce_backend_pools_certificate_name_check(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#enforce_backend_pools_certificate_name_check Frontdoor#enforce_backend_pools_certificate_name_check}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#enforce_backend_pools_certificate_name_check Frontdoor#enforce_backend_pools_certificate_name_check}.'''
         result = self._values.get("enforce_backend_pools_certificate_name_check")
         assert result is not None, "Required property 'enforce_backend_pools_certificate_name_check' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1919,7 +1919,7 @@ class FrontdoorBackendPoolSettings:
     def backend_pools_send_receive_timeout_seconds(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pools_send_receive_timeout_seconds Frontdoor#backend_pools_send_receive_timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pools_send_receive_timeout_seconds Frontdoor#backend_pools_send_receive_timeout_seconds}.'''
         result = self._values.get("backend_pools_send_receive_timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2175,19 +2175,19 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backend_pool: backend_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool Frontdoor#backend_pool}
-        :param backend_pool_health_probe: backend_pool_health_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_health_probe Frontdoor#backend_pool_health_probe}
-        :param backend_pool_load_balancing: backend_pool_load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_load_balancing Frontdoor#backend_pool_load_balancing}
-        :param frontend_endpoint: frontend_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#frontend_endpoint Frontdoor#frontend_endpoint}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#resource_group_name Frontdoor#resource_group_name}.
-        :param routing_rule: routing_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#routing_rule Frontdoor#routing_rule}
-        :param backend_pool_settings: backend_pool_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_settings Frontdoor#backend_pool_settings}
-        :param friendly_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#friendly_name Frontdoor#friendly_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#id Frontdoor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param load_balancer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#load_balancer_enabled Frontdoor#load_balancer_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#tags Frontdoor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#timeouts Frontdoor#timeouts}
+        :param backend_pool: backend_pool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool Frontdoor#backend_pool}
+        :param backend_pool_health_probe: backend_pool_health_probe block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_health_probe Frontdoor#backend_pool_health_probe}
+        :param backend_pool_load_balancing: backend_pool_load_balancing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_load_balancing Frontdoor#backend_pool_load_balancing}
+        :param frontend_endpoint: frontend_endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#frontend_endpoint Frontdoor#frontend_endpoint}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#resource_group_name Frontdoor#resource_group_name}.
+        :param routing_rule: routing_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#routing_rule Frontdoor#routing_rule}
+        :param backend_pool_settings: backend_pool_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_settings Frontdoor#backend_pool_settings}
+        :param friendly_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#friendly_name Frontdoor#friendly_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#id Frontdoor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param load_balancer_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#load_balancer_enabled Frontdoor#load_balancer_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#tags Frontdoor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#timeouts Frontdoor#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2321,7 +2321,7 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[FrontdoorBackendPool]]:
         '''backend_pool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool Frontdoor#backend_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool Frontdoor#backend_pool}
         '''
         result = self._values.get("backend_pool")
         assert result is not None, "Required property 'backend_pool' is missing"
@@ -2333,7 +2333,7 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[FrontdoorBackendPoolHealthProbe]]:
         '''backend_pool_health_probe block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_health_probe Frontdoor#backend_pool_health_probe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_health_probe Frontdoor#backend_pool_health_probe}
         '''
         result = self._values.get("backend_pool_health_probe")
         assert result is not None, "Required property 'backend_pool_health_probe' is missing"
@@ -2345,7 +2345,7 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[FrontdoorBackendPoolLoadBalancing]]:
         '''backend_pool_load_balancing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_load_balancing Frontdoor#backend_pool_load_balancing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_load_balancing Frontdoor#backend_pool_load_balancing}
         '''
         result = self._values.get("backend_pool_load_balancing")
         assert result is not None, "Required property 'backend_pool_load_balancing' is missing"
@@ -2357,7 +2357,7 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorFrontendEndpoint"]]:
         '''frontend_endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#frontend_endpoint Frontdoor#frontend_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#frontend_endpoint Frontdoor#frontend_endpoint}
         '''
         result = self._values.get("frontend_endpoint")
         assert result is not None, "Required property 'frontend_endpoint' is missing"
@@ -2365,14 +2365,14 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#resource_group_name Frontdoor#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#resource_group_name Frontdoor#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2383,7 +2383,7 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorRoutingRule"]]:
         '''routing_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#routing_rule Frontdoor#routing_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#routing_rule Frontdoor#routing_rule}
         '''
         result = self._values.get("routing_rule")
         assert result is not None, "Required property 'routing_rule' is missing"
@@ -2395,20 +2395,20 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[FrontdoorBackendPoolSettings]]]:
         '''backend_pool_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_settings Frontdoor#backend_pool_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_settings Frontdoor#backend_pool_settings}
         '''
         result = self._values.get("backend_pool_settings")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[FrontdoorBackendPoolSettings]]], result)
 
     @builtins.property
     def friendly_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#friendly_name Frontdoor#friendly_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#friendly_name Frontdoor#friendly_name}.'''
         result = self._values.get("friendly_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#id Frontdoor#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#id Frontdoor#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2420,13 +2420,13 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def load_balancer_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#load_balancer_enabled Frontdoor#load_balancer_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#load_balancer_enabled Frontdoor#load_balancer_enabled}.'''
         result = self._values.get("load_balancer_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#tags Frontdoor#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#tags Frontdoor#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2434,7 +2434,7 @@ class FrontdoorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FrontdoorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#timeouts Frontdoor#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#timeouts Frontdoor#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FrontdoorTimeouts"], result)
@@ -2637,11 +2637,11 @@ class FrontdoorFrontendEndpoint:
         web_application_firewall_policy_link_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#host_name Frontdoor#host_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.
-        :param session_affinity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#session_affinity_enabled Frontdoor#session_affinity_enabled}.
-        :param session_affinity_ttl_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#session_affinity_ttl_seconds Frontdoor#session_affinity_ttl_seconds}.
-        :param web_application_firewall_policy_link_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#web_application_firewall_policy_link_id Frontdoor#web_application_firewall_policy_link_id}.
+        :param host_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#host_name Frontdoor#host_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.
+        :param session_affinity_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#session_affinity_enabled Frontdoor#session_affinity_enabled}.
+        :param session_affinity_ttl_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#session_affinity_ttl_seconds Frontdoor#session_affinity_ttl_seconds}.
+        :param web_application_firewall_policy_link_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#web_application_firewall_policy_link_id Frontdoor#web_application_firewall_policy_link_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7abd6b38593b789b6c46708803c3bbb9e6653f42e75778a8573a26d05327f3ad)
@@ -2663,14 +2663,14 @@ class FrontdoorFrontendEndpoint:
 
     @builtins.property
     def host_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#host_name Frontdoor#host_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#host_name Frontdoor#host_name}.'''
         result = self._values.get("host_name")
         assert result is not None, "Required property 'host_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2679,19 +2679,19 @@ class FrontdoorFrontendEndpoint:
     def session_affinity_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#session_affinity_enabled Frontdoor#session_affinity_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#session_affinity_enabled Frontdoor#session_affinity_enabled}.'''
         result = self._values.get("session_affinity_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def session_affinity_ttl_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#session_affinity_ttl_seconds Frontdoor#session_affinity_ttl_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#session_affinity_ttl_seconds Frontdoor#session_affinity_ttl_seconds}.'''
         result = self._values.get("session_affinity_ttl_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def web_application_firewall_policy_link_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#web_application_firewall_policy_link_id Frontdoor#web_application_firewall_policy_link_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#web_application_firewall_policy_link_id Frontdoor#web_application_firewall_policy_link_id}.'''
         result = self._values.get("web_application_firewall_policy_link_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2978,13 +2978,13 @@ class FrontdoorRoutingRule:
         redirect_configuration: typing.Optional[typing.Union["FrontdoorRoutingRuleRedirectConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param accepted_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#accepted_protocols Frontdoor#accepted_protocols}.
-        :param frontend_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#frontend_endpoints Frontdoor#frontend_endpoints}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.
-        :param patterns_to_match: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#patterns_to_match Frontdoor#patterns_to_match}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#enabled Frontdoor#enabled}.
-        :param forwarding_configuration: forwarding_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#forwarding_configuration Frontdoor#forwarding_configuration}
-        :param redirect_configuration: redirect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#redirect_configuration Frontdoor#redirect_configuration}
+        :param accepted_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#accepted_protocols Frontdoor#accepted_protocols}.
+        :param frontend_endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#frontend_endpoints Frontdoor#frontend_endpoints}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.
+        :param patterns_to_match: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#patterns_to_match Frontdoor#patterns_to_match}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#enabled Frontdoor#enabled}.
+        :param forwarding_configuration: forwarding_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#forwarding_configuration Frontdoor#forwarding_configuration}
+        :param redirect_configuration: redirect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#redirect_configuration Frontdoor#redirect_configuration}
         '''
         if isinstance(forwarding_configuration, dict):
             forwarding_configuration = FrontdoorRoutingRuleForwardingConfiguration(**forwarding_configuration)
@@ -3014,28 +3014,28 @@ class FrontdoorRoutingRule:
 
     @builtins.property
     def accepted_protocols(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#accepted_protocols Frontdoor#accepted_protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#accepted_protocols Frontdoor#accepted_protocols}.'''
         result = self._values.get("accepted_protocols")
         assert result is not None, "Required property 'accepted_protocols' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def frontend_endpoints(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#frontend_endpoints Frontdoor#frontend_endpoints}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#frontend_endpoints Frontdoor#frontend_endpoints}.'''
         result = self._values.get("frontend_endpoints")
         assert result is not None, "Required property 'frontend_endpoints' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#name Frontdoor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#name Frontdoor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def patterns_to_match(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#patterns_to_match Frontdoor#patterns_to_match}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#patterns_to_match Frontdoor#patterns_to_match}.'''
         result = self._values.get("patterns_to_match")
         assert result is not None, "Required property 'patterns_to_match' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3044,7 +3044,7 @@ class FrontdoorRoutingRule:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#enabled Frontdoor#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#enabled Frontdoor#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3054,7 +3054,7 @@ class FrontdoorRoutingRule:
     ) -> typing.Optional["FrontdoorRoutingRuleForwardingConfiguration"]:
         '''forwarding_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#forwarding_configuration Frontdoor#forwarding_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#forwarding_configuration Frontdoor#forwarding_configuration}
         '''
         result = self._values.get("forwarding_configuration")
         return typing.cast(typing.Optional["FrontdoorRoutingRuleForwardingConfiguration"], result)
@@ -3065,7 +3065,7 @@ class FrontdoorRoutingRule:
     ) -> typing.Optional["FrontdoorRoutingRuleRedirectConfiguration"]:
         '''redirect_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#redirect_configuration Frontdoor#redirect_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#redirect_configuration Frontdoor#redirect_configuration}
         '''
         result = self._values.get("redirect_configuration")
         return typing.cast(typing.Optional["FrontdoorRoutingRuleRedirectConfiguration"], result)
@@ -3110,14 +3110,14 @@ class FrontdoorRoutingRuleForwardingConfiguration:
         forwarding_protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backend_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_name Frontdoor#backend_pool_name}.
-        :param cache_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_duration Frontdoor#cache_duration}.
-        :param cache_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_enabled Frontdoor#cache_enabled}.
-        :param cache_query_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_query_parameters Frontdoor#cache_query_parameters}.
-        :param cache_query_parameter_strip_directive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_query_parameter_strip_directive Frontdoor#cache_query_parameter_strip_directive}.
-        :param cache_use_dynamic_compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_use_dynamic_compression Frontdoor#cache_use_dynamic_compression}.
-        :param custom_forwarding_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_forwarding_path Frontdoor#custom_forwarding_path}.
-        :param forwarding_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#forwarding_protocol Frontdoor#forwarding_protocol}.
+        :param backend_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_name Frontdoor#backend_pool_name}.
+        :param cache_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_duration Frontdoor#cache_duration}.
+        :param cache_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_enabled Frontdoor#cache_enabled}.
+        :param cache_query_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_query_parameters Frontdoor#cache_query_parameters}.
+        :param cache_query_parameter_strip_directive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_query_parameter_strip_directive Frontdoor#cache_query_parameter_strip_directive}.
+        :param cache_use_dynamic_compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_use_dynamic_compression Frontdoor#cache_use_dynamic_compression}.
+        :param custom_forwarding_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_forwarding_path Frontdoor#custom_forwarding_path}.
+        :param forwarding_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#forwarding_protocol Frontdoor#forwarding_protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b693881f445f86d4d4f86f49c9fa47bdd385d4b0c90652d137e3a3b66627308c)
@@ -3149,14 +3149,14 @@ class FrontdoorRoutingRuleForwardingConfiguration:
 
     @builtins.property
     def backend_pool_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_name Frontdoor#backend_pool_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_name Frontdoor#backend_pool_name}.'''
         result = self._values.get("backend_pool_name")
         assert result is not None, "Required property 'backend_pool_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cache_duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_duration Frontdoor#cache_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_duration Frontdoor#cache_duration}.'''
         result = self._values.get("cache_duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3164,19 +3164,19 @@ class FrontdoorRoutingRuleForwardingConfiguration:
     def cache_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_enabled Frontdoor#cache_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_enabled Frontdoor#cache_enabled}.'''
         result = self._values.get("cache_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def cache_query_parameters(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_query_parameters Frontdoor#cache_query_parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_query_parameters Frontdoor#cache_query_parameters}.'''
         result = self._values.get("cache_query_parameters")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def cache_query_parameter_strip_directive(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_query_parameter_strip_directive Frontdoor#cache_query_parameter_strip_directive}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_query_parameter_strip_directive Frontdoor#cache_query_parameter_strip_directive}.'''
         result = self._values.get("cache_query_parameter_strip_directive")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3184,19 +3184,19 @@ class FrontdoorRoutingRuleForwardingConfiguration:
     def cache_use_dynamic_compression(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_use_dynamic_compression Frontdoor#cache_use_dynamic_compression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_use_dynamic_compression Frontdoor#cache_use_dynamic_compression}.'''
         result = self._values.get("cache_use_dynamic_compression")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def custom_forwarding_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_forwarding_path Frontdoor#custom_forwarding_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_forwarding_path Frontdoor#custom_forwarding_path}.'''
         result = self._values.get("custom_forwarding_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def forwarding_protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#forwarding_protocol Frontdoor#forwarding_protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#forwarding_protocol Frontdoor#forwarding_protocol}.'''
         result = self._values.get("forwarding_protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3560,14 +3560,14 @@ class FrontdoorRoutingRuleOutputReference(
         forwarding_protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backend_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#backend_pool_name Frontdoor#backend_pool_name}.
-        :param cache_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_duration Frontdoor#cache_duration}.
-        :param cache_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_enabled Frontdoor#cache_enabled}.
-        :param cache_query_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_query_parameters Frontdoor#cache_query_parameters}.
-        :param cache_query_parameter_strip_directive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_query_parameter_strip_directive Frontdoor#cache_query_parameter_strip_directive}.
-        :param cache_use_dynamic_compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#cache_use_dynamic_compression Frontdoor#cache_use_dynamic_compression}.
-        :param custom_forwarding_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_forwarding_path Frontdoor#custom_forwarding_path}.
-        :param forwarding_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#forwarding_protocol Frontdoor#forwarding_protocol}.
+        :param backend_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#backend_pool_name Frontdoor#backend_pool_name}.
+        :param cache_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_duration Frontdoor#cache_duration}.
+        :param cache_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_enabled Frontdoor#cache_enabled}.
+        :param cache_query_parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_query_parameters Frontdoor#cache_query_parameters}.
+        :param cache_query_parameter_strip_directive: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_query_parameter_strip_directive Frontdoor#cache_query_parameter_strip_directive}.
+        :param cache_use_dynamic_compression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#cache_use_dynamic_compression Frontdoor#cache_use_dynamic_compression}.
+        :param custom_forwarding_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_forwarding_path Frontdoor#custom_forwarding_path}.
+        :param forwarding_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#forwarding_protocol Frontdoor#forwarding_protocol}.
         '''
         value = FrontdoorRoutingRuleForwardingConfiguration(
             backend_pool_name=backend_pool_name,
@@ -3594,12 +3594,12 @@ class FrontdoorRoutingRuleOutputReference(
         custom_query_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param redirect_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#redirect_protocol Frontdoor#redirect_protocol}.
-        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#redirect_type Frontdoor#redirect_type}.
-        :param custom_fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_fragment Frontdoor#custom_fragment}.
-        :param custom_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_host Frontdoor#custom_host}.
-        :param custom_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_path Frontdoor#custom_path}.
-        :param custom_query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_query_string Frontdoor#custom_query_string}.
+        :param redirect_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#redirect_protocol Frontdoor#redirect_protocol}.
+        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#redirect_type Frontdoor#redirect_type}.
+        :param custom_fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_fragment Frontdoor#custom_fragment}.
+        :param custom_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_host Frontdoor#custom_host}.
+        :param custom_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_path Frontdoor#custom_path}.
+        :param custom_query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_query_string Frontdoor#custom_query_string}.
         '''
         value = FrontdoorRoutingRuleRedirectConfiguration(
             redirect_protocol=redirect_protocol,
@@ -3789,12 +3789,12 @@ class FrontdoorRoutingRuleRedirectConfiguration:
         custom_query_string: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param redirect_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#redirect_protocol Frontdoor#redirect_protocol}.
-        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#redirect_type Frontdoor#redirect_type}.
-        :param custom_fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_fragment Frontdoor#custom_fragment}.
-        :param custom_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_host Frontdoor#custom_host}.
-        :param custom_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_path Frontdoor#custom_path}.
-        :param custom_query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_query_string Frontdoor#custom_query_string}.
+        :param redirect_protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#redirect_protocol Frontdoor#redirect_protocol}.
+        :param redirect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#redirect_type Frontdoor#redirect_type}.
+        :param custom_fragment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_fragment Frontdoor#custom_fragment}.
+        :param custom_host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_host Frontdoor#custom_host}.
+        :param custom_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_path Frontdoor#custom_path}.
+        :param custom_query_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_query_string Frontdoor#custom_query_string}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f449a4c4d2636dfa8dd2499a00a2bef63af21a467fe30d2472f7f3ddd72e4eac)
@@ -3819,39 +3819,39 @@ class FrontdoorRoutingRuleRedirectConfiguration:
 
     @builtins.property
     def redirect_protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#redirect_protocol Frontdoor#redirect_protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#redirect_protocol Frontdoor#redirect_protocol}.'''
         result = self._values.get("redirect_protocol")
         assert result is not None, "Required property 'redirect_protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def redirect_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#redirect_type Frontdoor#redirect_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#redirect_type Frontdoor#redirect_type}.'''
         result = self._values.get("redirect_type")
         assert result is not None, "Required property 'redirect_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def custom_fragment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_fragment Frontdoor#custom_fragment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_fragment Frontdoor#custom_fragment}.'''
         result = self._values.get("custom_fragment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def custom_host(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_host Frontdoor#custom_host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_host Frontdoor#custom_host}.'''
         result = self._values.get("custom_host")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def custom_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_path Frontdoor#custom_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_path Frontdoor#custom_path}.'''
         result = self._values.get("custom_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def custom_query_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#custom_query_string Frontdoor#custom_query_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#custom_query_string Frontdoor#custom_query_string}.'''
         result = self._values.get("custom_query_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4043,10 +4043,10 @@ class FrontdoorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#create Frontdoor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#delete Frontdoor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#read Frontdoor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#update Frontdoor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#create Frontdoor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#delete Frontdoor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#read Frontdoor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#update Frontdoor#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06b04eafe27090d8db51d586a509c36e7216b0c91c6f56d166506b8e83bed62d)
@@ -4066,25 +4066,25 @@ class FrontdoorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#create Frontdoor#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#create Frontdoor#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#delete Frontdoor#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#delete Frontdoor#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#read Frontdoor#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#read Frontdoor#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/frontdoor#update Frontdoor#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor#update Frontdoor#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

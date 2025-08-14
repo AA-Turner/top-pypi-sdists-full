@@ -3,19 +3,21 @@ from io import StringIO
 
 from loguru import logger
 
+
 # Configure loguru with version formatter by default for S3 operations
 def _configure_s3_logger():
     """Configure loguru with version formatter for S3 operations"""
     # Remove existing sinks
     logger.remove()
-    
+
     # Add sink with version formatter
     version = metadata.version("gable")
     logger.add(
         lambda msg: print(msg, end=""),  # Print to stdout
         format=f"<green>{{time:YYYY-MM-DD HH:mm:ss.SSS}}</green> | <level>{{level: <8}}</level> <blue>[v{version}]</blue> - {{message}}",
-        level="DEBUG"
+        level="DEBUG",
     )
+
 
 # Configure the logger when this module is imported
 _configure_s3_logger()
@@ -27,12 +29,12 @@ def setup_logging(
     logger.remove()
     version = metadata.version("gable")
     logger.add(
-        filepath, 
-        rotation=rotation, 
-        level=level, 
-        backtrace=True, 
+        filepath,
+        rotation=rotation,
+        level=level,
+        backtrace=True,
         diagnose=True,
-        format=f"<green>{{time:YYYY-MM-DD HH:mm:ss.SSS}}</green> | <level>{{level: <8}}</level> <blue>[v{version}]</blue> - {{message}}"
+        format=f"<green>{{time:YYYY-MM-DD HH:mm:ss.SSS}}</green> | <level>{{level: <8}}</level> <blue>[v{version}]</blue> - {{message}}",
     )
     print(
         f"Logging configured to level {level}, outputting to {filepath}, with rotation {rotation}."
@@ -79,7 +81,11 @@ log_stream = StringIO()
 def setup_test_logging():
     logger.remove()
     version = metadata.version("gable")
-    logger.add(log_stream, format=f"<green>{{time:YYYY-MM-DD HH:mm:ss.SSS}}</green> | <level>{{level: <8}}</level> <blue>[v{version}]</blue> - {{message}}", level="TRACE")
+    logger.add(
+        log_stream,
+        format=f"<green>{{time:YYYY-MM-DD HH:mm:ss.SSS}}</green> | <level>{{level: <8}}</level> <blue>[v{version}]</blue> - {{message}}",
+        level="TRACE",
+    )
     return log_stream
 
 

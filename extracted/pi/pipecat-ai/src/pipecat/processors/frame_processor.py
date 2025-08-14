@@ -14,7 +14,7 @@ management, and frame flow control mechanisms.
 import asyncio
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Awaitable, Callable, Coroutine, List, Optional, Sequence
+from typing import Any, Awaitable, Callable, Coroutine, List, Optional, Sequence, Tuple
 
 from loguru import logger
 
@@ -38,6 +38,10 @@ from pipecat.observers.base_observer import BaseObserver, FramePushed
 from pipecat.processors.metrics.frame_processor_metrics import FrameProcessorMetrics
 from pipecat.utils.asyncio.task_manager import BaseTaskManager
 from pipecat.utils.asyncio.watchdog_event import WatchdogEvent
+from pipecat.utils.asyncio.watchdog_priority_queue import (
+    WatchdogPriorityCancelSentinel,
+    WatchdogPriorityQueue,
+)
 from pipecat.utils.asyncio.watchdog_queue import WatchdogQueue
 from pipecat.utils.base_object import BaseObject
 
@@ -52,6 +56,9 @@ class FrameDirection(Enum):
 
     DOWNSTREAM = 1
     UPSTREAM = 2
+
+
+FrameCallback = Callable[["FrameProcessor", Frame, FrameDirection], Awaitable[None]]
 
 
 @dataclass
@@ -71,22 +78,17 @@ class FrameProcessorSetup:
     watchdog_timers_enabled: bool = False
 
 
-class FrameProcessorQueue(WatchdogQueue):
+class FrameProcessorQueue(WatchdogPriorityQueue):
     """A priority queue for systems frames and other frames.
 
     This is a specialized queue for frame processors that separates and
-    prioritizes system frames over other frames.
-
-    This queue uses two internal `WatchdogQueue` instances:
-    - One for system-level frames (`SystemFrame`)
-    - One for regular frames
-
-    It ensures that `SystemFrame` objects are processed before any other
-    frames. Additionally, it uses an `asyncio.Event` to signal when new items
-    have been added to either queue, allowing consumers to wait efficiently when
-    the queue is empty.
+    prioritizes system frames over other frames. It ensures that `SystemFrame`
+    objects are processed before any other frames by using a priority queue.
 
     """
+
+    HIGH_PRIORITY = 1
+    LOW_PRIORITY = 2
 
     def __init__(self, manager: BaseTaskManager):
         """Initialize the FrameProcessorQueue.
@@ -95,26 +97,28 @@ class FrameProcessorQueue(WatchdogQueue):
             manager (BaseTaskManager): The task manager used by the internal watchdog queues.
 
         """
-        super().__init__(manager)
-        self.__event = WatchdogEvent(manager)
-        self.__main_queue = WatchdogQueue(manager)
-        self.__system_queue = WatchdogQueue(manager)
+        super().__init__(manager, tuple_size=3)
+        self.__high_counter = 0
+        self.__low_counter = 0
 
-    async def put(self, item: Any):
-        """Put an item into the appropriate queue.
+    async def put(self, item: Tuple[Frame, FrameDirection, FrameCallback]):
+        """Put an item into the priority queue.
 
-        System frames (`SystemFrame`) are placed into the system queue and all others
-        into the regular queue. Signals the event to wake up any waiting consumers.
+        System frames (`SystemFrame`) have higher priority than any other
+        frames. If a non-frame item (e.g. a watchdog cancellation sentinel) is
+        provided it will have the highest priority.
 
         Args:
             item (Any): The item to enqueue.
 
         """
-        if isinstance(item, SystemFrame):
-            await self.__system_queue.put(item)
+        frame, _, _ = item
+        if isinstance(frame, SystemFrame):
+            self.__high_counter += 1
+            await super().put((self.HIGH_PRIORITY, self.__high_counter, item))
         else:
-            await self.__main_queue.put(item)
-        self.__event.set()
+            self.__low_counter += 1
+            await super().put((self.LOW_PRIORITY, self.__low_counter, item))
 
     async def get(self) -> Any:
         """Retrieve the next item from the queue.
@@ -126,37 +130,8 @@ class FrameProcessorQueue(WatchdogQueue):
             Any: The next item from the system or main queue.
 
         """
-        # Wait for an item in any of the queues if they are empty.
-        if self.__main_queue.empty() and self.__system_queue.empty():
-            await self.__event.wait()
-
-        # Prioritize system frames.
-        if self.__system_queue.qsize() > 0:
-            item = await self.__system_queue.get()
-            self.__system_queue.task_done()
-        else:
-            item = await self.__main_queue.get()
-            self.__main_queue.task_done()
-
-        # Clear the event only if all queues are empty.
-        if self.__main_queue.empty() and self.__system_queue.empty():
-            self.__event.clear()
-
+        _, _, item = await super().get()
         return item
-
-    def cancel(self):
-        """Cancel both internal queues.
-
-        This method is used to stop processing and release any pending tasks
-        in both the system and main queues. Typically used during shutdown
-        or cleanup to prevent further processing of frames.
-
-        """
-        self.__main_queue.cancel()
-        self.__system_queue.cancel()
-
-
-FrameCallback = Callable[["FrameProcessor", Frame, FrameDirection], Awaitable[None]]
 
 
 class FrameProcessor(BaseObject):
@@ -175,6 +150,7 @@ class FrameProcessor(BaseObject):
         self,
         *,
         name: Optional[str] = None,
+        enable_direct_mode: bool = False,
         enable_watchdog_logging: Optional[bool] = None,
         enable_watchdog_timers: Optional[bool] = None,
         metrics: Optional[FrameProcessorMetrics] = None,
@@ -185,6 +161,7 @@ class FrameProcessor(BaseObject):
 
         Args:
             name: Optional name for this processor instance.
+            enable_direct_mode: Whether to process frames immediately or use internal queues.
             enable_watchdog_logging: Whether to enable watchdog logging for tasks.
             enable_watchdog_timers: Whether to enable watchdog timers for tasks.
             metrics: Optional metrics collector for this processor.
@@ -195,6 +172,9 @@ class FrameProcessor(BaseObject):
         self._parent: Optional["FrameProcessor"] = None
         self._prev: Optional["FrameProcessor"] = None
         self._next: Optional["FrameProcessor"] = None
+
+        # Enable direct mode to skip queues and process frames right away.
+        self._enable_direct_mode = enable_direct_mode
 
         # Enable watchdog timers for all tasks created by this frame processor.
         self._enable_watchdog_timers = enable_watchdog_timers
@@ -254,9 +234,7 @@ class FrameProcessor(BaseObject):
         # called. To resume processing frames we need to call
         # `resume_processing_frames()` which will wake up the event.
         self.__should_block_frames = False
-        self.__process_event = None
         self.__process_frame_task: Optional[asyncio.Task] = None
-        self.__process_queue = None
 
     @property
     def id(self) -> int:
@@ -558,7 +536,10 @@ class FrameProcessor(BaseObject):
         if self._cancelling:
             return
 
-        await self.__input_queue.put((frame, direction, callback))
+        if self._enable_direct_mode:
+            await self.__process_frame(frame, direction, callback)
+        else:
+            await self.__input_queue.put((frame, direction, callback))
 
     async def pause_processing_frames(self):
         """Pause processing of queued frames."""
@@ -730,6 +711,9 @@ class FrameProcessor(BaseObject):
 
     def __create_input_task(self):
         """Create the frame input processing task."""
+        if self._enable_direct_mode:
+            return
+
         if not self.__input_frame_task:
             self.__input_queue = FrameProcessorQueue(self.task_manager)
             self.__input_frame_task = self.create_task(self.__input_frame_task_handler())
@@ -743,11 +727,12 @@ class FrameProcessor(BaseObject):
 
     def __create_process_task(self):
         """Create the non-system frame processing task."""
+        if self._enable_direct_mode:
+            return
+
         if not self.__process_frame_task:
             self.__should_block_frames = False
-            if not self.__process_event:
-                self.__process_event = WatchdogEvent(self.task_manager)
-            self.__process_event.clear()
+            self.__process_event = WatchdogEvent(self.task_manager)
             self.__process_queue = WatchdogQueue(self.task_manager)
             self.__process_frame_task = self.create_task(self.__process_frame_task_handler())
 
@@ -759,7 +744,7 @@ class FrameProcessor(BaseObject):
             self.__process_frame_task = None
 
     async def __process_frame(
-        self, frame: Frame, direction: FrameDirection, callback: FrameCallback
+        self, frame: Frame, direction: FrameDirection, callback: Optional[FrameCallback]
     ):
         try:
             # Process the frame.
@@ -790,10 +775,12 @@ class FrameProcessor(BaseObject):
                     f"{self}: __process_queue is None when processing frame {frame.name}"
                 )
 
+            self.__input_queue.task_done()
+
     async def __process_frame_task_handler(self):
         """Handle non-system frames from the process queue."""
         while True:
-            if self.__should_block_frames and self.__process_event:
+            if self.__should_block_frames:
                 logger.trace(f"{self}: frame processing paused")
                 await self.__process_event.wait()
                 self.__process_event.clear()
@@ -803,3 +790,5 @@ class FrameProcessor(BaseObject):
             (frame, direction, callback) = await self.__process_queue.get()
 
             await self.__process_frame(frame, direction, callback)
+
+            self.__process_queue.task_done()

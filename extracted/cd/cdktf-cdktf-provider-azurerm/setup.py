@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-azurerm",
-    "version": "14.7.1",
+    "version": "14.8.0",
     "description": "Prebuilt azurerm Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-azurerm.git",
@@ -78,6 +78,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_azurerm.api_management_product_policy",
         "cdktf_cdktf_provider_azurerm.api_management_product_tag",
         "cdktf_cdktf_provider_azurerm.api_management_redis_cache",
+        "cdktf_cdktf_provider_azurerm.api_management_standalone_gateway",
         "cdktf_cdktf_provider_azurerm.api_management_subscription",
         "cdktf_cdktf_provider_azurerm.api_management_tag",
         "cdktf_cdktf_provider_azurerm.api_management_user",
@@ -394,6 +395,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_azurerm.data_azurerm_elastic_san_volume_snapshot",
         "cdktf_cdktf_provider_azurerm.data_azurerm_eventgrid_domain",
         "cdktf_cdktf_provider_azurerm.data_azurerm_eventgrid_domain_topic",
+        "cdktf_cdktf_provider_azurerm.data_azurerm_eventgrid_partner_namespace",
         "cdktf_cdktf_provider_azurerm.data_azurerm_eventgrid_partner_registration",
         "cdktf_cdktf_provider_azurerm.data_azurerm_eventgrid_system_topic",
         "cdktf_cdktf_provider_azurerm.data_azurerm_eventgrid_topic",
@@ -788,6 +790,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_azurerm.eventgrid_event_subscription",
         "cdktf_cdktf_provider_azurerm.eventgrid_namespace",
         "cdktf_cdktf_provider_azurerm.eventgrid_partner_configuration",
+        "cdktf_cdktf_provider_azurerm.eventgrid_partner_namespace",
         "cdktf_cdktf_provider_azurerm.eventgrid_partner_registration",
         "cdktf_cdktf_provider_azurerm.eventgrid_system_topic",
         "cdktf_cdktf_provider_azurerm.eventgrid_system_topic_event_subscription",
@@ -1148,6 +1151,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_azurerm.postgresql_firewall_rule",
         "cdktf_cdktf_provider_azurerm.postgresql_flexible_server",
         "cdktf_cdktf_provider_azurerm.postgresql_flexible_server_active_directory_administrator",
+        "cdktf_cdktf_provider_azurerm.postgresql_flexible_server_backup",
         "cdktf_cdktf_provider_azurerm.postgresql_flexible_server_configuration",
         "cdktf_cdktf_provider_azurerm.postgresql_flexible_server_database",
         "cdktf_cdktf_provider_azurerm.postgresql_flexible_server_firewall_rule",
@@ -1520,7 +1524,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_azurerm._jsii": [
-            "provider-azurerm@14.7.1.jsii.tgz"
+            "provider-azurerm@14.8.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_azurerm": [
             "py.typed"
@@ -1530,7 +1534,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdktf>=0.21.0, <0.22.0",
         "constructs>=10.4.2, <11.0.0",
-        "jsii>=1.112.0, <2.0.0",
+        "jsii>=1.113.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

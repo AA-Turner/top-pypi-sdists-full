@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: Appium-Python-Client
-Version: 5.2.0
+Version: 5.2.1
 Summary: Python client for Appium
 Project-URL: Homepage, http://appium.io/
 Project-URL: Repository, https://github.com/appium/python-client
 Project-URL: Issues, https://github.com/appium/python-client/issues
-Project-URL: Changelog, https://github.com/appium/python-client/blob/master/CHANGELOG.rst
+Project-URL: Changelog, https://github.com/appium/python-client/blob/master/CHANGELOG.md
 Author-email: Isaac Murchie <isaac@saucelabs.com>
 Maintainer: Kazuaki Matsuo, Mykola Mokhnach, Mori Atsushi
 License-Expression: Apache-2.0
@@ -470,7 +470,6 @@ You have two methods to extend the read timeout.
   - Apply `ruff` as pre commit hook
   - Run `make` command for development. See `make help` output for details
 - Docstring style: [Google Style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html)
-- `gitchangelog` generates `CHANGELOG.rst`
 
 ### Setup
 
@@ -556,14 +555,18 @@ uv run pytest -n 2 test/functional/ios/search_context/find_by_ios_class_chain_te
 
 Follow the below steps.
 
+Set `GH_TOKEN` env var to update the GitHub contents.
+
 ```bash
-uv pip install setuptools
+# Used to publish the package to pypi
 uv pip install twine
-uv pip install gitchangelog
-# Type the new version number and 'yes' if you can publish it
-# You can test the command with DRY_RUN
-DRY_RUN=1 ./release.sh
-./release.sh # release
+
+rm -rf dist
+# bumping the version, building a package and creating a tag.
+uv run semantic-release version --patch|--minor|--major
+
+# this 'release' script now has pushing built modules to pypi only.
+./release.sh # and type the target version.
 ```
 
 If the `pypi` was not able to publish with user name and password, please try out `-u` and `-p` option by yourself with `twine` such as `twine upload -u <name> -p <pass> dist/Appium-Python-Client-4.1.0.tar.gz`.

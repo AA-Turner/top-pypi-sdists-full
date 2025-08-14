@@ -3,6 +3,12 @@ import re
 from typing import Callable, Dict, Iterable, Optional
 
 from metaphone import doublemetaphone
+from canonmap.connectors.mysql_connector.utils.db_metadata import (
+    column_exists as _column_exists,
+)
+from canonmap.connectors.mysql_connector.utils.transforms import (
+    to_soundex as _to_soundex,
+)
 
 # logger = logging.getLogger(__name__)
 
@@ -10,7 +16,8 @@ from metaphone import doublemetaphone
 # --- Strategy helpers and registry -----------------------------------------------------------
 
 def _execute_and_collect_names(db_connection_manager, sql: str, params: Iterable) -> set:
-    rows = db_connection_manager.execute_query(sql, params)
+    resp = db_connection_manager.execute_query(sql, list(params))
+    rows = resp.get("data") or []
     return {row["name"] for row in rows}
 
 
@@ -76,25 +83,35 @@ def _simple_handler(
 
 def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, field_name: str) -> set:
     """
-    Block candidates using MySQL's SOUNDEX function, with fallback to helper table.
+    Block candidates using helper field if available; otherwise use MySQL's SOUNDEX.
     """
+    # Prefer helper field column if present: __<field>_soundex__
+    try:
+        helper_col_name = f"__{field_name}_soundex__"
+        if _column_exists(db_connection_manager, table_name, helper_col_name):
+            code = _to_soundex(entity_name)
+            if not code:
+                return set()
+            helper_sql = f"""
+                SELECT DISTINCT `{field_name}` AS name
+                FROM `{table_name}`
+                WHERE `{helper_col_name}` = %s
+            """
+            resp = db_connection_manager.execute_query(helper_sql, [code])
+            rows = resp.get("data") or []
+            return {r["name"] for r in rows}
+    except Exception:
+        # Ignore helper column issues and fall back to SOUNDEX function
+        pass
+
     primary_sql = f"""
         SELECT DISTINCT `{field_name}` AS name
         FROM `{table_name}`
         WHERE SOUNDEX(`{field_name}`) = SOUNDEX(%s)
     """
-    rows = db_connection_manager.execute_query(primary_sql, [entity_name])
-    candidates = {r["name"] for r in rows}
-    if candidates:
-        return candidates
-
-    fallback_sql = """
-        SELECT DISTINCT name
-        FROM soundex_helper
-        WHERE code = SOUNDEX(%s)
-    """
-    helper_rows = db_connection_manager.execute_query(fallback_sql, [entity_name])
-    return {r["name"] for r in helper_rows}
+    resp = db_connection_manager.execute_query(primary_sql, [entity_name])
+    rows = resp.get("data") or []
+    return {r["name"] for r in rows}
 
 
 # Public registry mapping block type to handler callable

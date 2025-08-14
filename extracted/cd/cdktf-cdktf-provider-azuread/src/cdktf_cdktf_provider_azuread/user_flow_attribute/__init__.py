@@ -1,7 +1,7 @@
 r'''
 # `azuread_user_flow_attribute`
 
-Refer to the Terraform Registry for docs: [`azuread_user_flow_attribute`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute).
+Refer to the Terraform Registry for docs: [`azuread_user_flow_attribute`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class UserFlowAttribute(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.userFlowAttribute.UserFlowAttribute",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute azuread_user_flow_attribute}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute azuread_user_flow_attribute}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class UserFlowAttribute(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute azuread_user_flow_attribute} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute azuread_user_flow_attribute} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_type: The data type of the user flow attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#data_type UserFlowAttribute#data_type}
-        :param description: The description of the user flow attribute that is shown to the user at the time of sign-up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#description UserFlowAttribute#description}
-        :param display_name: The display name of the user flow attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#display_name UserFlowAttribute#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#id UserFlowAttribute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#timeouts UserFlowAttribute#timeouts}
+        :param data_type: The data type of the user flow attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#data_type UserFlowAttribute#data_type}
+        :param description: The description of the user flow attribute that is shown to the user at the time of sign-up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#description UserFlowAttribute#description}
+        :param display_name: The display name of the user flow attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#display_name UserFlowAttribute#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#id UserFlowAttribute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#timeouts UserFlowAttribute#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class UserFlowAttribute(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the UserFlowAttribute to import.
-        :param import_from_id: The id of the existing UserFlowAttribute that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing UserFlowAttribute that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the UserFlowAttribute to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class UserFlowAttribute(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#create UserFlowAttribute#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#delete UserFlowAttribute#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#read UserFlowAttribute#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#update UserFlowAttribute#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#create UserFlowAttribute#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#delete UserFlowAttribute#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#read UserFlowAttribute#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#update UserFlowAttribute#update}.
         '''
         value = UserFlowAttributeTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -297,11 +297,11 @@ class UserFlowAttributeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_type: The data type of the user flow attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#data_type UserFlowAttribute#data_type}
-        :param description: The description of the user flow attribute that is shown to the user at the time of sign-up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#description UserFlowAttribute#description}
-        :param display_name: The display name of the user flow attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#display_name UserFlowAttribute#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#id UserFlowAttribute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#timeouts UserFlowAttribute#timeouts}
+        :param data_type: The data type of the user flow attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#data_type UserFlowAttribute#data_type}
+        :param description: The description of the user flow attribute that is shown to the user at the time of sign-up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#description UserFlowAttribute#description}
+        :param display_name: The display name of the user flow attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#display_name UserFlowAttribute#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#id UserFlowAttribute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#timeouts UserFlowAttribute#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -413,7 +413,7 @@ class UserFlowAttributeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def data_type(self) -> builtins.str:
         '''The data type of the user flow attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#data_type UserFlowAttribute#data_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#data_type UserFlowAttribute#data_type}
         '''
         result = self._values.get("data_type")
         assert result is not None, "Required property 'data_type' is missing"
@@ -423,7 +423,7 @@ class UserFlowAttributeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> builtins.str:
         '''The description of the user flow attribute that is shown to the user at the time of sign-up.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#description UserFlowAttribute#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#description UserFlowAttribute#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -433,7 +433,7 @@ class UserFlowAttributeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The display name of the user flow attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#display_name UserFlowAttribute#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#display_name UserFlowAttribute#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -441,7 +441,7 @@ class UserFlowAttributeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#id UserFlowAttribute#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#id UserFlowAttribute#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -453,7 +453,7 @@ class UserFlowAttributeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["UserFlowAttributeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#timeouts UserFlowAttribute#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#timeouts UserFlowAttribute#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["UserFlowAttributeTimeouts"], result)
@@ -490,10 +490,10 @@ class UserFlowAttributeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#create UserFlowAttribute#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#delete UserFlowAttribute#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#read UserFlowAttribute#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#update UserFlowAttribute#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#create UserFlowAttribute#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#delete UserFlowAttribute#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#read UserFlowAttribute#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#update UserFlowAttribute#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__937f6b4bace617e9f1c5dd0f5281d030206a9e818d8f744f639431b888f5a9d6)
@@ -513,25 +513,25 @@ class UserFlowAttributeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#create UserFlowAttribute#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#create UserFlowAttribute#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#delete UserFlowAttribute#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#delete UserFlowAttribute#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#read UserFlowAttribute#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#read UserFlowAttribute#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/user_flow_attribute#update UserFlowAttribute#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/user_flow_attribute#update UserFlowAttribute#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

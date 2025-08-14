@@ -65,7 +65,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
         # Fecha a instancia do emsys - caso esteja aberta
         await kill_all_emsys()
-        app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3.exe")
+        app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3_38.exe")
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
@@ -77,7 +77,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         if return_login.sucesso == True:
             console.print("Pesquisando por: Cadastro Pré Venda")
             type_text_into_field(
-                "Cadastro Pré Venda", app["TFrmMenuPrincipal"]["Edit"], True, "50"
+                "Cadastro Pre-Venda", app["TFrmMenuPrincipal"]["Edit"], True, "50"
             )
             pyautogui.press("enter")
             await worker_sleep(1)

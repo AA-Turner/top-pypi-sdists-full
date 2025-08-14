@@ -1,7 +1,7 @@
 r'''
 # `azurerm_backup_policy_vm`
 
-Refer to the Terraform Registry for docs: [`azurerm_backup_policy_vm`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm).
+Refer to the Terraform Registry for docs: [`azurerm_backup_policy_vm`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BackupPolicyVm(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.backupPolicyVm.BackupPolicyVm",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm azurerm_backup_policy_vm}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm azurerm_backup_policy_vm}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class BackupPolicyVm(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm azurerm_backup_policy_vm} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm azurerm_backup_policy_vm} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#backup BackupPolicyVm#backup}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#name BackupPolicyVm#name}.
-        :param recovery_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#recovery_vault_name BackupPolicyVm#recovery_vault_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#resource_group_name BackupPolicyVm#resource_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#id BackupPolicyVm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instant_restore_resource_group: instant_restore_resource_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#instant_restore_resource_group BackupPolicyVm#instant_restore_resource_group}
-        :param instant_restore_retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#instant_restore_retention_days BackupPolicyVm#instant_restore_retention_days}.
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#policy_type BackupPolicyVm#policy_type}.
-        :param retention_daily: retention_daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_daily BackupPolicyVm#retention_daily}
-        :param retention_monthly: retention_monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_monthly BackupPolicyVm#retention_monthly}
-        :param retention_weekly: retention_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_weekly BackupPolicyVm#retention_weekly}
-        :param retention_yearly: retention_yearly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_yearly BackupPolicyVm#retention_yearly}
-        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#tiering_policy BackupPolicyVm#tiering_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#timeouts BackupPolicyVm#timeouts}
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#timezone BackupPolicyVm#timezone}.
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#backup BackupPolicyVm#backup}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#name BackupPolicyVm#name}.
+        :param recovery_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#recovery_vault_name BackupPolicyVm#recovery_vault_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#resource_group_name BackupPolicyVm#resource_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#id BackupPolicyVm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instant_restore_resource_group: instant_restore_resource_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#instant_restore_resource_group BackupPolicyVm#instant_restore_resource_group}
+        :param instant_restore_retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#instant_restore_retention_days BackupPolicyVm#instant_restore_retention_days}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#policy_type BackupPolicyVm#policy_type}.
+        :param retention_daily: retention_daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_daily BackupPolicyVm#retention_daily}
+        :param retention_monthly: retention_monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_monthly BackupPolicyVm#retention_monthly}
+        :param retention_weekly: retention_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_weekly BackupPolicyVm#retention_weekly}
+        :param retention_yearly: retention_yearly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_yearly BackupPolicyVm#retention_yearly}
+        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#tiering_policy BackupPolicyVm#tiering_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#timeouts BackupPolicyVm#timeouts}
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#timezone BackupPolicyVm#timezone}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class BackupPolicyVm(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BackupPolicyVm to import.
-        :param import_from_id: The id of the existing BackupPolicyVm that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BackupPolicyVm that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BackupPolicyVm to import is found.
         '''
         if __debug__:
@@ -167,11 +167,11 @@ class BackupPolicyVm(
         weekdays: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#frequency BackupPolicyVm#frequency}.
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#time BackupPolicyVm#time}.
-        :param hour_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#hour_duration BackupPolicyVm#hour_duration}.
-        :param hour_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#hour_interval BackupPolicyVm#hour_interval}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#frequency BackupPolicyVm#frequency}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#time BackupPolicyVm#time}.
+        :param hour_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#hour_duration BackupPolicyVm#hour_duration}.
+        :param hour_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#hour_interval BackupPolicyVm#hour_interval}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
         '''
         value = BackupPolicyVmBackup(
             frequency=frequency,
@@ -191,8 +191,8 @@ class BackupPolicyVm(
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#prefix BackupPolicyVm#prefix}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#suffix BackupPolicyVm#suffix}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#prefix BackupPolicyVm#prefix}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#suffix BackupPolicyVm#suffix}.
         '''
         value = BackupPolicyVmInstantRestoreResourceGroup(prefix=prefix, suffix=suffix)
 
@@ -201,7 +201,7 @@ class BackupPolicyVm(
     @jsii.member(jsii_name="putRetentionDaily")
     def put_retention_daily(self, *, count: jsii.Number) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
         '''
         value = BackupPolicyVmRetentionDaily(count=count)
 
@@ -218,11 +218,11 @@ class BackupPolicyVm(
         weeks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.
-        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
-        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.
+        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
+        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.
         '''
         value = BackupPolicyVmRetentionMonthly(
             count=count,
@@ -242,8 +242,8 @@ class BackupPolicyVm(
         weekdays: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
         '''
         value = BackupPolicyVmRetentionWeekly(count=count, weekdays=weekdays)
 
@@ -261,12 +261,12 @@ class BackupPolicyVm(
         weeks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
-        :param months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#months BackupPolicyVm#months}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.
-        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
-        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
+        :param months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#months BackupPolicyVm#months}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.
+        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
+        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.
         '''
         value = BackupPolicyVmRetentionYearly(
             count=count,
@@ -286,7 +286,7 @@ class BackupPolicyVm(
         archived_restore_point: typing.Union["BackupPolicyVmTieringPolicyArchivedRestorePoint", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param archived_restore_point: archived_restore_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#archived_restore_point BackupPolicyVm#archived_restore_point}
+        :param archived_restore_point: archived_restore_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#archived_restore_point BackupPolicyVm#archived_restore_point}
         '''
         value = BackupPolicyVmTieringPolicy(
             archived_restore_point=archived_restore_point
@@ -304,10 +304,10 @@ class BackupPolicyVm(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#create BackupPolicyVm#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#delete BackupPolicyVm#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#read BackupPolicyVm#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#update BackupPolicyVm#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#create BackupPolicyVm#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#delete BackupPolicyVm#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#read BackupPolicyVm#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#update BackupPolicyVm#update}.
         '''
         value = BackupPolicyVmTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -606,11 +606,11 @@ class BackupPolicyVmBackup:
         weekdays: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#frequency BackupPolicyVm#frequency}.
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#time BackupPolicyVm#time}.
-        :param hour_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#hour_duration BackupPolicyVm#hour_duration}.
-        :param hour_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#hour_interval BackupPolicyVm#hour_interval}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#frequency BackupPolicyVm#frequency}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#time BackupPolicyVm#time}.
+        :param hour_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#hour_duration BackupPolicyVm#hour_duration}.
+        :param hour_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#hour_interval BackupPolicyVm#hour_interval}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7bc6be143d6238b15698c70fa197499d046914287b2257c375803dd53c73b03)
@@ -632,33 +632,33 @@ class BackupPolicyVmBackup:
 
     @builtins.property
     def frequency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#frequency BackupPolicyVm#frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#frequency BackupPolicyVm#frequency}.'''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#time BackupPolicyVm#time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#time BackupPolicyVm#time}.'''
         result = self._values.get("time")
         assert result is not None, "Required property 'time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def hour_duration(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#hour_duration BackupPolicyVm#hour_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#hour_duration BackupPolicyVm#hour_duration}.'''
         result = self._values.get("hour_duration")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def hour_interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#hour_interval BackupPolicyVm#hour_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#hour_interval BackupPolicyVm#hour_interval}.'''
         result = self._values.get("hour_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def weekdays(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.'''
         result = self._values.get("weekdays")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -867,21 +867,21 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#backup BackupPolicyVm#backup}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#name BackupPolicyVm#name}.
-        :param recovery_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#recovery_vault_name BackupPolicyVm#recovery_vault_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#resource_group_name BackupPolicyVm#resource_group_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#id BackupPolicyVm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instant_restore_resource_group: instant_restore_resource_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#instant_restore_resource_group BackupPolicyVm#instant_restore_resource_group}
-        :param instant_restore_retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#instant_restore_retention_days BackupPolicyVm#instant_restore_retention_days}.
-        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#policy_type BackupPolicyVm#policy_type}.
-        :param retention_daily: retention_daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_daily BackupPolicyVm#retention_daily}
-        :param retention_monthly: retention_monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_monthly BackupPolicyVm#retention_monthly}
-        :param retention_weekly: retention_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_weekly BackupPolicyVm#retention_weekly}
-        :param retention_yearly: retention_yearly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_yearly BackupPolicyVm#retention_yearly}
-        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#tiering_policy BackupPolicyVm#tiering_policy}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#timeouts BackupPolicyVm#timeouts}
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#timezone BackupPolicyVm#timezone}.
+        :param backup: backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#backup BackupPolicyVm#backup}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#name BackupPolicyVm#name}.
+        :param recovery_vault_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#recovery_vault_name BackupPolicyVm#recovery_vault_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#resource_group_name BackupPolicyVm#resource_group_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#id BackupPolicyVm#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instant_restore_resource_group: instant_restore_resource_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#instant_restore_resource_group BackupPolicyVm#instant_restore_resource_group}
+        :param instant_restore_retention_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#instant_restore_retention_days BackupPolicyVm#instant_restore_retention_days}.
+        :param policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#policy_type BackupPolicyVm#policy_type}.
+        :param retention_daily: retention_daily block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_daily BackupPolicyVm#retention_daily}
+        :param retention_monthly: retention_monthly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_monthly BackupPolicyVm#retention_monthly}
+        :param retention_weekly: retention_weekly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_weekly BackupPolicyVm#retention_weekly}
+        :param retention_yearly: retention_yearly block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_yearly BackupPolicyVm#retention_yearly}
+        :param tiering_policy: tiering_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#tiering_policy BackupPolicyVm#tiering_policy}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#timeouts BackupPolicyVm#timeouts}
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#timezone BackupPolicyVm#timezone}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1036,7 +1036,7 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup(self) -> BackupPolicyVmBackup:
         '''backup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#backup BackupPolicyVm#backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#backup BackupPolicyVm#backup}
         '''
         result = self._values.get("backup")
         assert result is not None, "Required property 'backup' is missing"
@@ -1044,28 +1044,28 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#name BackupPolicyVm#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#name BackupPolicyVm#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def recovery_vault_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#recovery_vault_name BackupPolicyVm#recovery_vault_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#recovery_vault_name BackupPolicyVm#recovery_vault_name}.'''
         result = self._values.get("recovery_vault_name")
         assert result is not None, "Required property 'recovery_vault_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#resource_group_name BackupPolicyVm#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#resource_group_name BackupPolicyVm#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#id BackupPolicyVm#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#id BackupPolicyVm#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1079,20 +1079,20 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["BackupPolicyVmInstantRestoreResourceGroup"]:
         '''instant_restore_resource_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#instant_restore_resource_group BackupPolicyVm#instant_restore_resource_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#instant_restore_resource_group BackupPolicyVm#instant_restore_resource_group}
         '''
         result = self._values.get("instant_restore_resource_group")
         return typing.cast(typing.Optional["BackupPolicyVmInstantRestoreResourceGroup"], result)
 
     @builtins.property
     def instant_restore_retention_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#instant_restore_retention_days BackupPolicyVm#instant_restore_retention_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#instant_restore_retention_days BackupPolicyVm#instant_restore_retention_days}.'''
         result = self._values.get("instant_restore_retention_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def policy_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#policy_type BackupPolicyVm#policy_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#policy_type BackupPolicyVm#policy_type}.'''
         result = self._values.get("policy_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1100,7 +1100,7 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_daily(self) -> typing.Optional["BackupPolicyVmRetentionDaily"]:
         '''retention_daily block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_daily BackupPolicyVm#retention_daily}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_daily BackupPolicyVm#retention_daily}
         '''
         result = self._values.get("retention_daily")
         return typing.cast(typing.Optional["BackupPolicyVmRetentionDaily"], result)
@@ -1109,7 +1109,7 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_monthly(self) -> typing.Optional["BackupPolicyVmRetentionMonthly"]:
         '''retention_monthly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_monthly BackupPolicyVm#retention_monthly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_monthly BackupPolicyVm#retention_monthly}
         '''
         result = self._values.get("retention_monthly")
         return typing.cast(typing.Optional["BackupPolicyVmRetentionMonthly"], result)
@@ -1118,7 +1118,7 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_weekly(self) -> typing.Optional["BackupPolicyVmRetentionWeekly"]:
         '''retention_weekly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_weekly BackupPolicyVm#retention_weekly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_weekly BackupPolicyVm#retention_weekly}
         '''
         result = self._values.get("retention_weekly")
         return typing.cast(typing.Optional["BackupPolicyVmRetentionWeekly"], result)
@@ -1127,7 +1127,7 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_yearly(self) -> typing.Optional["BackupPolicyVmRetentionYearly"]:
         '''retention_yearly block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#retention_yearly BackupPolicyVm#retention_yearly}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#retention_yearly BackupPolicyVm#retention_yearly}
         '''
         result = self._values.get("retention_yearly")
         return typing.cast(typing.Optional["BackupPolicyVmRetentionYearly"], result)
@@ -1136,7 +1136,7 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tiering_policy(self) -> typing.Optional["BackupPolicyVmTieringPolicy"]:
         '''tiering_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#tiering_policy BackupPolicyVm#tiering_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#tiering_policy BackupPolicyVm#tiering_policy}
         '''
         result = self._values.get("tiering_policy")
         return typing.cast(typing.Optional["BackupPolicyVmTieringPolicy"], result)
@@ -1145,14 +1145,14 @@ class BackupPolicyVmConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BackupPolicyVmTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#timeouts BackupPolicyVm#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#timeouts BackupPolicyVm#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BackupPolicyVmTimeouts"], result)
 
     @builtins.property
     def timezone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#timezone BackupPolicyVm#timezone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#timezone BackupPolicyVm#timezone}.'''
         result = self._values.get("timezone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1181,8 +1181,8 @@ class BackupPolicyVmInstantRestoreResourceGroup:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#prefix BackupPolicyVm#prefix}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#suffix BackupPolicyVm#suffix}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#prefix BackupPolicyVm#prefix}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#suffix BackupPolicyVm#suffix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bacf93ee67b874066f2d3cb7b542ce0c409193070e75f64ba802771e0c4568b8)
@@ -1196,14 +1196,14 @@ class BackupPolicyVmInstantRestoreResourceGroup:
 
     @builtins.property
     def prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#prefix BackupPolicyVm#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#prefix BackupPolicyVm#prefix}.'''
         result = self._values.get("prefix")
         assert result is not None, "Required property 'prefix' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def suffix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#suffix BackupPolicyVm#suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#suffix BackupPolicyVm#suffix}.'''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1303,7 +1303,7 @@ class BackupPolicyVmInstantRestoreResourceGroupOutputReference(
 class BackupPolicyVmRetentionDaily:
     def __init__(self, *, count: jsii.Number) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a05279dc383d40cde12754d0824541bae4f1bf3de801f16543f90863d70e295e)
@@ -1314,7 +1314,7 @@ class BackupPolicyVmRetentionDaily:
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
@@ -1406,11 +1406,11 @@ class BackupPolicyVmRetentionMonthly:
         weeks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.
-        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
-        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.
+        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
+        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__139bc79354c6ba2aba51656be37db8b610098be5d065354f50933936adbd03d7)
@@ -1433,14 +1433,14 @@ class BackupPolicyVmRetentionMonthly:
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def days(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -1448,19 +1448,19 @@ class BackupPolicyVmRetentionMonthly:
     def include_last_days(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.'''
         result = self._values.get("include_last_days")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def weekdays(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.'''
         result = self._values.get("weekdays")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def weeks(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.'''
         result = self._values.get("weeks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1633,8 +1633,8 @@ class BackupPolicyVmRetentionWeekly:
         weekdays: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95c434888f45992c184ae3bc9da24fac935fd608a6b81ec94f7649808979143c)
@@ -1647,14 +1647,14 @@ class BackupPolicyVmRetentionWeekly:
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def weekdays(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.'''
         result = self._values.get("weekdays")
         assert result is not None, "Required property 'weekdays' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1765,12 +1765,12 @@ class BackupPolicyVmRetentionYearly:
         weeks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
-        :param months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#months BackupPolicyVm#months}.
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.
-        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.
-        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
-        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.
+        :param months: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#months BackupPolicyVm#months}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.
+        :param include_last_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.
+        :param weekdays: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.
+        :param weeks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64bdb9835a13234d8a8afe70ab5325d87428be84ba3d9608c93789dc1fec650e)
@@ -1795,21 +1795,21 @@ class BackupPolicyVmRetentionYearly:
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#count BackupPolicyVm#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def months(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#months BackupPolicyVm#months}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#months BackupPolicyVm#months}.'''
         result = self._values.get("months")
         assert result is not None, "Required property 'months' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def days(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#days BackupPolicyVm#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -1817,19 +1817,19 @@ class BackupPolicyVmRetentionYearly:
     def include_last_days(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#include_last_days BackupPolicyVm#include_last_days}.'''
         result = self._values.get("include_last_days")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def weekdays(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weekdays BackupPolicyVm#weekdays}.'''
         result = self._values.get("weekdays")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def weeks(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#weeks BackupPolicyVm#weeks}.'''
         result = self._values.get("weeks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2018,7 +2018,7 @@ class BackupPolicyVmTieringPolicy:
         archived_restore_point: typing.Union["BackupPolicyVmTieringPolicyArchivedRestorePoint", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param archived_restore_point: archived_restore_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#archived_restore_point BackupPolicyVm#archived_restore_point}
+        :param archived_restore_point: archived_restore_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#archived_restore_point BackupPolicyVm#archived_restore_point}
         '''
         if isinstance(archived_restore_point, dict):
             archived_restore_point = BackupPolicyVmTieringPolicyArchivedRestorePoint(**archived_restore_point)
@@ -2035,7 +2035,7 @@ class BackupPolicyVmTieringPolicy:
     ) -> "BackupPolicyVmTieringPolicyArchivedRestorePoint":
         '''archived_restore_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#archived_restore_point BackupPolicyVm#archived_restore_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#archived_restore_point BackupPolicyVm#archived_restore_point}
         '''
         result = self._values.get("archived_restore_point")
         assert result is not None, "Required property 'archived_restore_point' is missing"
@@ -2071,9 +2071,9 @@ class BackupPolicyVmTieringPolicyArchivedRestorePoint:
         duration_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#mode BackupPolicyVm#mode}.
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#duration BackupPolicyVm#duration}.
-        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#duration_type BackupPolicyVm#duration_type}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#mode BackupPolicyVm#mode}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#duration BackupPolicyVm#duration}.
+        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#duration_type BackupPolicyVm#duration_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1970fc8e5acce908b98faddfe7bb43f257f700641d562d32bdb45c7a04911453)
@@ -2090,20 +2090,20 @@ class BackupPolicyVmTieringPolicyArchivedRestorePoint:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#mode BackupPolicyVm#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#mode BackupPolicyVm#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def duration(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#duration BackupPolicyVm#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#duration BackupPolicyVm#duration}.'''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def duration_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#duration_type BackupPolicyVm#duration_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#duration_type BackupPolicyVm#duration_type}.'''
         result = self._values.get("duration_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2245,9 +2245,9 @@ class BackupPolicyVmTieringPolicyOutputReference(
         duration_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#mode BackupPolicyVm#mode}.
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#duration BackupPolicyVm#duration}.
-        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#duration_type BackupPolicyVm#duration_type}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#mode BackupPolicyVm#mode}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#duration BackupPolicyVm#duration}.
+        :param duration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#duration_type BackupPolicyVm#duration_type}.
         '''
         value = BackupPolicyVmTieringPolicyArchivedRestorePoint(
             mode=mode, duration=duration, duration_type=duration_type
@@ -2305,10 +2305,10 @@ class BackupPolicyVmTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#create BackupPolicyVm#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#delete BackupPolicyVm#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#read BackupPolicyVm#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#update BackupPolicyVm#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#create BackupPolicyVm#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#delete BackupPolicyVm#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#read BackupPolicyVm#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#update BackupPolicyVm#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43811beab3461fa03928c3c6953ad12c4691b64f2a60a5ab64cab57cae3a9c2f)
@@ -2328,25 +2328,25 @@ class BackupPolicyVmTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#create BackupPolicyVm#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#create BackupPolicyVm#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#delete BackupPolicyVm#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#delete BackupPolicyVm#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#read BackupPolicyVm#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#read BackupPolicyVm#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/backup_policy_vm#update BackupPolicyVm#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/backup_policy_vm#update BackupPolicyVm#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

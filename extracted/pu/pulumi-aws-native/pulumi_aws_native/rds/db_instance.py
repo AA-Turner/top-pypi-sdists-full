@@ -183,16 +183,13 @@ class DbInstanceArgs:
                  +  Must be a value from 0 to 35
                  +  Can't be set to 0 if the DB instance is a source to read replicas
         :param pulumi.Input[builtins.str] backup_target: The location for storing automated backups and manual snapshots.
-               
-               Valid Values:
-               
-               - `local` (Dedicated Local Zone)
-               - `outposts` ( AWS Outposts)
-               - `region` ( AWS Region )
-               
-               Default: `region`
-               
-               For more information, see [Working with Amazon RDS on AWS Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide* .
+                Valid Values:
+                 +  ``local`` (Dedicated Local Zone)
+                 +  ``outposts`` (AWS Outposts)
+                 +  ``region`` (AWS-Region)
+                 
+                Default: ``region``
+                For more information, see [Working with Amazon RDS on Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide*.
         :param pulumi.Input[builtins.str] ca_certificate_identifier: The identifier of the CA certificate for this DB instance.
                 For more information, see [Using SSL/TLS to encrypt a connection to a DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html) in the *Amazon RDS User Guide* and [Using SSL/TLS to encrypt a connection to a DB cluster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html) in the *Amazon Aurora User Guide*.
         :param pulumi.Input[builtins.bool] certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate.
@@ -998,16 +995,13 @@ class DbInstanceArgs:
     def backup_target(self) -> Optional[pulumi.Input[builtins.str]]:
         """
         The location for storing automated backups and manual snapshots.
-
-        Valid Values:
-
-        - `local` (Dedicated Local Zone)
-        - `outposts` ( AWS Outposts)
-        - `region` ( AWS Region )
-
-        Default: `region`
-
-        For more information, see [Working with Amazon RDS on AWS Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide* .
+         Valid Values:
+          +  ``local`` (Dedicated Local Zone)
+          +  ``outposts`` (AWS Outposts)
+          +  ``region`` (AWS-Region)
+          
+         Default: ``region``
+         For more information, see [Working with Amazon RDS on Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide*.
         """
         return pulumi.get(self, "backup_target")
 
@@ -2422,16 +2416,13 @@ class DbInstance(pulumi.CustomResource):
                  +  Must be a value from 0 to 35
                  +  Can't be set to 0 if the DB instance is a source to read replicas
         :param pulumi.Input[builtins.str] backup_target: The location for storing automated backups and manual snapshots.
-               
-               Valid Values:
-               
-               - `local` (Dedicated Local Zone)
-               - `outposts` ( AWS Outposts)
-               - `region` ( AWS Region )
-               
-               Default: `region`
-               
-               For more information, see [Working with Amazon RDS on AWS Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide* .
+                Valid Values:
+                 +  ``local`` (Dedicated Local Zone)
+                 +  ``outposts`` (AWS Outposts)
+                 +  ``region`` (AWS-Region)
+                 
+                Default: ``region``
+                For more information, see [Working with Amazon RDS on Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide*.
         :param pulumi.Input[builtins.str] ca_certificate_identifier: The identifier of the CA certificate for this DB instance.
                 For more information, see [Using SSL/TLS to encrypt a connection to a DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html) in the *Amazon RDS User Guide* and [Using SSL/TLS to encrypt a connection to a DB cluster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html) in the *Amazon Aurora User Guide*.
         :param pulumi.Input[builtins.bool] certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate.
@@ -3100,10 +3091,22 @@ class DbInstance(pulumi.CustomResource):
             __props__.__dict__["use_default_processor_features"] = use_default_processor_features
             __props__.__dict__["use_latest_restorable_time"] = use_latest_restorable_time
             __props__.__dict__["vpc_security_groups"] = vpc_security_groups
+            __props__.__dict__["automatic_restart_time"] = None
             __props__.__dict__["certificate_details"] = None
             __props__.__dict__["db_instance_arn"] = None
+            __props__.__dict__["db_instance_status"] = None
             __props__.__dict__["dbi_resource_id"] = None
             __props__.__dict__["endpoint"] = None
+            __props__.__dict__["instance_create_time"] = None
+            __props__.__dict__["is_storage_config_upgrade_available"] = None
+            __props__.__dict__["latest_restorable_time"] = None
+            __props__.__dict__["listener_endpoint"] = None
+            __props__.__dict__["percent_progress"] = None
+            __props__.__dict__["read_replica_db_cluster_identifiers"] = None
+            __props__.__dict__["read_replica_db_instance_identifiers"] = None
+            __props__.__dict__["resume_full_automation_mode_time"] = None
+            __props__.__dict__["secondary_availability_zone"] = None
+            __props__.__dict__["status_infos"] = None
         replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["backupTarget", "characterSetName", "customIamInstanceProfile", "dbClusterIdentifier", "dbInstanceIdentifier", "dbName", "dbSubnetGroupName", "dbSystemId", "kmsKeyId", "masterUsername", "ncharCharacterSetName", "sourceRegion", "storageEncrypted", "timezone"])
         opts = pulumi.ResourceOptions.merge(opts, replace_on_changes)
         super(DbInstance, __self__).__init__(
@@ -3136,6 +3139,7 @@ class DbInstance(pulumi.CustomResource):
         __props__.__dict__["automatic_backup_replication_kms_key_id"] = None
         __props__.__dict__["automatic_backup_replication_region"] = None
         __props__.__dict__["automatic_backup_replication_retention_period"] = None
+        __props__.__dict__["automatic_restart_time"] = None
         __props__.__dict__["availability_zone"] = None
         __props__.__dict__["backup_retention_period"] = None
         __props__.__dict__["backup_target"] = None
@@ -3151,6 +3155,7 @@ class DbInstance(pulumi.CustomResource):
         __props__.__dict__["db_instance_arn"] = None
         __props__.__dict__["db_instance_class"] = None
         __props__.__dict__["db_instance_identifier"] = None
+        __props__.__dict__["db_instance_status"] = None
         __props__.__dict__["db_name"] = None
         __props__.__dict__["db_parameter_group_name"] = None
         __props__.__dict__["db_security_groups"] = None
@@ -3174,9 +3179,13 @@ class DbInstance(pulumi.CustomResource):
         __props__.__dict__["engine"] = None
         __props__.__dict__["engine_lifecycle_support"] = None
         __props__.__dict__["engine_version"] = None
+        __props__.__dict__["instance_create_time"] = None
         __props__.__dict__["iops"] = None
+        __props__.__dict__["is_storage_config_upgrade_available"] = None
         __props__.__dict__["kms_key_id"] = None
+        __props__.__dict__["latest_restorable_time"] = None
         __props__.__dict__["license_model"] = None
+        __props__.__dict__["listener_endpoint"] = None
         __props__.__dict__["manage_master_user_password"] = None
         __props__.__dict__["master_user_password"] = None
         __props__.__dict__["master_user_secret"] = None
@@ -3188,6 +3197,7 @@ class DbInstance(pulumi.CustomResource):
         __props__.__dict__["nchar_character_set_name"] = None
         __props__.__dict__["network_type"] = None
         __props__.__dict__["option_group_name"] = None
+        __props__.__dict__["percent_progress"] = None
         __props__.__dict__["performance_insights_kms_key_id"] = None
         __props__.__dict__["performance_insights_retention_period"] = None
         __props__.__dict__["port"] = None
@@ -3196,13 +3206,18 @@ class DbInstance(pulumi.CustomResource):
         __props__.__dict__["processor_features"] = None
         __props__.__dict__["promotion_tier"] = None
         __props__.__dict__["publicly_accessible"] = None
+        __props__.__dict__["read_replica_db_cluster_identifiers"] = None
+        __props__.__dict__["read_replica_db_instance_identifiers"] = None
         __props__.__dict__["replica_mode"] = None
         __props__.__dict__["restore_time"] = None
+        __props__.__dict__["resume_full_automation_mode_time"] = None
+        __props__.__dict__["secondary_availability_zone"] = None
         __props__.__dict__["source_db_cluster_identifier"] = None
         __props__.__dict__["source_db_instance_automated_backups_arn"] = None
         __props__.__dict__["source_db_instance_identifier"] = None
         __props__.__dict__["source_dbi_resource_id"] = None
         __props__.__dict__["source_region"] = None
+        __props__.__dict__["status_infos"] = None
         __props__.__dict__["storage_encrypted"] = None
         __props__.__dict__["storage_throughput"] = None
         __props__.__dict__["storage_type"] = None
@@ -3331,6 +3346,14 @@ class DbInstance(pulumi.CustomResource):
         return pulumi.get(self, "automatic_backup_replication_retention_period")
 
     @property
+    @pulumi.getter(name="automaticRestartTime")
+    def automatic_restart_time(self) -> pulumi.Output[builtins.str]:
+        """
+        The time when a stopped DB instance is restarted automatically.
+        """
+        return pulumi.get(self, "automatic_restart_time")
+
+    @property
     @pulumi.getter(name="availabilityZone")
     def availability_zone(self) -> pulumi.Output[Optional[builtins.str]]:
         """
@@ -3364,16 +3387,13 @@ class DbInstance(pulumi.CustomResource):
     def backup_target(self) -> pulumi.Output[Optional[builtins.str]]:
         """
         The location for storing automated backups and manual snapshots.
-
-        Valid Values:
-
-        - `local` (Dedicated Local Zone)
-        - `outposts` ( AWS Outposts)
-        - `region` ( AWS Region )
-
-        Default: `region`
-
-        For more information, see [Working with Amazon RDS on AWS Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide* .
+         Valid Values:
+          +  ``local`` (Dedicated Local Zone)
+          +  ``outposts`` (AWS Outposts)
+          +  ``region`` (AWS-Region)
+          
+         Default: ``region``
+         For more information, see [Working with Amazon RDS on Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide*.
         """
         return pulumi.get(self, "backup_target")
 
@@ -3498,6 +3518,14 @@ class DbInstance(pulumi.CustomResource):
           If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         """
         return pulumi.get(self, "db_instance_identifier")
+
+    @property
+    @pulumi.getter(name="dbInstanceStatus")
+    def db_instance_status(self) -> pulumi.Output[builtins.str]:
+        """
+        The current state of this DB instance.
+        """
+        return pulumi.get(self, "db_instance_status")
 
     @property
     @pulumi.getter(name="dbName")
@@ -3850,6 +3878,14 @@ class DbInstance(pulumi.CustomResource):
         return pulumi.get(self, "engine_version")
 
     @property
+    @pulumi.getter(name="instanceCreateTime")
+    def instance_create_time(self) -> pulumi.Output[builtins.str]:
+        """
+        The date and time when the DB instance was created.
+        """
+        return pulumi.get(self, "instance_create_time")
+
+    @property
     @pulumi.getter
     def iops(self) -> pulumi.Output[Optional[builtins.int]]:
         """
@@ -3861,6 +3897,14 @@ class DbInstance(pulumi.CustomResource):
           +  For RDS for SQL Server - Must be a multiple between 1 and 50 of the storage amount for the DB instance.
         """
         return pulumi.get(self, "iops")
+
+    @property
+    @pulumi.getter(name="isStorageConfigUpgradeAvailable")
+    def is_storage_config_upgrade_available(self) -> pulumi.Output[builtins.bool]:
+        """
+        Indicates whether an upgrade is recommended for the storage file system configuration on the DB instance.
+        """
+        return pulumi.get(self, "is_storage_config_upgrade_available")
 
     @property
     @pulumi.getter(name="kmsKeyId")
@@ -3876,6 +3920,14 @@ class DbInstance(pulumi.CustomResource):
          Not applicable. The KMS key identifier is managed by the DB cluster.
         """
         return pulumi.get(self, "kms_key_id")
+
+    @property
+    @pulumi.getter(name="latestRestorableTime")
+    def latest_restorable_time(self) -> pulumi.Output[builtins.str]:
+        """
+        The latest time to which a database in this DB instance can be restored with point-in-time restore.
+        """
+        return pulumi.get(self, "latest_restorable_time")
 
     @property
     @pulumi.getter(name="licenseModel")
@@ -3895,6 +3947,11 @@ class DbInstance(pulumi.CustomResource):
           If you've specified ``DBSecurityGroups`` and then you update the license model, AWS CloudFormation replaces the underlying DB instance. This will incur some interruptions to database availability.
         """
         return pulumi.get(self, "license_model")
+
+    @property
+    @pulumi.getter(name="listenerEndpoint")
+    def listener_endpoint(self) -> pulumi.Output['outputs.DbInstanceEndpoint']:
+        return pulumi.get(self, "listener_endpoint")
 
     @property
     @pulumi.getter(name="manageMasterUserPassword")
@@ -4060,6 +4117,14 @@ class DbInstance(pulumi.CustomResource):
         return pulumi.get(self, "option_group_name")
 
     @property
+    @pulumi.getter(name="percentProgress")
+    def percent_progress(self) -> pulumi.Output[builtins.str]:
+        """
+        The progress of the storage optimization operation as a percentage.
+        """
+        return pulumi.get(self, "percent_progress")
+
+    @property
     @pulumi.getter(name="performanceInsightsKmsKeyId")
     def performance_insights_kms_key_id(self) -> pulumi.Output[Optional[builtins.str]]:
         """
@@ -4164,6 +4229,22 @@ class DbInstance(pulumi.CustomResource):
         return pulumi.get(self, "publicly_accessible")
 
     @property
+    @pulumi.getter(name="readReplicaDbClusterIdentifiers")
+    def read_replica_db_cluster_identifiers(self) -> pulumi.Output[Sequence[builtins.str]]:
+        """
+        The identifiers of Aurora DB clusters to which the RDS DB instance is replicated as a read replica.
+        """
+        return pulumi.get(self, "read_replica_db_cluster_identifiers")
+
+    @property
+    @pulumi.getter(name="readReplicaDbInstanceIdentifiers")
+    def read_replica_db_instance_identifiers(self) -> pulumi.Output[Sequence[builtins.str]]:
+        """
+        The identifiers of the read replicas associated with this DB instance.
+        """
+        return pulumi.get(self, "read_replica_db_instance_identifiers")
+
+    @property
     @pulumi.getter(name="replicaMode")
     def replica_mode(self) -> pulumi.Output[Optional[builtins.str]]:
         """
@@ -4187,6 +4268,22 @@ class DbInstance(pulumi.CustomResource):
          Example: ``2009-09-07T23:45:00Z``
         """
         return pulumi.get(self, "restore_time")
+
+    @property
+    @pulumi.getter(name="resumeFullAutomationModeTime")
+    def resume_full_automation_mode_time(self) -> pulumi.Output[builtins.str]:
+        """
+        The number of minutes to pause the automation. When the time period ends, RDS Custom resumes full automation. The minimum value is 60 (default). The maximum value is 1,440.
+        """
+        return pulumi.get(self, "resume_full_automation_mode_time")
+
+    @property
+    @pulumi.getter(name="secondaryAvailabilityZone")
+    def secondary_availability_zone(self) -> pulumi.Output[builtins.str]:
+        """
+        If present, specifies the name of the secondary Availability Zone for a DB instance with multi-AZ support.
+        """
+        return pulumi.get(self, "secondary_availability_zone")
 
     @property
     @pulumi.getter(name="sourceDbClusterIdentifier")
@@ -4242,6 +4339,14 @@ class DbInstance(pulumi.CustomResource):
         The ID of the region that contains the source DB instance for the read replica.
         """
         return pulumi.get(self, "source_region")
+
+    @property
+    @pulumi.getter(name="statusInfos")
+    def status_infos(self) -> pulumi.Output[Sequence['outputs.DbInstanceDbInstanceStatusInfo']]:
+        """
+        The status of a read replica. If the DB instance isn't a read replica, the value is blank.
+        """
+        return pulumi.get(self, "status_infos")
 
     @property
     @pulumi.getter(name="storageEncrypted")

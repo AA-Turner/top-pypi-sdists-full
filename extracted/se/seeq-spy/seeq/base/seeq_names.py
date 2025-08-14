@@ -45,6 +45,22 @@ class SeeqNames:
         impact_based_on = 'Based on'
         location = 'Location'
     
+    class VantageColumns:
+        start = 'Start'
+        end = 'End'
+        duration = 'Duration'
+        asset_u_u_i_d = 'Asset UUID'
+        asset = 'Asset'
+        is_uncertain = 'IsUncertain'
+        path = 'Path'
+        updated_at = 'Updated At'
+        deleted_at = 'Deleted at'
+        condition = 'Condition'
+        kind = 'Kind'
+        mutable = 'Mutable'
+        properties = 'Properties'
+        suppressed = 'Suppressed'
+    
     class GraphQL:
         class DataLoaderRegistry:
             creator_metadata_loader = 'CREATOR_METADATA_LOADER'
@@ -98,9 +114,41 @@ class SeeqNames:
             
         
     
+    class Origins:
+        add_on = 'Add-on'
+        administration = 'Administration'
+        analysis = 'Analysis'
+        chat = 'chat'
+        data_lab = 'Data Lab'
+        data_lab_interactive = 'Data Lab (Interactive)'
+        data_lab_job = 'Data Lab (Job)'
+        datasource_proxy = 'DatasourceProxy'
+        export_prefix = 'Export to'
+        gen_a_i = 'genai'
+        home_screen = 'Home Screen'
+        jvm_link = 'jvm-link'
+        log_tracker = 'logs'
+        net_link = 'net-link'
+        orchestrator = 'Orchestrator'
+        organizer = 'Organizer'
+        plugin = 'plugin'
+        renderer = 'Renderer'
+        screenshot = 'Screenshot'
+        spy_standalone = 'SPy (Standalone)'
+        thumbnail = 'Thumbnail'
+        topic = 'Topic'
+        unknown = 'Unknown'
+        workbench = 'Workbench'
+    
     class Consumption:
+        a_i_assistant_prefix = 'AI Assistant'
+        condition_monitors = 'ConditionMonitors'
+        connections = 'Connections'
+        data_lab_resources_prefix = 'Data Lab Resources'
+        o_data = 'OData'
         screenshot = 'Screenshot'
         topic = 'Topic'
+        vantage = 'Vantage'
     
     class Capabilities:
         class ScalingTables:
@@ -787,6 +835,7 @@ class SeeqNames:
         has_asset_selections = 'has asset selections'
         has_condition = 'has condition'
         has_item_finder = 'has item finder'
+        has_table_definition = 'HasTableDefinition'
         has_content = 'has content'
         has_date_range = 'has date range'
         has_date_ranges = 'has date ranges'
@@ -1219,6 +1268,7 @@ class SeeqNames:
         view_columns = 'View Columns'
         filter_grouping = 'Filter Grouping'
         alias_column_id = 'Alias Column ID'
+        table_definition_id = 'Table Definition Id'
         constructed_data_id = 'Constructed Data Id'
         item_table_id = 'Item Table Id'
         alias = 'Alias'

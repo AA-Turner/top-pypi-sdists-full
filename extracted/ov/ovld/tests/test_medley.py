@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from dataclasses import field, replace
 from typing import Counter
@@ -7,6 +9,7 @@ import pytest
 from ovld import recurse
 from ovld.codegen import Code, Lambda, code_generator
 from ovld.core import ovld
+from ovld.dependent import Regexp
 from ovld.medley import (
     BuildOvld,
     ChainAll,
@@ -541,3 +544,31 @@ def test_default_factory_inheritance():
 
     lu = Lust()
     assert lu.xs == []
+
+
+class Monkey(Medley):
+    regex: CodegenParameter[str] = "monk[iey]+"
+
+    def hi(self, x: Regexp[regex]):
+        return "hello!"
+
+    def hi(self, x: str):
+        return "goodbye!"
+
+
+def test_configure_dependent():
+    m1 = Monkey()
+    m2 = Monkey(regex="go+rilla")
+
+    assert m1.hi("monki") == "hello!"
+    assert m1.hi("monkeeeee") == "hello!"
+    assert m1.hi("goorilla") == "goodbye!"
+
+    assert m2.hi("monki") == "goodbye!"
+    assert m2.hi("monkeeeee") == "goodbye!"
+    assert m2.hi("goorilla") == "hello!"
+
+
+def test_configure_dependent_pileon():
+    m = Monkey(regex="chimpanze+") + Monkey(regex="go+rilla")
+    assert m.hi("goorilla") == "hello!"

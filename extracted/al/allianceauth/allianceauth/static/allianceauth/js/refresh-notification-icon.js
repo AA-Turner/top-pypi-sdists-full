@@ -1,4 +1,4 @@
-/* global notificationUpdateSettings */
+/* global notificationUpdateSettings, fetchGet */
 
 /**
  * This script refreshed the notification icon in the top menu
@@ -19,22 +19,9 @@ $(() => {
      * Update the notification icon in the top menu
      */
     const updateNotificationIcon = () => {
-        fetch(userNotificationCountViewUrl)
-            .then((response) => {
-                if (response.ok) {
-                    return response.json();
-                }
-
-                throw new Error('Something went wrong');
-            })
-            .then((responseJson) => {
-                const unreadCount = responseJson.unread_count;
-
-                if (unreadCount > 0) {
-                    elementNotificationIcon.addClass('text-danger');
-                } else {
-                    elementNotificationIcon.removeClass('text-danger');
-                }
+        fetchGet({url: userNotificationCountViewUrl})
+            .then((data) => {
+                elementNotificationIcon.toggleClass('text-danger', data.unread_count > 0);
             })
             .catch((error) => {
                 console.log(`Failed to load HTMl to render notifications item. Error: ${error.message}`);

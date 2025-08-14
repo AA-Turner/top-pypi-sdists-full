@@ -5,7 +5,10 @@
 
 import json
 from configparser import ConfigParser
-from typing import Union
+from typing import TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from IPython.display import HTML
 
 __all__ = [
     "get_credentials_from_config",
@@ -60,11 +63,13 @@ def pipeline_to_script(pipeline) -> Union["str", "HTML"]:
 
         pipeline_to_script(pipeline=best_pipeline)
     """
+    import os
+
     from lale.helpers import import_from_sklearn_pipeline
     from sklearn.pipeline import Pipeline
-    from ibm_watsonx_ai.utils.autoai.utils import is_ipython
+
     from ibm_watsonx_ai.utils import create_download_link
-    import os
+    from ibm_watsonx_ai.utils.autoai.utils import is_ipython
 
     script_name = "pipeline_script.py"
 

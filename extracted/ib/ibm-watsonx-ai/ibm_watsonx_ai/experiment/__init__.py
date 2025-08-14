@@ -5,3 +5,5 @@
 
 from ibm_watsonx_ai.experiment.autoai.autoai import AutoAI
 from ibm_watsonx_ai.experiment.fm_tune.tune_experiment import TuneExperiment
+
+__all__ = ["AutoAI", "TuneExperiment"]

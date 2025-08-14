@@ -9,16 +9,18 @@ from typing import TYPE_CHECKING, Any, cast
 import pandas as pd
 from pandas import DataFrame
 
-from .base_deployment import BaseDeployment
 from ..wml_client_error import WMLClientError
+from .base_deployment import BaseDeployment
 
 if TYPE_CHECKING:
-    from sklearn.pipeline import Pipeline
-    from numpy import ndarray
-    from ..workspace import WorkSpace
-    from ..credentials import Credentials
-    from ibm_watsonx_ai.helpers.connections import DataConnection
     from ibm_boto3 import resource
+    from numpy import ndarray
+    from sklearn.pipeline import Pipeline
+
+    from ibm_watsonx_ai.helpers.connections import DataConnection
+
+    from ..credentials import Credentials
+    from ..workspace import WorkSpace
 
 __all__ = ["WebService"]
 
@@ -59,7 +61,6 @@ class WebService(BaseDeployment):
         space_id: str | None = None,
         **kwargs: Any,
     ):
-
         super().__init__(
             deployment_type="online",
             source_wml_credentials=kwargs.get("source_wml_credentials"),
@@ -125,6 +126,7 @@ class WebService(BaseDeployment):
 
         :param astype: type of stored model [hybrid, onnx]
         :type astype: str, optional
+
         **Example:**
 
         .. code-block:: python
@@ -334,7 +336,6 @@ class WebService(BaseDeployment):
 
         print("Deploying model {} using V4 client.".format(asset_uid))
         try:
-
             deployment_details = self._target_workspace.api_client.deployments.create(
                 artifact_uid=asset_uid,  # type: ignore[arg-type]
                 meta_props=deployment_props,

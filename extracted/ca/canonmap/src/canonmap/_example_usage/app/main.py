@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # TODO: Restrict in production,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

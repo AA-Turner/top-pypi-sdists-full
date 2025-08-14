@@ -1,7 +1,7 @@
 r'''
 # `data_aws_ecr_images`
 
-Refer to the Terraform Registry for docs: [`data_aws_ecr_images`](https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images).
+Refer to the Terraform Registry for docs: [`data_aws_ecr_images`](https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsEcrImages(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsEcrImages.DataAwsEcrImages",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images aws_ecr_images}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images aws_ecr_images}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataAwsEcrImages(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images aws_ecr_images} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images aws_ecr_images} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param repository_name: Name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#repository_name DataAwsEcrImages#repository_name}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#region DataAwsEcrImages#region}
-        :param registry_id: ID of the registry (AWS account ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#registry_id DataAwsEcrImages#registry_id}
+        :param repository_name: Name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#repository_name DataAwsEcrImages#repository_name}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#region DataAwsEcrImages#region}
+        :param registry_id: ID of the registry (AWS account ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#registry_id DataAwsEcrImages#registry_id}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataAwsEcrImages(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsEcrImages to import.
-        :param import_from_id: The id of the existing DataAwsEcrImages that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsEcrImages that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsEcrImages to import is found.
         '''
         if __debug__:
@@ -237,9 +237,9 @@ class DataAwsEcrImagesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param repository_name: Name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#repository_name DataAwsEcrImages#repository_name}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#region DataAwsEcrImages#region}
-        :param registry_id: ID of the registry (AWS account ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#registry_id DataAwsEcrImages#registry_id}
+        :param repository_name: Name of the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#repository_name DataAwsEcrImages#repository_name}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#region DataAwsEcrImages#region}
+        :param registry_id: ID of the registry (AWS account ID). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#registry_id DataAwsEcrImages#registry_id}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -345,7 +345,7 @@ class DataAwsEcrImagesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository_name(self) -> builtins.str:
         '''Name of the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#repository_name DataAwsEcrImages#repository_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#repository_name DataAwsEcrImages#repository_name}
         '''
         result = self._values.get("repository_name")
         assert result is not None, "Required property 'repository_name' is missing"
@@ -355,7 +355,7 @@ class DataAwsEcrImagesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#region DataAwsEcrImages#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#region DataAwsEcrImages#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -364,7 +364,7 @@ class DataAwsEcrImagesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def registry_id(self) -> typing.Optional[builtins.str]:
         '''ID of the registry (AWS account ID).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.7.0/docs/data-sources/ecr_images#registry_id DataAwsEcrImages#registry_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/data-sources/ecr_images#registry_id DataAwsEcrImages#registry_id}
         '''
         result = self._values.get("registry_id")
         return typing.cast(typing.Optional[builtins.str], result)

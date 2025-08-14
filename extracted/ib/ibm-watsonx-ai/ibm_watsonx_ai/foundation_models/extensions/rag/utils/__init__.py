@@ -3,6 +3,6 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from .utils import verbose_search, get_max_input_tokens
+from .utils import get_max_input_tokens, verbose_search
 
 __all__ = ["verbose_search", "get_max_input_tokens"]

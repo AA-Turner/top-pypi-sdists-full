@@ -1,15 +1,17 @@
+import asyncclick as click
 from pallets_sphinx_themes import get_version
 from pallets_sphinx_themes import ProjectLink
 
 # Project --------------------------------------------------------------
 
-project = "Click"
-copyright = "2014 Pallets"
+project = "AsyncClick"
+copyright = "2014 Pallets, 2019 Matthias Urlichs"
 author = "Pallets"
-release, version = get_version("Click")
+release, version = get_version("asyncclick")
 
 # General --------------------------------------------------------------
 
+master_doc = "index"
 default_role = "code"
 extensions = [
     "sphinx.ext.autodoc",
@@ -18,13 +20,14 @@ extensions = [
     "sphinx_tabs.tabs",
     "sphinxcontrib.log_cabinet",
     "pallets_sphinx_themes",
+    "myst_parser",
 ]
 autodoc_member_order = "bysource"
 autodoc_typehints = "description"
 autodoc_preserve_defaults = True
 extlinks = {
-    "issue": ("https://github.com/pallets/click/issues/%s", "#%s"),
-    "pr": ("https://github.com/pallets/click/pull/%s", "#%s"),
+    "issue": ("https://github.com/python-trio/asyncclick/issues/%s", "#%s"),
+    "pr": ("https://github.com/python-trio/asyncclick/pull/%s", "#%s"),
 }
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
@@ -40,6 +43,7 @@ html_context = {
         ProjectLink("PyPI Releases", "https://pypi.org/project/click/"),
         ProjectLink("Source Code", "https://github.com/pallets/click/"),
         ProjectLink("Issue Tracker", "https://github.com/pallets/click/issues/"),
+        ProjectLink("AsyncClick Fork", "https://github.com/python-trio/asyncclick/"),
         ProjectLink("Chat", "https://discord.gg/pallets"),
     ]
 }
@@ -49,7 +53,7 @@ html_sidebars = {
 }
 singlehtml_sidebars = {"index": ["project.html", "localtoc.html", "ethicalads.html"]}
 html_static_path = ["_static"]
-html_favicon = "_static/click-icon.png"
-html_logo = "_static/click-logo-sidebar.png"
-html_title = f"Click Documentation ({version})"
+html_favicon = "_static/click-icon.svg"
+html_logo = "_static/click-logo.svg"
+html_title = f"AsyncClick Documentation ({version})"
 html_show_sourcelink = False

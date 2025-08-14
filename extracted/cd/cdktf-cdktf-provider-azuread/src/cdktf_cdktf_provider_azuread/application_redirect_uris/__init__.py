@@ -1,7 +1,7 @@
 r'''
 # `azuread_application_redirect_uris`
 
-Refer to the Terraform Registry for docs: [`azuread_application_redirect_uris`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris).
+Refer to the Terraform Registry for docs: [`azuread_application_redirect_uris`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApplicationRedirectUris(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.applicationRedirectUris.ApplicationRedirectUris",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris azuread_application_redirect_uris}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris azuread_application_redirect_uris}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ApplicationRedirectUris(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris azuread_application_redirect_uris} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris azuread_application_redirect_uris} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param application_id: The resource ID of the application to which these redirect URIs belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#application_id ApplicationRedirectUris#application_id}
-        :param redirect_uris: A set of redirect URIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#redirect_uris ApplicationRedirectUris#redirect_uris}
-        :param type: The type of redirect URIs to assign to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#type ApplicationRedirectUris#type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#id ApplicationRedirectUris#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#timeouts ApplicationRedirectUris#timeouts}
+        :param application_id: The resource ID of the application to which these redirect URIs belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#application_id ApplicationRedirectUris#application_id}
+        :param redirect_uris: A set of redirect URIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#redirect_uris ApplicationRedirectUris#redirect_uris}
+        :param type: The type of redirect URIs to assign to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#type ApplicationRedirectUris#type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#id ApplicationRedirectUris#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#timeouts ApplicationRedirectUris#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ApplicationRedirectUris(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApplicationRedirectUris to import.
-        :param import_from_id: The id of the existing ApplicationRedirectUris that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApplicationRedirectUris that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApplicationRedirectUris to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class ApplicationRedirectUris(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#create ApplicationRedirectUris#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#delete ApplicationRedirectUris#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#read ApplicationRedirectUris#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#update ApplicationRedirectUris#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#create ApplicationRedirectUris#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#delete ApplicationRedirectUris#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#read ApplicationRedirectUris#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#update ApplicationRedirectUris#update}.
         '''
         value = ApplicationRedirectUrisTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -292,11 +292,11 @@ class ApplicationRedirectUrisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param application_id: The resource ID of the application to which these redirect URIs belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#application_id ApplicationRedirectUris#application_id}
-        :param redirect_uris: A set of redirect URIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#redirect_uris ApplicationRedirectUris#redirect_uris}
-        :param type: The type of redirect URIs to assign to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#type ApplicationRedirectUris#type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#id ApplicationRedirectUris#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#timeouts ApplicationRedirectUris#timeouts}
+        :param application_id: The resource ID of the application to which these redirect URIs belong. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#application_id ApplicationRedirectUris#application_id}
+        :param redirect_uris: A set of redirect URIs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#redirect_uris ApplicationRedirectUris#redirect_uris}
+        :param type: The type of redirect URIs to assign to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#type ApplicationRedirectUris#type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#id ApplicationRedirectUris#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#timeouts ApplicationRedirectUris#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -408,7 +408,7 @@ class ApplicationRedirectUrisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def application_id(self) -> builtins.str:
         '''The resource ID of the application to which these redirect URIs belong.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#application_id ApplicationRedirectUris#application_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#application_id ApplicationRedirectUris#application_id}
         '''
         result = self._values.get("application_id")
         assert result is not None, "Required property 'application_id' is missing"
@@ -418,7 +418,7 @@ class ApplicationRedirectUrisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def redirect_uris(self) -> typing.List[builtins.str]:
         '''A set of redirect URIs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#redirect_uris ApplicationRedirectUris#redirect_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#redirect_uris ApplicationRedirectUris#redirect_uris}
         '''
         result = self._values.get("redirect_uris")
         assert result is not None, "Required property 'redirect_uris' is missing"
@@ -428,7 +428,7 @@ class ApplicationRedirectUrisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''The type of redirect URIs to assign to the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#type ApplicationRedirectUris#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#type ApplicationRedirectUris#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -436,7 +436,7 @@ class ApplicationRedirectUrisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#id ApplicationRedirectUris#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#id ApplicationRedirectUris#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -448,7 +448,7 @@ class ApplicationRedirectUrisConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationRedirectUrisTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#timeouts ApplicationRedirectUris#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#timeouts ApplicationRedirectUris#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationRedirectUrisTimeouts"], result)
@@ -485,10 +485,10 @@ class ApplicationRedirectUrisTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#create ApplicationRedirectUris#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#delete ApplicationRedirectUris#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#read ApplicationRedirectUris#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#update ApplicationRedirectUris#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#create ApplicationRedirectUris#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#delete ApplicationRedirectUris#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#read ApplicationRedirectUris#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#update ApplicationRedirectUris#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e10942743a755a40a577a56576eca69d44bec789ec13350b66122b3813054418)
@@ -508,25 +508,25 @@ class ApplicationRedirectUrisTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#create ApplicationRedirectUris#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#create ApplicationRedirectUris#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#delete ApplicationRedirectUris#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#delete ApplicationRedirectUris#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#read ApplicationRedirectUris#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#read ApplicationRedirectUris#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application_redirect_uris#update ApplicationRedirectUris#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application_redirect_uris#update ApplicationRedirectUris#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

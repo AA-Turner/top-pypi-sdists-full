@@ -1,7 +1,7 @@
 r'''
 # `newrelic_notification_destination`
 
-Refer to the Terraform Registry for docs: [`newrelic_notification_destination`](https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination).
+Refer to the Terraform Registry for docs: [`newrelic_notification_destination`](https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NotificationDestination(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.notificationDestination.NotificationDestination",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination newrelic_notification_destination}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination newrelic_notification_destination}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class NotificationDestination(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination newrelic_notification_destination} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination newrelic_notification_destination} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: (Required) The name of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#name NotificationDestination#name}
-        :param property: property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#property NotificationDestination#property}
-        :param type: (Required) The type of the destination. One of: (WEBHOOK, EMAIL, SERVICE_NOW, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS, WORKFLOW_AUTOMATION). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#type NotificationDestination#type}
-        :param account_id: The account ID under which to put the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#account_id NotificationDestination#account_id}
-        :param active: Indicates whether the destination is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#active NotificationDestination#active}
-        :param auth_basic: auth_basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#auth_basic NotificationDestination#auth_basic}
-        :param auth_custom_header: auth_custom_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#auth_custom_header NotificationDestination#auth_custom_header}
-        :param auth_token: auth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#auth_token NotificationDestination#auth_token}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#id NotificationDestination#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param secure_url: secure_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#secure_url NotificationDestination#secure_url}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#timeouts NotificationDestination#timeouts}
+        :param name: (Required) The name of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#name NotificationDestination#name}
+        :param property: property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#property NotificationDestination#property}
+        :param type: (Required) The type of the destination. One of: (WEBHOOK, EMAIL, SERVICE_NOW, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS, WORKFLOW_AUTOMATION). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#type NotificationDestination#type}
+        :param account_id: The account ID under which to put the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#account_id NotificationDestination#account_id}
+        :param active: Indicates whether the destination is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#active NotificationDestination#active}
+        :param auth_basic: auth_basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#auth_basic NotificationDestination#auth_basic}
+        :param auth_custom_header: auth_custom_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#auth_custom_header NotificationDestination#auth_custom_header}
+        :param auth_token: auth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#auth_token NotificationDestination#auth_token}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#id NotificationDestination#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param secure_url: secure_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#secure_url NotificationDestination#secure_url}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#timeouts NotificationDestination#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class NotificationDestination(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NotificationDestination to import.
-        :param import_from_id: The id of the existing NotificationDestination that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NotificationDestination that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NotificationDestination to import is found.
         '''
         if __debug__:
@@ -147,8 +147,8 @@ class NotificationDestination(
     @jsii.member(jsii_name="putAuthBasic")
     def put_auth_basic(self, *, password: builtins.str, user: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#password NotificationDestination#password}.
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#user NotificationDestination#user}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#password NotificationDestination#password}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#user NotificationDestination#user}.
         '''
         value = NotificationDestinationAuthBasic(password=password, user=user)
 
@@ -175,8 +175,8 @@ class NotificationDestination(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#token NotificationDestination#token}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#token NotificationDestination#token}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.
         '''
         value = NotificationDestinationAuthToken(token=token, prefix=prefix)
 
@@ -203,8 +203,8 @@ class NotificationDestination(
         secure_suffix: builtins.str,
     ) -> None:
         '''
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.
-        :param secure_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#secure_suffix NotificationDestination#secure_suffix}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.
+        :param secure_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#secure_suffix NotificationDestination#secure_suffix}.
         '''
         value = NotificationDestinationSecureUrl(
             prefix=prefix, secure_suffix=secure_suffix
@@ -220,8 +220,8 @@ class NotificationDestination(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#create NotificationDestination#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#update NotificationDestination#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#create NotificationDestination#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#update NotificationDestination#update}.
         '''
         value = NotificationDestinationTimeouts(create=create, update=update)
 
@@ -452,8 +452,8 @@ class NotificationDestination(
 class NotificationDestinationAuthBasic:
     def __init__(self, *, password: builtins.str, user: builtins.str) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#password NotificationDestination#password}.
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#user NotificationDestination#user}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#password NotificationDestination#password}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#user NotificationDestination#user}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc45d2b8cd8d06f89a9fe520c08098701f9593e22d9c7dab749c31b8c030e6e6)
@@ -466,14 +466,14 @@ class NotificationDestinationAuthBasic:
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#password NotificationDestination#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#password NotificationDestination#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#user NotificationDestination#user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#user NotificationDestination#user}.'''
         result = self._values.get("user")
         assert result is not None, "Required property 'user' is missing"
         return typing.cast(builtins.str, result)
@@ -568,8 +568,8 @@ class NotificationDestinationAuthBasicOutputReference(
 class NotificationDestinationAuthCustomHeader:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#key NotificationDestination#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#value NotificationDestination#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#key NotificationDestination#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#value NotificationDestination#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3851840b7ef373abc842d68541919e76b054a938d9f910f8b0cfb95506fdb89c)
@@ -582,14 +582,14 @@ class NotificationDestinationAuthCustomHeader:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#key NotificationDestination#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#key NotificationDestination#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#value NotificationDestination#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#value NotificationDestination#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -790,8 +790,8 @@ class NotificationDestinationAuthToken:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#token NotificationDestination#token}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#token NotificationDestination#token}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__52fd9c85d44541a751b81222b3d572e6b5de194ece9774d4f5963b68ddb95bfe)
@@ -805,14 +805,14 @@ class NotificationDestinationAuthToken:
 
     @builtins.property
     def token(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#token NotificationDestination#token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#token NotificationDestination#token}.'''
         result = self._values.get("token")
         assert result is not None, "Required property 'token' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -957,17 +957,17 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: (Required) The name of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#name NotificationDestination#name}
-        :param property: property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#property NotificationDestination#property}
-        :param type: (Required) The type of the destination. One of: (WEBHOOK, EMAIL, SERVICE_NOW, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS, WORKFLOW_AUTOMATION). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#type NotificationDestination#type}
-        :param account_id: The account ID under which to put the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#account_id NotificationDestination#account_id}
-        :param active: Indicates whether the destination is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#active NotificationDestination#active}
-        :param auth_basic: auth_basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#auth_basic NotificationDestination#auth_basic}
-        :param auth_custom_header: auth_custom_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#auth_custom_header NotificationDestination#auth_custom_header}
-        :param auth_token: auth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#auth_token NotificationDestination#auth_token}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#id NotificationDestination#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param secure_url: secure_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#secure_url NotificationDestination#secure_url}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#timeouts NotificationDestination#timeouts}
+        :param name: (Required) The name of the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#name NotificationDestination#name}
+        :param property: property block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#property NotificationDestination#property}
+        :param type: (Required) The type of the destination. One of: (WEBHOOK, EMAIL, SERVICE_NOW, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS, WORKFLOW_AUTOMATION). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#type NotificationDestination#type}
+        :param account_id: The account ID under which to put the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#account_id NotificationDestination#account_id}
+        :param active: Indicates whether the destination is active. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#active NotificationDestination#active}
+        :param auth_basic: auth_basic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#auth_basic NotificationDestination#auth_basic}
+        :param auth_custom_header: auth_custom_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#auth_custom_header NotificationDestination#auth_custom_header}
+        :param auth_token: auth_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#auth_token NotificationDestination#auth_token}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#id NotificationDestination#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param secure_url: secure_url block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#secure_url NotificationDestination#secure_url}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#timeouts NotificationDestination#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1103,7 +1103,7 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''(Required) The name of the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#name NotificationDestination#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#name NotificationDestination#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1115,7 +1115,7 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NotificationDestinationProperty"]]:
         '''property block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#property NotificationDestination#property}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#property NotificationDestination#property}
         '''
         result = self._values.get("property")
         assert result is not None, "Required property 'property' is missing"
@@ -1127,7 +1127,7 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         One of: (WEBHOOK, EMAIL, SERVICE_NOW, SERVICE_NOW_APP, PAGERDUTY_ACCOUNT_INTEGRATION, PAGERDUTY_SERVICE_INTEGRATION, JIRA, SLACK, SLACK_COLLABORATION, SLACK_LEGACY, MOBILE_PUSH, EVENT_BRIDGE, MICROSOFT_TEAMS, WORKFLOW_AUTOMATION).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#type NotificationDestination#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#type NotificationDestination#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1137,7 +1137,7 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account ID under which to put the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#account_id NotificationDestination#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#account_id NotificationDestination#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1148,7 +1148,7 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the destination is active.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#active NotificationDestination#active}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#active NotificationDestination#active}
         '''
         result = self._values.get("active")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1157,7 +1157,7 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_basic(self) -> typing.Optional[NotificationDestinationAuthBasic]:
         '''auth_basic block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#auth_basic NotificationDestination#auth_basic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#auth_basic NotificationDestination#auth_basic}
         '''
         result = self._values.get("auth_basic")
         return typing.cast(typing.Optional[NotificationDestinationAuthBasic], result)
@@ -1168,7 +1168,7 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[NotificationDestinationAuthCustomHeader]]]:
         '''auth_custom_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#auth_custom_header NotificationDestination#auth_custom_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#auth_custom_header NotificationDestination#auth_custom_header}
         '''
         result = self._values.get("auth_custom_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[NotificationDestinationAuthCustomHeader]]], result)
@@ -1177,14 +1177,14 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auth_token(self) -> typing.Optional[NotificationDestinationAuthToken]:
         '''auth_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#auth_token NotificationDestination#auth_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#auth_token NotificationDestination#auth_token}
         '''
         result = self._values.get("auth_token")
         return typing.cast(typing.Optional[NotificationDestinationAuthToken], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#id NotificationDestination#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#id NotificationDestination#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1196,7 +1196,7 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def secure_url(self) -> typing.Optional["NotificationDestinationSecureUrl"]:
         '''secure_url block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#secure_url NotificationDestination#secure_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#secure_url NotificationDestination#secure_url}
         '''
         result = self._values.get("secure_url")
         return typing.cast(typing.Optional["NotificationDestinationSecureUrl"], result)
@@ -1205,7 +1205,7 @@ class NotificationDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NotificationDestinationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#timeouts NotificationDestination#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#timeouts NotificationDestination#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NotificationDestinationTimeouts"], result)
@@ -1242,10 +1242,10 @@ class NotificationDestinationProperty:
         label: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: Notification property key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#key NotificationDestination#key}
-        :param value: Notification property value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#value NotificationDestination#value}
-        :param display_value: Notification property display key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#display_value NotificationDestination#display_value}
-        :param label: Notification property label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#label NotificationDestination#label}
+        :param key: Notification property key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#key NotificationDestination#key}
+        :param value: Notification property value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#value NotificationDestination#value}
+        :param display_value: Notification property display key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#display_value NotificationDestination#display_value}
+        :param label: Notification property label. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#label NotificationDestination#label}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acab913c865189c87c22695776e1fd576c1ab1eec898462f48894a37619f858c)
@@ -1266,7 +1266,7 @@ class NotificationDestinationProperty:
     def key(self) -> builtins.str:
         '''Notification property key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#key NotificationDestination#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#key NotificationDestination#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -1276,7 +1276,7 @@ class NotificationDestinationProperty:
     def value(self) -> builtins.str:
         '''Notification property value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#value NotificationDestination#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#value NotificationDestination#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1286,7 +1286,7 @@ class NotificationDestinationProperty:
     def display_value(self) -> typing.Optional[builtins.str]:
         '''Notification property display key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#display_value NotificationDestination#display_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#display_value NotificationDestination#display_value}
         '''
         result = self._values.get("display_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1295,7 +1295,7 @@ class NotificationDestinationProperty:
     def label(self) -> typing.Optional[builtins.str]:
         '''Notification property label.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#label NotificationDestination#label}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#label NotificationDestination#label}
         '''
         result = self._values.get("label")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1533,8 +1533,8 @@ class NotificationDestinationPropertyOutputReference(
 class NotificationDestinationSecureUrl:
     def __init__(self, *, prefix: builtins.str, secure_suffix: builtins.str) -> None:
         '''
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.
-        :param secure_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#secure_suffix NotificationDestination#secure_suffix}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.
+        :param secure_suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#secure_suffix NotificationDestination#secure_suffix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__463e7e3bf85590d4ca8fb2e225c2e30ed9e2694b56c94594b8561d2061e4aa8a)
@@ -1547,14 +1547,14 @@ class NotificationDestinationSecureUrl:
 
     @builtins.property
     def prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#prefix NotificationDestination#prefix}.'''
         result = self._values.get("prefix")
         assert result is not None, "Required property 'prefix' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def secure_suffix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#secure_suffix NotificationDestination#secure_suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#secure_suffix NotificationDestination#secure_suffix}.'''
         result = self._values.get("secure_suffix")
         assert result is not None, "Required property 'secure_suffix' is missing"
         return typing.cast(builtins.str, result)
@@ -1654,8 +1654,8 @@ class NotificationDestinationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#create NotificationDestination#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#update NotificationDestination#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#create NotificationDestination#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#update NotificationDestination#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c13315c3a3271ece7825e655f59cb0cc02852515859b99c05850485f92986de4)
@@ -1669,13 +1669,13 @@ class NotificationDestinationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#create NotificationDestination#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#create NotificationDestination#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.65.0/docs/resources/notification_destination#update NotificationDestination#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.66.0/docs/resources/notification_destination#update NotificationDestination#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for DataDog/datadog provider version 3.70.0
+# CDKTF prebuilt bindings for DataDog/datadog provider version 3.71.0
 
-This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.70.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.71.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform datadog provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.70.0)
+* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.71.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -127,6 +127,7 @@ from ._jsii import *
 
 __all__ = [
     "action_connection",
+    "agentless_scanning_aws_scan_options",
     "api_key",
     "apm_retention_filter",
     "apm_retention_filter_order",
@@ -170,6 +171,7 @@ __all__ = [
     "data_datadog_logs_indexes_order",
     "data_datadog_logs_pipelines",
     "data_datadog_logs_pipelines_order",
+    "data_datadog_metric_metadata",
     "data_datadog_metric_tags",
     "data_datadog_monitor",
     "data_datadog_monitor_config_policies",
@@ -289,6 +291,7 @@ publication.publish()
 
 # Loading modules to ensure their types are registered with the jsii runtime library
 from . import action_connection
+from . import agentless_scanning_aws_scan_options
 from . import api_key
 from . import apm_retention_filter
 from . import apm_retention_filter_order
@@ -332,6 +335,7 @@ from . import data_datadog_logs_indexes
 from . import data_datadog_logs_indexes_order
 from . import data_datadog_logs_pipelines
 from . import data_datadog_logs_pipelines_order
+from . import data_datadog_metric_metadata
 from . import data_datadog_metric_tags
 from . import data_datadog_monitor
 from . import data_datadog_monitor_config_policies

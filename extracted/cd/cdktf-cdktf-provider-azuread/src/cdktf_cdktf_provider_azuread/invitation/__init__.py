@@ -1,7 +1,7 @@
 r'''
 # `azuread_invitation`
 
-Refer to the Terraform Registry for docs: [`azuread_invitation`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation).
+Refer to the Terraform Registry for docs: [`azuread_invitation`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Invitation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.invitation.Invitation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation azuread_invitation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation azuread_invitation}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class Invitation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation azuread_invitation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation azuread_invitation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param redirect_url: The URL that the user should be redirected to once the invitation is redeemed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#redirect_url Invitation#redirect_url}
-        :param user_email_address: The email address of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#user_email_address Invitation#user_email_address}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#id Invitation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#message Invitation#message}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#timeouts Invitation#timeouts}
-        :param user_display_name: The display name of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#user_display_name Invitation#user_display_name}
-        :param user_type: The user type of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#user_type Invitation#user_type}
+        :param redirect_url: The URL that the user should be redirected to once the invitation is redeemed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#redirect_url Invitation#redirect_url}
+        :param user_email_address: The email address of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#user_email_address Invitation#user_email_address}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#id Invitation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#message Invitation#message}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#timeouts Invitation#timeouts}
+        :param user_display_name: The display name of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#user_display_name Invitation#user_display_name}
+        :param user_type: The user type of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#user_type Invitation#user_type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class Invitation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Invitation to import.
-        :param import_from_id: The id of the existing Invitation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Invitation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Invitation to import is found.
         '''
         if __debug__:
@@ -141,9 +141,9 @@ class Invitation(
         language: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param additional_recipients: Email addresses of additional recipients the invitation message should be sent to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#additional_recipients Invitation#additional_recipients}
-        :param body: Customized message body you want to send if you don't want to send the default message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#body Invitation#body}
-        :param language: The language you want to send the default message in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#language Invitation#language}
+        :param additional_recipients: Email addresses of additional recipients the invitation message should be sent to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#additional_recipients Invitation#additional_recipients}
+        :param body: Customized message body you want to send if you don't want to send the default message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#body Invitation#body}
+        :param language: The language you want to send the default message in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#language Invitation#language}
         '''
         value = InvitationMessage(
             additional_recipients=additional_recipients, body=body, language=language
@@ -160,9 +160,9 @@ class Invitation(
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#create Invitation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#delete Invitation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#read Invitation#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#create Invitation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#delete Invitation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#read Invitation#read}.
         '''
         value = InvitationTimeouts(create=create, delete=delete, read=read)
 
@@ -366,13 +366,13 @@ class InvitationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param redirect_url: The URL that the user should be redirected to once the invitation is redeemed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#redirect_url Invitation#redirect_url}
-        :param user_email_address: The email address of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#user_email_address Invitation#user_email_address}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#id Invitation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#message Invitation#message}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#timeouts Invitation#timeouts}
-        :param user_display_name: The display name of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#user_display_name Invitation#user_display_name}
-        :param user_type: The user type of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#user_type Invitation#user_type}
+        :param redirect_url: The URL that the user should be redirected to once the invitation is redeemed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#redirect_url Invitation#redirect_url}
+        :param user_email_address: The email address of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#user_email_address Invitation#user_email_address}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#id Invitation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#message Invitation#message}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#timeouts Invitation#timeouts}
+        :param user_display_name: The display name of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#user_display_name Invitation#user_display_name}
+        :param user_type: The user type of the user being invited. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#user_type Invitation#user_type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -493,7 +493,7 @@ class InvitationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def redirect_url(self) -> builtins.str:
         '''The URL that the user should be redirected to once the invitation is redeemed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#redirect_url Invitation#redirect_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#redirect_url Invitation#redirect_url}
         '''
         result = self._values.get("redirect_url")
         assert result is not None, "Required property 'redirect_url' is missing"
@@ -503,7 +503,7 @@ class InvitationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_email_address(self) -> builtins.str:
         '''The email address of the user being invited.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#user_email_address Invitation#user_email_address}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#user_email_address Invitation#user_email_address}
         '''
         result = self._values.get("user_email_address")
         assert result is not None, "Required property 'user_email_address' is missing"
@@ -511,7 +511,7 @@ class InvitationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#id Invitation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#id Invitation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -523,7 +523,7 @@ class InvitationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def message(self) -> typing.Optional["InvitationMessage"]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#message Invitation#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#message Invitation#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional["InvitationMessage"], result)
@@ -532,7 +532,7 @@ class InvitationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["InvitationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#timeouts Invitation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#timeouts Invitation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["InvitationTimeouts"], result)
@@ -541,7 +541,7 @@ class InvitationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_display_name(self) -> typing.Optional[builtins.str]:
         '''The display name of the user being invited.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#user_display_name Invitation#user_display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#user_display_name Invitation#user_display_name}
         '''
         result = self._values.get("user_display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -550,7 +550,7 @@ class InvitationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_type(self) -> typing.Optional[builtins.str]:
         '''The user type of the user being invited.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#user_type Invitation#user_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#user_type Invitation#user_type}
         '''
         result = self._values.get("user_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -585,9 +585,9 @@ class InvitationMessage:
         language: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param additional_recipients: Email addresses of additional recipients the invitation message should be sent to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#additional_recipients Invitation#additional_recipients}
-        :param body: Customized message body you want to send if you don't want to send the default message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#body Invitation#body}
-        :param language: The language you want to send the default message in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#language Invitation#language}
+        :param additional_recipients: Email addresses of additional recipients the invitation message should be sent to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#additional_recipients Invitation#additional_recipients}
+        :param body: Customized message body you want to send if you don't want to send the default message. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#body Invitation#body}
+        :param language: The language you want to send the default message in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#language Invitation#language}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__284e3c3d018a7b7fa2c0dafdf393de21be567208fd03f1581fd49fe6713ecb62)
@@ -606,7 +606,7 @@ class InvitationMessage:
     def additional_recipients(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Email addresses of additional recipients the invitation message should be sent to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#additional_recipients Invitation#additional_recipients}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#additional_recipients Invitation#additional_recipients}
         '''
         result = self._values.get("additional_recipients")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -615,7 +615,7 @@ class InvitationMessage:
     def body(self) -> typing.Optional[builtins.str]:
         '''Customized message body you want to send if you don't want to send the default message.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#body Invitation#body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#body Invitation#body}
         '''
         result = self._values.get("body")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -624,7 +624,7 @@ class InvitationMessage:
     def language(self) -> typing.Optional[builtins.str]:
         '''The language you want to send the default message in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#language Invitation#language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#language Invitation#language}
         '''
         result = self._values.get("language")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -751,9 +751,9 @@ class InvitationTimeouts:
         read: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#create Invitation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#delete Invitation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#read Invitation#read}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#create Invitation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#delete Invitation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#read Invitation#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a9b517cda6f281435de2c76e3f38fe95d6d8ab90c8b376f959fe92c3aafa9f7)
@@ -770,19 +770,19 @@ class InvitationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#create Invitation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#create Invitation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#delete Invitation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#delete Invitation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/invitation#read Invitation#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/invitation#read Invitation#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -4,72 +4,69 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
-import os
+
 import copy
-import time
-from warnings import warn, catch_warnings, simplefilter
+import os
 import shutil
+import time
 from typing import (
     TYPE_CHECKING,
-    TypeAlias,
     Any,
     BinaryIO,
     Generator,
-    overload,
-    cast,
     Literal,
+    TypeAlias,
+    cast,
+    overload,
 )
+from warnings import catch_warnings, simplefilter, warn
 
-from ibm_watsonx_ai.libs.repo.mlrepositoryartifact import MLRepositoryArtifact
-from ibm_watsonx_ai.libs.repo.mlrepository import MetaProps
 import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.helpers import DataConnection
-
-from ibm_watsonx_ai.utils import (
-    MODEL_DETAILS_TYPE,
-    load_model_from_directory,
-    is_lale_pipeline,
-)
-from ibm_watsonx_ai.metanames import ModelMetaNames, LibraryMetaNames
-from ibm_watsonx_ai.utils.autoai.utils import (
-    download_request_json,
-    load_file_from_file_system_nonautoai,
-    init_cos_client,
-    check_if_ts_pipeline_is_winner,
-    prepare_auto_ai_model_to_publish_normal_scenario,
-)
-
-from ibm_watsonx_ai.utils.deployment.errors import ModelPromotionFailed, PromotionFailed
-from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
-    ApiRequestFailure,
-    UnexpectedType,
-)
-from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.wml_resource import WMLResource
-from ibm_watsonx_ai.libs.repo.util.compression_util import CompressionUtil
-from ibm_watsonx_ai.libs.repo.util.unique_id_gen import uid_generate
 from ibm_watsonx_ai.href_definitions import (
     API_VERSION,
-    SPACES,
-    PIPELINES,
     LIBRARIES,
+    PIPELINES,
     RUNTIMES,
+    SPACES,
+)
+from ibm_watsonx_ai.libs.repo.mlrepository import MetaProps
+from ibm_watsonx_ai.libs.repo.mlrepositoryartifact import MLRepositoryArtifact
+from ibm_watsonx_ai.libs.repo.util.compression_util import CompressionUtil
+from ibm_watsonx_ai.libs.repo.util.unique_id_gen import uid_generate
+from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.metanames import LibraryMetaNames, ModelMetaNames
+from ibm_watsonx_ai.utils import (
+    MODEL_DETAILS_TYPE,
+    is_lale_pipeline,
+    load_model_from_directory,
 )
 from ibm_watsonx_ai.utils.autoai.utils import (
+    check_if_ts_pipeline_is_winner,
+    download_request_json,
     get_autoai_run_id_from_experiment_metadata,
+    init_cos_client,
+    load_file_from_file_system_nonautoai,
     prepare_auto_ai_model_to_publish,
+    prepare_auto_ai_model_to_publish_normal_scenario,
 )
+from ibm_watsonx_ai.utils.deployment.errors import ModelPromotionFailed, PromotionFailed
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
-
+from ibm_watsonx_ai.wml_client_error import (
+    ApiRequestFailure,
+    UnexpectedType,
+    WMLClientError,
+)
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from ibm_watsonx_ai import APIClient
-    from ibm_watsonx_ai.sw_spec import SpecStates
-    import pandas
     import numpy
+    import pandas
     import pyspark
     import requests as Requests
+
+    from ibm_watsonx_ai import APIClient
+    from ibm_watsonx_ai.sw_spec import SpecStates
 
     LabelColumnNamesType: TypeAlias = (
         numpy.ndarray[Any, numpy.dtype[numpy.str_]] | list[str]
@@ -104,7 +101,6 @@ class Models(WMLResource):
     def _save_library_archive(
         self, ml_pipeline: pyspark.ml.pipeline.PipelineModel
     ) -> str:
-
         id_length = 20
         gen_id = uid_generate(id_length)
         temp_dir_name = "{}".format("library" + gen_id)
@@ -129,7 +125,6 @@ class Models(WMLResource):
     def _create_pipeline_input(
         self, lib_href: str, name: str, space_id: str | None = None
     ) -> dict[str, Any]:
-
         metadata = {
             self._client.pipelines.ConfigurationMetaNames.NAME: name
             + "_"
@@ -226,8 +221,9 @@ class Models(WMLResource):
             )
             CompressionUtil.extract_tar(tar_filename, temp_dir)
             os.remove(tar_filename)
-            import tensorflow as tf
             import glob
+
+            import tensorflow as tf
 
             h5format = True
             if not glob.glob(temp_dir + "/sequential_model.h5"):
@@ -532,7 +528,7 @@ class Models(WMLResource):
         try:
             details = self._client.training.get_details(model_id, _internal=True)
 
-        except ApiRequestFailure as e:
+        except ApiRequestFailure:
             raise UnexpectedType(
                 "model parameter", "model path / training_id", model_id
             )
@@ -706,7 +702,6 @@ class Models(WMLResource):
                 )
                 bucket = details["entity"]["results_reference"]["location"]["bucket"]
             else:
-
                 results_reference = DataConnection._from_dict(
                     details["entity"]["results_reference"]
                 )
@@ -963,7 +958,6 @@ class Models(WMLResource):
             and meta_props[self.ConfigurationMetaNames.TYPE]
             in [f"xgboost_{version}" for version in ("1.3", "1.5")]
         ):
-
             # validation
             with open(model, "r") as file:
                 try:
@@ -1315,7 +1309,7 @@ class Models(WMLResource):
                 self.delete(model_id)
             self._handle_response(201, "uploading model content", response, False)
 
-            if version == True:
+            if version is True:
                 return self._client.repository.get_details(
                     str(artifactid) + "/versions/" + model_id
                 )
@@ -1634,7 +1628,6 @@ class Models(WMLResource):
             )
 
             for data_reference in training_data_references:
-
                 data_reference_dict = (
                     data_reference.to_dict()
                     if isinstance(data_reference, DataConnection)
@@ -1660,17 +1653,12 @@ class Models(WMLResource):
                 "schema"
             )
         ):
-
             try:
                 if not meta_props.get(
                     self.ConfigurationMetaNames.LABEL_FIELD
                 ) and meta_props[self.ConfigurationMetaNames.TRAINING_DATA_REFERENCES][
                     0
-                ][
-                    "schema"
-                ].get(
-                    "fields"
-                ):
+                ]["schema"].get("fields"):
                     fields = meta_props[
                         self.ConfigurationMetaNames.TRAINING_DATA_REFERENCES
                     ][0]["schema"]["fields"]
@@ -1725,7 +1713,7 @@ class Models(WMLResource):
 
         if "frameworkName" in meta_props:
             framework_name = meta_props["frameworkName"].lower()
-            if version == True and (
+            if version is True and (
                 framework_name == "mllib" or framework_name == "wml"
             ):
                 raise WMLClientError(
@@ -1790,15 +1778,13 @@ class Models(WMLResource):
                 model, meta_props, "base"
             )
         elif not isinstance(model, str):
-            if version == True:
+            if version is True:
                 raise WMLClientError(
                     "Unsupported type: object for param model. Supported types: path to saved model, training ID"
                 )
             else:
                 if experiment_metadata or training_id:
-
                     if experiment_metadata:
-
                         training_id = get_autoai_run_id_from_experiment_metadata(
                             experiment_metadata
                         )
@@ -1965,7 +1951,6 @@ class Models(WMLResource):
                 )
             elif model.startswith("Pipeline_") and (experiment_metadata or training_id):
                 if experiment_metadata:
-
                     training_id = get_autoai_run_id_from_experiment_metadata(
                         experiment_metadata
                     )
@@ -2774,7 +2759,6 @@ class Models(WMLResource):
     def _update_model_content(
         self, model_id: str, updated_details: dict[str, Any], update_model: Any
     ) -> None:
-
         model = copy.copy(update_model)
         model_type = updated_details["entity"]["type"]
 
@@ -3216,8 +3200,8 @@ class Models(WMLResource):
     def _upload_autoai_model_content(
         self, file: str | BinaryIO, url: str, qparams: dict[str, Any]
     ) -> Requests.Response:
-        import zipfile
         import json
+        import zipfile
 
         node_ids = None
         with zipfile.ZipFile(file, "r") as zipObj:
@@ -3392,7 +3376,6 @@ class Models(WMLResource):
                 os.makedirs(temp_dir)
                 shutil.copy2(model, temp_dir)
         else:
-
             raise WMLClientError(
                 "Saving the tensorflow model requires the model of either tf format or h5 format for Sequential model."
             )
@@ -3635,8 +3618,8 @@ class Models(WMLResource):
             )
 
         if model_type == "curated":
-            if not model.endswith(f"-curated"):
-                model += f"-curated"
+            if not model.endswith("-curated"):
+                model += "-curated"
 
         elif model_type == "base":
             if self.ConfigurationMetaNames.SOFTWARE_SPEC_ID in meta_props:

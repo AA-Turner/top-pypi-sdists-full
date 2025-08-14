@@ -3,25 +3,26 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
+
 from enum import Enum, EnumMeta
 from typing import TYPE_CHECKING, TypeAlias
 from warnings import catch_warnings, simplefilter, warn
 
-from ibm_watsonx_ai.foundation_models.prompt_tuner import PromptTuner
+from ibm_watsonx_ai import APIClient
+from ibm_watsonx_ai.experiment.base_experiment import BaseExperiment
 from ibm_watsonx_ai.foundation_models.fine_tuner import FineTuner
 from ibm_watsonx_ai.foundation_models.ilab_tuner import ILabTuner
+from ibm_watsonx_ai.foundation_models.prompt_tuner import PromptTuner
 from ibm_watsonx_ai.foundation_models.utils.enums import (
-    PromptTuningTypes,
     PromptTuningInitMethods,
+    PromptTuningTypes,
     TuneExperimentTasks,
 )
 from ibm_watsonx_ai.foundation_models.utils.utils import (
     _check_model_state,
     get_model_specs_with_prompt_tuning_support,
 )
-from ibm_watsonx_ai.experiment.base_experiment import BaseExperiment
 from ibm_watsonx_ai.wml_client_error import WMLClientError
-from ibm_watsonx_ai import APIClient
 
 from .tune_runs import TuneRuns
 
@@ -72,7 +73,6 @@ class TuneExperiment(BaseExperiment):
         space_id: str | None = None,
         verify: str | bool | None = None,
     ) -> None:
-
         self.client = APIClient(credentials, verify=verify)
         if not self.client.CLOUD_PLATFORM_SPACES and self.client.CPD_version < 4.8:
             raise WMLClientError(error_msg="Operation is unsupported for this release.")
@@ -240,9 +240,7 @@ class TuneExperiment(BaseExperiment):
             base_model = base_model.value
 
         if self.client._use_fm_ga_api:
-            model_specs = (
-                self.client.foundation_models.get_model_specs_with_prompt_tuning_support()
-            )
+            model_specs = self.client.foundation_models.get_model_specs_with_prompt_tuning_support()
         else:
             with catch_warnings():
                 simplefilter("ignore", category=DeprecationWarning)
@@ -251,7 +249,8 @@ class TuneExperiment(BaseExperiment):
                 )
 
         prompt_tuning_supported_models = [
-            model_spec["model_id"] for model_spec in model_specs.get("resources", [])  # type: ignore[union-attr]
+            model_spec["model_id"]
+            for model_spec in model_specs.get("resources", [])  # type: ignore[union-attr]
         ]
 
         if base_model not in prompt_tuning_supported_models:

@@ -4,3 +4,5 @@
 #  -----------------------------------------------------------------------------------------
 
 from ibm_watsonx_ai.foundation_models.mcp.mcp_server import MCPServer
+
+__all__ = ["MCPServer"]

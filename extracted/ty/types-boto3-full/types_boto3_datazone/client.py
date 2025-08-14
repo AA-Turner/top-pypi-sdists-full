@@ -26,6 +26,8 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAccountPoolsPaginator,
+    ListAccountsInAccountPoolPaginator,
     ListAssetFiltersPaginator,
     ListAssetRevisionsPaginator,
     ListConnectionsPaginator,
@@ -73,6 +75,8 @@ from .type_defs import (
     CancelMetadataGenerationRunInputTypeDef,
     CancelSubscriptionInputTypeDef,
     CancelSubscriptionOutputTypeDef,
+    CreateAccountPoolInputTypeDef,
+    CreateAccountPoolOutputTypeDef,
     CreateAssetFilterInputTypeDef,
     CreateAssetFilterOutputTypeDef,
     CreateAssetInputTypeDef,
@@ -124,6 +128,7 @@ from .type_defs import (
     CreateSubscriptionTargetOutputTypeDef,
     CreateUserProfileInputTypeDef,
     CreateUserProfileOutputTypeDef,
+    DeleteAccountPoolInputTypeDef,
     DeleteAssetFilterInputTypeDef,
     DeleteAssetInputTypeDef,
     DeleteAssetTypeInputTypeDef,
@@ -154,6 +159,8 @@ from .type_defs import (
     DeleteTimeSeriesDataPointsInputTypeDef,
     DisassociateEnvironmentRoleInputTypeDef,
     EmptyResponseMetadataTypeDef,
+    GetAccountPoolInputTypeDef,
+    GetAccountPoolOutputTypeDef,
     GetAssetFilterInputTypeDef,
     GetAssetFilterOutputTypeDef,
     GetAssetInputTypeDef,
@@ -222,6 +229,10 @@ from .type_defs import (
     GetTimeSeriesDataPointOutputTypeDef,
     GetUserProfileInputTypeDef,
     GetUserProfileOutputTypeDef,
+    ListAccountPoolsInputTypeDef,
+    ListAccountPoolsOutputTypeDef,
+    ListAccountsInAccountPoolInputTypeDef,
+    ListAccountsInAccountPoolOutputTypeDef,
     ListAssetFiltersInputTypeDef,
     ListAssetFiltersOutputTypeDef,
     ListAssetRevisionsInputTypeDef,
@@ -314,6 +325,8 @@ from .type_defs import (
     StartMetadataGenerationRunOutputTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAccountPoolInputTypeDef,
+    UpdateAccountPoolOutputTypeDef,
     UpdateAssetFilterInputTypeDef,
     UpdateAssetFilterOutputTypeDef,
     UpdateConnectionInputTypeDef,
@@ -480,6 +493,16 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/cancel_subscription.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#cancel_subscription)
+        """
+
+    def create_account_pool(
+        self, **kwargs: Unpack[CreateAccountPoolInputTypeDef]
+    ) -> CreateAccountPoolOutputTypeDef:
+        """
+        Creates an account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/create_account_pool.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#create_account_pool)
         """
 
     def create_asset(self, **kwargs: Unpack[CreateAssetInputTypeDef]) -> CreateAssetOutputTypeDef:
@@ -740,6 +763,16 @@ class DataZoneClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#create_user_profile)
         """
 
+    def delete_account_pool(
+        self, **kwargs: Unpack[DeleteAccountPoolInputTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes an account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_account_pool.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#delete_account_pool)
+        """
+
     def delete_asset(self, **kwargs: Unpack[DeleteAssetInputTypeDef]) -> Dict[str, Any]:
         """
         Deletes an asset in Amazon DataZone.
@@ -973,6 +1006,16 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/disassociate_environment_role.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#disassociate_environment_role)
+        """
+
+    def get_account_pool(
+        self, **kwargs: Unpack[GetAccountPoolInputTypeDef]
+    ) -> GetAccountPoolOutputTypeDef:
+        """
+        Gets the details of the account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_account_pool.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_account_pool)
         """
 
     def get_asset(self, **kwargs: Unpack[GetAssetInputTypeDef]) -> GetAssetOutputTypeDef:
@@ -1297,6 +1340,26 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_user_profile.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_user_profile)
+        """
+
+    def list_account_pools(
+        self, **kwargs: Unpack[ListAccountPoolsInputTypeDef]
+    ) -> ListAccountPoolsOutputTypeDef:
+        """
+        Lists existing account pools.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/list_account_pools.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#list_account_pools)
+        """
+
+    def list_accounts_in_account_pool(
+        self, **kwargs: Unpack[ListAccountsInAccountPoolInputTypeDef]
+    ) -> ListAccountsInAccountPoolOutputTypeDef:
+        """
+        Lists the accounts in the specified account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/list_accounts_in_account_pool.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#list_accounts_in_account_pool)
         """
 
     def list_asset_filters(
@@ -1767,6 +1830,16 @@ class DataZoneClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#untag_resource)
         """
 
+    def update_account_pool(
+        self, **kwargs: Unpack[UpdateAccountPoolInputTypeDef]
+    ) -> UpdateAccountPoolOutputTypeDef:
+        """
+        Updates the account pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_account_pool.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#update_account_pool)
+        """
+
     def update_asset_filter(
         self, **kwargs: Unpack[UpdateAssetFilterInputTypeDef]
     ) -> UpdateAssetFilterOutputTypeDef:
@@ -1944,6 +2017,28 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_user_profile.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#update_user_profile)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_account_pools"]
+    ) -> ListAccountPoolsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_accounts_in_account_pool"]
+    ) -> ListAccountsInAccountPoolPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

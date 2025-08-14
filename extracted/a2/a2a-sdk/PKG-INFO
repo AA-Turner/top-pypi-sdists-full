@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 0.3.0
+Version: 0.3.1
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -21,20 +21,21 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: fastapi>=0.95.0
 Requires-Dist: google-api-core>=1.26.0
 Requires-Dist: httpx-sse>=0.4.0
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: protobuf==5.29.5
+Requires-Dist: protobuf>=5.29.5
 Requires-Dist: pydantic>=2.11.3
-Requires-Dist: sse-starlette
-Requires-Dist: starlette
 Provides-Extra: encryption
 Requires-Dist: cryptography>=43.0.0; extra == 'encryption'
 Provides-Extra: grpc
 Requires-Dist: grpcio-reflection>=1.7.0; extra == 'grpc'
 Requires-Dist: grpcio-tools>=1.60; extra == 'grpc'
 Requires-Dist: grpcio>=1.60; extra == 'grpc'
+Provides-Extra: http-server
+Requires-Dist: fastapi>=0.115.2; extra == 'http-server'
+Requires-Dist: sse-starlette; extra == 'http-server'
+Requires-Dist: starlette; extra == 'http-server'
 Provides-Extra: mysql
 Requires-Dist: sqlalchemy[aiomysql,asyncio]>=2.0.0; extra == 'mysql'
 Provides-Extra: postgresql
@@ -83,6 +84,12 @@ When you're working within a uv project or a virtual environment managed by uv, 
 uv add a2a-sdk
 ```
 
+To include the optional HTTP server components (FastAPI, Starlette), install the `http-server` extra:
+
+```bash
+uv add a2a-sdk[http-server]
+```
+
 To install with gRPC support:
 
 ```bash
@@ -117,6 +124,12 @@ If you prefer to use pip, the standard Python package installer, you can install
 
 ```bash
 pip install a2a-sdk
+```
+
+To include the optional HTTP server components (FastAPI, Starlette), install the `http-server` extra:
+
+```bash
+pip install a2a-sdk[http-server]
 ```
 
 To install with gRPC support:

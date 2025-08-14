@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: maggma
-Version: 0.71.5
+Version: 0.72.0
 Summary: Framework to develop datapipelines from files on disk to full dissemenation API
 Author-email: The Materials Project <feedback@materialsproject.org>
 License: maggma Copyright (c) 2017, The Regents of the University of
@@ -129,6 +129,7 @@ Requires-Dist: mkdocs-material>=8.3.9; extra == "docs"
 Requires-Dist: mkdocs-minify-plugin>=0.5.0; extra == "docs"
 Requires-Dist: mkdocstrings[python]>=0.18.1; extra == "docs"
 Requires-Dist: jinja2<3.2.0; extra == "docs"
+Dynamic: license-file
 
 
 # ![Maggma](docs/logo_w_text.svg)

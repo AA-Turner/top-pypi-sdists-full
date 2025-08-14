@@ -28,7 +28,7 @@ TESTCASEPARAMS_ANY_OF_SCHEMAS = ["List[object]", "object"]
 
 class TestCaseParams(BaseModel):
     """
-    TestCaseParams
+    Deprecated, use `parameters` instead.
     """
 
     # data type: List[object]

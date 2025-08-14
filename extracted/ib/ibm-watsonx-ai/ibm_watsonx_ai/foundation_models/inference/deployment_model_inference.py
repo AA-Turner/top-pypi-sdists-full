@@ -4,32 +4,32 @@
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
+
+from copy import deepcopy
 from typing import (
     TYPE_CHECKING,
+    AsyncGenerator,
     Generator,
+    Literal,
     cast,
     overload,
-    Literal,
-    AsyncGenerator,
 )
-from copy import deepcopy
 
+from ibm_watsonx_ai.foundation_models.schema import (
+    BaseSchema,
+    TextChatParameters,
+    TextGenParameters,
+)
+from ibm_watsonx_ai.foundation_models.utils.enums import DecodingMethods
+from ibm_watsonx_ai.foundation_models.utils.utils import _check_model_state
+from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 from ibm_watsonx_ai.wml_client_error import (
-    WMLClientError,
     MissingValue,
     PromptVariablesError,
     UnsupportedOperation,
+    WMLClientError,
 )
-
-from ibm_watsonx_ai.foundation_models.utils.enums import DecodingMethods
-from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
-from ibm_watsonx_ai.foundation_models.schema import (
-    TextChatParameters,
-    TextGenParameters,
-    BaseSchema,
-)
-from ibm_watsonx_ai.messages.messages import Messages
-from ibm_watsonx_ai.foundation_models.utils.utils import _check_model_state
 
 from .base_model_inference import BaseModelInference
 
@@ -309,7 +309,6 @@ class DeploymentModelInference(BaseModelInference):
         guardrails_granite_guardian_params: dict | None = None,
         validate_prompt_variables: bool = True,
     ) -> dict:
-
         prompt_required = self._deployment_type_validation(
             params, validate_prompt_variables
         )
@@ -525,17 +524,16 @@ class DeploymentModelInference(BaseModelInference):
                 parameters = parameters.to_dict()
 
         elif self.params is not None:
-
             self.params = cast(dict | TextGenParameters, self.params)
             parameters = deepcopy(self.params)
+
+            if isinstance(parameters, BaseSchema):
+                parameters = parameters.to_dict()
 
             if isinstance(parameters, dict):
                 parameters = self._validate_and_overwrite_params(
                     parameters, TextGenParameters()
                 )
-
-            elif isinstance(parameters, BaseSchema):
-                parameters = parameters.to_dict()
 
         else:
             parameters = None
@@ -607,17 +605,16 @@ class DeploymentModelInference(BaseModelInference):
                 parameters = parameters.to_dict()
 
         elif self.params is not None:
-
             self.params = cast(dict | TextGenParameters, self.params)
             parameters = deepcopy(self.params)
+
+            if isinstance(parameters, BaseSchema):
+                parameters = parameters.to_dict()
 
             if isinstance(parameters, dict):
                 parameters = self._validate_and_overwrite_params(
                     parameters, TextGenParameters()
                 )
-
-            elif isinstance(parameters, BaseSchema):
-                parameters = parameters.to_dict()
 
         else:
             parameters = None

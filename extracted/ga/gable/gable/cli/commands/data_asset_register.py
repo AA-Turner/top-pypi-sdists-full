@@ -3,6 +3,8 @@ from urllib.parse import quote
 
 import click
 from click.core import Context as ClickContext
+from loguru import logger
+
 from gable.cli.client import GableAPIClient
 from gable.cli.commands.asset_plugins.avro import AvroAssetPlugin
 from gable.cli.commands.asset_plugins.mssql import MsSQLAssetPlugin
@@ -32,7 +34,6 @@ from gable.common_types import (
     STATIC_CODE_ANALYSIS_SOURCE_TYPES,
 )
 from gable.openapi import SourceType
-from loguru import logger
 
 DATA_ASSET_REGISTER_CHUNK_SIZE = 20
 
@@ -366,10 +367,10 @@ def register_data_asset(
 
         if history:
             detect_s3_data_assets_history(
-                bucket_name = bucket,  # type: ignore (input validation ensures bucket is not None, this quashes linter)
-                include_prefix = include_prefix,  # type: ignore (input validation ensures include is not None or empty, this quashes linter)
-                row_sample_count = row_sample_count,
-                recent_file_count = recent_file_count,
+                bucket_name=bucket,  # type: ignore (input validation ensures bucket is not None, this quashes linter)
+                include_prefix=include_prefix,  # type: ignore (input validation ensures include is not None or empty, this quashes linter)
+                row_sample_count=row_sample_count,
+                recent_file_count=recent_file_count,
             )
             return
 

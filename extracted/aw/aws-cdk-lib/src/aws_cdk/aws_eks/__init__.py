@@ -3787,7 +3787,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param max_capacity: Maximum number of instances in the fleet. Default: desiredCapacity
-        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value, leave this property undefined. Default: none
+        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 86,400 seconds (one day). To clear a previously set value, leave this property undefined. Default: none
         :param min_capacity: Minimum number of instances in the fleet. Default: 1
         :param new_instances_protected_from_scale_in: Whether newly-launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in. By default, Auto Scaling can terminate an instance at any time after launch when scaling in an Auto Scaling Group, subject to the group's termination policy. However, you may wish to protect newly-launched instances from being scaled in if they are going to run critical applications that should not be prematurely terminated. This flag must be enabled if the Auto Scaling Group will be associated with an ECS Capacity Provider with managed termination protection. Default: false
         :param notifications: Configure autoscaling group to send notifications about fleet changes to an SNS topic(s). Default: - No fleet change notifications will be sent.
@@ -4163,7 +4163,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         to all current and future instances in the group. As an instance approaches its maximum duration,
         it is terminated and replaced, and cannot be used again.
 
-        You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value,
+        You must specify a value of at least 86,400 seconds (one day). To clear a previously set value,
         leave this property undefined.
 
         :default: none
@@ -6138,6 +6138,7 @@ class CfnCluster(
                 node_pools=["nodePools"],
                 node_role_arn="nodeRoleArn"
             ),
+            deletion_protection=False,
             encryption_config=[eks.CfnCluster.EncryptionConfigProperty(
                 provider=eks.CfnCluster.ProviderProperty(
                     key_arn="keyArn"
@@ -6209,6 +6210,7 @@ class CfnCluster(
         access_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.AccessConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bootstrap_self_managed_addons: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         compute_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ComputeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         encryption_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.EncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         force: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         kubernetes_network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.KubernetesNetworkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6230,6 +6232,7 @@ class CfnCluster(
         :param access_config: The access configuration for the cluster.
         :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking add-ons include ``vpc-cni`` , ``coredns`` , and ``kube-proxy`` . Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
         :param compute_config: Indicates the current configuration of the compute capability on your EKS Auto Mode cluster. For example, if the capability is enabled or disabled. If the compute capability is enabled, EKS Auto Mode will create and delete EC2 Managed Instances in your AWS account. For more information, see EKS Auto Mode compute capability in the *Amazon EKS User Guide* .
+        :param deletion_protection: Set this value to true to enable deletion protection for the cluster.
         :param encryption_config: The encryption configuration for the cluster.
         :param force: Set this value to ``true`` to override upgrade-blocking readiness checks when updating a cluster. Default: - false
         :param kubernetes_network_config: The Kubernetes network configuration for the cluster.
@@ -6253,6 +6256,7 @@ class CfnCluster(
             access_config=access_config,
             bootstrap_self_managed_addons=bootstrap_self_managed_addons,
             compute_config=compute_config,
+            deletion_protection=deletion_protection,
             encryption_config=encryption_config,
             force=force,
             kubernetes_network_config=kubernetes_network_config,
@@ -6474,6 +6478,24 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__5d35f88b28db161e1414d604c41ffc1d10fcf76351a0503d110f81158a8e15ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "computeConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtection")
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Set this value to true to enable deletion protection for the cluster.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deletionProtection"))
+
+    @deletion_protection.setter
+    def deletion_protection(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19e2a4eccf6e2e232dc5d0a9572dba914015320e88042ef8f90020cd0d14b037)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfig")
@@ -8172,6 +8194,7 @@ class CfnCluster(
         "access_config": "accessConfig",
         "bootstrap_self_managed_addons": "bootstrapSelfManagedAddons",
         "compute_config": "computeConfig",
+        "deletion_protection": "deletionProtection",
         "encryption_config": "encryptionConfig",
         "force": "force",
         "kubernetes_network_config": "kubernetesNetworkConfig",
@@ -8195,6 +8218,7 @@ class CfnClusterProps:
         access_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AccessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         bootstrap_self_managed_addons: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         compute_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ComputeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         encryption_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         force: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         kubernetes_network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.KubernetesNetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8215,6 +8239,7 @@ class CfnClusterProps:
         :param access_config: The access configuration for the cluster.
         :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking add-ons include ``vpc-cni`` , ``coredns`` , and ``kube-proxy`` . Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
         :param compute_config: Indicates the current configuration of the compute capability on your EKS Auto Mode cluster. For example, if the capability is enabled or disabled. If the compute capability is enabled, EKS Auto Mode will create and delete EC2 Managed Instances in your AWS account. For more information, see EKS Auto Mode compute capability in the *Amazon EKS User Guide* .
+        :param deletion_protection: Set this value to true to enable deletion protection for the cluster.
         :param encryption_config: The encryption configuration for the cluster.
         :param force: Set this value to ``true`` to override upgrade-blocking readiness checks when updating a cluster. Default: - false
         :param kubernetes_network_config: The Kubernetes network configuration for the cluster.
@@ -8260,6 +8285,7 @@ class CfnClusterProps:
                     node_pools=["nodePools"],
                     node_role_arn="nodeRoleArn"
                 ),
+                deletion_protection=False,
                 encryption_config=[eks.CfnCluster.EncryptionConfigProperty(
                     provider=eks.CfnCluster.ProviderProperty(
                         key_arn="keyArn"
@@ -8327,6 +8353,7 @@ class CfnClusterProps:
             check_type(argname="argument access_config", value=access_config, expected_type=type_hints["access_config"])
             check_type(argname="argument bootstrap_self_managed_addons", value=bootstrap_self_managed_addons, expected_type=type_hints["bootstrap_self_managed_addons"])
             check_type(argname="argument compute_config", value=compute_config, expected_type=type_hints["compute_config"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument encryption_config", value=encryption_config, expected_type=type_hints["encryption_config"])
             check_type(argname="argument force", value=force, expected_type=type_hints["force"])
             check_type(argname="argument kubernetes_network_config", value=kubernetes_network_config, expected_type=type_hints["kubernetes_network_config"])
@@ -8349,6 +8376,8 @@ class CfnClusterProps:
             self._values["bootstrap_self_managed_addons"] = bootstrap_self_managed_addons
         if compute_config is not None:
             self._values["compute_config"] = compute_config
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
         if encryption_config is not None:
             self._values["encryption_config"] = encryption_config
         if force is not None:
@@ -8438,6 +8467,17 @@ class CfnClusterProps:
         '''
         result = self._values.get("compute_config")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ComputeConfigProperty]], result)
+
+    @builtins.property
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Set this value to true to enable deletion protection for the cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-cluster.html#cfn-eks-cluster-deletionprotection
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
     @builtins.property
     def encryption_config(
@@ -18992,7 +19032,7 @@ class Cluster(
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param max_capacity: Maximum number of instances in the fleet. Default: desiredCapacity
-        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 604,800 seconds (7 days). To clear a previously set value, leave this property undefined. Default: none
+        :param max_instance_lifetime: The maximum amount of time that an instance can be in service. The maximum duration applies to all current and future instances in the group. As an instance approaches its maximum duration, it is terminated and replaced, and cannot be used again. You must specify a value of at least 86,400 seconds (one day). To clear a previously set value, leave this property undefined. Default: none
         :param min_capacity: Minimum number of instances in the fleet. Default: 1
         :param new_instances_protected_from_scale_in: Whether newly-launched instances are protected from termination by Amazon EC2 Auto Scaling when scaling in. By default, Auto Scaling can terminate an instance at any time after launch when scaling in an Auto Scaling Group, subject to the group's termination policy. However, you may wish to protect newly-launched instances from being scaled in if they are going to run critical applications that should not be prematurely terminated. This flag must be enabled if the Auto Scaling Group will be associated with an ECS Capacity Provider with managed termination protection. Default: false
         :param notifications: Configure autoscaling group to send notifications about fleet changes to an SNS topic(s). Default: - No fleet change notifications will be sent.
@@ -22387,6 +22427,7 @@ def _typecheckingstub__d3e62a858014f3867f3039d1328d57223fb0d16e3fb6d1e2d79279938
     access_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AccessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bootstrap_self_managed_addons: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     compute_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ComputeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     encryption_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     force: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     kubernetes_network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.KubernetesNetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22441,6 +22482,12 @@ def _typecheckingstub__1b3725246139251af199def1d548b17a13e8ddd4df825377563ea01cd
 
 def _typecheckingstub__5d35f88b28db161e1414d604c41ffc1d10fcf76351a0503d110f81158a8e15ca(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.ComputeConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19e2a4eccf6e2e232dc5d0a9572dba914015320e88042ef8f90020cd0d14b037(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22671,6 +22718,7 @@ def _typecheckingstub__270f142a59c249328ab174c5b0484cfdae6e3110ab52578dbe783d6f8
     access_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.AccessConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bootstrap_self_managed_addons: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     compute_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ComputeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     encryption_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     force: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     kubernetes_network_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.KubernetesNetworkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

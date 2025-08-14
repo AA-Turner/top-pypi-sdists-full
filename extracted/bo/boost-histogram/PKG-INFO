@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boost-histogram
-Version: 1.6.0
+Version: 1.6.1
 Summary: The Boost::Histogram Python wrapper.
 Keywords: boost-histogram,histogram
 Author-Email: Hans Dembinski <hans.dembinski@gmail.com>, Henry Schreiner <hschrein@cern.ch>

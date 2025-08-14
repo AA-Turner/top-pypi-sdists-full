@@ -1,7 +1,7 @@
 r'''
 # `azurerm_local_network_gateway`
 
-Refer to the Terraform Registry for docs: [`azurerm_local_network_gateway`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway).
+Refer to the Terraform Registry for docs: [`azurerm_local_network_gateway`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LocalNetworkGateway(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.localNetworkGateway.LocalNetworkGateway",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway azurerm_local_network_gateway}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway azurerm_local_network_gateway}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class LocalNetworkGateway(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway azurerm_local_network_gateway} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway azurerm_local_network_gateway} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#location LocalNetworkGateway#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#name LocalNetworkGateway#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#resource_group_name LocalNetworkGateway#resource_group_name}.
-        :param address_space: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#address_space LocalNetworkGateway#address_space}.
-        :param bgp_settings: bgp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#bgp_settings LocalNetworkGateway#bgp_settings}
-        :param gateway_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#gateway_address LocalNetworkGateway#gateway_address}.
-        :param gateway_fqdn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#gateway_fqdn LocalNetworkGateway#gateway_fqdn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#id LocalNetworkGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#tags LocalNetworkGateway#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#timeouts LocalNetworkGateway#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#location LocalNetworkGateway#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#name LocalNetworkGateway#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#resource_group_name LocalNetworkGateway#resource_group_name}.
+        :param address_space: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#address_space LocalNetworkGateway#address_space}.
+        :param bgp_settings: bgp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#bgp_settings LocalNetworkGateway#bgp_settings}
+        :param gateway_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#gateway_address LocalNetworkGateway#gateway_address}.
+        :param gateway_fqdn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#gateway_fqdn LocalNetworkGateway#gateway_fqdn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#id LocalNetworkGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#tags LocalNetworkGateway#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#timeouts LocalNetworkGateway#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class LocalNetworkGateway(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LocalNetworkGateway to import.
-        :param import_from_id: The id of the existing LocalNetworkGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LocalNetworkGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LocalNetworkGateway to import is found.
         '''
         if __debug__:
@@ -150,9 +150,9 @@ class LocalNetworkGateway(
         peer_weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param asn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#asn LocalNetworkGateway#asn}.
-        :param bgp_peering_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#bgp_peering_address LocalNetworkGateway#bgp_peering_address}.
-        :param peer_weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#peer_weight LocalNetworkGateway#peer_weight}.
+        :param asn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#asn LocalNetworkGateway#asn}.
+        :param bgp_peering_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#bgp_peering_address LocalNetworkGateway#bgp_peering_address}.
+        :param peer_weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#peer_weight LocalNetworkGateway#peer_weight}.
         '''
         value = LocalNetworkGatewayBgpSettings(
             asn=asn, bgp_peering_address=bgp_peering_address, peer_weight=peer_weight
@@ -170,10 +170,10 @@ class LocalNetworkGateway(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#create LocalNetworkGateway#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#delete LocalNetworkGateway#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#read LocalNetworkGateway#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#update LocalNetworkGateway#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#create LocalNetworkGateway#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#delete LocalNetworkGateway#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#read LocalNetworkGateway#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#update LocalNetworkGateway#update}.
         '''
         value = LocalNetworkGatewayTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -399,9 +399,9 @@ class LocalNetworkGatewayBgpSettings:
         peer_weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param asn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#asn LocalNetworkGateway#asn}.
-        :param bgp_peering_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#bgp_peering_address LocalNetworkGateway#bgp_peering_address}.
-        :param peer_weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#peer_weight LocalNetworkGateway#peer_weight}.
+        :param asn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#asn LocalNetworkGateway#asn}.
+        :param bgp_peering_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#bgp_peering_address LocalNetworkGateway#bgp_peering_address}.
+        :param peer_weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#peer_weight LocalNetworkGateway#peer_weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4401c45d410ecf80597df18f11964afb528ccb3e2d3dc4cced3467ae8bb520a3)
@@ -417,21 +417,21 @@ class LocalNetworkGatewayBgpSettings:
 
     @builtins.property
     def asn(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#asn LocalNetworkGateway#asn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#asn LocalNetworkGateway#asn}.'''
         result = self._values.get("asn")
         assert result is not None, "Required property 'asn' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def bgp_peering_address(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#bgp_peering_address LocalNetworkGateway#bgp_peering_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#bgp_peering_address LocalNetworkGateway#bgp_peering_address}.'''
         result = self._values.get("bgp_peering_address")
         assert result is not None, "Required property 'bgp_peering_address' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def peer_weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#peer_weight LocalNetworkGateway#peer_weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#peer_weight LocalNetworkGateway#peer_weight}.'''
         result = self._values.get("peer_weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -591,16 +591,16 @@ class LocalNetworkGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#location LocalNetworkGateway#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#name LocalNetworkGateway#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#resource_group_name LocalNetworkGateway#resource_group_name}.
-        :param address_space: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#address_space LocalNetworkGateway#address_space}.
-        :param bgp_settings: bgp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#bgp_settings LocalNetworkGateway#bgp_settings}
-        :param gateway_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#gateway_address LocalNetworkGateway#gateway_address}.
-        :param gateway_fqdn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#gateway_fqdn LocalNetworkGateway#gateway_fqdn}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#id LocalNetworkGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#tags LocalNetworkGateway#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#timeouts LocalNetworkGateway#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#location LocalNetworkGateway#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#name LocalNetworkGateway#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#resource_group_name LocalNetworkGateway#resource_group_name}.
+        :param address_space: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#address_space LocalNetworkGateway#address_space}.
+        :param bgp_settings: bgp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#bgp_settings LocalNetworkGateway#bgp_settings}
+        :param gateway_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#gateway_address LocalNetworkGateway#gateway_address}.
+        :param gateway_fqdn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#gateway_fqdn LocalNetworkGateway#gateway_fqdn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#id LocalNetworkGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#tags LocalNetworkGateway#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#timeouts LocalNetworkGateway#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -727,28 +727,28 @@ class LocalNetworkGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#location LocalNetworkGateway#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#location LocalNetworkGateway#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#name LocalNetworkGateway#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#name LocalNetworkGateway#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#resource_group_name LocalNetworkGateway#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#resource_group_name LocalNetworkGateway#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def address_space(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#address_space LocalNetworkGateway#address_space}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#address_space LocalNetworkGateway#address_space}.'''
         result = self._values.get("address_space")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -756,26 +756,26 @@ class LocalNetworkGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bgp_settings(self) -> typing.Optional[LocalNetworkGatewayBgpSettings]:
         '''bgp_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#bgp_settings LocalNetworkGateway#bgp_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#bgp_settings LocalNetworkGateway#bgp_settings}
         '''
         result = self._values.get("bgp_settings")
         return typing.cast(typing.Optional[LocalNetworkGatewayBgpSettings], result)
 
     @builtins.property
     def gateway_address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#gateway_address LocalNetworkGateway#gateway_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#gateway_address LocalNetworkGateway#gateway_address}.'''
         result = self._values.get("gateway_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def gateway_fqdn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#gateway_fqdn LocalNetworkGateway#gateway_fqdn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#gateway_fqdn LocalNetworkGateway#gateway_fqdn}.'''
         result = self._values.get("gateway_fqdn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#id LocalNetworkGateway#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#id LocalNetworkGateway#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -785,7 +785,7 @@ class LocalNetworkGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#tags LocalNetworkGateway#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#tags LocalNetworkGateway#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -793,7 +793,7 @@ class LocalNetworkGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LocalNetworkGatewayTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#timeouts LocalNetworkGateway#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#timeouts LocalNetworkGateway#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LocalNetworkGatewayTimeouts"], result)
@@ -830,10 +830,10 @@ class LocalNetworkGatewayTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#create LocalNetworkGateway#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#delete LocalNetworkGateway#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#read LocalNetworkGateway#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#update LocalNetworkGateway#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#create LocalNetworkGateway#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#delete LocalNetworkGateway#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#read LocalNetworkGateway#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#update LocalNetworkGateway#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a47a2a9d23fb3ea59ad00f1936f5098c6d07c65d06396108b84266999dc9c78)
@@ -853,25 +853,25 @@ class LocalNetworkGatewayTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#create LocalNetworkGateway#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#create LocalNetworkGateway#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#delete LocalNetworkGateway#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#delete LocalNetworkGateway#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#read LocalNetworkGateway#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#read LocalNetworkGateway#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/local_network_gateway#update LocalNetworkGateway#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/local_network_gateway#update LocalNetworkGateway#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

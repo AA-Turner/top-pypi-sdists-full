@@ -5,11 +5,12 @@ use crate::{
     Confidence, Severity,
     finding::{
         Finding, Persona,
-        location::{Feature, Location, Subfeature},
+        location::{Feature, Location},
     },
     models::{StepCommon, action::CompositeStep, workflow::Step},
-    utils::parse_expressions_from_input,
+    utils::parse_fenced_expressions_from_input,
 };
+use subfeature::Subfeature;
 
 use super::{Audit, AuditInput, AuditLoadError, AuditState, audit_meta};
 
@@ -110,7 +111,7 @@ impl Obfuscation {
                         .add_location(
                             step.location()
                                 .primary()
-                                .with_keys(&["uses".into()])
+                                .with_keys(["uses".into()])
                                 .annotated(annotation),
                         )
                         .build(step)?,
@@ -133,7 +134,7 @@ impl Audit for Obfuscation {
     fn audit_raw<'doc>(&self, input: &'doc AuditInput) -> anyhow::Result<Vec<Finding<'doc>>> {
         let mut findings = vec![];
 
-        for (expr, expr_span) in parse_expressions_from_input(input) {
+        for (expr, expr_span) in parse_fenced_expressions_from_input(input) {
             let Ok(parsed) = Expr::parse(expr.as_bare()) else {
                 tracing::warn!("couldn't parse expression: {expr}", expr = expr.as_bare());
                 continue;

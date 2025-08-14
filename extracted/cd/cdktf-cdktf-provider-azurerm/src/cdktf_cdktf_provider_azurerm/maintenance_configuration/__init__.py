@@ -1,7 +1,7 @@
 r'''
 # `azurerm_maintenance_configuration`
 
-Refer to the Terraform Registry for docs: [`azurerm_maintenance_configuration`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration).
+Refer to the Terraform Registry for docs: [`azurerm_maintenance_configuration`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MaintenanceConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.maintenanceConfiguration.MaintenanceConfiguration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration azurerm_maintenance_configuration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration azurerm_maintenance_configuration}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class MaintenanceConfiguration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration azurerm_maintenance_configuration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration azurerm_maintenance_configuration} Resource.
 
         :param scope_: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#location MaintenanceConfiguration#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#name MaintenanceConfiguration#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#resource_group_name MaintenanceConfiguration#resource_group_name}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#scope MaintenanceConfiguration#scope}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#id MaintenanceConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_guest_user_patch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#in_guest_user_patch_mode MaintenanceConfiguration#in_guest_user_patch_mode}.
-        :param install_patches: install_patches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#install_patches MaintenanceConfiguration#install_patches}
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#properties MaintenanceConfiguration#properties}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#tags MaintenanceConfiguration#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#timeouts MaintenanceConfiguration#timeouts}
-        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#visibility MaintenanceConfiguration#visibility}.
-        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#window MaintenanceConfiguration#window}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#location MaintenanceConfiguration#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#name MaintenanceConfiguration#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#resource_group_name MaintenanceConfiguration#resource_group_name}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#scope MaintenanceConfiguration#scope}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#id MaintenanceConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_guest_user_patch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#in_guest_user_patch_mode MaintenanceConfiguration#in_guest_user_patch_mode}.
+        :param install_patches: install_patches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#install_patches MaintenanceConfiguration#install_patches}
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#properties MaintenanceConfiguration#properties}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#tags MaintenanceConfiguration#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#timeouts MaintenanceConfiguration#timeouts}
+        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#visibility MaintenanceConfiguration#visibility}.
+        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#window MaintenanceConfiguration#window}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class MaintenanceConfiguration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MaintenanceConfiguration to import.
-        :param import_from_id: The id of the existing MaintenanceConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MaintenanceConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MaintenanceConfiguration to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class MaintenanceConfiguration(
         windows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MaintenanceConfigurationInstallPatchesWindows", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param linux: linux block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#linux MaintenanceConfiguration#linux}
-        :param reboot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#reboot MaintenanceConfiguration#reboot}.
-        :param windows: windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#windows MaintenanceConfiguration#windows}
+        :param linux: linux block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#linux MaintenanceConfiguration#linux}
+        :param reboot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#reboot MaintenanceConfiguration#reboot}.
+        :param windows: windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#windows MaintenanceConfiguration#windows}
         '''
         value = MaintenanceConfigurationInstallPatches(
             linux=linux, reboot=reboot, windows=windows
@@ -176,10 +176,10 @@ class MaintenanceConfiguration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#create MaintenanceConfiguration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#delete MaintenanceConfiguration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#read MaintenanceConfiguration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#update MaintenanceConfiguration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#create MaintenanceConfiguration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#delete MaintenanceConfiguration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#read MaintenanceConfiguration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#update MaintenanceConfiguration#update}.
         '''
         value = MaintenanceConfigurationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -198,11 +198,11 @@ class MaintenanceConfiguration(
         recur_every: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param start_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#start_date_time MaintenanceConfiguration#start_date_time}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#time_zone MaintenanceConfiguration#time_zone}.
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#duration MaintenanceConfiguration#duration}.
-        :param expiration_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#expiration_date_time MaintenanceConfiguration#expiration_date_time}.
-        :param recur_every: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#recur_every MaintenanceConfiguration#recur_every}.
+        :param start_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#start_date_time MaintenanceConfiguration#start_date_time}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#time_zone MaintenanceConfiguration#time_zone}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#duration MaintenanceConfiguration#duration}.
+        :param expiration_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#expiration_date_time MaintenanceConfiguration#expiration_date_time}.
+        :param recur_every: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#recur_every MaintenanceConfiguration#recur_every}.
         '''
         value = MaintenanceConfigurationWindow(
             start_date_time=start_date_time,
@@ -508,18 +508,18 @@ class MaintenanceConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#location MaintenanceConfiguration#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#name MaintenanceConfiguration#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#resource_group_name MaintenanceConfiguration#resource_group_name}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#scope MaintenanceConfiguration#scope}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#id MaintenanceConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_guest_user_patch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#in_guest_user_patch_mode MaintenanceConfiguration#in_guest_user_patch_mode}.
-        :param install_patches: install_patches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#install_patches MaintenanceConfiguration#install_patches}
-        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#properties MaintenanceConfiguration#properties}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#tags MaintenanceConfiguration#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#timeouts MaintenanceConfiguration#timeouts}
-        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#visibility MaintenanceConfiguration#visibility}.
-        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#window MaintenanceConfiguration#window}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#location MaintenanceConfiguration#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#name MaintenanceConfiguration#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#resource_group_name MaintenanceConfiguration#resource_group_name}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#scope MaintenanceConfiguration#scope}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#id MaintenanceConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_guest_user_patch_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#in_guest_user_patch_mode MaintenanceConfiguration#in_guest_user_patch_mode}.
+        :param install_patches: install_patches block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#install_patches MaintenanceConfiguration#install_patches}
+        :param properties: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#properties MaintenanceConfiguration#properties}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#tags MaintenanceConfiguration#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#timeouts MaintenanceConfiguration#timeouts}
+        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#visibility MaintenanceConfiguration#visibility}.
+        :param window: window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#window MaintenanceConfiguration#window}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -653,35 +653,35 @@ class MaintenanceConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#location MaintenanceConfiguration#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#location MaintenanceConfiguration#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#name MaintenanceConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#name MaintenanceConfiguration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#resource_group_name MaintenanceConfiguration#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#resource_group_name MaintenanceConfiguration#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def scope(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#scope MaintenanceConfiguration#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#scope MaintenanceConfiguration#scope}.'''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#id MaintenanceConfiguration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#id MaintenanceConfiguration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -691,7 +691,7 @@ class MaintenanceConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def in_guest_user_patch_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#in_guest_user_patch_mode MaintenanceConfiguration#in_guest_user_patch_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#in_guest_user_patch_mode MaintenanceConfiguration#in_guest_user_patch_mode}.'''
         result = self._values.get("in_guest_user_patch_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -701,20 +701,20 @@ class MaintenanceConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["MaintenanceConfigurationInstallPatches"]:
         '''install_patches block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#install_patches MaintenanceConfiguration#install_patches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#install_patches MaintenanceConfiguration#install_patches}
         '''
         result = self._values.get("install_patches")
         return typing.cast(typing.Optional["MaintenanceConfigurationInstallPatches"], result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#properties MaintenanceConfiguration#properties}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#properties MaintenanceConfiguration#properties}.'''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#tags MaintenanceConfiguration#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#tags MaintenanceConfiguration#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -722,14 +722,14 @@ class MaintenanceConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MaintenanceConfigurationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#timeouts MaintenanceConfiguration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#timeouts MaintenanceConfiguration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MaintenanceConfigurationTimeouts"], result)
 
     @builtins.property
     def visibility(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#visibility MaintenanceConfiguration#visibility}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#visibility MaintenanceConfiguration#visibility}.'''
         result = self._values.get("visibility")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -737,7 +737,7 @@ class MaintenanceConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def window(self) -> typing.Optional["MaintenanceConfigurationWindow"]:
         '''window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#window MaintenanceConfiguration#window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#window MaintenanceConfiguration#window}
         '''
         result = self._values.get("window")
         return typing.cast(typing.Optional["MaintenanceConfigurationWindow"], result)
@@ -768,9 +768,9 @@ class MaintenanceConfigurationInstallPatches:
         windows: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["MaintenanceConfigurationInstallPatchesWindows", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param linux: linux block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#linux MaintenanceConfiguration#linux}
-        :param reboot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#reboot MaintenanceConfiguration#reboot}.
-        :param windows: windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#windows MaintenanceConfiguration#windows}
+        :param linux: linux block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#linux MaintenanceConfiguration#linux}
+        :param reboot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#reboot MaintenanceConfiguration#reboot}.
+        :param windows: windows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#windows MaintenanceConfiguration#windows}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7db1f5c833e5f8f62a84411116a51be754faa81a575b317d5dc9f7ddf80c91fe)
@@ -791,14 +791,14 @@ class MaintenanceConfigurationInstallPatches:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MaintenanceConfigurationInstallPatchesLinux"]]]:
         '''linux block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#linux MaintenanceConfiguration#linux}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#linux MaintenanceConfiguration#linux}
         '''
         result = self._values.get("linux")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MaintenanceConfigurationInstallPatchesLinux"]]], result)
 
     @builtins.property
     def reboot(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#reboot MaintenanceConfiguration#reboot}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#reboot MaintenanceConfiguration#reboot}.'''
         result = self._values.get("reboot")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -808,7 +808,7 @@ class MaintenanceConfigurationInstallPatches:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MaintenanceConfigurationInstallPatchesWindows"]]]:
         '''windows block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#windows MaintenanceConfiguration#windows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#windows MaintenanceConfiguration#windows}
         '''
         result = self._values.get("windows")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["MaintenanceConfigurationInstallPatchesWindows"]]], result)
@@ -843,9 +843,9 @@ class MaintenanceConfigurationInstallPatchesLinux:
         package_names_mask_to_include: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param classifications_to_include: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#classifications_to_include MaintenanceConfiguration#classifications_to_include}.
-        :param package_names_mask_to_exclude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#package_names_mask_to_exclude MaintenanceConfiguration#package_names_mask_to_exclude}.
-        :param package_names_mask_to_include: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#package_names_mask_to_include MaintenanceConfiguration#package_names_mask_to_include}.
+        :param classifications_to_include: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#classifications_to_include MaintenanceConfiguration#classifications_to_include}.
+        :param package_names_mask_to_exclude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#package_names_mask_to_exclude MaintenanceConfiguration#package_names_mask_to_exclude}.
+        :param package_names_mask_to_include: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#package_names_mask_to_include MaintenanceConfiguration#package_names_mask_to_include}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1c0661cdfcaf86619540b88ec96e6e5b7d15a8dfd7dbf199fdd39df03a6fa3b2)
@@ -862,7 +862,7 @@ class MaintenanceConfigurationInstallPatchesLinux:
 
     @builtins.property
     def classifications_to_include(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#classifications_to_include MaintenanceConfiguration#classifications_to_include}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#classifications_to_include MaintenanceConfiguration#classifications_to_include}.'''
         result = self._values.get("classifications_to_include")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -870,7 +870,7 @@ class MaintenanceConfigurationInstallPatchesLinux:
     def package_names_mask_to_exclude(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#package_names_mask_to_exclude MaintenanceConfiguration#package_names_mask_to_exclude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#package_names_mask_to_exclude MaintenanceConfiguration#package_names_mask_to_exclude}.'''
         result = self._values.get("package_names_mask_to_exclude")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -878,7 +878,7 @@ class MaintenanceConfigurationInstallPatchesLinux:
     def package_names_mask_to_include(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#package_names_mask_to_include MaintenanceConfiguration#package_names_mask_to_include}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#package_names_mask_to_include MaintenanceConfiguration#package_names_mask_to_include}.'''
         result = self._values.get("package_names_mask_to_include")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1233,9 +1233,9 @@ class MaintenanceConfigurationInstallPatchesWindows:
         kb_numbers_to_include: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param classifications_to_include: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#classifications_to_include MaintenanceConfiguration#classifications_to_include}.
-        :param kb_numbers_to_exclude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#kb_numbers_to_exclude MaintenanceConfiguration#kb_numbers_to_exclude}.
-        :param kb_numbers_to_include: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#kb_numbers_to_include MaintenanceConfiguration#kb_numbers_to_include}.
+        :param classifications_to_include: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#classifications_to_include MaintenanceConfiguration#classifications_to_include}.
+        :param kb_numbers_to_exclude: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#kb_numbers_to_exclude MaintenanceConfiguration#kb_numbers_to_exclude}.
+        :param kb_numbers_to_include: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#kb_numbers_to_include MaintenanceConfiguration#kb_numbers_to_include}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__63d09c13b1e26a4308449eea6a81781e4636f500edf6d773a6350c0b51570a5c)
@@ -1252,19 +1252,19 @@ class MaintenanceConfigurationInstallPatchesWindows:
 
     @builtins.property
     def classifications_to_include(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#classifications_to_include MaintenanceConfiguration#classifications_to_include}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#classifications_to_include MaintenanceConfiguration#classifications_to_include}.'''
         result = self._values.get("classifications_to_include")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def kb_numbers_to_exclude(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#kb_numbers_to_exclude MaintenanceConfiguration#kb_numbers_to_exclude}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#kb_numbers_to_exclude MaintenanceConfiguration#kb_numbers_to_exclude}.'''
         result = self._values.get("kb_numbers_to_exclude")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def kb_numbers_to_include(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#kb_numbers_to_include MaintenanceConfiguration#kb_numbers_to_include}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#kb_numbers_to_include MaintenanceConfiguration#kb_numbers_to_include}.'''
         result = self._values.get("kb_numbers_to_include")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1502,10 +1502,10 @@ class MaintenanceConfigurationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#create MaintenanceConfiguration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#delete MaintenanceConfiguration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#read MaintenanceConfiguration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#update MaintenanceConfiguration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#create MaintenanceConfiguration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#delete MaintenanceConfiguration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#read MaintenanceConfiguration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#update MaintenanceConfiguration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__122f12c93059f22f81579bd416583da2a55fd031cdcafc3515ef8f5f9e127318)
@@ -1525,25 +1525,25 @@ class MaintenanceConfigurationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#create MaintenanceConfiguration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#create MaintenanceConfiguration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#delete MaintenanceConfiguration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#delete MaintenanceConfiguration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#read MaintenanceConfiguration#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#read MaintenanceConfiguration#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#update MaintenanceConfiguration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#update MaintenanceConfiguration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1703,11 +1703,11 @@ class MaintenanceConfigurationWindow:
         recur_every: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param start_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#start_date_time MaintenanceConfiguration#start_date_time}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#time_zone MaintenanceConfiguration#time_zone}.
-        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#duration MaintenanceConfiguration#duration}.
-        :param expiration_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#expiration_date_time MaintenanceConfiguration#expiration_date_time}.
-        :param recur_every: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#recur_every MaintenanceConfiguration#recur_every}.
+        :param start_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#start_date_time MaintenanceConfiguration#start_date_time}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#time_zone MaintenanceConfiguration#time_zone}.
+        :param duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#duration MaintenanceConfiguration#duration}.
+        :param expiration_date_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#expiration_date_time MaintenanceConfiguration#expiration_date_time}.
+        :param recur_every: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#recur_every MaintenanceConfiguration#recur_every}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__813fcec526839bf486e484e118c36fe1658c91fd4566995c18c7fb902611a4d9)
@@ -1729,33 +1729,33 @@ class MaintenanceConfigurationWindow:
 
     @builtins.property
     def start_date_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#start_date_time MaintenanceConfiguration#start_date_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#start_date_time MaintenanceConfiguration#start_date_time}.'''
         result = self._values.get("start_date_time")
         assert result is not None, "Required property 'start_date_time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_zone(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#time_zone MaintenanceConfiguration#time_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#time_zone MaintenanceConfiguration#time_zone}.'''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def duration(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#duration MaintenanceConfiguration#duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#duration MaintenanceConfiguration#duration}.'''
         result = self._values.get("duration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def expiration_date_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#expiration_date_time MaintenanceConfiguration#expiration_date_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#expiration_date_time MaintenanceConfiguration#expiration_date_time}.'''
         result = self._values.get("expiration_date_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def recur_every(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/maintenance_configuration#recur_every MaintenanceConfiguration#recur_every}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/maintenance_configuration#recur_every MaintenanceConfiguration#recur_every}.'''
         result = self._values.get("recur_every")
         return typing.cast(typing.Optional[builtins.str], result)
 

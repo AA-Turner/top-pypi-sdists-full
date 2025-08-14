@@ -1,7 +1,7 @@
 r'''
 # `data_azuread_service_principals`
 
-Refer to the Terraform Registry for docs: [`data_azuread_service_principals`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals).
+Refer to the Terraform Registry for docs: [`data_azuread_service_principals`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAzureadServicePrincipals(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.dataAzureadServicePrincipals.DataAzureadServicePrincipals",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals azuread_service_principals}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals azuread_service_principals}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DataAzureadServicePrincipals(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals azuread_service_principals} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals azuread_service_principals} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param client_ids: The client IDs of the applications associated with the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#client_ids DataAzureadServicePrincipals#client_ids}
-        :param display_names: The display names of the applications associated with the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#display_names DataAzureadServicePrincipals#display_names}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#id DataAzureadServicePrincipals#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_missing: Ignore missing service principals and return the service principals that were found. The data source will still fail if no service principals are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#ignore_missing DataAzureadServicePrincipals#ignore_missing}
-        :param object_ids: The object IDs of the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#object_ids DataAzureadServicePrincipals#object_ids}
-        :param return_all: Fetch all service principals with no filter and return all that were found. The data source will still fail if no service principals are found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#return_all DataAzureadServicePrincipals#return_all}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#timeouts DataAzureadServicePrincipals#timeouts}
+        :param client_ids: The client IDs of the applications associated with the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#client_ids DataAzureadServicePrincipals#client_ids}
+        :param display_names: The display names of the applications associated with the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#display_names DataAzureadServicePrincipals#display_names}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#id DataAzureadServicePrincipals#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_missing: Ignore missing service principals and return the service principals that were found. The data source will still fail if no service principals are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#ignore_missing DataAzureadServicePrincipals#ignore_missing}
+        :param object_ids: The object IDs of the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#object_ids DataAzureadServicePrincipals#object_ids}
+        :param return_all: Fetch all service principals with no filter and return all that were found. The data source will still fail if no service principals are found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#return_all DataAzureadServicePrincipals#return_all}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#timeouts DataAzureadServicePrincipals#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DataAzureadServicePrincipals(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAzureadServicePrincipals to import.
-        :param import_from_id: The id of the existing DataAzureadServicePrincipals that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAzureadServicePrincipals that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAzureadServicePrincipals to import is found.
         '''
         if __debug__:
@@ -135,7 +135,7 @@ class DataAzureadServicePrincipals(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#read DataAzureadServicePrincipals#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#read DataAzureadServicePrincipals#read}.
         '''
         value = DataAzureadServicePrincipalsTimeouts(read=read)
 
@@ -361,13 +361,13 @@ class DataAzureadServicePrincipalsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param client_ids: The client IDs of the applications associated with the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#client_ids DataAzureadServicePrincipals#client_ids}
-        :param display_names: The display names of the applications associated with the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#display_names DataAzureadServicePrincipals#display_names}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#id DataAzureadServicePrincipals#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_missing: Ignore missing service principals and return the service principals that were found. The data source will still fail if no service principals are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#ignore_missing DataAzureadServicePrincipals#ignore_missing}
-        :param object_ids: The object IDs of the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#object_ids DataAzureadServicePrincipals#object_ids}
-        :param return_all: Fetch all service principals with no filter and return all that were found. The data source will still fail if no service principals are found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#return_all DataAzureadServicePrincipals#return_all}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#timeouts DataAzureadServicePrincipals#timeouts}
+        :param client_ids: The client IDs of the applications associated with the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#client_ids DataAzureadServicePrincipals#client_ids}
+        :param display_names: The display names of the applications associated with the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#display_names DataAzureadServicePrincipals#display_names}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#id DataAzureadServicePrincipals#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_missing: Ignore missing service principals and return the service principals that were found. The data source will still fail if no service principals are found Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#ignore_missing DataAzureadServicePrincipals#ignore_missing}
+        :param object_ids: The object IDs of the service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#object_ids DataAzureadServicePrincipals#object_ids}
+        :param return_all: Fetch all service principals with no filter and return all that were found. The data source will still fail if no service principals are found. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#return_all DataAzureadServicePrincipals#return_all}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#timeouts DataAzureadServicePrincipals#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -487,7 +487,7 @@ class DataAzureadServicePrincipalsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def client_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The client IDs of the applications associated with the service principals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#client_ids DataAzureadServicePrincipals#client_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#client_ids DataAzureadServicePrincipals#client_ids}
         '''
         result = self._values.get("client_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -496,14 +496,14 @@ class DataAzureadServicePrincipalsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def display_names(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The display names of the applications associated with the service principals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#display_names DataAzureadServicePrincipals#display_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#display_names DataAzureadServicePrincipals#display_names}
         '''
         result = self._values.get("display_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#id DataAzureadServicePrincipals#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#id DataAzureadServicePrincipals#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -519,7 +519,7 @@ class DataAzureadServicePrincipalsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
         The data source will still fail if no service principals are found
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#ignore_missing DataAzureadServicePrincipals#ignore_missing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#ignore_missing DataAzureadServicePrincipals#ignore_missing}
         '''
         result = self._values.get("ignore_missing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -528,7 +528,7 @@ class DataAzureadServicePrincipalsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def object_ids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The object IDs of the service principals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#object_ids DataAzureadServicePrincipals#object_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#object_ids DataAzureadServicePrincipals#object_ids}
         '''
         result = self._values.get("object_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -541,7 +541,7 @@ class DataAzureadServicePrincipalsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
         The data source will still fail if no service principals are found.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#return_all DataAzureadServicePrincipals#return_all}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#return_all DataAzureadServicePrincipals#return_all}
         '''
         result = self._values.get("return_all")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -550,7 +550,7 @@ class DataAzureadServicePrincipalsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["DataAzureadServicePrincipalsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#timeouts DataAzureadServicePrincipals#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#timeouts DataAzureadServicePrincipals#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataAzureadServicePrincipalsTimeouts"], result)
@@ -776,7 +776,7 @@ class DataAzureadServicePrincipalsServicePrincipalsOutputReference(
 class DataAzureadServicePrincipalsTimeouts:
     def __init__(self, *, read: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#read DataAzureadServicePrincipals#read}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#read DataAzureadServicePrincipals#read}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69e7dd24e10b24460f5506854608acd5c64bcf919bb2137654a859e4630bf7ef)
@@ -787,7 +787,7 @@ class DataAzureadServicePrincipalsTimeouts:
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/data-sources/service_principals#read DataAzureadServicePrincipals#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/data-sources/service_principals#read DataAzureadServicePrincipals#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 

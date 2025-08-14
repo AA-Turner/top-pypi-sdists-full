@@ -3,11 +3,10 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from typing import Literal, Any
+from typing import Any, Literal
 
 from .base_chunker import BaseChunker
 from .langchain_chunker import LangChainChunker
-
 
 _supported_providers = ["langchain"]
 

@@ -11,14 +11,12 @@ use github_actions_models::{
 
 use super::{Audit, AuditLoadError, AuditState, audit_meta};
 use crate::{
-    finding::{
-        Confidence, Fix, FixDisposition, Severity,
-        location::{Locatable as _, Route, Subfeature},
-    },
+    finding::{Confidence, Fix, FixDisposition, Severity, location::Locatable as _},
     models::workflow::{JobExt, Workflow},
-    utils::ExtractedExpr,
-    yaml_patch::{Op, Patch},
+    utils::{self, ExtractedExpr},
 };
+use subfeature::Subfeature;
+use yamlpatch::{Op, Patch};
 
 pub(crate) struct BotConditions;
 
@@ -77,7 +75,7 @@ impl Audit for BotConditions {
             conds.push((
                 expr,
                 job.location_with_name(),
-                job.location().with_keys(&["if".into()]),
+                job.location().with_keys(["if".into()]),
             ));
         }
 
@@ -87,15 +85,22 @@ impl Audit for BotConditions {
                 conds.push((
                     expr,
                     step.location_with_name(),
-                    step.location().with_keys(&["if".into()]),
+                    step.location().with_keys(["if".into()]),
                 ));
             }
         }
 
         for (expr, parent, if_loc) in conds {
-            let unparsed = ExtractedExpr::new(expr);
+            // Handle a fenced `if:` by extracting it explicitly.
+            // We need this indirection because of multiline YAML strings,
+            // e.g. where the literal string value might be something like
+            // `${{ ... }}\n`.
+            let bare = match utils::extract_fenced_expression(expr, 0) {
+                Some((expr, _)) => expr.as_bare(),
+                None => ExtractedExpr::new(expr).as_bare(),
+            };
 
-            let Ok(expr) = Expr::parse(unparsed.as_bare()) else {
+            let Ok(expr) = Expr::parse(bare) else {
                 tracing::warn!("couldn't parse expression: {expr}");
                 continue;
             };
@@ -352,7 +357,7 @@ impl BotConditions {
     fn attempt_fix<'doc>(
         workflow: &'doc Workflow,
         spoofable_context: &SpannedExpr<'doc>,
-        if_route: Route<'doc>,
+        if_route: yamlpath::Route<'doc>,
     ) -> Option<Fix<'doc>> {
         // Get appropriate contexts based on workflow triggers
         let (safe_name_context, safe_id_context) = Self::get_user_contexts_for_triggers(workflow)?;
@@ -387,9 +392,8 @@ impl BotConditions {
             patches: vec![Patch {
                 route: if_route,
                 operation: Op::RewriteFragment {
-                    from: spoofable_context_raw.into(),
+                    from: subfeature::Subfeature::new(0, spoofable_context_raw),
                     to: safe_context.into(),
-                    after: None,
                 },
             }],
         })
@@ -415,8 +419,7 @@ mod tests {
             let audit_state = AuditState {
                 config: &Default::default(),
                 no_online_audits: false,
-                cache_dir: "/tmp/zizmor".into(),
-                gh_token: None,
+                gh_client: None,
                 gh_hostname: GitHubHost::Standard("github.com".into()),
             };
             let audit = <$audit_type>::new(&audit_state).unwrap();

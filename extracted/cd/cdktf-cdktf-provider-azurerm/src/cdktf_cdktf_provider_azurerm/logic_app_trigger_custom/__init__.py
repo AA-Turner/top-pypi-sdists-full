@@ -1,7 +1,7 @@
 r'''
 # `azurerm_logic_app_trigger_custom`
 
-Refer to the Terraform Registry for docs: [`azurerm_logic_app_trigger_custom`](https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom).
+Refer to the Terraform Registry for docs: [`azurerm_logic_app_trigger_custom`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogicAppTriggerCustom(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.logicAppTriggerCustom.LogicAppTriggerCustom",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom azurerm_logic_app_trigger_custom}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom azurerm_logic_app_trigger_custom}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class LogicAppTriggerCustom(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom azurerm_logic_app_trigger_custom} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom azurerm_logic_app_trigger_custom} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#body LogicAppTriggerCustom#body}.
-        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#logic_app_id LogicAppTriggerCustom#logic_app_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#name LogicAppTriggerCustom#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#id LogicAppTriggerCustom#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#timeouts LogicAppTriggerCustom#timeouts}
+        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#body LogicAppTriggerCustom#body}.
+        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#logic_app_id LogicAppTriggerCustom#logic_app_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#name LogicAppTriggerCustom#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#id LogicAppTriggerCustom#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#timeouts LogicAppTriggerCustom#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class LogicAppTriggerCustom(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogicAppTriggerCustom to import.
-        :param import_from_id: The id of the existing LogicAppTriggerCustom that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogicAppTriggerCustom that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogicAppTriggerCustom to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class LogicAppTriggerCustom(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#create LogicAppTriggerCustom#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#delete LogicAppTriggerCustom#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#read LogicAppTriggerCustom#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#update LogicAppTriggerCustom#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#create LogicAppTriggerCustom#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#delete LogicAppTriggerCustom#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#read LogicAppTriggerCustom#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#update LogicAppTriggerCustom#update}.
         '''
         value = LogicAppTriggerCustomTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -297,11 +297,11 @@ class LogicAppTriggerCustomConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#body LogicAppTriggerCustom#body}.
-        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#logic_app_id LogicAppTriggerCustom#logic_app_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#name LogicAppTriggerCustom#name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#id LogicAppTriggerCustom#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#timeouts LogicAppTriggerCustom#timeouts}
+        :param body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#body LogicAppTriggerCustom#body}.
+        :param logic_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#logic_app_id LogicAppTriggerCustom#logic_app_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#name LogicAppTriggerCustom#name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#id LogicAppTriggerCustom#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#timeouts LogicAppTriggerCustom#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -411,28 +411,28 @@ class LogicAppTriggerCustomConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def body(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#body LogicAppTriggerCustom#body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#body LogicAppTriggerCustom#body}.'''
         result = self._values.get("body")
         assert result is not None, "Required property 'body' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def logic_app_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#logic_app_id LogicAppTriggerCustom#logic_app_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#logic_app_id LogicAppTriggerCustom#logic_app_id}.'''
         result = self._values.get("logic_app_id")
         assert result is not None, "Required property 'logic_app_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#name LogicAppTriggerCustom#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#name LogicAppTriggerCustom#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#id LogicAppTriggerCustom#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#id LogicAppTriggerCustom#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -444,7 +444,7 @@ class LogicAppTriggerCustomConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["LogicAppTriggerCustomTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#timeouts LogicAppTriggerCustom#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#timeouts LogicAppTriggerCustom#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["LogicAppTriggerCustomTimeouts"], result)
@@ -481,10 +481,10 @@ class LogicAppTriggerCustomTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#create LogicAppTriggerCustom#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#delete LogicAppTriggerCustom#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#read LogicAppTriggerCustom#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#update LogicAppTriggerCustom#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#create LogicAppTriggerCustom#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#delete LogicAppTriggerCustom#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#read LogicAppTriggerCustom#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#update LogicAppTriggerCustom#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a442698fa2c73effae55978a98829b9561cabc9ef546067ef4c0a8cfb31a22c7)
@@ -504,25 +504,25 @@ class LogicAppTriggerCustomTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#create LogicAppTriggerCustom#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#create LogicAppTriggerCustom#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#delete LogicAppTriggerCustom#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#delete LogicAppTriggerCustom#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#read LogicAppTriggerCustom#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#read LogicAppTriggerCustom#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.38.1/docs/resources/logic_app_trigger_custom#update LogicAppTriggerCustom#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/logic_app_trigger_custom#update LogicAppTriggerCustom#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

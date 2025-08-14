@@ -288,8 +288,8 @@ class ProximityUseCase(BaseProcessor):
         # Update tracking state BEFORE proximity calculation so we have canonical IDs
         self._update_tracking_state(counting_summary)
 
-        # Calculate unique proximity events for this frame (meters-aware)
-        proximity_count = self._count_proximity_events(counting_summary["detections"], config, stream_info)
+        # Calculate unique proximity events for this frame using expanded bbox method
+        proximity_count = self._count_proximity_events_by_expanded_bbox(counting_summary["detections"], config, stream_info)
         counting_summary["proximity_events"] = proximity_count
         counting_summary["total_proximity_count"] = self._total_proximity_count
         
@@ -769,8 +769,8 @@ class ProximityUseCase(BaseProcessor):
         
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         
-        # Add proximity count to human text (meters-aware)
-        proximity_count = self._count_proximity_events(detections, config, stream_info)
+        # Add proximity count to human text (expanded bbox method)
+        proximity_count = self._count_proximity_events_by_expanded_bbox(detections, config, stream_info)
         if proximity_count > 0:
             human_text_lines.append(f"\t- Current Frame Proximity: {proximity_count//2}")
         else:
@@ -1703,6 +1703,13 @@ class ProximityUseCase(BaseProcessor):
                     "default": 400,
                     "description": "Fallback pixel threshold if no calibration is available"
                 },
+                "proximity_iou_threshold": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "default": 0.1,
+                    "description": "IoU threshold for proximity detection using expanded bounding boxes"
+                },
                 "time_window_minutes": {
                     "type": "integer",
                     "minimum": 1,
@@ -1778,3 +1785,117 @@ class ProximityUseCase(BaseProcessor):
         smoothed_data = bbox_smoothing(data, self.smoothing_tracker.config, self.smoothing_tracker)
         self.logger.debug("Applied bbox smoothing to tracking results")
         return smoothed_data
+
+    def _count_proximity_events_by_expanded_bbox(self, detections: List[Dict[str, Any]], config: ProximityConfig, stream_info: Optional[Dict[str, Any]] = None) -> int:
+        """Count UNIQUE proximity events using expanded bounding boxes and IoU.
+
+        Rules:
+        - Expand each bbox by 20% width and 10% height
+        - Use IoU threshold to determine proximity between expanded boxes
+        - Use track IDs when available to build stable (id1,id2) pairs
+        - Count each pair once (i < j) using IoU between expanded boxes
+        - Maintain a running set of unique canonical-ID pairs across frames to compute total unique proximity events
+        """
+        if not detections:
+            return 0
+
+        # IoU threshold for proximity detection (configurable)
+        proximity_iou_threshold = getattr(config, "proximity_iou_threshold", 0.1)
+        overlap_iou_threshold = getattr(self, "_proximity_iou_duplicate_threshold", 0.5)
+
+        # Helper: convert bbox to xyxy list
+        def _to_xyxy(bbox: Any) -> List[float]:
+            if isinstance(bbox, list):
+                if len(bbox) >= 4:
+                    return [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])]
+                return []
+            if isinstance(bbox, dict):
+                if all(k in bbox for k in ("xmin", "ymin", "xmax", "ymax")):
+                    return [float(bbox["xmin"]), float(bbox["ymin"]), float(bbox["xmax"]), float(bbox["ymax"])]
+                if all(k in bbox for k in ("x1", "y1", "x2", "y2")):
+                    return [float(bbox["x1"]), float(bbox["y1"]), float(bbox["x2"]), float(bbox["y2"])]
+                # Fallback: take first four values
+                vals = list(bbox.values())
+                if len(vals) >= 4:
+                    return [float(vals[0]), float(vals[1]), float(vals[2]), float(vals[3])]
+                return []
+            return []
+
+        # Helper: expand bbox by given percentages
+        def _expand_bbox(bbox_xyxy: List[float], width_expand: float = 0.2, height_expand: float = 0.1) -> List[float]:
+            """Expand bbox by width_expand% width and height_expand% height."""
+            if len(bbox_xyxy) < 4:
+                return bbox_xyxy
+            
+            x1, y1, x2, y2 = bbox_xyxy
+            width = x2 - x1
+            height = y2 - y1
+            
+            # Calculate expansion amounts
+            width_expansion = width * width_expand
+            height_expansion = height * height_expand
+            
+            # Expand bbox (expand outward from center)
+            expanded_x1 = x1 - width_expansion / 2
+            expanded_y1 = y1 - height_expansion / 2
+            expanded_x2 = x2 + width_expansion / 2
+            expanded_y2 = y2 + height_expansion / 2
+            
+            return [expanded_x1, expanded_y1, expanded_x2, expanded_y2]
+
+        # Prepare tracked detections with expanded bboxes
+        tracked_detections: List[Dict[str, Any]] = []
+        for det in detections:
+            bbox = _to_xyxy(det.get("bounding_box", det.get("bbox", {})))
+            if not bbox:
+                continue
+            
+            # Expand the bbox
+            expanded_bbox = _expand_bbox(bbox)
+            
+            tracked_detections.append({
+                "track_id": det.get("track_id"),
+                "original_bbox": bbox,
+                "expanded_bbox": expanded_bbox,
+                "confidence": float(det.get("confidence", 1.0))
+            })
+
+        # IoU-NMS to remove overlapping original boxes, keep highest confidence
+        kept: List[Dict[str, Any]] = self._nms_by_iou(tracked_detections, overlap_iou_threshold)
+
+        n = len(kept)
+        current_pairs_by_ids: Set[tuple] = set()
+        current_pairs_all: Set[tuple] = set()
+
+        # Build current frame proximity pairs using expanded bbox IoU
+        for i in range(n):
+            expanded_bbox_i = kept[i]["expanded_bbox"]
+            for j in range(i + 1, n):
+                expanded_bbox_j = kept[j]["expanded_bbox"]
+                
+                # Calculate IoU between expanded bboxes
+                iou = self._compute_iou(expanded_bbox_i, expanded_bbox_j)
+                
+                # Check if IoU exceeds proximity threshold
+                if iou >= proximity_iou_threshold:
+                    # For per-frame count, include every close pair
+                    current_pairs_all.add((i, j))
+
+                    # For global unique, require both IDs
+                    id_i = kept[i].get("track_id")
+                    id_j = kept[j].get("track_id")
+                    if id_i is not None and id_j is not None:
+                        pair_ids = (id_i, id_j) if id_i <= id_j else (id_j, id_i)
+                        current_pairs_by_ids.add(pair_ids)
+
+        # Update global unique proximity pairs using ID pairs only
+        new_unique_pairs = {frozenset(p) for p in current_pairs_by_ids} - self._observed_proximity_pairs
+        if new_unique_pairs:
+            self._total_proximity_count += len(new_unique_pairs)
+            self._observed_proximity_pairs.update(new_unique_pairs)
+
+        # Store last frame pairs (ID pairs if available, else index pairs as fallback)
+        self._last_frame_proximity_pairs = current_pairs_by_ids if current_pairs_by_ids else current_pairs_all
+
+        # Return count of pairs detected in the current frame
+        return len(current_pairs_by_ids) if current_pairs_by_ids else len(current_pairs_all)

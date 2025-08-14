@@ -2,12 +2,12 @@
 #  (C) Copyright IBM Corp. 2024-2025.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
-from typing import Any
 import importlib
+from typing import Any
 
 from .base_chunker import BaseChunker
-from .langchain_chunker import LangChainChunker
 from .get_chunker import get_chunker
+from .langchain_chunker import LangChainChunker
 
 __all__ = [
     "BaseChunker",

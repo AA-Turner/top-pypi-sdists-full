@@ -1206,6 +1206,7 @@ __all__ = [
     'DataSourceCredentials',
     'DataSourceDatabricksParameters',
     'DataSourceErrorInfo',
+    'DataSourceIdentityCenterConfiguration',
     'DataSourceManifestFileLocation',
     'DataSourceMariaDbParameters',
     'DataSourceMySqlParameters',
@@ -1774,6 +1775,7 @@ __all__ = [
     'TopicColumn',
     'TopicComparativeOrder',
     'TopicConfigOptions',
+    'TopicCustomInstructions',
     'TopicDataAggregation',
     'TopicDatasetMetadata',
     'TopicDateRangeFilter',
@@ -74771,10 +74773,10 @@ class DataSetCastColumnTypeOperation(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "columnName":
-            suggest = "column_name"
-        elif key == "newColumnType":
+        if key == "newColumnType":
             suggest = "new_column_type"
+        elif key == "columnName":
+            suggest = "column_name"
         elif key == "subType":
             suggest = "sub_type"
 
@@ -74790,32 +74792,25 @@ class DataSetCastColumnTypeOperation(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 column_name: builtins.str,
                  new_column_type: 'DataSetColumnDataType',
+                 column_name: Optional[builtins.str] = None,
                  format: Optional[builtins.str] = None,
                  sub_type: Optional['DataSetColumnDataSubType'] = None):
         """
         <p>A transform operation that casts a column to a different type.</p>
-        :param builtins.str column_name: <p>Column name.</p>
         :param 'DataSetColumnDataType' new_column_type: New column data type.
+        :param builtins.str column_name: <p>Column name.</p>
         :param builtins.str format: <p>When casting a column from string to datetime type, you can supply a string in a
                            format supported by Amazon QuickSight to denote the source data format.</p>
         :param 'DataSetColumnDataSubType' sub_type: The sub data type of the new column. Sub types are only available for decimal columns that are part of a SPICE dataset.
         """
-        pulumi.set(__self__, "column_name", column_name)
         pulumi.set(__self__, "new_column_type", new_column_type)
+        if column_name is not None:
+            pulumi.set(__self__, "column_name", column_name)
         if format is not None:
             pulumi.set(__self__, "format", format)
         if sub_type is not None:
             pulumi.set(__self__, "sub_type", sub_type)
-
-    @property
-    @pulumi.getter(name="columnName")
-    def column_name(self) -> builtins.str:
-        """
-        <p>Column name.</p>
-        """
-        return pulumi.get(self, "column_name")
 
     @property
     @pulumi.getter(name="newColumnType")
@@ -74824,6 +74819,14 @@ class DataSetCastColumnTypeOperation(dict):
         New column data type.
         """
         return pulumi.get(self, "new_column_type")
+
+    @property
+    @pulumi.getter(name="columnName")
+    def column_name(self) -> Optional[builtins.str]:
+        """
+        <p>Column name.</p>
+        """
+        return pulumi.get(self, "column_name")
 
     @property
     @pulumi.getter
@@ -75522,17 +75525,18 @@ class DataSetFilterOperation(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 condition_expression: builtins.str):
+                 condition_expression: Optional[builtins.str] = None):
         """
         <p>A transform operation that filters rows based on a condition.</p>
         :param builtins.str condition_expression: <p>An expression that must evaluate to a Boolean value. Rows for which the expression
                            evaluates to true are kept in the dataset.</p>
         """
-        pulumi.set(__self__, "condition_expression", condition_expression)
+        if condition_expression is not None:
+            pulumi.set(__self__, "condition_expression", condition_expression)
 
     @property
     @pulumi.getter(name="conditionExpression")
-    def condition_expression(self) -> builtins.str:
+    def condition_expression(self) -> Optional[builtins.str]:
         """
         <p>An expression that must evaluate to a Boolean value. Rows for which the expression
                     evaluates to true are kept in the dataset.</p>
@@ -76575,17 +76579,18 @@ class DataSetProjectOperation(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 projected_columns: Sequence[builtins.str]):
+                 projected_columns: Optional[Sequence[builtins.str]] = None):
         """
         <p>A transform operation that projects columns. Operations that come after a projection
                     can only refer to projected columns.</p>
         :param Sequence[builtins.str] projected_columns: <p>Projected columns.</p>
         """
-        pulumi.set(__self__, "projected_columns", projected_columns)
+        if projected_columns is not None:
+            pulumi.set(__self__, "projected_columns", projected_columns)
 
     @property
     @pulumi.getter(name="projectedColumns")
-    def projected_columns(self) -> Sequence[builtins.str]:
+    def projected_columns(self) -> Optional[Sequence[builtins.str]]:
         """
         <p>Projected columns.</p>
         """
@@ -76870,20 +76875,21 @@ class DataSetRenameColumnOperation(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 column_name: builtins.str,
+                 column_name: Optional[builtins.str] = None,
                  new_column_name: Optional[builtins.str] = None):
         """
         <p>A transform operation that renames a column.</p>
         :param builtins.str column_name: <p>The name of the column to be renamed.</p>
         :param builtins.str new_column_name: <p>The new name for the column.</p>
         """
-        pulumi.set(__self__, "column_name", column_name)
+        if column_name is not None:
+            pulumi.set(__self__, "column_name", column_name)
         if new_column_name is not None:
             pulumi.set(__self__, "new_column_name", new_column_name)
 
     @property
     @pulumi.getter(name="columnName")
-    def column_name(self) -> builtins.str:
+    def column_name(self) -> Optional[builtins.str]:
         """
         <p>The name of the column to be renamed.</p>
         """
@@ -77134,10 +77140,10 @@ class DataSetRowLevelPermissionTagRule(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "columnName":
-            suggest = "column_name"
-        elif key == "tagKey":
+        if key == "tagKey":
             suggest = "tag_key"
+        elif key == "columnName":
+            suggest = "column_name"
         elif key == "matchAllValue":
             suggest = "match_all_value"
         elif key == "tagMultiValueDelimiter":
@@ -77155,31 +77161,24 @@ class DataSetRowLevelPermissionTagRule(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 column_name: builtins.str,
                  tag_key: builtins.str,
+                 column_name: Optional[builtins.str] = None,
                  match_all_value: Optional[builtins.str] = None,
                  tag_multi_value_delimiter: Optional[builtins.str] = None):
         """
         <p>A set of rules associated with a tag.</p>
-        :param builtins.str column_name: <p>The column name that a tag key is assigned to.</p>
         :param builtins.str tag_key: <p>The unique key for a tag.</p>
+        :param builtins.str column_name: <p>The column name that a tag key is assigned to.</p>
         :param builtins.str match_all_value: <p>A string that you want to use to filter by all the values in a column in the dataset and don’t want to list the values one by one. For example, you can use an asterisk as your match all value.</p>
         :param builtins.str tag_multi_value_delimiter: <p>A string that you want to use to delimit the values when you pass the values at run time. For example, you can delimit the values with a comma.</p>
         """
-        pulumi.set(__self__, "column_name", column_name)
         pulumi.set(__self__, "tag_key", tag_key)
+        if column_name is not None:
+            pulumi.set(__self__, "column_name", column_name)
         if match_all_value is not None:
             pulumi.set(__self__, "match_all_value", match_all_value)
         if tag_multi_value_delimiter is not None:
             pulumi.set(__self__, "tag_multi_value_delimiter", tag_multi_value_delimiter)
-
-    @property
-    @pulumi.getter(name="columnName")
-    def column_name(self) -> builtins.str:
-        """
-        <p>The column name that a tag key is assigned to.</p>
-        """
-        return pulumi.get(self, "column_name")
 
     @property
     @pulumi.getter(name="tagKey")
@@ -77188,6 +77187,14 @@ class DataSetRowLevelPermissionTagRule(dict):
         <p>The unique key for a tag.</p>
         """
         return pulumi.get(self, "tag_key")
+
+    @property
+    @pulumi.getter(name="columnName")
+    def column_name(self) -> Optional[builtins.str]:
+        """
+        <p>The column name that a tag key is assigned to.</p>
+        """
+        return pulumi.get(self, "column_name")
 
     @property
     @pulumi.getter(name="matchAllValue")
@@ -77606,12 +77613,13 @@ class DataSetUniqueKey(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 column_names: Sequence[builtins.str]):
-        pulumi.set(__self__, "column_names", column_names)
+                 column_names: Optional[Sequence[builtins.str]] = None):
+        if column_names is not None:
+            pulumi.set(__self__, "column_names", column_names)
 
     @property
     @pulumi.getter(name="columnNames")
-    def column_names(self) -> Sequence[builtins.str]:
+    def column_names(self) -> Optional[Sequence[builtins.str]]:
         return pulumi.get(self, "column_names")
 
 
@@ -77865,7 +77873,9 @@ class DataSourceAthenaParameters(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "roleArn":
+        if key == "identityCenterConfiguration":
+            suggest = "identity_center_configuration"
+        elif key == "roleArn":
             suggest = "role_arn"
         elif key == "workGroup":
             suggest = "work_group"
@@ -77882,17 +77892,33 @@ class DataSourceAthenaParameters(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 identity_center_configuration: Optional['outputs.DataSourceIdentityCenterConfiguration'] = None,
                  role_arn: Optional[builtins.str] = None,
                  work_group: Optional[builtins.str] = None):
         """
         <p>Parameters for Amazon Athena.</p>
+        :param 'DataSourceIdentityCenterConfiguration' identity_center_configuration: An optional parameter that configures IAM Identity Center authentication to grant Amazon QuickSight access to your workgroup.
+               
+               This parameter can only be specified if your Amazon QuickSight account is configured with IAM Identity Center.
         :param builtins.str role_arn: <p>Use the <code>RoleArn</code> structure to override an account-wide role for a specific Athena data source. For example, say an account administrator has turned off all Athena access with an account-wide role. The administrator can then use <code>RoleArn</code> to bypass the account-wide role and allow Athena access for the single Athena data source that is specified in the structure, even if the account-wide role forbidding Athena access is still active.</p>
         :param builtins.str work_group: <p>The workgroup that Amazon Athena uses.</p>
         """
+        if identity_center_configuration is not None:
+            pulumi.set(__self__, "identity_center_configuration", identity_center_configuration)
         if role_arn is not None:
             pulumi.set(__self__, "role_arn", role_arn)
         if work_group is not None:
             pulumi.set(__self__, "work_group", work_group)
+
+    @property
+    @pulumi.getter(name="identityCenterConfiguration")
+    def identity_center_configuration(self) -> Optional['outputs.DataSourceIdentityCenterConfiguration']:
+        """
+        An optional parameter that configures IAM Identity Center authentication to grant Amazon QuickSight access to your workgroup.
+
+        This parameter can only be specified if your Amazon QuickSight account is configured with IAM Identity Center.
+        """
+        return pulumi.get(self, "identity_center_configuration")
 
     @property
     @pulumi.getter(name="roleArn")
@@ -78250,6 +78276,46 @@ class DataSourceErrorInfo(dict):
 
 
 @pulumi.output_type
+class DataSourceIdentityCenterConfiguration(dict):
+    """
+    <p>The parameters for an IAM Identity Center configuration.</p>
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "enableIdentityPropagation":
+            suggest = "enable_identity_propagation"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DataSourceIdentityCenterConfiguration. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DataSourceIdentityCenterConfiguration.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DataSourceIdentityCenterConfiguration.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 enable_identity_propagation: Optional[builtins.bool] = None):
+        """
+        <p>The parameters for an IAM Identity Center configuration.</p>
+        :param builtins.bool enable_identity_propagation: <p>A Boolean option that controls whether Trusted Identity Propagation should be used.</p>
+        """
+        if enable_identity_propagation is not None:
+            pulumi.set(__self__, "enable_identity_propagation", enable_identity_propagation)
+
+    @property
+    @pulumi.getter(name="enableIdentityPropagation")
+    def enable_identity_propagation(self) -> Optional[builtins.bool]:
+        """
+        <p>A Boolean option that controls whether Trusted Identity Propagation should be used.</p>
+        """
+        return pulumi.get(self, "enable_identity_propagation")
+
+
+@pulumi.output_type
 class DataSourceManifestFileLocation(dict):
     """
     <p>Amazon S3 manifest file location.</p>
@@ -78475,6 +78541,7 @@ class DataSourceOracleParameters(dict):
         :param builtins.str database: <p>The database.</p>
         :param builtins.str host: <p>An Oracle host.</p>
         :param builtins.float port: <p>The port.</p>
+        :param builtins.bool use_service_name: A Boolean value that indicates whether the `Database` uses a service name or an SID. If this value is left blank, the default value is `SID` . If this value is set to `false` , the value is `SID` .
         """
         pulumi.set(__self__, "database", database)
         pulumi.set(__self__, "host", host)
@@ -78509,6 +78576,9 @@ class DataSourceOracleParameters(dict):
     @property
     @pulumi.getter(name="useServiceName")
     def use_service_name(self) -> Optional[builtins.bool]:
+        """
+        A Boolean value that indicates whether the `Database` uses a service name or an SID. If this value is left blank, the default value is `SID` . If this value is set to `false` , the value is `SID` .
+        """
         return pulumi.get(self, "use_service_name")
 
 
@@ -79077,7 +79147,7 @@ class DataSourceRedshiftParameters(dict):
                  cluster_id: Optional[builtins.str] = None,
                  host: Optional[builtins.str] = None,
                  iam_parameters: Optional['outputs.DataSourceRedshiftIamParameters'] = None,
-                 identity_center_configuration: Optional[Any] = None,
+                 identity_center_configuration: Optional['outputs.DataSourceIdentityCenterConfiguration'] = None,
                  port: Optional[builtins.float] = None):
         """
         <p>The parameters for Amazon Redshift. The <code>ClusterId</code> field can be blank if
@@ -79087,7 +79157,7 @@ class DataSourceRedshiftParameters(dict):
                            provided.</p>
         :param builtins.str host: <p>Host. This field can be blank if <code>ClusterId</code> is provided.</p>
         :param 'DataSourceRedshiftIamParameters' iam_parameters: An optional parameter that uses IAM authentication to grant Amazon QuickSight access to your cluster. This parameter can be used instead of [DataSourceCredentials](https://docs.aws.amazon.com/quicksight/latest/APIReference/API_DataSourceCredentials.html) .
-        :param Any identity_center_configuration: An optional parameter that configures IAM Identity Center authentication to grant Amazon QuickSight access to your cluster.
+        :param 'DataSourceIdentityCenterConfiguration' identity_center_configuration: An optional parameter that configures IAM Identity Center authentication to grant Amazon QuickSight access to your cluster.
                
                This parameter can only be specified if your Amazon QuickSight account is configured with IAM Identity Center.
         :param builtins.float port: <p>Port. This field can be blank if the <code>ClusterId</code> is provided.</p>
@@ -79139,7 +79209,7 @@ class DataSourceRedshiftParameters(dict):
 
     @property
     @pulumi.getter(name="identityCenterConfiguration")
-    def identity_center_configuration(self) -> Optional[Any]:
+    def identity_center_configuration(self) -> Optional['outputs.DataSourceIdentityCenterConfiguration']:
         """
         An optional parameter that configures IAM Identity Center authentication to grant Amazon QuickSight access to your cluster.
 
@@ -115887,6 +115957,35 @@ class TopicConfigOptions(dict):
         Enables Amazon Q Business Insights for a `Topic` .
         """
         return pulumi.get(self, "q_business_insights_enabled")
+
+
+@pulumi.output_type
+class TopicCustomInstructions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "customInstructionsString":
+            suggest = "custom_instructions_string"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TopicCustomInstructions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TopicCustomInstructions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TopicCustomInstructions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 custom_instructions_string: builtins.str):
+        pulumi.set(__self__, "custom_instructions_string", custom_instructions_string)
+
+    @property
+    @pulumi.getter(name="customInstructionsString")
+    def custom_instructions_string(self) -> builtins.str:
+        return pulumi.get(self, "custom_instructions_string")
 
 
 @pulumi.output_type

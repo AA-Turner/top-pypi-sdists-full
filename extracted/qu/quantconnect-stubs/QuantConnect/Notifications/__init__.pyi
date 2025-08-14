@@ -80,7 +80,7 @@ class NotificationManager(System.Object):
         """
         Send an email to the address specified for live trading notifications.
         
-        :param address: Email address to send to
+        :param address: Email address to send to, if null will default to users email
         :param subject: Subject of the email
         :param message: Message body, up to 10kb
         :param data: Data attachment (optional)
@@ -93,7 +93,7 @@ class NotificationManager(System.Object):
         """
         Send an email to the address specified for live trading notifications.
         
-        :param address: Email address to send to
+        :param address: Email address to send to, if null will default to users email
         :param subject: Subject of the email
         :param message: Message body, up to 10kb
         :param data: Data attachment (optional)
@@ -350,7 +350,7 @@ class NotificationEmail(QuantConnect.Notifications.Notification):
         """
         Default constructor for sending an email notification
         
-        :param address: Address to send to. Will throw ArgumentException if invalid Validate.EmailAddress
+        :param address: Address to send to, if null will default to users email. Will throw ArgumentException if invalid Validate.EmailAddress
         :param subject: Subject of the email. Will set to string.Empty if null
         :param message: Message body of the email. Will set to string.Empty if null
         :param data: Data to attach to the email. Will set to string.Empty if null

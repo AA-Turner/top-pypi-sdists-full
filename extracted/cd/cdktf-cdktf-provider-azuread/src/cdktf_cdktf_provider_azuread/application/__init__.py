@@ -1,7 +1,7 @@
 r'''
 # `azuread_application`
 
-Refer to the Terraform Registry for docs: [`azuread_application`](https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application).
+Refer to the Terraform Registry for docs: [`azuread_application`](https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Application(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azuread.application.Application",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application azuread_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application azuread_application}.'''
 
     def __init__(
         self,
@@ -89,40 +89,40 @@ class Application(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application azuread_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application azuread_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#display_name Application#display_name}
-        :param api: api block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#api Application#api}
-        :param app_role: app_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#app_role Application#app_role}
-        :param description: Description of the application as shown to end users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#description Application#description}
-        :param device_only_auth_enabled: Specifies whether this application supports device authentication without a user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#device_only_auth_enabled Application#device_only_auth_enabled}
-        :param fallback_public_client_enabled: Specifies whether the application is a public client. Appropriate for apps using token grant flows that don't use a redirect URI Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#fallback_public_client_enabled Application#fallback_public_client_enabled}
-        :param feature_tags: feature_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#feature_tags Application#feature_tags}
-        :param group_membership_claims: Configures the ``groups`` claim issued in a user or OAuth 2.0 access token that the app expects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#group_membership_claims Application#group_membership_claims}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id Application#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identifier_uris: The user-defined URI(s) that uniquely identify an application within its Azure AD tenant, or within a verified custom domain if the application is multi-tenant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#identifier_uris Application#identifier_uris}
-        :param logo_image: Base64 encoded logo image in gif, png or jpeg format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#logo_image Application#logo_image}
-        :param marketing_url: URL of the application's marketing page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#marketing_url Application#marketing_url}
-        :param notes: User-specified notes relevant for the management of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#notes Application#notes}
-        :param oauth2_post_response_required: Specifies whether, as part of OAuth 2.0 token requests, Azure AD allows POST requests, as opposed to GET requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#oauth2_post_response_required Application#oauth2_post_response_required}
-        :param optional_claims: optional_claims block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#optional_claims Application#optional_claims}
-        :param owners: A list of object IDs of principals that will be granted ownership of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#owners Application#owners}
-        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#password Application#password}
-        :param prevent_duplicate_names: If ``true``, will return an error if an existing application is found with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#prevent_duplicate_names Application#prevent_duplicate_names}
-        :param privacy_statement_url: URL of the application's privacy statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#privacy_statement_url Application#privacy_statement_url}
-        :param public_client: public_client block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#public_client Application#public_client}
-        :param required_resource_access: required_resource_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#required_resource_access Application#required_resource_access}
-        :param service_management_reference: References application or service contact information from a Service or Asset Management database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#service_management_reference Application#service_management_reference}
-        :param sign_in_audience: The Microsoft account types that are supported for the current application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#sign_in_audience Application#sign_in_audience}
-        :param single_page_application: single_page_application block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#single_page_application Application#single_page_application}
-        :param support_url: URL of the application's support page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#support_url Application#support_url}
-        :param tags: A set of tags to apply to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#tags Application#tags}
-        :param template_id: Unique ID of the application template from which this application is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#template_id Application#template_id}
-        :param terms_of_service_url: URL of the application's terms of service statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#terms_of_service_url Application#terms_of_service_url}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#timeouts Application#timeouts}
-        :param web: web block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#web Application#web}
+        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#display_name Application#display_name}
+        :param api: api block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#api Application#api}
+        :param app_role: app_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#app_role Application#app_role}
+        :param description: Description of the application as shown to end users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#description Application#description}
+        :param device_only_auth_enabled: Specifies whether this application supports device authentication without a user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#device_only_auth_enabled Application#device_only_auth_enabled}
+        :param fallback_public_client_enabled: Specifies whether the application is a public client. Appropriate for apps using token grant flows that don't use a redirect URI Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#fallback_public_client_enabled Application#fallback_public_client_enabled}
+        :param feature_tags: feature_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#feature_tags Application#feature_tags}
+        :param group_membership_claims: Configures the ``groups`` claim issued in a user or OAuth 2.0 access token that the app expects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#group_membership_claims Application#group_membership_claims}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id Application#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identifier_uris: The user-defined URI(s) that uniquely identify an application within its Azure AD tenant, or within a verified custom domain if the application is multi-tenant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#identifier_uris Application#identifier_uris}
+        :param logo_image: Base64 encoded logo image in gif, png or jpeg format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#logo_image Application#logo_image}
+        :param marketing_url: URL of the application's marketing page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#marketing_url Application#marketing_url}
+        :param notes: User-specified notes relevant for the management of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#notes Application#notes}
+        :param oauth2_post_response_required: Specifies whether, as part of OAuth 2.0 token requests, Azure AD allows POST requests, as opposed to GET requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#oauth2_post_response_required Application#oauth2_post_response_required}
+        :param optional_claims: optional_claims block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#optional_claims Application#optional_claims}
+        :param owners: A list of object IDs of principals that will be granted ownership of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#owners Application#owners}
+        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#password Application#password}
+        :param prevent_duplicate_names: If ``true``, will return an error if an existing application is found with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#prevent_duplicate_names Application#prevent_duplicate_names}
+        :param privacy_statement_url: URL of the application's privacy statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#privacy_statement_url Application#privacy_statement_url}
+        :param public_client: public_client block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#public_client Application#public_client}
+        :param required_resource_access: required_resource_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#required_resource_access Application#required_resource_access}
+        :param service_management_reference: References application or service contact information from a Service or Asset Management database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#service_management_reference Application#service_management_reference}
+        :param sign_in_audience: The Microsoft account types that are supported for the current application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#sign_in_audience Application#sign_in_audience}
+        :param single_page_application: single_page_application block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#single_page_application Application#single_page_application}
+        :param support_url: URL of the application's support page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#support_url Application#support_url}
+        :param tags: A set of tags to apply to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#tags Application#tags}
+        :param template_id: Unique ID of the application template from which this application is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#template_id Application#template_id}
+        :param terms_of_service_url: URL of the application's terms of service statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#terms_of_service_url Application#terms_of_service_url}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#timeouts Application#timeouts}
+        :param web: web block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#web Application#web}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -190,7 +190,7 @@ class Application(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Application to import.
-        :param import_from_id: The id of the existing Application that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Application that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Application to import is found.
         '''
         if __debug__:
@@ -211,10 +211,10 @@ class Application(
         requested_access_token_version: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param known_client_applications: Used for bundling consent if you have a solution that contains two parts: a client app and a custom web API app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#known_client_applications Application#known_client_applications}
-        :param mapped_claims_enabled: Allows an application to use claims mapping without specifying a custom signing key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#mapped_claims_enabled Application#mapped_claims_enabled}
-        :param oauth2_permission_scope: oauth2_permission_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#oauth2_permission_scope Application#oauth2_permission_scope}
-        :param requested_access_token_version: The access token version expected by this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#requested_access_token_version Application#requested_access_token_version}
+        :param known_client_applications: Used for bundling consent if you have a solution that contains two parts: a client app and a custom web API app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#known_client_applications Application#known_client_applications}
+        :param mapped_claims_enabled: Allows an application to use claims mapping without specifying a custom signing key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#mapped_claims_enabled Application#mapped_claims_enabled}
+        :param oauth2_permission_scope: oauth2_permission_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#oauth2_permission_scope Application#oauth2_permission_scope}
+        :param requested_access_token_version: The access token version expected by this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#requested_access_token_version Application#requested_access_token_version}
         '''
         value = ApplicationApi(
             known_client_applications=known_client_applications,
@@ -260,9 +260,9 @@ class Application(
         saml2_token: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApplicationOptionalClaimsSaml2Token", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param access_token: access_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#access_token Application#access_token}
-        :param id_token: id_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id_token Application#id_token}
-        :param saml2_token: saml2_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#saml2_token Application#saml2_token}
+        :param access_token: access_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#access_token Application#access_token}
+        :param id_token: id_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id_token Application#id_token}
+        :param saml2_token: saml2_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#saml2_token Application#saml2_token}
         '''
         value = ApplicationOptionalClaims(
             access_token=access_token, id_token=id_token, saml2_token=saml2_token
@@ -279,9 +279,9 @@ class Application(
         start_date: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: A display name for the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#display_name Application#display_name}
-        :param end_date: The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#end_date Application#end_date}
-        :param start_date: The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#start_date Application#start_date}
+        :param display_name: A display name for the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#display_name Application#display_name}
+        :param end_date: The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#end_date Application#end_date}
+        :param start_date: The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#start_date Application#start_date}
         '''
         value = ApplicationPassword(
             display_name=display_name, end_date=end_date, start_date=start_date
@@ -296,7 +296,7 @@ class Application(
         redirect_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#redirect_uris Application#redirect_uris}
+        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#redirect_uris Application#redirect_uris}
         '''
         value = ApplicationPublicClient(redirect_uris=redirect_uris)
 
@@ -322,7 +322,7 @@ class Application(
         redirect_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#redirect_uris Application#redirect_uris}
+        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#redirect_uris Application#redirect_uris}
         '''
         value = ApplicationSinglePageApplication(redirect_uris=redirect_uris)
 
@@ -338,10 +338,10 @@ class Application(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#create Application#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#delete Application#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#read Application#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#update Application#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#create Application#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#delete Application#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#read Application#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#update Application#update}.
         '''
         value = ApplicationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -359,10 +359,10 @@ class Application(
         redirect_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param homepage_url: Home page or landing page of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#homepage_url Application#homepage_url}
-        :param implicit_grant: implicit_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#implicit_grant Application#implicit_grant}
-        :param logout_url: The URL that will be used by Microsoft's authorization service to sign out a user using front-channel, back-channel or SAML logout protocols. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#logout_url Application#logout_url}
-        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#redirect_uris Application#redirect_uris}
+        :param homepage_url: Home page or landing page of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#homepage_url Application#homepage_url}
+        :param implicit_grant: implicit_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#implicit_grant Application#implicit_grant}
+        :param logout_url: The URL that will be used by Microsoft's authorization service to sign out a user using front-channel, back-channel or SAML logout protocols. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#logout_url Application#logout_url}
+        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#redirect_uris Application#redirect_uris}
         '''
         value = ApplicationWeb(
             homepage_url=homepage_url,
@@ -1040,10 +1040,10 @@ class ApplicationApi:
         requested_access_token_version: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param known_client_applications: Used for bundling consent if you have a solution that contains two parts: a client app and a custom web API app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#known_client_applications Application#known_client_applications}
-        :param mapped_claims_enabled: Allows an application to use claims mapping without specifying a custom signing key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#mapped_claims_enabled Application#mapped_claims_enabled}
-        :param oauth2_permission_scope: oauth2_permission_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#oauth2_permission_scope Application#oauth2_permission_scope}
-        :param requested_access_token_version: The access token version expected by this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#requested_access_token_version Application#requested_access_token_version}
+        :param known_client_applications: Used for bundling consent if you have a solution that contains two parts: a client app and a custom web API app. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#known_client_applications Application#known_client_applications}
+        :param mapped_claims_enabled: Allows an application to use claims mapping without specifying a custom signing key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#mapped_claims_enabled Application#mapped_claims_enabled}
+        :param oauth2_permission_scope: oauth2_permission_scope block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#oauth2_permission_scope Application#oauth2_permission_scope}
+        :param requested_access_token_version: The access token version expected by this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#requested_access_token_version Application#requested_access_token_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13883a3dbb678cb13a448982c307eebad77973ede01c78c63668b37438c4693d)
@@ -1065,7 +1065,7 @@ class ApplicationApi:
     def known_client_applications(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Used for bundling consent if you have a solution that contains two parts: a client app and a custom web API app.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#known_client_applications Application#known_client_applications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#known_client_applications Application#known_client_applications}
         '''
         result = self._values.get("known_client_applications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1076,7 +1076,7 @@ class ApplicationApi:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Allows an application to use claims mapping without specifying a custom signing key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#mapped_claims_enabled Application#mapped_claims_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#mapped_claims_enabled Application#mapped_claims_enabled}
         '''
         result = self._values.get("mapped_claims_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1087,7 +1087,7 @@ class ApplicationApi:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationApiOauth2PermissionScope"]]]:
         '''oauth2_permission_scope block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#oauth2_permission_scope Application#oauth2_permission_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#oauth2_permission_scope Application#oauth2_permission_scope}
         '''
         result = self._values.get("oauth2_permission_scope")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationApiOauth2PermissionScope"]]], result)
@@ -1096,7 +1096,7 @@ class ApplicationApi:
     def requested_access_token_version(self) -> typing.Optional[jsii.Number]:
         '''The access token version expected by this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#requested_access_token_version Application#requested_access_token_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#requested_access_token_version Application#requested_access_token_version}
         '''
         result = self._values.get("requested_access_token_version")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1141,14 +1141,14 @@ class ApplicationApiOauth2PermissionScope:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: The unique identifier of the delegated permission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id Application#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param admin_consent_description: Delegated permission description that appears in all tenant-wide admin consent experiences, intended to be read by an administrator granting the permission on behalf of all users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#admin_consent_description Application#admin_consent_description}
-        :param admin_consent_display_name: Display name for the delegated permission, intended to be read by an administrator granting the permission on behalf of all users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#admin_consent_display_name Application#admin_consent_display_name}
-        :param enabled: Determines if the permission scope is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#enabled Application#enabled}
-        :param type: Whether this delegated permission should be considered safe for non-admin users to consent to on behalf of themselves, or whether an administrator should be required for consent to the permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#type Application#type}
-        :param user_consent_description: Delegated permission description that appears in the end user consent experience, intended to be read by a user consenting on their own behalf. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#user_consent_description Application#user_consent_description}
-        :param user_consent_display_name: Display name for the delegated permission that appears in the end user consent experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#user_consent_display_name Application#user_consent_display_name}
-        :param value: The value that is used for the ``scp`` claim in OAuth 2.0 access tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#value Application#value}
+        :param id: The unique identifier of the delegated permission. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id Application#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param admin_consent_description: Delegated permission description that appears in all tenant-wide admin consent experiences, intended to be read by an administrator granting the permission on behalf of all users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#admin_consent_description Application#admin_consent_description}
+        :param admin_consent_display_name: Display name for the delegated permission, intended to be read by an administrator granting the permission on behalf of all users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#admin_consent_display_name Application#admin_consent_display_name}
+        :param enabled: Determines if the permission scope is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#enabled Application#enabled}
+        :param type: Whether this delegated permission should be considered safe for non-admin users to consent to on behalf of themselves, or whether an administrator should be required for consent to the permissions. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#type Application#type}
+        :param user_consent_description: Delegated permission description that appears in the end user consent experience, intended to be read by a user consenting on their own behalf. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#user_consent_description Application#user_consent_description}
+        :param user_consent_display_name: Display name for the delegated permission that appears in the end user consent experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#user_consent_display_name Application#user_consent_display_name}
+        :param value: The value that is used for the ``scp`` claim in OAuth 2.0 access tokens. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#value Application#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a603d452291f77fe2144e3455e1196b20930aec54de441eb643ed4ada53e53d4)
@@ -1182,7 +1182,7 @@ class ApplicationApiOauth2PermissionScope:
     def id(self) -> builtins.str:
         '''The unique identifier of the delegated permission.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id Application#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id Application#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1195,7 +1195,7 @@ class ApplicationApiOauth2PermissionScope:
     def admin_consent_description(self) -> typing.Optional[builtins.str]:
         '''Delegated permission description that appears in all tenant-wide admin consent experiences, intended to be read by an administrator granting the permission on behalf of all users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#admin_consent_description Application#admin_consent_description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#admin_consent_description Application#admin_consent_description}
         '''
         result = self._values.get("admin_consent_description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1204,7 +1204,7 @@ class ApplicationApiOauth2PermissionScope:
     def admin_consent_display_name(self) -> typing.Optional[builtins.str]:
         '''Display name for the delegated permission, intended to be read by an administrator granting the permission on behalf of all users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#admin_consent_display_name Application#admin_consent_display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#admin_consent_display_name Application#admin_consent_display_name}
         '''
         result = self._values.get("admin_consent_display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1215,7 +1215,7 @@ class ApplicationApiOauth2PermissionScope:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Determines if the permission scope is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#enabled Application#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#enabled Application#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1224,7 +1224,7 @@ class ApplicationApiOauth2PermissionScope:
     def type(self) -> typing.Optional[builtins.str]:
         '''Whether this delegated permission should be considered safe for non-admin users to consent to on behalf of themselves, or whether an administrator should be required for consent to the permissions.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#type Application#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#type Application#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1233,7 +1233,7 @@ class ApplicationApiOauth2PermissionScope:
     def user_consent_description(self) -> typing.Optional[builtins.str]:
         '''Delegated permission description that appears in the end user consent experience, intended to be read by a user consenting on their own behalf.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#user_consent_description Application#user_consent_description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#user_consent_description Application#user_consent_description}
         '''
         result = self._values.get("user_consent_description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1242,7 +1242,7 @@ class ApplicationApiOauth2PermissionScope:
     def user_consent_display_name(self) -> typing.Optional[builtins.str]:
         '''Display name for the delegated permission that appears in the end user consent experience.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#user_consent_display_name Application#user_consent_display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#user_consent_display_name Application#user_consent_display_name}
         '''
         result = self._values.get("user_consent_display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1251,7 +1251,7 @@ class ApplicationApiOauth2PermissionScope:
     def value(self) -> typing.Optional[builtins.str]:
         '''The value that is used for the ``scp`` claim in OAuth 2.0 access tokens.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#value Application#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#value Application#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1732,12 +1732,12 @@ class ApplicationAppRole:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param allowed_member_types: Specifies whether this app role definition can be assigned to users and groups by setting to ``User``, or to other applications (that are accessing this application in a standalone scenario) by setting to ``Application``, or to both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#allowed_member_types Application#allowed_member_types}
-        :param description: Description of the app role that appears when the role is being assigned and, if the role functions as an application permissions, during the consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#description Application#description}
-        :param display_name: Display name for the app role that appears during app role assignment and in consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#display_name Application#display_name}
-        :param id: The unique identifier of the app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id Application#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param enabled: Determines if the app role is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#enabled Application#enabled}
-        :param value: The value that is used for the ``roles`` claim in ID tokens and OAuth 2.0 access tokens that are authenticating an assigned service or user principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#value Application#value}
+        :param allowed_member_types: Specifies whether this app role definition can be assigned to users and groups by setting to ``User``, or to other applications (that are accessing this application in a standalone scenario) by setting to ``Application``, or to both. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#allowed_member_types Application#allowed_member_types}
+        :param description: Description of the app role that appears when the role is being assigned and, if the role functions as an application permissions, during the consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#description Application#description}
+        :param display_name: Display name for the app role that appears during app role assignment and in consent experiences. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#display_name Application#display_name}
+        :param id: The unique identifier of the app role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id Application#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param enabled: Determines if the app role is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#enabled Application#enabled}
+        :param value: The value that is used for the ``roles`` claim in ID tokens and OAuth 2.0 access tokens that are authenticating an assigned service or user principal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#value Application#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ccca5bc8f625f30cff92d61a362220c2f97b661191a2a450fb8894050fde134)
@@ -1762,7 +1762,7 @@ class ApplicationAppRole:
     def allowed_member_types(self) -> typing.List[builtins.str]:
         '''Specifies whether this app role definition can be assigned to users and groups by setting to ``User``, or to other applications (that are accessing this application in a standalone scenario) by setting to ``Application``, or to both.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#allowed_member_types Application#allowed_member_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#allowed_member_types Application#allowed_member_types}
         '''
         result = self._values.get("allowed_member_types")
         assert result is not None, "Required property 'allowed_member_types' is missing"
@@ -1772,7 +1772,7 @@ class ApplicationAppRole:
     def description(self) -> builtins.str:
         '''Description of the app role that appears when the role is being assigned and, if the role functions as an application permissions, during the consent experiences.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#description Application#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#description Application#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -1782,7 +1782,7 @@ class ApplicationAppRole:
     def display_name(self) -> builtins.str:
         '''Display name for the app role that appears during app role assignment and in consent experiences.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#display_name Application#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#display_name Application#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1792,7 +1792,7 @@ class ApplicationAppRole:
     def id(self) -> builtins.str:
         '''The unique identifier of the app role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id Application#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id Application#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1807,7 +1807,7 @@ class ApplicationAppRole:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Determines if the app role is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#enabled Application#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#enabled Application#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1816,7 +1816,7 @@ class ApplicationAppRole:
     def value(self) -> typing.Optional[builtins.str]:
         '''The value that is used for the ``roles`` claim in ID tokens and OAuth 2.0 access tokens that are authenticating an assigned service or user principal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#value Application#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#value Application#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2175,36 +2175,36 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#display_name Application#display_name}
-        :param api: api block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#api Application#api}
-        :param app_role: app_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#app_role Application#app_role}
-        :param description: Description of the application as shown to end users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#description Application#description}
-        :param device_only_auth_enabled: Specifies whether this application supports device authentication without a user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#device_only_auth_enabled Application#device_only_auth_enabled}
-        :param fallback_public_client_enabled: Specifies whether the application is a public client. Appropriate for apps using token grant flows that don't use a redirect URI Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#fallback_public_client_enabled Application#fallback_public_client_enabled}
-        :param feature_tags: feature_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#feature_tags Application#feature_tags}
-        :param group_membership_claims: Configures the ``groups`` claim issued in a user or OAuth 2.0 access token that the app expects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#group_membership_claims Application#group_membership_claims}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id Application#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identifier_uris: The user-defined URI(s) that uniquely identify an application within its Azure AD tenant, or within a verified custom domain if the application is multi-tenant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#identifier_uris Application#identifier_uris}
-        :param logo_image: Base64 encoded logo image in gif, png or jpeg format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#logo_image Application#logo_image}
-        :param marketing_url: URL of the application's marketing page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#marketing_url Application#marketing_url}
-        :param notes: User-specified notes relevant for the management of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#notes Application#notes}
-        :param oauth2_post_response_required: Specifies whether, as part of OAuth 2.0 token requests, Azure AD allows POST requests, as opposed to GET requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#oauth2_post_response_required Application#oauth2_post_response_required}
-        :param optional_claims: optional_claims block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#optional_claims Application#optional_claims}
-        :param owners: A list of object IDs of principals that will be granted ownership of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#owners Application#owners}
-        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#password Application#password}
-        :param prevent_duplicate_names: If ``true``, will return an error if an existing application is found with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#prevent_duplicate_names Application#prevent_duplicate_names}
-        :param privacy_statement_url: URL of the application's privacy statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#privacy_statement_url Application#privacy_statement_url}
-        :param public_client: public_client block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#public_client Application#public_client}
-        :param required_resource_access: required_resource_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#required_resource_access Application#required_resource_access}
-        :param service_management_reference: References application or service contact information from a Service or Asset Management database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#service_management_reference Application#service_management_reference}
-        :param sign_in_audience: The Microsoft account types that are supported for the current application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#sign_in_audience Application#sign_in_audience}
-        :param single_page_application: single_page_application block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#single_page_application Application#single_page_application}
-        :param support_url: URL of the application's support page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#support_url Application#support_url}
-        :param tags: A set of tags to apply to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#tags Application#tags}
-        :param template_id: Unique ID of the application template from which this application is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#template_id Application#template_id}
-        :param terms_of_service_url: URL of the application's terms of service statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#terms_of_service_url Application#terms_of_service_url}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#timeouts Application#timeouts}
-        :param web: web block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#web Application#web}
+        :param display_name: The display name for the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#display_name Application#display_name}
+        :param api: api block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#api Application#api}
+        :param app_role: app_role block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#app_role Application#app_role}
+        :param description: Description of the application as shown to end users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#description Application#description}
+        :param device_only_auth_enabled: Specifies whether this application supports device authentication without a user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#device_only_auth_enabled Application#device_only_auth_enabled}
+        :param fallback_public_client_enabled: Specifies whether the application is a public client. Appropriate for apps using token grant flows that don't use a redirect URI Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#fallback_public_client_enabled Application#fallback_public_client_enabled}
+        :param feature_tags: feature_tags block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#feature_tags Application#feature_tags}
+        :param group_membership_claims: Configures the ``groups`` claim issued in a user or OAuth 2.0 access token that the app expects. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#group_membership_claims Application#group_membership_claims}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id Application#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identifier_uris: The user-defined URI(s) that uniquely identify an application within its Azure AD tenant, or within a verified custom domain if the application is multi-tenant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#identifier_uris Application#identifier_uris}
+        :param logo_image: Base64 encoded logo image in gif, png or jpeg format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#logo_image Application#logo_image}
+        :param marketing_url: URL of the application's marketing page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#marketing_url Application#marketing_url}
+        :param notes: User-specified notes relevant for the management of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#notes Application#notes}
+        :param oauth2_post_response_required: Specifies whether, as part of OAuth 2.0 token requests, Azure AD allows POST requests, as opposed to GET requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#oauth2_post_response_required Application#oauth2_post_response_required}
+        :param optional_claims: optional_claims block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#optional_claims Application#optional_claims}
+        :param owners: A list of object IDs of principals that will be granted ownership of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#owners Application#owners}
+        :param password: password block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#password Application#password}
+        :param prevent_duplicate_names: If ``true``, will return an error if an existing application is found with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#prevent_duplicate_names Application#prevent_duplicate_names}
+        :param privacy_statement_url: URL of the application's privacy statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#privacy_statement_url Application#privacy_statement_url}
+        :param public_client: public_client block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#public_client Application#public_client}
+        :param required_resource_access: required_resource_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#required_resource_access Application#required_resource_access}
+        :param service_management_reference: References application or service contact information from a Service or Asset Management database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#service_management_reference Application#service_management_reference}
+        :param sign_in_audience: The Microsoft account types that are supported for the current application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#sign_in_audience Application#sign_in_audience}
+        :param single_page_application: single_page_application block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#single_page_application Application#single_page_application}
+        :param support_url: URL of the application's support page. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#support_url Application#support_url}
+        :param tags: A set of tags to apply to the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#tags Application#tags}
+        :param template_id: Unique ID of the application template from which this application is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#template_id Application#template_id}
+        :param terms_of_service_url: URL of the application's terms of service statement. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#terms_of_service_url Application#terms_of_service_url}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#timeouts Application#timeouts}
+        :param web: web block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#web Application#web}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2405,7 +2405,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The display name for the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#display_name Application#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#display_name Application#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -2415,7 +2415,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def api(self) -> typing.Optional[ApplicationApi]:
         '''api block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#api Application#api}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#api Application#api}
         '''
         result = self._values.get("api")
         return typing.cast(typing.Optional[ApplicationApi], result)
@@ -2426,7 +2426,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApplicationAppRole]]]:
         '''app_role block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#app_role Application#app_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#app_role Application#app_role}
         '''
         result = self._values.get("app_role")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApplicationAppRole]]], result)
@@ -2435,7 +2435,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the application as shown to end users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#description Application#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#description Application#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2446,7 +2446,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies whether this application supports device authentication without a user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#device_only_auth_enabled Application#device_only_auth_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#device_only_auth_enabled Application#device_only_auth_enabled}
         '''
         result = self._values.get("device_only_auth_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2459,7 +2459,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Appropriate for apps using token grant flows that don't use a redirect URI
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#fallback_public_client_enabled Application#fallback_public_client_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#fallback_public_client_enabled Application#fallback_public_client_enabled}
         '''
         result = self._values.get("fallback_public_client_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2470,7 +2470,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationFeatureTags"]]]:
         '''feature_tags block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#feature_tags Application#feature_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#feature_tags Application#feature_tags}
         '''
         result = self._values.get("feature_tags")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationFeatureTags"]]], result)
@@ -2479,14 +2479,14 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def group_membership_claims(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Configures the ``groups`` claim issued in a user or OAuth 2.0 access token that the app expects.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#group_membership_claims Application#group_membership_claims}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#group_membership_claims Application#group_membership_claims}
         '''
         result = self._values.get("group_membership_claims")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id Application#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id Application#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2498,7 +2498,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identifier_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The user-defined URI(s) that uniquely identify an application within its Azure AD tenant, or within a verified custom domain if the application is multi-tenant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#identifier_uris Application#identifier_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#identifier_uris Application#identifier_uris}
         '''
         result = self._values.get("identifier_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2507,7 +2507,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def logo_image(self) -> typing.Optional[builtins.str]:
         '''Base64 encoded logo image in gif, png or jpeg format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#logo_image Application#logo_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#logo_image Application#logo_image}
         '''
         result = self._values.get("logo_image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2516,7 +2516,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def marketing_url(self) -> typing.Optional[builtins.str]:
         '''URL of the application's marketing page.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#marketing_url Application#marketing_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#marketing_url Application#marketing_url}
         '''
         result = self._values.get("marketing_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2525,7 +2525,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def notes(self) -> typing.Optional[builtins.str]:
         '''User-specified notes relevant for the management of the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#notes Application#notes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#notes Application#notes}
         '''
         result = self._values.get("notes")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2536,7 +2536,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies whether, as part of OAuth 2.0 token requests, Azure AD allows POST requests, as opposed to GET requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#oauth2_post_response_required Application#oauth2_post_response_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#oauth2_post_response_required Application#oauth2_post_response_required}
         '''
         result = self._values.get("oauth2_post_response_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2545,7 +2545,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def optional_claims(self) -> typing.Optional["ApplicationOptionalClaims"]:
         '''optional_claims block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#optional_claims Application#optional_claims}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#optional_claims Application#optional_claims}
         '''
         result = self._values.get("optional_claims")
         return typing.cast(typing.Optional["ApplicationOptionalClaims"], result)
@@ -2554,7 +2554,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def owners(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of object IDs of principals that will be granted ownership of the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#owners Application#owners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#owners Application#owners}
         '''
         result = self._values.get("owners")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2563,7 +2563,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def password(self) -> typing.Optional["ApplicationPassword"]:
         '''password block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#password Application#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#password Application#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional["ApplicationPassword"], result)
@@ -2574,7 +2574,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If ``true``, will return an error if an existing application is found with the same name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#prevent_duplicate_names Application#prevent_duplicate_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#prevent_duplicate_names Application#prevent_duplicate_names}
         '''
         result = self._values.get("prevent_duplicate_names")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2583,7 +2583,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def privacy_statement_url(self) -> typing.Optional[builtins.str]:
         '''URL of the application's privacy statement.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#privacy_statement_url Application#privacy_statement_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#privacy_statement_url Application#privacy_statement_url}
         '''
         result = self._values.get("privacy_statement_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2592,7 +2592,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_client(self) -> typing.Optional["ApplicationPublicClient"]:
         '''public_client block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#public_client Application#public_client}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#public_client Application#public_client}
         '''
         result = self._values.get("public_client")
         return typing.cast(typing.Optional["ApplicationPublicClient"], result)
@@ -2603,7 +2603,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationRequiredResourceAccess"]]]:
         '''required_resource_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#required_resource_access Application#required_resource_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#required_resource_access Application#required_resource_access}
         '''
         result = self._values.get("required_resource_access")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationRequiredResourceAccess"]]], result)
@@ -2612,7 +2612,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_management_reference(self) -> typing.Optional[builtins.str]:
         '''References application or service contact information from a Service or Asset Management database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#service_management_reference Application#service_management_reference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#service_management_reference Application#service_management_reference}
         '''
         result = self._values.get("service_management_reference")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2621,7 +2621,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sign_in_audience(self) -> typing.Optional[builtins.str]:
         '''The Microsoft account types that are supported for the current application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#sign_in_audience Application#sign_in_audience}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#sign_in_audience Application#sign_in_audience}
         '''
         result = self._values.get("sign_in_audience")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2632,7 +2632,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ApplicationSinglePageApplication"]:
         '''single_page_application block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#single_page_application Application#single_page_application}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#single_page_application Application#single_page_application}
         '''
         result = self._values.get("single_page_application")
         return typing.cast(typing.Optional["ApplicationSinglePageApplication"], result)
@@ -2641,7 +2641,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def support_url(self) -> typing.Optional[builtins.str]:
         '''URL of the application's support page.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#support_url Application#support_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#support_url Application#support_url}
         '''
         result = self._values.get("support_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2650,7 +2650,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A set of tags to apply to the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#tags Application#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#tags Application#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2659,7 +2659,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template_id(self) -> typing.Optional[builtins.str]:
         '''Unique ID of the application template from which this application is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#template_id Application#template_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#template_id Application#template_id}
         '''
         result = self._values.get("template_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2668,7 +2668,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def terms_of_service_url(self) -> typing.Optional[builtins.str]:
         '''URL of the application's terms of service statement.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#terms_of_service_url Application#terms_of_service_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#terms_of_service_url Application#terms_of_service_url}
         '''
         result = self._values.get("terms_of_service_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2677,7 +2677,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApplicationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#timeouts Application#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#timeouts Application#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApplicationTimeouts"], result)
@@ -2686,7 +2686,7 @@ class ApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def web(self) -> typing.Optional["ApplicationWeb"]:
         '''web block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#web Application#web}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#web Application#web}
         '''
         result = self._values.get("web")
         return typing.cast(typing.Optional["ApplicationWeb"], result)
@@ -2723,10 +2723,10 @@ class ApplicationFeatureTags:
         hide: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param custom_single_sign_on: Whether this application represents a custom SAML application for linked service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#custom_single_sign_on Application#custom_single_sign_on}
-        :param enterprise: Whether this application represents an Enterprise Application for linked service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#enterprise Application#enterprise}
-        :param gallery: Whether this application represents a gallery application for linked service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#gallery Application#gallery}
-        :param hide: Whether this application is invisible to users in My Apps and Office 365 Launcher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#hide Application#hide}
+        :param custom_single_sign_on: Whether this application represents a custom SAML application for linked service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#custom_single_sign_on Application#custom_single_sign_on}
+        :param enterprise: Whether this application represents an Enterprise Application for linked service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#enterprise Application#enterprise}
+        :param gallery: Whether this application represents a gallery application for linked service principals. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#gallery Application#gallery}
+        :param hide: Whether this application is invisible to users in My Apps and Office 365 Launcher. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#hide Application#hide}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff588c3e621ec6c91c62dad1e6a2a3c18541db56551db3a1a2b1a431bf2d6df8)
@@ -2750,7 +2750,7 @@ class ApplicationFeatureTags:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this application represents a custom SAML application for linked service principals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#custom_single_sign_on Application#custom_single_sign_on}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#custom_single_sign_on Application#custom_single_sign_on}
         '''
         result = self._values.get("custom_single_sign_on")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2761,7 +2761,7 @@ class ApplicationFeatureTags:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this application represents an Enterprise Application for linked service principals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#enterprise Application#enterprise}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#enterprise Application#enterprise}
         '''
         result = self._values.get("enterprise")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2772,7 +2772,7 @@ class ApplicationFeatureTags:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this application represents a gallery application for linked service principals.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#gallery Application#gallery}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#gallery Application#gallery}
         '''
         result = self._values.get("gallery")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2783,7 +2783,7 @@ class ApplicationFeatureTags:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this application is invisible to users in My Apps and Office 365 Launcher.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#hide Application#hide}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#hide Application#hide}
         '''
         result = self._values.get("hide")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3058,9 +3058,9 @@ class ApplicationOptionalClaims:
         saml2_token: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApplicationOptionalClaimsSaml2Token", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param access_token: access_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#access_token Application#access_token}
-        :param id_token: id_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id_token Application#id_token}
-        :param saml2_token: saml2_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#saml2_token Application#saml2_token}
+        :param access_token: access_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#access_token Application#access_token}
+        :param id_token: id_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id_token Application#id_token}
+        :param saml2_token: saml2_token block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#saml2_token Application#saml2_token}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20e99ec47e27b5ffab33febea63ed2564366e065156ee96d41be9da2f1e8f80f)
@@ -3081,7 +3081,7 @@ class ApplicationOptionalClaims:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsAccessToken"]]]:
         '''access_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#access_token Application#access_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#access_token Application#access_token}
         '''
         result = self._values.get("access_token")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsAccessToken"]]], result)
@@ -3092,7 +3092,7 @@ class ApplicationOptionalClaims:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsIdToken"]]]:
         '''id_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id_token Application#id_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id_token Application#id_token}
         '''
         result = self._values.get("id_token")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsIdToken"]]], result)
@@ -3103,7 +3103,7 @@ class ApplicationOptionalClaims:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsSaml2Token"]]]:
         '''saml2_token block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#saml2_token Application#saml2_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#saml2_token Application#saml2_token}
         '''
         result = self._values.get("saml2_token")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationOptionalClaimsSaml2Token"]]], result)
@@ -3140,10 +3140,10 @@ class ApplicationOptionalClaimsAccessToken:
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#name Application#name}
-        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#additional_properties Application#additional_properties}
-        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#essential Application#essential}
-        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#source Application#source}
+        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#name Application#name}
+        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#additional_properties Application#additional_properties}
+        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#essential Application#essential}
+        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#source Application#source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4c00648c7aebcc80dca776e505afe28f45367bc8d211d09bcfc5d87bb35a667)
@@ -3165,7 +3165,7 @@ class ApplicationOptionalClaimsAccessToken:
     def name(self) -> builtins.str:
         '''The name of the optional claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#name Application#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#name Application#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3177,7 +3177,7 @@ class ApplicationOptionalClaimsAccessToken:
 
         If a property exists in this list, it modifies the behaviour of the optional claim
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#additional_properties Application#additional_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#additional_properties Application#additional_properties}
         '''
         result = self._values.get("additional_properties")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3188,7 +3188,7 @@ class ApplicationOptionalClaimsAccessToken:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the claim specified by the client is necessary to ensure a smooth authorization experience.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#essential Application#essential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#essential Application#essential}
         '''
         result = self._values.get("essential")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3199,7 +3199,7 @@ class ApplicationOptionalClaimsAccessToken:
 
         If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#source Application#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#source Application#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3458,10 +3458,10 @@ class ApplicationOptionalClaimsIdToken:
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#name Application#name}
-        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#additional_properties Application#additional_properties}
-        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#essential Application#essential}
-        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#source Application#source}
+        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#name Application#name}
+        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#additional_properties Application#additional_properties}
+        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#essential Application#essential}
+        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#source Application#source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__080e700fd8d306760ba263b35ec2c3114b87a491a3aa92c1d5b592eeb79bc430)
@@ -3483,7 +3483,7 @@ class ApplicationOptionalClaimsIdToken:
     def name(self) -> builtins.str:
         '''The name of the optional claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#name Application#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#name Application#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3495,7 +3495,7 @@ class ApplicationOptionalClaimsIdToken:
 
         If a property exists in this list, it modifies the behaviour of the optional claim
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#additional_properties Application#additional_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#additional_properties Application#additional_properties}
         '''
         result = self._values.get("additional_properties")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3506,7 +3506,7 @@ class ApplicationOptionalClaimsIdToken:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the claim specified by the client is necessary to ensure a smooth authorization experience.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#essential Application#essential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#essential Application#essential}
         '''
         result = self._values.get("essential")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3517,7 +3517,7 @@ class ApplicationOptionalClaimsIdToken:
 
         If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#source Application#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#source Application#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3896,10 +3896,10 @@ class ApplicationOptionalClaimsSaml2Token:
         source: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#name Application#name}
-        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#additional_properties Application#additional_properties}
-        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#essential Application#essential}
-        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#source Application#source}
+        :param name: The name of the optional claim. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#name Application#name}
+        :param additional_properties: List of additional properties of the claim. If a property exists in this list, it modifies the behaviour of the optional claim Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#additional_properties Application#additional_properties}
+        :param essential: Whether the claim specified by the client is necessary to ensure a smooth authorization experience. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#essential Application#essential}
+        :param source: The source of the claim. If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#source Application#source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf0368fef266605bbb4c10d37cfe0c5bb7309b73aaf17161afdb67f49b827f50)
@@ -3921,7 +3921,7 @@ class ApplicationOptionalClaimsSaml2Token:
     def name(self) -> builtins.str:
         '''The name of the optional claim.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#name Application#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#name Application#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -3933,7 +3933,7 @@ class ApplicationOptionalClaimsSaml2Token:
 
         If a property exists in this list, it modifies the behaviour of the optional claim
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#additional_properties Application#additional_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#additional_properties Application#additional_properties}
         '''
         result = self._values.get("additional_properties")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3944,7 +3944,7 @@ class ApplicationOptionalClaimsSaml2Token:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the claim specified by the client is necessary to ensure a smooth authorization experience.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#essential Application#essential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#essential Application#essential}
         '''
         result = self._values.get("essential")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3955,7 +3955,7 @@ class ApplicationOptionalClaimsSaml2Token:
 
         If ``source`` is absent, the claim is a predefined optional claim. If ``source`` is ``user``, the value of ``name`` is the extension property from the user object
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#source Application#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#source Application#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4212,9 +4212,9 @@ class ApplicationPassword:
         start_date: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: A display name for the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#display_name Application#display_name}
-        :param end_date: The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#end_date Application#end_date}
-        :param start_date: The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#start_date Application#start_date}
+        :param display_name: A display name for the password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#display_name Application#display_name}
+        :param end_date: The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#end_date Application#end_date}
+        :param start_date: The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#start_date Application#start_date}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b43230d131f4fa25800ea9bcd3f0677070e2a1f89f19c3cc317e4e9b4e70c51e)
@@ -4233,7 +4233,7 @@ class ApplicationPassword:
     def display_name(self) -> builtins.str:
         '''A display name for the password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#display_name Application#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#display_name Application#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -4243,7 +4243,7 @@ class ApplicationPassword:
     def end_date(self) -> typing.Optional[builtins.str]:
         '''The end date until which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#end_date Application#end_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#end_date Application#end_date}
         '''
         result = self._values.get("end_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4252,7 +4252,7 @@ class ApplicationPassword:
     def start_date(self) -> typing.Optional[builtins.str]:
         '''The start date from which the password is valid, formatted as an RFC3339 date string (e.g. ``2018-01-01T01:02:03Z``). If this isn't specified, the current date is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#start_date Application#start_date}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#start_date Application#start_date}
         '''
         result = self._values.get("start_date")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4383,7 +4383,7 @@ class ApplicationPublicClient:
         redirect_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#redirect_uris Application#redirect_uris}
+        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#redirect_uris Application#redirect_uris}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd3608c82177642aced42d5ced63563fe3ba5192a016f763c4e4059a1a83007d)
@@ -4396,7 +4396,7 @@ class ApplicationPublicClient:
     def redirect_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#redirect_uris Application#redirect_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#redirect_uris Application#redirect_uris}
         '''
         result = self._values.get("redirect_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4483,8 +4483,8 @@ class ApplicationRequiredResourceAccess:
         resource_app_id: builtins.str,
     ) -> None:
         '''
-        :param resource_access: resource_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#resource_access Application#resource_access}
-        :param resource_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#resource_app_id Application#resource_app_id}.
+        :param resource_access: resource_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#resource_access Application#resource_access}
+        :param resource_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#resource_app_id Application#resource_app_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__802c8bdf03776fc5d34df6a40021d8f82ffc7b7f7a6688ad858fc5d207d7afc0)
@@ -4501,7 +4501,7 @@ class ApplicationRequiredResourceAccess:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApplicationRequiredResourceAccessResourceAccess"]]:
         '''resource_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#resource_access Application#resource_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#resource_access Application#resource_access}
         '''
         result = self._values.get("resource_access")
         assert result is not None, "Required property 'resource_access' is missing"
@@ -4509,7 +4509,7 @@ class ApplicationRequiredResourceAccess:
 
     @builtins.property
     def resource_app_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#resource_app_id Application#resource_app_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#resource_app_id Application#resource_app_id}.'''
         result = self._values.get("resource_app_id")
         assert result is not None, "Required property 'resource_app_id' is missing"
         return typing.cast(builtins.str, result)
@@ -4713,8 +4713,8 @@ class ApplicationRequiredResourceAccessOutputReference(
 class ApplicationRequiredResourceAccessResourceAccess:
     def __init__(self, *, id: builtins.str, type: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id Application#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#type Application#type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id Application#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#type Application#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fd83b1572b072673109bf7854ad76af751f91008d7f05df4d093eba03bcf6e4)
@@ -4727,7 +4727,7 @@ class ApplicationRequiredResourceAccessResourceAccess:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id Application#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id Application#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -4738,7 +4738,7 @@ class ApplicationRequiredResourceAccessResourceAccess:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#type Application#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#type Application#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -4938,7 +4938,7 @@ class ApplicationSinglePageApplication:
         redirect_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#redirect_uris Application#redirect_uris}
+        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#redirect_uris Application#redirect_uris}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9d33652da506dd1047bc0312e362670bb538645bd49b7ce51fe6b40bfdd3e59)
@@ -4951,7 +4951,7 @@ class ApplicationSinglePageApplication:
     def redirect_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#redirect_uris Application#redirect_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#redirect_uris Application#redirect_uris}
         '''
         result = self._values.get("redirect_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5045,10 +5045,10 @@ class ApplicationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#create Application#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#delete Application#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#read Application#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#update Application#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#create Application#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#delete Application#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#read Application#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#update Application#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0d51bd6cfe0dd1c0c65c3f912293ff6cc449648acc268ffd5ed9acb567dba2d0)
@@ -5068,25 +5068,25 @@ class ApplicationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#create Application#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#create Application#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#delete Application#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#delete Application#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#read Application#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#read Application#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#update Application#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#update Application#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5244,10 +5244,10 @@ class ApplicationWeb:
         redirect_uris: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param homepage_url: Home page or landing page of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#homepage_url Application#homepage_url}
-        :param implicit_grant: implicit_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#implicit_grant Application#implicit_grant}
-        :param logout_url: The URL that will be used by Microsoft's authorization service to sign out a user using front-channel, back-channel or SAML logout protocols. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#logout_url Application#logout_url}
-        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#redirect_uris Application#redirect_uris}
+        :param homepage_url: Home page or landing page of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#homepage_url Application#homepage_url}
+        :param implicit_grant: implicit_grant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#implicit_grant Application#implicit_grant}
+        :param logout_url: The URL that will be used by Microsoft's authorization service to sign out a user using front-channel, back-channel or SAML logout protocols. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#logout_url Application#logout_url}
+        :param redirect_uris: The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#redirect_uris Application#redirect_uris}
         '''
         if isinstance(implicit_grant, dict):
             implicit_grant = ApplicationWebImplicitGrant(**implicit_grant)
@@ -5271,7 +5271,7 @@ class ApplicationWeb:
     def homepage_url(self) -> typing.Optional[builtins.str]:
         '''Home page or landing page of the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#homepage_url Application#homepage_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#homepage_url Application#homepage_url}
         '''
         result = self._values.get("homepage_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5280,7 +5280,7 @@ class ApplicationWeb:
     def implicit_grant(self) -> typing.Optional["ApplicationWebImplicitGrant"]:
         '''implicit_grant block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#implicit_grant Application#implicit_grant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#implicit_grant Application#implicit_grant}
         '''
         result = self._values.get("implicit_grant")
         return typing.cast(typing.Optional["ApplicationWebImplicitGrant"], result)
@@ -5289,7 +5289,7 @@ class ApplicationWeb:
     def logout_url(self) -> typing.Optional[builtins.str]:
         '''The URL that will be used by Microsoft's authorization service to sign out a user using front-channel, back-channel or SAML logout protocols.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#logout_url Application#logout_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#logout_url Application#logout_url}
         '''
         result = self._values.get("logout_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5298,7 +5298,7 @@ class ApplicationWeb:
     def redirect_uris(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The URLs where user tokens are sent for sign-in, or the redirect URIs where OAuth 2.0 authorization codes and access tokens are sent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#redirect_uris Application#redirect_uris}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#redirect_uris Application#redirect_uris}
         '''
         result = self._values.get("redirect_uris")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -5331,8 +5331,8 @@ class ApplicationWebImplicitGrant:
         id_token_issuance_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param access_token_issuance_enabled: Whether this web application can request an access token using OAuth 2.0 implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#access_token_issuance_enabled Application#access_token_issuance_enabled}
-        :param id_token_issuance_enabled: Whether this web application can request an ID token using OAuth 2.0 implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id_token_issuance_enabled Application#id_token_issuance_enabled}
+        :param access_token_issuance_enabled: Whether this web application can request an access token using OAuth 2.0 implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#access_token_issuance_enabled Application#access_token_issuance_enabled}
+        :param id_token_issuance_enabled: Whether this web application can request an ID token using OAuth 2.0 implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id_token_issuance_enabled Application#id_token_issuance_enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d8f87e7407a1e7e81d0f8c8d6659fc51de15e101f9156ff92be316ba6de5000)
@@ -5350,7 +5350,7 @@ class ApplicationWebImplicitGrant:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this web application can request an access token using OAuth 2.0 implicit flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#access_token_issuance_enabled Application#access_token_issuance_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#access_token_issuance_enabled Application#access_token_issuance_enabled}
         '''
         result = self._values.get("access_token_issuance_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5361,7 +5361,7 @@ class ApplicationWebImplicitGrant:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this web application can request an ID token using OAuth 2.0 implicit flow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id_token_issuance_enabled Application#id_token_issuance_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id_token_issuance_enabled Application#id_token_issuance_enabled}
         '''
         result = self._values.get("id_token_issuance_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -5498,8 +5498,8 @@ class ApplicationWebOutputReference(
         id_token_issuance_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param access_token_issuance_enabled: Whether this web application can request an access token using OAuth 2.0 implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#access_token_issuance_enabled Application#access_token_issuance_enabled}
-        :param id_token_issuance_enabled: Whether this web application can request an ID token using OAuth 2.0 implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.4.0/docs/resources/application#id_token_issuance_enabled Application#id_token_issuance_enabled}
+        :param access_token_issuance_enabled: Whether this web application can request an access token using OAuth 2.0 implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#access_token_issuance_enabled Application#access_token_issuance_enabled}
+        :param id_token_issuance_enabled: Whether this web application can request an ID token using OAuth 2.0 implicit flow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azuread/3.5.0/docs/resources/application#id_token_issuance_enabled Application#id_token_issuance_enabled}
         '''
         value = ApplicationWebImplicitGrant(
             access_token_issuance_enabled=access_token_issuance_enabled,

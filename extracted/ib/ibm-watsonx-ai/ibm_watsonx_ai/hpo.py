@@ -3,7 +3,7 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from ibm_watsonx_ai.wml_client_error import WMLClientError, UnexpectedType
+from ibm_watsonx_ai.wml_client_error import UnexpectedType, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 

@@ -141,6 +141,68 @@ bar_stack = BarStack(app, "BarStack",
 
 Note: You can create an instance of the `TableV2` construct with as many `replicas` as needed as long as there is only one replica per region. After table creation you can add or remove `replicas`, but you can only add or remove a single replica in each update.
 
+## Multi-Region Strong Consistency (MRSC)
+
+By default, DynamoDB global tables provide eventual consistency across regions. For applications requiring strong consistency across regions, you can configure Multi-Region Strong Consistency (MRSC) using the `multiRegionConsistency` property.
+
+MRSC global tables can be configured in two ways:
+
+* **Three replicas**: Deploy your table across three regions within the same region set
+* **Two replicas + one witness**: Deploy your table across two regions with a witness region for consensus
+
+### Region Sets
+
+MRSC global tables must be deployed within the same region set. The supported region sets are:
+
+* **US Region set**: `us-east-1`, `us-east-2`, `us-west-2`
+* **EU Region set**: `eu-west-1`, `eu-west-2`, `eu-west-3`, `eu-central-1`
+* **AP Region set**: `ap-northeast-1`, `ap-northeast-2`, `ap-northeast-3`
+
+### Three Replicas Configuration
+
+```python
+import aws_cdk as cdk
+
+
+app = cdk.App()
+stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
+
+mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
+    partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+    multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
+    replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
+    ]
+)
+```
+
+### Two Replicas + Witness Configuration
+
+```python
+import aws_cdk as cdk
+
+
+app = cdk.App()
+stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
+
+mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
+    partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+    multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
+    replicas=[dynamodb.ReplicaTableProps(region="us-east-1")
+    ],
+    witness_region="us-east-2"
+)
+```
+
+### Important Considerations
+
+* **Witness regions** can only be used with `MultiRegionConsistency.STRONG`. Attempting to specify a witness region with eventual consistency will result in a validation error.
+* **Region validation**: All regions (primary, replicas, and witness) must be within the same region set.
+* **Replica count**: When using a witness region, you must have exactly 2 replicas (including the primary). Without a witness region, you must have exactly 3 replicas.
+* **Performance**: MRSC provides strong consistency but may have higher latency compared to eventual consistency.
+
+Further reading:
+https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/V2globaltables_HowItWorks.html#V2globaltables_HowItWorks.consistency-modes-mrsc
+
 ## Billing
 
 The `TableV2` construct can be configured with on-demand or provisioned billing:
@@ -1050,12 +1112,12 @@ class Attribute:
             app = cdk.App()
             stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
             
-            global_table = dynamodb.TableV2(stack, "GlobalTable",
+            mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                # applies to all replicas, i.e., us-west-2, us-east-1, us-east-2
-                removal_policy=cdk.RemovalPolicy.DESTROY,
-                replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
-                ]
+                multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
+                replicas=[dynamodb.ReplicaTableProps(region="us-east-1")
+                ],
+                witness_region="us-east-2"
             )
         '''
         if __debug__:
@@ -1108,12 +1170,12 @@ class AttributeType(enum.Enum):
         app = cdk.App()
         stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
         
-        global_table = dynamodb.TableV2(stack, "GlobalTable",
+        mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
             partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-            # applies to all replicas, i.e., us-west-2, us-east-1, us-east-2
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-            replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
-            ]
+            multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
+            replicas=[dynamodb.ReplicaTableProps(region="us-east-1")
+            ],
+            witness_region="us-east-2"
         )
     '''
 
@@ -9578,6 +9640,38 @@ class MaxThroughputProps:
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_dynamodb.MultiRegionConsistency")
+class MultiRegionConsistency(enum.Enum):
+    '''Global table multi-region consistency mode.
+
+    :see: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/V2globaltables_HowItWorks.html#V2globaltables_HowItWorks.consistency-modes-mrsc
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk as cdk
+        
+        
+        app = cdk.App()
+        stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
+        
+        mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
+            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+            multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
+            replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
+            ]
+        )
+    '''
+
+    EVENTUAL = "EVENTUAL"
+    '''Default consistency mode for Global Tables.
+
+    Multi-region eventual consistency.
+    '''
+    STRONG = "STRONG"
+    '''Multi-region strong consistency.'''
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_dynamodb.Operation")
 class Operation(enum.Enum):
     '''Supported DynamoDB table operations.'''
@@ -13950,12 +14044,14 @@ class TableProps(TableOptions):
         "encryption": "encryption",
         "global_secondary_indexes": "globalSecondaryIndexes",
         "local_secondary_indexes": "localSecondaryIndexes",
+        "multi_region_consistency": "multiRegionConsistency",
         "removal_policy": "removalPolicy",
         "replicas": "replicas",
         "sort_key": "sortKey",
         "table_name": "tableName",
         "time_to_live_attribute": "timeToLiveAttribute",
         "warm_throughput": "warmThroughput",
+        "witness_region": "witnessRegion",
     },
 )
 class TablePropsV2(TableOptionsV2):
@@ -13976,12 +14072,14 @@ class TablePropsV2(TableOptionsV2):
         encryption: typing.Optional[TableEncryptionV2] = None,
         global_secondary_indexes: typing.Optional[typing.Sequence[typing.Union["GlobalSecondaryIndexPropsV2", typing.Dict[builtins.str, typing.Any]]]] = None,
         local_secondary_indexes: typing.Optional[typing.Sequence[typing.Union["LocalSecondaryIndexProps", typing.Dict[builtins.str, typing.Any]]]] = None,
+        multi_region_consistency: typing.Optional[MultiRegionConsistency] = None,
         removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
         replicas: typing.Optional[typing.Sequence[typing.Union["ReplicaTableProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
         table_name: typing.Optional[builtins.str] = None,
         time_to_live_attribute: typing.Optional[builtins.str] = None,
         warm_throughput: typing.Optional[typing.Union["WarmThroughput", typing.Dict[builtins.str, typing.Any]]] = None,
+        witness_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties used to configure a DynamoDB table.
 
@@ -13999,12 +14097,14 @@ class TablePropsV2(TableOptionsV2):
         :param encryption: The server-side encryption. Default: TableEncryptionV2.dynamoOwnedKey()
         :param global_secondary_indexes: Global secondary indexes. Note: You can provide a maximum of 20 global secondary indexes. Default: - no global secondary indexes
         :param local_secondary_indexes: Local secondary indexes. Note: You can only provide a maximum of 5 local secondary indexes. Default: - no local secondary indexes
+        :param multi_region_consistency: Specifies the consistency mode for a new global table. Default: MultiRegionConsistency.EVENTUAL
         :param removal_policy: The removal policy applied to the table. Default: RemovalPolicy.RETAIN
         :param replicas: Replica tables to deploy with the primary table. Note: Adding replica tables allows you to use your table as a global table. You cannot specify a replica table in the region that the primary table will be deployed to. Replica tables will only be supported if the stack deployment region is defined. Default: - no replica tables
         :param sort_key: Sort key attribute definition. Default: - no sort key
         :param table_name: The name of the table. Default: - generated by CloudFormation
         :param time_to_live_attribute: The name of the TTL attribute. Default: - TTL is disabled
         :param warm_throughput: The warm throughput configuration for the table. Default: - no warm throughput is configured
+        :param witness_region: The witness Region for the MRSC global table. A MRSC global table can be configured with either three replicas, or with two replicas and one witness. Note: Witness region cannot be specified for a Multi-Region Eventual Consistency (MREC) Global Table. Witness regions are only supported for Multi-Region Strong Consistency (MRSC) Global Tables. Default: - no witness region
 
         :exampleMetadata: infused
 
@@ -14016,12 +14116,12 @@ class TablePropsV2(TableOptionsV2):
             app = cdk.App()
             stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
             
-            global_table = dynamodb.TableV2(stack, "GlobalTable",
+            mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                # applies to all replicas, i.e., us-west-2, us-east-1, us-east-2
-                removal_policy=cdk.RemovalPolicy.DESTROY,
-                replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
-                ]
+                multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
+                replicas=[dynamodb.ReplicaTableProps(region="us-east-1")
+                ],
+                witness_region="us-east-2"
             )
         '''
         if isinstance(point_in_time_recovery_specification, dict):
@@ -14048,12 +14148,14 @@ class TablePropsV2(TableOptionsV2):
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
             check_type(argname="argument global_secondary_indexes", value=global_secondary_indexes, expected_type=type_hints["global_secondary_indexes"])
             check_type(argname="argument local_secondary_indexes", value=local_secondary_indexes, expected_type=type_hints["local_secondary_indexes"])
+            check_type(argname="argument multi_region_consistency", value=multi_region_consistency, expected_type=type_hints["multi_region_consistency"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument replicas", value=replicas, expected_type=type_hints["replicas"])
             check_type(argname="argument sort_key", value=sort_key, expected_type=type_hints["sort_key"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
             check_type(argname="argument time_to_live_attribute", value=time_to_live_attribute, expected_type=type_hints["time_to_live_attribute"])
             check_type(argname="argument warm_throughput", value=warm_throughput, expected_type=type_hints["warm_throughput"])
+            check_type(argname="argument witness_region", value=witness_region, expected_type=type_hints["witness_region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "partition_key": partition_key,
         }
@@ -14083,6 +14185,8 @@ class TablePropsV2(TableOptionsV2):
             self._values["global_secondary_indexes"] = global_secondary_indexes
         if local_secondary_indexes is not None:
             self._values["local_secondary_indexes"] = local_secondary_indexes
+        if multi_region_consistency is not None:
+            self._values["multi_region_consistency"] = multi_region_consistency
         if removal_policy is not None:
             self._values["removal_policy"] = removal_policy
         if replicas is not None:
@@ -14095,6 +14199,8 @@ class TablePropsV2(TableOptionsV2):
             self._values["time_to_live_attribute"] = time_to_live_attribute
         if warm_throughput is not None:
             self._values["warm_throughput"] = warm_throughput
+        if witness_region is not None:
+            self._values["witness_region"] = witness_region
 
     @builtins.property
     def contributor_insights(self) -> typing.Optional[builtins.bool]:
@@ -14241,6 +14347,15 @@ class TablePropsV2(TableOptionsV2):
         return typing.cast(typing.Optional[typing.List["LocalSecondaryIndexProps"]], result)
 
     @builtins.property
+    def multi_region_consistency(self) -> typing.Optional[MultiRegionConsistency]:
+        '''Specifies the consistency mode for a new global table.
+
+        :default: MultiRegionConsistency.EVENTUAL
+        '''
+        result = self._values.get("multi_region_consistency")
+        return typing.cast(typing.Optional[MultiRegionConsistency], result)
+
+    @builtins.property
     def removal_policy(self) -> typing.Optional[_RemovalPolicy_9f93c814]:
         '''The removal policy applied to the table.
 
@@ -14298,6 +14413,20 @@ class TablePropsV2(TableOptionsV2):
         result = self._values.get("warm_throughput")
         return typing.cast(typing.Optional["WarmThroughput"], result)
 
+    @builtins.property
+    def witness_region(self) -> typing.Optional[builtins.str]:
+        '''The witness Region for the MRSC global table.
+
+        A MRSC global table can be configured with either three replicas, or with two replicas and one witness.
+
+        Note: Witness region cannot be specified for a Multi-Region Eventual Consistency (MREC) Global Table.
+        Witness regions are only supported for Multi-Region Strong Consistency (MRSC) Global Tables.
+
+        :default: - no witness region
+        '''
+        result = self._values.get("witness_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -14327,12 +14456,12 @@ class TableV2(
         app = cdk.App()
         stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
         
-        global_table = dynamodb.TableV2(stack, "GlobalTable",
+        mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
             partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-            # applies to all replicas, i.e., us-west-2, us-east-1, us-east-2
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-            replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
-            ]
+            multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
+            replicas=[dynamodb.ReplicaTableProps(region="us-east-1")
+            ],
+            witness_region="us-east-2"
         )
     '''
 
@@ -14347,12 +14476,14 @@ class TableV2(
         encryption: typing.Optional[TableEncryptionV2] = None,
         global_secondary_indexes: typing.Optional[typing.Sequence[typing.Union["GlobalSecondaryIndexPropsV2", typing.Dict[builtins.str, typing.Any]]]] = None,
         local_secondary_indexes: typing.Optional[typing.Sequence[typing.Union["LocalSecondaryIndexProps", typing.Dict[builtins.str, typing.Any]]]] = None,
+        multi_region_consistency: typing.Optional[MultiRegionConsistency] = None,
         removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
         replicas: typing.Optional[typing.Sequence[typing.Union["ReplicaTableProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
         table_name: typing.Optional[builtins.str] = None,
         time_to_live_attribute: typing.Optional[builtins.str] = None,
         warm_throughput: typing.Optional[typing.Union["WarmThroughput", typing.Dict[builtins.str, typing.Any]]] = None,
+        witness_region: typing.Optional[builtins.str] = None,
         contributor_insights: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
@@ -14371,12 +14502,14 @@ class TableV2(
         :param encryption: The server-side encryption. Default: TableEncryptionV2.dynamoOwnedKey()
         :param global_secondary_indexes: Global secondary indexes. Note: You can provide a maximum of 20 global secondary indexes. Default: - no global secondary indexes
         :param local_secondary_indexes: Local secondary indexes. Note: You can only provide a maximum of 5 local secondary indexes. Default: - no local secondary indexes
+        :param multi_region_consistency: Specifies the consistency mode for a new global table. Default: MultiRegionConsistency.EVENTUAL
         :param removal_policy: The removal policy applied to the table. Default: RemovalPolicy.RETAIN
         :param replicas: Replica tables to deploy with the primary table. Note: Adding replica tables allows you to use your table as a global table. You cannot specify a replica table in the region that the primary table will be deployed to. Replica tables will only be supported if the stack deployment region is defined. Default: - no replica tables
         :param sort_key: Sort key attribute definition. Default: - no sort key
         :param table_name: The name of the table. Default: - generated by CloudFormation
         :param time_to_live_attribute: The name of the TTL attribute. Default: - TTL is disabled
         :param warm_throughput: The warm throughput configuration for the table. Default: - no warm throughput is configured
+        :param witness_region: The witness Region for the MRSC global table. A MRSC global table can be configured with either three replicas, or with two replicas and one witness. Note: Witness region cannot be specified for a Multi-Region Eventual Consistency (MREC) Global Table. Witness regions are only supported for Multi-Region Strong Consistency (MRSC) Global Tables. Default: - no witness region
         :param contributor_insights: Whether CloudWatch contributor insights is enabled. Default: false
         :param deletion_protection: Whether deletion protection is enabled. Default: false
         :param kinesis_stream: Kinesis Data Stream to capture item level changes. Default: - no Kinesis Data Stream
@@ -14397,12 +14530,14 @@ class TableV2(
             encryption=encryption,
             global_secondary_indexes=global_secondary_indexes,
             local_secondary_indexes=local_secondary_indexes,
+            multi_region_consistency=multi_region_consistency,
             removal_policy=removal_policy,
             replicas=replicas,
             sort_key=sort_key,
             table_name=table_name,
             time_to_live_attribute=time_to_live_attribute,
             warm_throughput=warm_throughput,
+            witness_region=witness_region,
             contributor_insights=contributor_insights,
             deletion_protection=deletion_protection,
             kinesis_stream=kinesis_stream,
@@ -16553,6 +16688,7 @@ __all__ = [
     "InputFormat",
     "LocalSecondaryIndexProps",
     "MaxThroughputProps",
+    "MultiRegionConsistency",
     "Operation",
     "OperationsMetricOptions",
     "PointInTimeRecoverySpecification",
@@ -17825,12 +17961,14 @@ def _typecheckingstub__205e5df85e01c6c2d91d5922a57e3ed5903027748a8b3222622bebd10
     encryption: typing.Optional[TableEncryptionV2] = None,
     global_secondary_indexes: typing.Optional[typing.Sequence[typing.Union[GlobalSecondaryIndexPropsV2, typing.Dict[builtins.str, typing.Any]]]] = None,
     local_secondary_indexes: typing.Optional[typing.Sequence[typing.Union[LocalSecondaryIndexProps, typing.Dict[builtins.str, typing.Any]]]] = None,
+    multi_region_consistency: typing.Optional[MultiRegionConsistency] = None,
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     replicas: typing.Optional[typing.Sequence[typing.Union[ReplicaTableProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
     table_name: typing.Optional[builtins.str] = None,
     time_to_live_attribute: typing.Optional[builtins.str] = None,
     warm_throughput: typing.Optional[typing.Union[WarmThroughput, typing.Dict[builtins.str, typing.Any]]] = None,
+    witness_region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17845,12 +17983,14 @@ def _typecheckingstub__9ea47b003cdb497ff620f1410260696f97dbb2b00fa8558235f23771f
     encryption: typing.Optional[TableEncryptionV2] = None,
     global_secondary_indexes: typing.Optional[typing.Sequence[typing.Union[GlobalSecondaryIndexPropsV2, typing.Dict[builtins.str, typing.Any]]]] = None,
     local_secondary_indexes: typing.Optional[typing.Sequence[typing.Union[LocalSecondaryIndexProps, typing.Dict[builtins.str, typing.Any]]]] = None,
+    multi_region_consistency: typing.Optional[MultiRegionConsistency] = None,
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
     replicas: typing.Optional[typing.Sequence[typing.Union[ReplicaTableProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     sort_key: typing.Optional[typing.Union[Attribute, typing.Dict[builtins.str, typing.Any]]] = None,
     table_name: typing.Optional[builtins.str] = None,
     time_to_live_attribute: typing.Optional[builtins.str] = None,
     warm_throughput: typing.Optional[typing.Union[WarmThroughput, typing.Dict[builtins.str, typing.Any]]] = None,
+    witness_region: typing.Optional[builtins.str] = None,
     contributor_insights: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,

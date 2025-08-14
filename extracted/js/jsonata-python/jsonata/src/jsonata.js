@@ -50,7 +50,7 @@ var jsonata = (function() {
     async function evaluate(expr, input, environment) {
         var result;
 
-        var entryCallback = environment.lookup('__evaluate_entry');
+        var entryCallback = environment.lookup(Symbol.for('jsonata.__evaluate_entry'));
         if(entryCallback) {
             await entryCallback(expr, input, environment);
         }
@@ -124,7 +124,7 @@ var jsonata = (function() {
             result = await evaluateGroupExpression(expr.group, result, environment);
         }
 
-        var exitCallback = environment.lookup('__evaluate_exit');
+        var exitCallback = environment.lookup(Symbol.for('jsonata.__evaluate_exit'));
         if(exitCallback) {
             await exitCallback(expr, input, environment, result);
         }
@@ -397,7 +397,7 @@ var jsonata = (function() {
                 // count in from end of array
                 index = input.length + index;
             }
-            var item = input[index];
+            var item = await input[index];
             if(typeof item !== 'undefined') {
                 if(Array.isArray(item)) {
                     results = item;
@@ -1837,7 +1837,7 @@ var jsonata = (function() {
      */
     function createFrame(enclosingEnvironment) {
         var bindings = {};
-        return {
+        const newFrame = {
             bind: function (name, value) {
                 bindings[name] = value;
             },
@@ -1857,6 +1857,16 @@ var jsonata = (function() {
                 ancestry: [ null ]
             }
         };
+
+        if (enclosingEnvironment) {
+            var framePushCallback = enclosingEnvironment.lookup(Symbol.for('jsonata.__createFrame_push'));
+            if(framePushCallback) {
+                framePushCallback(enclosingEnvironment, newFrame);
+            }
+        }
+       
+
+        return newFrame
     }
 
     // Function registration

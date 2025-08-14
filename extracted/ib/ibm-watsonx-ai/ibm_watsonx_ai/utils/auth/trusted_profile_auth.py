@@ -7,13 +7,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable
 
 from ibm_watsonx_ai.utils.auth import IAMTokenAuth
-from ibm_watsonx_ai.utils.utils import _requests_retry_session
-from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.utils.auth.base_auth import (
-    TokenInfo,
     STATUS_FORCELIST,
     RefreshableTokenAuth,
+    TokenInfo,
 )
+from ibm_watsonx_ai.utils.utils import _requests_retry_session
+from ibm_watsonx_ai.wml_client_error import WMLClientError
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient

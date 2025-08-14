@@ -13,13 +13,14 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.5.3"  # We use git tags for versioning. This is just a placeholder.
+version = "0.5.5"  # We use git tags for versioning. This is just a placeholder.
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2021"
 repository = "https://github.com/tombi-toml/tombi"
 license = "MIT"
 
 [workspace.dependencies]
+addr = "0.15.6"
 ahash = { version = "0.8.11", features = ["serde"] }
 anyhow = "1.0.98"
 bytes = "1.10.1"
@@ -31,6 +32,7 @@ convert_case = "0.6.0"
 countme = "3.0.1"
 dirs = { version = "6.0.0" }
 drop_bomb = "0.1.5"
+email_address = "0.2.9"
 fast-glob = "0.3.0"
 flate2 = "1.0.35"
 futures = "0.3.31"
@@ -96,7 +98,7 @@ tombi-test-lib = { path = "crates/tombi-test-lib" }
 tombi-text = { path = "crates/tombi-text" }
 tombi-toml-text = { path = "crates/tombi-toml-text" }
 tombi-toml-version = { path = "crates/tombi-toml-version" }
-tombi-url = { path = "crates/tombi-url" }
+tombi-uri = { path = "crates/tombi-uri" }
 tombi-validator = { path = "crates/tombi-validator" }
 tombi-version-sort = { path = "crates/tombi-version-sort" }
 tombi-x-keyword = { path = "crates/tombi-x-keyword" }
@@ -107,6 +109,7 @@ typed-builder = "0.21.0"
 ungrammar.version = "1.16.1"
 unicode-segmentation = "1.12.0"
 url = { version = "2.5.4", features = ["serde"] }
+uuid = { version = "1.18.0", features = ["v1", "v3", "v4", "v5", "v7", "v8"] }
 wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.50"
 xshell.version = "0.2.7"

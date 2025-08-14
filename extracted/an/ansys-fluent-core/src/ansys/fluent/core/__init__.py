@@ -77,9 +77,9 @@ from ansys.fluent.core.utils import fldoc, get_examples_download_dir
 from ansys.fluent.core.utils.fluent_version import FluentVersion  # noqa: F401
 from ansys.fluent.core.utils.setup_for_fluent import setup_for_fluent  # noqa: F401
 
-__version__ = "0.34.1"
+__version__ = "0.34.2"
 
-_VERSION_INFO = "Build date: August 05, 2025 03:19 UTC ShaID: ffa3845"
+_VERSION_INFO = "Build date: August 14, 2025 01:33 UTC ShaID: d5ae1e6"
 """
 Global variable indicating the version info of the PyFluent package.
 Build timestamp and commit hash are added to this variable during packaging.

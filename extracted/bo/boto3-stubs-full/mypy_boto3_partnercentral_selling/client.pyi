@@ -502,9 +502,8 @@ class PartnerCentralSellingAPIClient(BaseClient):
         self, **kwargs: Unpack[StartEngagementFromOpportunityTaskRequestTypeDef]
     ) -> StartEngagementFromOpportunityTaskResponseTypeDef:
         """
-        This action initiates the engagement process from an existing opportunity by
-        accepting the engagement invitation and creating a corresponding opportunity in
-        the partner's system.
+        Similar to <code>StartEngagementByAcceptingInvitationTask</code>, this action
+        is asynchronous and performs multiple steps before completion.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/start_engagement_from_opportunity_task.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_selling/client/#start_engagement_from_opportunity_task)

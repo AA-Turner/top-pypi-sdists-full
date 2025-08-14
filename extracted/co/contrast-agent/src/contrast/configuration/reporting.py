@@ -28,9 +28,4 @@ class Reporting(ConfigBuilder):
                 default_value=False,
                 type_cast=str_to_bool,
             ),
-            ConfigOption(
-                canonical_name="reporting.observe.enable",
-                default_value=False,
-                type_cast=str_to_bool,
-            ),
         ]

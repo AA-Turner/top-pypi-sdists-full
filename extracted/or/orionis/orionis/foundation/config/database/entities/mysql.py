@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Optional
 from orionis.foundation.config.database.enums import (
     MySQLCharset,
     MySQLCollation,

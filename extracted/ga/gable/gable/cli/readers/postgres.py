@@ -1,9 +1,10 @@
 import psycopg2  # type: ignore
+from loguru import logger
+
 from gable.cli.readers.constants import (
     PROXY_DB_CONNECTION_RETIRES,
     PROXY_DB_CONNECTION_TIMEOUT_SECONDS,
 )
-from loguru import logger
 
 
 def create_postgres_connection(

@@ -7,8 +7,9 @@ import json
 import os
 from typing import Any
 
-from .globalization_util import GlobalizationUtil
 import ibm_watsonx_ai.messages
+
+from .globalization_util import GlobalizationUtil
 
 
 def get_message_dict(locale: str) -> dict[str, str]:
@@ -21,10 +22,10 @@ def get_message_dict(locale: str) -> dict[str, str]:
         with open(os.path.join(path, file_name)) as f:
             messages = json.loads(f.read())
     # load the english dictionary if the json file for the locale doesn't exist
-    except:
+    except Exception:
         try:
             return get_message_dict("en")
-        except:
+        except Exception:
             raise Exception(
                 "An error occurred while trying to load the message json file for the {} locale. "
                 "Make sure the json file exists and is located in the correct folder.".format(

@@ -27,8 +27,8 @@ class IssueOriginParams(BaseModel):
     """
     IssueOriginParams
     """ # noqa: E501
-    id: Optional[StrictStr] = None
-    origin_type: Optional[OriginType] = Field(default=None, alias="originType")
+    id: Optional[StrictStr] = Field(default=None, description="The identifier of the origin")
+    origin_type: Optional[OriginType] = Field(default=None, description="The type of the origin", alias="originType")
     __properties: ClassVar[List[str]] = ["id", "originType"]
 
     model_config = ConfigDict(

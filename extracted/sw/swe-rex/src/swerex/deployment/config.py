@@ -1,7 +1,7 @@
 from pathlib import PurePath
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from swerex.deployment.abstract import AbstractDeployment
 
@@ -21,26 +21,28 @@ class LocalDeploymentConfig(BaseModel):
 
 
 class DockerDeploymentConfig(BaseModel):
-    """Configuration for running locally in a Docker container."""
+    """Configuration for running locally in a Docker or Podman container."""
 
     image: str = "python:3.11"
-    """The name of the docker image to use."""
+    """The name of the container image to use."""
     port: int | None = None
-    """The port that the docker container connects to. If None, a free port is found."""
+    """The port that the container connects to. If None, a free port is found."""
     docker_args: list[str] = []
-    """Additional arguments to pass to the docker run command. If --platform is specified here, it will be moved to the platform field."""
+    """Additional arguments to pass to the container run command. If --platform is specified here, it will be moved to the platform field."""
     startup_timeout: float = 180.0
     """The time to wait for the runtime to start."""
     pull: Literal["never", "always", "missing"] = "missing"
-    """When to pull docker images."""
+    """When to pull container images."""
     remove_images: bool = False
     """Whether to remove the image after it has stopped."""
     python_standalone_dir: str | None = None
     """The directory to use for the python standalone."""
     platform: str | None = None
-    """The platform to use for the docker image."""
+    """The platform to use for the container image."""
     remove_container: bool = True
     """Whether to remove the container after it has stopped."""
+    container_runtime: Literal["docker", "podman"] = "docker"
+    """The container runtime to use (docker or podman)."""
 
     type: Literal["docker"] = "docker"
     """Discriminator for (de)serialization/CLI. Do not change."""
@@ -95,7 +97,7 @@ class ModalDeploymentConfig(BaseModel):
     """Runtime timeout (default timeout for all runtime requests)
     """
 
-    deployment_timeout: float = 1800.0
+    deployment_timeout: float = 3600.0
     """Kill deployment after this many seconds no matter what.
     This is a useful killing switch to ensure that you don't spend too 
     much money on modal.
@@ -185,6 +187,22 @@ class DummyDeploymentConfig(BaseModel):
         return DummyDeployment.from_config(self)
 
 
+class DaytonaDeploymentConfig(BaseModel):
+    """Configuration for Daytona deployment."""
+
+    api_key: str = Field(default="", description="Daytona API key for authentication")
+    target: str = Field(default="us", description="Daytona target region (us, eu, etc.)")
+    port: int = Field(default=8000, description="Port to expose for the SWE Rex server")
+    container_timeout: float = Field(default=60 * 15, description="Timeout for the container")
+    runtime_timeout: float = Field(default=60, description="Timeout for the runtime")
+    image: str = Field(default="python:3.11", description="Image to use for the sandbox")
+
+    def get_deployment(self) -> AbstractDeployment:
+        from swerex.deployment.daytona import DaytonaDeployment
+
+        return DaytonaDeployment.from_config(self)
+
+
 DeploymentConfig = (
     LocalDeploymentConfig
     | DockerDeploymentConfig
@@ -192,6 +210,7 @@ DeploymentConfig = (
     | FargateDeploymentConfig
     | RemoteDeploymentConfig
     | DummyDeploymentConfig
+    | DaytonaDeploymentConfig
 )
 """Union of all deployment configurations. Useful for type hints."""
 

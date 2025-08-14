@@ -9,9 +9,6 @@ class LotStub(BaseAPIModelStub):
         "number": "1",
         "allowsBrief": False,
         "oneServiceLimit": False,
-        "hasEvaluation": False,
-        "hasLotPricing": False,
-        "requiresTechnicalAbilityCertificate": False,
         "unitSingular": "service",
         "unitPlural": "services",
     }
@@ -19,9 +16,6 @@ class LotStub(BaseAPIModelStub):
     optional_keys = [
         ("allowsBrief", "allows_brief"),
         ("oneServiceLimit", "one_service_limit"),
-        ("hasEvaluation", "has_evaluation"),
-        ("hasLotPricing", "has_lot_pricing"),
-        ("requiresTechnicalAbilityCertificate", "requires_technical_ability_certificate"),
         ("unitSingular", "unit_singular"),
         ("unitPlural", "unit_plural"),
         ("id", "lot_id"),
@@ -63,7 +57,6 @@ def dos_lots(with_evaluation=False):
                 slug="digital-capability-and-delivery-partner",
                 name="Digital Capability and Delivery Partners",
                 number="4",
-                has_evaluation=True,
             ).response()
         )
 
@@ -87,38 +80,30 @@ def cloud_lots(latest=False):
                 slug="iaas-and-paas",
                 name="Infrastructure as a Service (IaaS) and Platform as a Service (PaaS)",
                 number="1a",
-                requires_technical_ability_certificate=True,
             ).response(),
             LotStub(
                 lot_id=16,
                 slug="iaas-and-paas-above-official",
                 name="Infrastructure as a Service (IaaS) and Platform as a Service (PaaS) above OFFICIAL",
                 number="1b",
-                requires_technical_ability_certificate=True,
             ).response(),
             LotStub(
                 lot_id=17,
                 slug="isaas",
                 name="Infrastructure Software as a Service (iSaaS)",
                 number="2a",
-                has_evaluation=True,
-                has_lot_pricing=True,
             ).response(),
             LotStub(
                 lot_id=1,
                 slug="saas",
                 name="Software as a Service (SaaS)",
                 number="2b",
-                has_evaluation=True,
-                has_lot_pricing=True,
             ).response(),
             LotStub(
                 lot_id=11,
                 slug="cloud-support",
                 name="Cloud Support",
                 number="3",
-                has_evaluation=True,
-                has_lot_pricing=True,
             ).response(),
         ]
 

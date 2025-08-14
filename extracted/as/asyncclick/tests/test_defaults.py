@@ -1,32 +1,37 @@
+import pytest
+
 import asyncclick as click
 
 
-def test_basic_defaults(runner):
+@pytest.mark.anyio
+async def test_basic_defaults(runner):
     @click.command()
     @click.option("--foo", default=42, type=click.FLOAT)
     def cli(foo):
-        assert type(foo) is float  # noqa E721
+        assert isinstance(foo, float)
         click.echo(f"FOO:[{foo}]")
 
-    result = runner.invoke(cli, [])
+    result = await runner.invoke(cli, [])
     assert not result.exception
     assert "FOO:[42.0]" in result.output
 
 
-def test_multiple_defaults(runner):
+@pytest.mark.anyio
+async def test_multiple_defaults(runner):
     @click.command()
     @click.option("--foo", default=[23, 42], type=click.FLOAT, multiple=True)
     def cli(foo):
         for item in foo:
-            assert type(item) is float  # noqa E721
+            assert isinstance(item, float)
             click.echo(item)
 
-    result = runner.invoke(cli, [])
+    result = await runner.invoke(cli, [])
     assert not result.exception
     assert result.output.splitlines() == ["23.0", "42.0"]
 
 
-def test_nargs_plus_multiple(runner):
+@pytest.mark.anyio
+async def test_nargs_plus_multiple(runner):
     @click.command()
     @click.option(
         "--arg", default=((1, 2), (3, 4)), nargs=2, multiple=True, type=click.INT
@@ -35,12 +40,13 @@ def test_nargs_plus_multiple(runner):
         for a, b in arg:
             click.echo(f"<{a:d}|{b:d}>")
 
-    result = runner.invoke(cli, [])
+    result = await runner.invoke(cli, [])
     assert not result.exception
     assert result.output.splitlines() == ["<1|2>", "<3|4>"]
 
 
-def test_multiple_flag_default(runner):
+@pytest.mark.anyio
+async def test_multiple_flag_default(runner):
     """Default default for flags when multiple=True should be empty tuple."""
 
     @click.command
@@ -54,14 +60,15 @@ def test_multiple_flag_default(runner):
     def cli(y, f, v):
         return y, f, v
 
-    result = runner.invoke(cli, standalone_mode=False)
+    result = await runner.invoke(cli, standalone_mode=False)
     assert result.return_value == ((), (), ())
 
-    result = runner.invoke(cli, ["-y", "-n", "-f", "-v", "-q"], standalone_mode=False)
+    result = await runner.invoke(cli, ["-y", "-n", "-f", "-v", "-q"], standalone_mode=False)
     assert result.return_value == ((True, False), (True,), (1, -1))
 
 
-def test_flag_default_map(runner):
+@pytest.mark.anyio
+async def test_flag_default_map(runner):
     """test flag with default map"""
 
     @click.group()
@@ -73,14 +80,14 @@ def test_flag_default_map(runner):
     def foo(name):
         click.echo(name)
 
-    result = runner.invoke(cli, ["foo"])
+    result = await runner.invoke(cli, ["foo"])
     assert "False" in result.output
 
-    result = runner.invoke(cli, ["foo", "--help"])
+    result = await runner.invoke(cli, ["foo", "--help"])
     assert "default: no-name" in result.output
 
-    result = runner.invoke(cli, ["foo"], default_map={"foo": {"name": True}})
+    result = await runner.invoke(cli, ["foo"], default_map={"foo": {"name": True}})
     assert "True" in result.output
 
-    result = runner.invoke(cli, ["foo", "--help"], default_map={"foo": {"name": True}})
+    result = await runner.invoke(cli, ["foo", "--help"], default_map={"foo": {"name": True}})
     assert "default: name" in result.output

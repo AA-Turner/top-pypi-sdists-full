@@ -1,0 +1,25 @@
+schedules:
+- cron: "0 0 * * SAT"
+  displayName: CodeQL Saturday midnight (UTC) scan
+  always: true
+  branches:
+    include: 
+    - master
+
+resources:
+- repo: self
+
+stages:
+- stage: BuildWheels
+  displayName: 'Build Platform-Specific Wheels'
+  dependsOn: []
+  jobs:
+  - template: build-wheels.yml
+    parameters:
+      publish: true
+
+- stage: Validate
+  displayName: 'Validate Setup Binary Selection'
+  dependsOn: [] 
+  jobs:
+  - template: validate-setup.yml

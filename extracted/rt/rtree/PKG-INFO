@@ -1,17 +1,16 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: rtree
-Version: 1.4.0
+Version: 1.4.1
 Summary: R-Tree spatial index for Python GIS
 Author-email: Sean Gillies <sean.gillies@gmail.com>
 Maintainer-email: Howard Butler <howard@hobu.co>, Mike Taves <mwtoews@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Documentation, https://rtree.readthedocs.io
 Project-URL: Repository, https://github.com/Toblerity/rtree
 Keywords: gis,spatial,index,r-tree
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -24,10 +23,11 @@ Classifier: Topic :: Database
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: license-file
 
 # Rtree: Spatial indexing for Python
 
-![Build](https://github.com/Toblerity/rtree/workflows/Build/badge.svg)
+[![Test](https://github.com/Toblerity/rtree/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Toblerity/rtree/actions/workflows/test.yml)
 [![PyPI version](https://badge.fury.io/py/rtree.svg)](https://badge.fury.io/py/rtree)
 
 

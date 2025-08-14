@@ -12,6 +12,7 @@ from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
 
 from swerex import __version__
 from swerex.runtime.abstract import (
@@ -38,6 +39,31 @@ def serialize_model(model):
     return model.model_dump() if hasattr(model, "model_dump") else model.dict()
 
 
+class ResponseManager:
+    """
+    This stores the response of the last request, and is used in retries to return
+    already executed requests.
+
+    Note that in the case of multiple concurrent clients, idempotency isn't guaranteed.
+    """
+
+    def __init__(self):
+        self.last_processed_request_id = None
+        self.last_processed_response = None
+
+    def get_response(self, request_id):
+        if request_id == self.last_processed_request_id:
+            return self.last_processed_response
+        return None
+
+    def set_response(self, request_id, response):
+        self.last_processed_request_id = request_id
+        self.last_processed_response = response
+
+
+response_manager = ResponseManager()
+
+
 @app.middleware("http")
 async def authenticate(request: Request, call_next):
     """Authenticate requests with an API key (if set)."""
@@ -48,12 +74,40 @@ async def authenticate(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def handle_request_id(request: Request, call_next):
+    """Handle request ID for idempotency."""
+    request_id = request.headers.get("X-Request-ID")
+    if request_id:
+        response = response_manager.get_response(request_id)
+        if response:
+            return response
+
+    response = await call_next(request)
+
+    body_content = b""
+    async for chunk in response.body_iterator:
+        body_content += chunk
+
+    new_response = Response(
+        content=body_content,
+        status_code=response.status_code,
+        headers=dict(response.headers),
+        media_type=response.media_type,
+    )
+
+    if request_id:
+        response_manager.set_response(request_id, new_response)
+
+    return new_response
+
+
 @app.exception_handler(Exception)
 async def exception_handler(request: Request, exc: Exception):
     """We catch exceptions that are thrown by the runtime, serialize them to JSON and
     return them to the client so they can reraise them in their own code.
     """
-    if isinstance(exc, (HTTPException, StarletteHTTPException)):
+    if isinstance(exc, HTTPException | StarletteHTTPException):
         return await http_exception_handler(request, exc)
     extra_info = getattr(exc, "extra_info", {})
     _exc = _ExceptionTransfer(
